@@ -369,7 +369,7 @@ class TestCircuitBreakerManager:
 class TestDatabasePersistence:
     """Tests for database persistence.
 
-    Integration tests per §7.1.7 - uses temporary database.
+    Integration tests per .1.7 - uses temporary database.
     """
 
     @pytest.mark.asyncio

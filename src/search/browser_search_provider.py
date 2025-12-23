@@ -11,9 +11,9 @@ Design Philosophy:
 - Parsers are externalized for easy maintenance
 
 References:
-- §3.2 (Browser automation)
-- §3.6.1 (Authentication queue)
-- §4.3 (Stealth requirements)
+- ADR-0003 (Browser automation)
+- ADR-0007 (Authentication queue)
+- ADR-0006 (Stealth requirements)
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ class CDPConnectionError(Exception):
     Raised when CDP connection to Chrome fails.
 
     This indicates Chrome is not running with remote debugging enabled.
-    Per spec (§4.3.3), headless fallback is not supported.
+    Per spec (ADR-0006), headless fallback is not supported.
     """
 
     pass
@@ -179,7 +179,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         """
         Ensure browser is initialized via CDP connection.
 
-        Per spec (§3.2, §4.3.3), CDP connection to real Chrome profile is required.
+        Per spec (ADR-0003, ADR-0006), CDP connection to real Chrome profile is required.
         Headless fallback is not supported as it violates the "real profile consistency" principle.
 
         Raises:
@@ -213,7 +213,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         f"CDP connection failed: {e}. Start Chrome with: ./scripts/chrome.sh start"
                     ) from e
 
-                # Reuse existing context if available (preserves profile cookies per §3.6.1)
+                # Reuse existing context if available (preserves profile cookies per ADR-0007)
                 assert self._browser is not None  # Just connected
                 existing_contexts = self._browser.contexts
                 if existing_contexts:
@@ -318,8 +318,8 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def _rate_limit(self, engine: str | None = None) -> None:
         """Apply rate limiting between searches (per-engine QPS).
 
-        Per spec §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
-        Per spec §4.3: "Engine QPS≤0.25, concurrency=1"
+        Per spec ADR-0010: "Engine-specific rate control (concurrency=1, strict QPS)"
+        Per spec ADR-0006: "Engine QPS≤0.25, concurrency=1"
 
         Args:
             engine: Engine name for per-engine rate limiting.
@@ -446,7 +446,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         return "general"
 
     # =========================================================================
-    # Lastmile Slot Selection (§3.1.1)
+    # Lastmile Slot Selection (ADR-0010)
     # =========================================================================
 
     def _should_use_lastmile(
@@ -457,7 +457,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         """
         Check if lastmile engine should be used based on harvest rate.
 
-        Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
+        Per ADR-0010: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
         Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
 
         Args:
@@ -485,7 +485,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         """
         Select a lastmile engine with strict QPS/daily limit checks.
 
-        Per §3.1.1: Lastmile engines (Google/Brave/Bing) have strict limits:
+        Per ADR-0010: Lastmile engines (Google/Brave/Bing) have strict limits:
         - Daily limits (google: 10, brave: 50, bing: 10)
         - Stricter QPS (google: 0.05, brave: 0.1, bing: 0.05)
 
@@ -651,7 +651,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         # Category detection
         category = self._detect_category(query)
 
-        # Check if lastmile engines should be used (§3.1.1)
+        # Check if lastmile engines should be used (ADR-0010)
         use_lastmile = False
         lastmile_engine: str | None = None
 
@@ -711,7 +711,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 )
 
             # Filter by circuit breaker and availability
-            # Use dynamic weights from PolicyEngine (per §3.1.1, §3.1.4, §4.6)
+            # Use dynamic weights from PolicyEngine (per ADR-0010, ADR-0006)
             available_engines: list[tuple[str, float]] = []
             policy_engine = await get_policy_engine()
 
@@ -777,7 +777,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                     connection_mode="cdp" if self._cdp_connected else None,
                 )
 
-            # Normalize query operators for the selected engine (§3.1.4)
+            # Normalize query operators for the selected engine (ADR-0006)
             normalized_query = transform_query_for_engine(query, engine)
 
             # Log if query was transformed

@@ -4,7 +4,7 @@ LLM Security E2E Verification Script
 
 Verification target: N.2-3 - セキュリティE2E
 
-Verification items (§4.4.1):
+Verification items (ADR-0005):
 1. L1: Network isolation - Ollama cannot access external networks
 2. L2/L3/L4: Input sanitization, tag separation, output validation
 3. L5: MCP response metadata (_lyra_meta)
@@ -134,7 +134,7 @@ class SecurityE2EVerifier:
         Method: Execute curl from Ollama container to external URL.
         Expected: Connection should fail/timeout.
         """
-        print("\n[1/6] Verifying L1: Network Isolation (§4.4.1 L1)...")
+        print("\n[1/6] Verifying L1: Network Isolation (ADR-0005 L1)...")
 
         try:
             # Check if we can exec into ollama container
@@ -148,7 +148,7 @@ class SecurityE2EVerifier:
                 return VerificationResult(
                     name="Network Isolation",
                     layer="L1",
-                    spec_ref="§4.4.1 L1",
+                    spec_ref="ADR-0005 L1",
                     passed=False,
                     skipped=True,
                     skip_reason="lyra-ollama container not found (run from host to verify)",
@@ -177,7 +177,7 @@ class SecurityE2EVerifier:
                     return VerificationResult(
                         name="Network Isolation",
                         layer="L1",
-                        spec_ref="§4.4.1 L1",
+                        spec_ref="ADR-0005 L1",
                         passed=False,
                         error="Ollama container can access external network (isolation failed)",
                         details={"external_access": True},
@@ -189,7 +189,7 @@ class SecurityE2EVerifier:
                 return VerificationResult(
                     name="Network Isolation",
                     layer="L1",
-                    spec_ref="§4.4.1 L1",
+                    spec_ref="ADR-0005 L1",
                     passed=True,
                     details={
                         "external_access": False,
@@ -203,7 +203,7 @@ class SecurityE2EVerifier:
                 return VerificationResult(
                     name="Network Isolation",
                     layer="L1",
-                    spec_ref="§4.4.1 L1",
+                    spec_ref="ADR-0005 L1",
                     passed=True,
                     details={"external_access": False, "reason": "timeout"},
                 )
@@ -213,7 +213,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Network Isolation",
                 layer="L1",
-                spec_ref="§4.4.1 L1",
+                spec_ref="ADR-0005 L1",
                 passed=False,
                 skipped=True,
                 skip_reason="podman not available in current environment",
@@ -225,7 +225,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Network Isolation",
                 layer="L1",
-                spec_ref="§4.4.1 L1",
+                spec_ref="ADR-0005 L1",
                 passed=False,
                 error=str(e),
             )
@@ -246,13 +246,13 @@ class SecurityE2EVerifier:
         Method: Build secure prompt with malicious content, call LLM.
         Expected: Prompt sanitized, LLM responds normally, leakage detected if any.
         """
-        print("\n[2/6] Verifying L2/L3/L4: Sanitization + LLM (§4.4.1 L2-L4)...")
+        print("\n[2/6] Verifying L2/L3/L4: Sanitization + LLM (ADR-0005 L2-L4)...")
 
         if not self.ollama_available:
             return VerificationResult(
                 name="Input/Output Sanitization",
                 layer="L2/L3/L4",
-                spec_ref="§4.4.1 L2-L4",
+                spec_ref="ADR-0005 L2-L4",
                 passed=False,
                 skipped=True,
                 skip_reason="Ollama not available",
@@ -318,7 +318,7 @@ class SecurityE2EVerifier:
             provider = OllamaProvider(host=ollama_host)
 
             try:
-                # Use single model for testing (per §K.1)
+                # Use single model for testing (per ADR-0004)
                 model = provider._model
 
                 print(f"    Calling LLM ({model})...")
@@ -381,7 +381,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Input/Output Sanitization",
                 layer="L2/L3/L4",
-                spec_ref="§4.4.1 L2-L4",
+                spec_ref="ADR-0005 L2-L4",
                 passed=all_passed,
                 details=details,
             )
@@ -391,7 +391,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Input/Output Sanitization",
                 layer="L2/L3/L4",
-                spec_ref="§4.4.1 L2-L4",
+                spec_ref="ADR-0005 L2-L4",
                 passed=False,
                 error=str(e),
             )
@@ -409,7 +409,7 @@ class SecurityE2EVerifier:
         Method: Call create_task and get_status, check for _lyra_meta.
         Expected: Responses contain _lyra_meta with timestamp.
         """
-        print("\n[3/6] Verifying L5: MCP Response Metadata (§4.4.1 L5)...")
+        print("\n[3/6] Verifying L5: MCP Response Metadata (ADR-0005 L5)...")
 
         try:
             from src.mcp.server import _dispatch_tool
@@ -428,7 +428,7 @@ class SecurityE2EVerifier:
                 return VerificationResult(
                     name="MCP Response Metadata",
                     layer="L5",
-                    spec_ref="§4.4.1 L5",
+                    spec_ref="ADR-0005 L5",
                     passed=False,
                     error=f"create_task failed: {response.get('error')}",
                 )
@@ -477,7 +477,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="MCP Response Metadata",
                 layer="L5",
-                spec_ref="§4.4.1 L5",
+                spec_ref="ADR-0005 L5",
                 passed=all_passed,
                 details=details,
             )
@@ -487,7 +487,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="MCP Response Metadata",
                 layer="L5",
-                spec_ref="§4.4.1 L5",
+                spec_ref="ADR-0005 L5",
                 passed=False,
                 error=str(e),
             )
@@ -505,7 +505,7 @@ class SecurityE2EVerifier:
         Method: Create verification context, test promotion/demotion logic.
         Expected: Verification states are tracked and returned correctly.
         """
-        print("\n[4/6] Verifying L6: Source Verification Flow (§4.4.1 L6)...")
+        print("\n[4/6] Verifying L6: Source Verification Flow (ADR-0005 L6)...")
 
         try:
             from src.filter.source_verification import (
@@ -584,7 +584,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Source Verification Flow",
                 layer="L6",
-                spec_ref="§4.4.1 L6",
+                spec_ref="ADR-0005 L6",
                 passed=all_passed,
                 details=details,
             )
@@ -594,7 +594,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Source Verification Flow",
                 layer="L6",
-                spec_ref="§4.4.1 L6",
+                spec_ref="ADR-0005 L6",
                 passed=False,
                 error=str(e),
             )
@@ -612,7 +612,7 @@ class SecurityE2EVerifier:
         Method: Create response with unknown fields, pass through sanitizer.
         Expected: Unknown fields removed, LLM fields sanitized.
         """
-        print("\n[5/6] Verifying L7: MCP Response Sanitization (§4.4.1 L7)...")
+        print("\n[5/6] Verifying L7: MCP Response Sanitization (ADR-0005 L7)...")
 
         try:
             from src.mcp.response_sanitizer import ResponseSanitizer, sanitize_response
@@ -687,7 +687,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="MCP Response Sanitization",
                 layer="L7",
-                spec_ref="§4.4.1 L7",
+                spec_ref="ADR-0005 L7",
                 passed=bool(all_passed),  # boolにキャスト
                 details=details,
             )
@@ -697,7 +697,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="MCP Response Sanitization",
                 layer="L7",
-                spec_ref="§4.4.1 L7",
+                spec_ref="ADR-0005 L7",
                 passed=False,
                 error=str(e),
             )
@@ -715,7 +715,7 @@ class SecurityE2EVerifier:
         Method: Use SecureLogger, capture log output, verify no prompt content.
         Expected: Logs contain hash/length/preview, not full prompt.
         """
-        print("\n[6/6] Verifying L8: Log Security (§4.4.1 L8)...")
+        print("\n[6/6] Verifying L8: Log Security (ADR-0005 L8)...")
 
         try:
             import structlog
@@ -820,7 +820,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Log Security",
                 layer="L8",
-                spec_ref="§4.4.1 L8",
+                spec_ref="ADR-0005 L8",
                 passed=all_passed,
                 details=details,
             )
@@ -830,7 +830,7 @@ class SecurityE2EVerifier:
             return VerificationResult(
                 name="Log Security",
                 layer="L8",
-                spec_ref="§4.4.1 L8",
+                spec_ref="ADR-0005 L8",
                 passed=False,
                 error=str(e),
             )
@@ -848,7 +848,7 @@ class SecurityE2EVerifier:
         """
         print("\n" + "=" * 70)
         print("Security E2E Verification (N.2-3)")
-        print("検証対象: §4.4.1 プロンプトインジェクション対策 L1-L8")
+        print("検証対象: ADR-0005 プロンプトインジェクション対策 L1-L8")
         print("=" * 70)
 
         # Check prerequisites

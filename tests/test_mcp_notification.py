@@ -1,6 +1,6 @@
 """Tests for notify_user and wait_for_user MCP tools.
 
-Tests notification functionality per §3.2.1.
+Tests notification functionality per ADR-0003.
 
 ## Test Perspectives Table
 
@@ -541,7 +541,7 @@ class TestOldToolsRemoved:
 
     def test_new_tools_count(self) -> None:
         """
-        Test that exactly 11 tools are defined per §3.2.1.
+        Test that exactly 11 tools are defined per ADR-0003.
 
         // Given: TOOLS list after Phase M refactoring
         // When: Counting tools
@@ -549,11 +549,11 @@ class TestOldToolsRemoved:
         """
         from src.mcp.server import TOOLS
 
-        assert len(TOOLS) == 12, f"Expected 12 tools (§3.2.1 + feedback from Phase 6.2), got {len(TOOLS)}"
+        assert len(TOOLS) == 12, f"Expected 12 tools (ADR-0003 + feedback from ), got {len(TOOLS)}"
 
     def test_all_new_tools_present(self) -> None:
         """
-        Test that all 11 new tools are present per §3.2.1.
+        Test that all 11 new tools are present per ADR-0003.
 
         // Given: TOOLS list
         // When: Checking for required tools

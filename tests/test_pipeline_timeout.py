@@ -1,5 +1,5 @@
 """
-Tests for SearchPipeline timeout handling (§2.1.5).
+Tests for SearchPipeline timeout handling (ADR-0002).
 
 Tests verify that the pipeline times out gracefully and returns partial results.
 

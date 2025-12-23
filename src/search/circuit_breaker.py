@@ -8,7 +8,7 @@ engine-specific features:
 - EMA metrics (success_rate, latency, captcha_rate)
 - Database persistence with datetime-based cooldown
 
-Per §4.3.5: Search engines use "エスカレーションパス" not simple retry.
+Per ADR-0006: Search engines use "エスカレーションパス" not simple retry.
 The circuit breaker manages cooldown periods between escalation attempts.
 """
 
@@ -132,10 +132,10 @@ class EngineCircuitBreaker:
     def _calculate_cooldown(self) -> timedelta:
         """Calculate cooldown duration based on failure history.
 
-        Uses shared exponential backoff calculation per §4.3.5.
+        Uses shared exponential backoff calculation per ADR-0006.
         Cooldown is capped at cooldown_max.
         """
-        # Use shared backoff utility per §4.3.5
+        # Use shared backoff utility per ADR-0006
         cooldown = calculate_cooldown_minutes(
             self._total_failures_in_window,
             base_minutes=self.cooldown_min,

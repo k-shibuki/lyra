@@ -1,7 +1,7 @@
 """
 Integration tests for Lyra.
 
-Per §7.1.7: Integration tests use mocked external dependencies and should complete in <2min total.
+Per .1.7: Integration tests use mocked external dependencies and should complete in <2min total.
 These tests verify end-to-end workflows across multiple modules.
 
 ## Test Perspectives Table
@@ -12,11 +12,11 @@ These tests verify end-to-end workflows across multiple modules.
 | TC-INT-N-02 | Passage list for BM25 | Equivalence – normal | Scores array length matches input | BM25 ranking |
 | TC-INT-N-03 | Task with query | Equivalence – normal | Context with entities and templates | ResearchContext |
 | TC-INT-N-04 | Task with subquery | Equivalence – normal | Status tracks subquery progress | ExplorationState |
-| TC-INT-N-05 | 3 sources + primary | Equivalence – satisfaction | Score >= 0.8, is_satisfied=True | §3.1.7.3 |
+| TC-INT-N-05 | 3 sources + primary | Equivalence – satisfaction | Score >= 0.8, is_satisfied=True | ADR-0010 |
 | TC-INT-N-06 | Claim + fragment | Equivalence – normal | Evidence retrieved with relationship | EvidenceGraph |
 | TC-INT-N-07 | A→B→C→A citations | Equivalence – cycle | Loop detected with length=3 | Citation loop |
-| TC-INT-N-08 | 3 primary + 1 secondary | Equivalence – ratio | Primary ratio=0.75, meets threshold | §7 requirement |
-| TC-INT-N-09 | A→B→A citations | Equivalence – round-trip | Round-trip detected, severity=high | §3.3.3 |
+| TC-INT-N-08 | 3 primary + 1 secondary | Equivalence – ratio | Primary ratio=0.75, meets threshold | requirement |
+| TC-INT-N-09 | A→B→A citations | Equivalence – round-trip | Round-trip detected, severity=high | |
 | TC-INT-N-10 | Duplicate fragments | Equivalence – normal | Duplicates detected and removed | Deduplication |
 | TC-INT-N-11 | Similar texts | Equivalence – normal | Returns list of duplicates | Hybrid dedup |
 | TC-INT-N-12 | NLI model import | Equivalence – init | Model instantiated with 3 labels | NLI model |
@@ -139,7 +139,7 @@ class TestSearchToExtractPipeline:
 
 
 class TestExplorationControlFlow:
-    """Test the exploration control engine workflow per §2.1."""
+    """Test the exploration control engine workflow per ADR-0002."""
 
     @pytest.mark.asyncio
     async def test_research_context_provides_entities(self, integration_db: Database) -> None:
@@ -197,7 +197,7 @@ class TestExplorationControlFlow:
 
     @pytest.mark.asyncio
     async def test_subquery_satisfaction_score(self, integration_db: Database) -> None:
-        """Verify satisfaction score is calculated per §3.1.7.3."""
+        """Verify satisfaction score is calculated per ADR-0010."""
         from src.research.state import SearchState, SearchStatus
 
         # Given: A subquery with 3 independent sources and a primary source
@@ -268,7 +268,7 @@ class TestEvidenceGraphIntegration:
 
     @pytest.mark.asyncio
     async def test_citation_loop_detection(self, integration_db: Database) -> None:
-        """Verify citation loop detection per §3.3.3."""
+        """Verify citation loop detection per ."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
         # Given: Pages with citation loop A → B → C → A
@@ -291,7 +291,7 @@ class TestEvidenceGraphIntegration:
 
     @pytest.mark.asyncio
     async def test_primary_source_ratio(self, integration_db: Database) -> None:
-        """Verify primary source ratio calculation per §7 requirements."""
+        """Verify primary source ratio calculation per requirements."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
         # Given: 3 primary sources and 1 secondary source
@@ -307,7 +307,7 @@ class TestEvidenceGraphIntegration:
         # When: Calculate primary source ratio
         ratio_info = graph.get_primary_source_ratio()
 
-        # Then: Ratio is 0.75 (3/4) and meets §7 threshold
+        # Then: Ratio is 0.75 (3/4) and meets threshold
         assert ratio_info["primary_count"] == 3
         assert ratio_info["secondary_count"] == 1
         assert ratio_info["primary_ratio"] == 0.75
@@ -315,7 +315,7 @@ class TestEvidenceGraphIntegration:
 
     @pytest.mark.asyncio
     async def test_round_trip_detection(self, integration_db: Database) -> None:
-        """Verify round-trip citation detection per §3.3.3."""
+        """Verify round-trip citation detection per ."""
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
         # Given: Pages with round-trip A → B → A
@@ -443,7 +443,7 @@ class TestReportIntegration:
 
     @pytest.mark.asyncio
     async def test_anchor_slug_generation(self) -> None:
-        """Verify deep link anchor slug generation per §3.4."""
+        """Verify deep link anchor slug generation per ADR-0005."""
         from src.report.generator import generate_anchor_slug
 
         # Given: A section title

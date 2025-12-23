@@ -18,7 +18,7 @@ Prerequisites:
 - Podman containers running: ./scripts/dev.sh up
 - Chrome running with remote debugging: ./scripts/chrome.sh start (for search tests)
 - Database initialized
-- See: docs/IMPLEMENTATION_PLAN.md Phase N
+- See: Phase N
 
 Usage:
     # Full verification (requires Chrome CDP)
@@ -161,7 +161,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="create_task",
                     tool="create_task",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=result.get("error", "Unknown error"),
                 )
@@ -173,7 +173,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="create_task",
                     tool="create_task",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Missing fields: {missing}",
                 )
@@ -194,7 +194,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="create_task",
                     tool="create_task",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Task not found in DB: {self.test_task_id}",
                 )
@@ -205,7 +205,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="create_task",
                 tool="create_task",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "task_id": self.test_task_id,
@@ -218,7 +218,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="create_task",
                 tool="create_task",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
                 critical=True,
@@ -239,7 +239,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_status",
                 tool="get_status",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 skipped=True,
                 skip_reason="No task_id from create_task",
@@ -255,7 +255,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="get_status",
                     tool="get_status",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=result.get("error", "Unknown error"),
                 )
@@ -267,7 +267,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="get_status",
                     tool="get_status",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Missing fields: {missing}",
                     details={"result_keys": list(result.keys())},
@@ -283,7 +283,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="get_status",
                         tool="get_status",
-                        spec_ref="§3.2.1",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error="Expected error for non-existent task, got ok=True",
                     )
@@ -295,7 +295,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_status",
                 tool="get_status",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "status": result["status"],
@@ -308,7 +308,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_status",
                 tool="get_status",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -334,7 +334,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="search",
                 tool="search",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 skipped=True,
                 skip_reason="Chrome CDP not available",
@@ -344,7 +344,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="search",
                 tool="search",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 skipped=True,
                 skip_reason="Skipped in basic mode",
@@ -354,7 +354,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="search",
                 tool="search",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 skipped=True,
                 skip_reason="No task_id from create_task",
@@ -390,7 +390,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="search",
                         tool="search",
-                        spec_ref="§3.2.1",
+                        spec_ref="ADR-0003",
                         passed=True,  # CAPTCHA detection is correct behavior
                         details={"captcha_detected": True},
                     )
@@ -398,7 +398,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="search",
                     tool="search",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=error_msg,
                 )
@@ -410,7 +410,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="search",
                     tool="search",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Missing fields: {missing}",
                     details={"result_keys": list(result.keys())},
@@ -423,7 +423,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="search",
                 tool="search",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "search_id": result.get("search_id"),
@@ -437,7 +437,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="search",
                 tool="search",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 error="Search timeout (60s)",
             )
@@ -446,7 +446,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="search",
                 tool="search",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -466,7 +466,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="stop_task",
                 tool="stop_task",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 skipped=True,
                 skip_reason="No task_id from create_task",
@@ -486,7 +486,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="stop_task",
                     tool="stop_task",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=result.get("error", "Unknown error"),
                 )
@@ -496,7 +496,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="stop_task",
                     tool="stop_task",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="Missing final_status field",
                 )
@@ -520,7 +520,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="stop_task",
                 tool="stop_task",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "final_status": result["final_status"],
@@ -533,7 +533,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="stop_task",
                 tool="stop_task",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -557,7 +557,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_materials",
                 tool="get_materials",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 skipped=True,
                 skip_reason="No task_id from create_task",
@@ -580,7 +580,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="get_materials",
                     tool="get_materials",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=result.get("error", "Unknown error"),
                 )
@@ -592,7 +592,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="get_materials",
                     tool="get_materials",
-                    spec_ref="§3.2.1",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Missing fields: {missing}",
                 )
@@ -617,7 +617,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_materials",
                 tool="get_materials",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "claims_count": len(result["claims"]),
@@ -631,7 +631,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_materials",
                 tool="get_materials",
-                spec_ref="§3.2.1",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -665,7 +665,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="calibrate",
                         tool="calibrate",
-                        spec_ref="§4.6.1",
+                        spec_ref="",
                         passed=False,
                         error=f"get_stats failed: {stats_result.get('error')}",
                     )
@@ -689,7 +689,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="calibrate",
                     tool="calibrate",
-                    spec_ref="§4.6.1",
+                    spec_ref="",
                     passed=False,
                     error=f"add_sample failed: {add_result.get('error')}",
                 )
@@ -716,7 +716,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibrate",
                 tool="calibrate",
-                spec_ref="§4.6.1",
+                spec_ref="",
                 passed=True,
                 details={
                     "actions_tested": ["get_stats", "add_sample", "get_evaluations"],
@@ -728,7 +728,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibrate",
                 tool="calibrate",
-                spec_ref="§4.6.1",
+                spec_ref="",
                 passed=False,
                 error=str(e),
             )
@@ -761,7 +761,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="calibrate_rollback",
                         tool="calibrate_rollback",
-                        spec_ref="§4.6.1",
+                        spec_ref="",
                         passed=False,
                         error="Expected failure for non-existent source, got ok=True",
                     )
@@ -777,7 +777,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibrate_rollback",
                 tool="calibrate_rollback",
-                spec_ref="§4.6.1",
+                spec_ref="",
                 passed=True,
                 details={
                     "error_handling": "correct",
@@ -789,7 +789,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibrate_rollback",
                 tool="calibrate_rollback",
-                spec_ref="§4.6.1",
+                spec_ref="",
                 passed=False,
                 error=str(e),
             )
@@ -818,7 +818,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="get_auth_queue",
                     tool="get_auth_queue",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error=result.get("error", "Unknown error"),
                 )
@@ -832,7 +832,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="get_auth_queue",
                     tool="get_auth_queue",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error=f"Grouping failed: {grouped_result.get('error')}",
                 )
@@ -842,7 +842,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_auth_queue",
                 tool="get_auth_queue",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=True,
                 details={
                     "total_count": result.get("total_count", 0),
@@ -855,7 +855,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="get_auth_queue",
                 tool="get_auth_queue",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
@@ -899,7 +899,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="resolve_auth",
                         tool="resolve_auth",
-                        spec_ref="§3.6.1",
+                        spec_ref="ADR-0007",
                         passed=False,
                         error="Expected validation error for missing action",
                     )
@@ -910,7 +910,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="resolve_auth",
                 tool="resolve_auth",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=True,
                 details={
                     "validation": "working",
@@ -922,7 +922,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="resolve_auth",
                 tool="resolve_auth",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
@@ -962,7 +962,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="notify_user",
                         tool="notify_user",
-                        spec_ref="§3.6",
+                        spec_ref="ADR-0007",
                         passed=True,  # Graceful failure is acceptable
                         details={"notification_available": False},
                     )
@@ -970,7 +970,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="notify_user",
                     tool="notify_user",
-                    spec_ref="§3.6",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error=result.get("error"),
                 )
@@ -990,7 +990,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="notify_user",
                         tool="notify_user",
-                        spec_ref="§3.6",
+                        spec_ref="ADR-0007",
                         passed=False,
                         error="Expected validation error for invalid event type",
                     )
@@ -1002,7 +1002,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="notify_user",
                 tool="notify_user",
-                spec_ref="§3.6",
+                spec_ref="ADR-0007",
                 passed=True,
                 details={
                     "notification_available": True,
@@ -1015,7 +1015,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="notify_user",
                 tool="notify_user",
-                spec_ref="§3.6",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
@@ -1049,7 +1049,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="wait_for_user",
                         tool="wait_for_user",
-                        spec_ref="§3.6",
+                        spec_ref="ADR-0007",
                         passed=True,
                         details={"notification_available": False},
                     )
@@ -1057,7 +1057,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="wait_for_user",
                     tool="wait_for_user",
-                    spec_ref="§3.6",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error=result.get("error"),
                 )
@@ -1067,7 +1067,7 @@ class MCPIntegrationVerifier:
                 return VerificationResult(
                     name="wait_for_user",
                     tool="wait_for_user",
-                    spec_ref="§3.6",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error=f"Expected status=notification_sent, got {result.get('status')}",
                 )
@@ -1087,7 +1087,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="wait_for_user",
                         tool="wait_for_user",
-                        spec_ref="§3.6",
+                        spec_ref="ADR-0007",
                         passed=False,
                         error="Expected validation error for empty prompt",
                     )
@@ -1099,7 +1099,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="wait_for_user",
                 tool="wait_for_user",
-                spec_ref="§3.6",
+                spec_ref="ADR-0007",
                 passed=True,
                 details={
                     "status": result.get("status"),
@@ -1112,7 +1112,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="wait_for_user",
                 tool="wait_for_user",
-                spec_ref="§3.6",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )

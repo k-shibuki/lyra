@@ -9,7 +9,7 @@ Implements test perspectives for src/mcp/errors.py per test-strategy.mdc.
 |---------|---------------------|---------------------------------------|-----------------|-------|
 | TC-N-14 | Default constructor | Equivalence - normal | CHROME_NOT_READY code, startup instructions | Default msg |
 | TC-N-16 | Custom message | Equivalence - normal | Uses custom message | Override |
-| TC-N-17 | Format check | Equivalence - normal | Format matches docs/REQUIREMENTS.md §3.2.1 | Spec compliance |
+| TC-N-17 | Format check | Equivalence - normal | Format matches ADR-0003 | Spec compliance |
 | TC-B-02 | message="" (empty) | Boundary - empty | Empty string accepted | Edge case |
 """
 
@@ -38,7 +38,7 @@ class TestMCPErrorCode:
 
     def test_all_error_codes_defined(self) -> None:
         """
-        Test that all 10 error codes from §3.2.1 are defined.
+        Test that all 10 error codes from ADR-0003 are defined.
 
         // Given: MCPErrorCode enum
         // When: Checking all expected codes
@@ -67,7 +67,7 @@ class TestMCPErrorCode:
 
         // Given: MCPErrorCode enum
         // When: Counting all codes
-        // Then: Count equals 15 (including RESOURCE_NOT_FOUND from Phase 6.2)
+        // Then: Count equals 15 (including RESOURCE_NOT_FOUND from )
         """
         assert len(MCPErrorCode) == 15
 
@@ -431,16 +431,16 @@ class TestChromeNotReadyError:
 
     def test_error_response_format_matches_spec(self) -> None:
         """
-        TC-N-17: Error response format matches §3.2.1 spec.
+        TC-N-17: Error response format matches ADR-0003 spec.
 
         // Given: ChromeNotReadyError
         // When: Converting to dict
-        // Then: Format matches docs/REQUIREMENTS.md §3.2.1 CHROME_NOT_READY spec
+        // Then: Format matches ADR-0003 CHROME_NOT_READY spec
         """
         error = ChromeNotReadyError()
         result = error.to_dict()
 
-        # Required fields per §3.2.1
+        # Required fields per ADR-0003
         assert result["ok"] is False
         assert result["error_code"] == "CHROME_NOT_READY"
         assert isinstance(result["error"], str)

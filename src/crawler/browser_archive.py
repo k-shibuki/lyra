@@ -1,7 +1,7 @@
 """
 Browser path archive utilities for Lyra.
 
-Implements §4.3.2 requirements:
+Implements ADR-0006 requirements:
 - CDXJ-like metadata: URL/hash list of main resources
 - Simplified HAR generation from CDP Network events
 - Correlation with HTTP client path WARC files
@@ -332,7 +332,7 @@ class HARGenerator:
     """Generates simplified HAR files from collected network events.
 
     Creates a minimal HAR 1.2 format file suitable for debugging
-    and reproducibility per §4.3.2 requirements.
+    and reproducibility per ADR-0006 requirements.
     """
 
     def __init__(self, page_url: str, page_title: str = ""):
@@ -541,7 +541,7 @@ class CDXJGenerator:
 class BrowserArchiver:
     """Archives browser-fetched pages with CDXJ metadata and HAR.
 
-    Implements §4.3.2 requirements for browser path archive preservation:
+    Implements ADR-0006 requirements for browser path archive preservation:
     - Captures main page content with page.content()
     - Records resource URLs and hashes in CDXJ format
     - Generates simplified HAR for network debugging

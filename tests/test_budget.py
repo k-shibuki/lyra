@@ -1,12 +1,12 @@
 """
 Unit tests for budget control module (src/scheduler/budget.py).
 
-Tests §3.1 and §3.2.2 requirements:
+Tests ADR-0010 and ADR-0003 requirements:
 - Task page limit: ≤120 pages/task
 - Time limit: ≤60 minutes/task (GPU), ≤75 minutes (CPU)
 - LLM time ratio: ≤30% of total processing time
 
-Test quality: Follows §7.1 test code quality standards.
+Test quality: Follows .1 test code quality standards.
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -84,25 +84,25 @@ from src.scheduler.budget import (
 
 
 class TestTaskBudget:
-    """Tests for TaskBudget dataclass (§3.1, §3.2.2)."""
+    """Tests for TaskBudget dataclass (ADR-0010, ADR-0003)."""
 
     def test_init_defaults(self) -> None:
-        """Test default initialization matches §3.1 requirements.
+        """Test default initialization matches ADR-0010 requirements.
 
         Verifies default values:
-        - max_pages=120 (§3.1: Total pages ≤120/task)
-        - max_llm_ratio=0.30 (§3.1: LLM processing ≤30%)
+        - max_pages=120 (ADR-0010: Total pages ≤120/task)
+        - max_llm_ratio=0.30 (ADR-0010: LLM processing ≤30%)
         """
         # Given: No specific configuration
         # When: Creating TaskBudget with only task_id
         budget = TaskBudget(task_id="test-1")
-        # Then: All defaults match §3.1 requirements
+        # Then: All defaults match ADR-0010 requirements
 
         assert budget.task_id == "test-1", "task_id should be set"
         assert budget.pages_fetched == 0, "pages_fetched should start at 0"
-        assert budget.max_pages == 120, "default max_pages should be 120 (§3.1)"
+        assert budget.max_pages == 120, "default max_pages should be 120 (ADR-0010)"
         assert budget.llm_time_seconds == 0.0, "llm_time should start at 0"
-        assert budget.max_llm_ratio == 0.30, "default max_llm_ratio should be 0.30 (§3.1)"
+        assert budget.max_llm_ratio == 0.30, "default max_llm_ratio should be 0.30 (ADR-0010)"
         assert budget.is_active is True, "new budget should be active"
         assert budget.exceeded_reason is None, "no exceeded reason initially"
 
@@ -196,7 +196,7 @@ class TestTaskBudget:
         assert budget.can_fetch_page() is False
 
     def test_can_continue_page_limit(self) -> None:
-        """Test can_continue with page limit exceeded (§3.1: Total pages ≤120)."""
+        """Test can_continue with page limit exceeded (ADR-0010: Total pages ≤120)."""
         # Given: TaskBudget with max_pages=10
         budget = TaskBudget(task_id="test-1", max_pages=10)
 
@@ -214,7 +214,7 @@ class TestTaskBudget:
         assert reason == BudgetExceededReason.PAGE_LIMIT, "reason should be PAGE_LIMIT"
 
     def test_can_continue_time_limit(self) -> None:
-        """Test can_continue with time limit exceeded (§3.1: Total time ≤20min)."""
+        """Test can_continue with time limit exceeded (ADR-0010: Total time ≤20min)."""
         # Given: TaskBudget with 60 second limit, 120 seconds elapsed
         budget = TaskBudget(
             task_id="test-1",
@@ -335,7 +335,7 @@ class TestTaskBudget:
 
 
 class TestTaskBudgetBoundaryConditions:
-    """Boundary condition tests for TaskBudget (§7.1.2)."""
+    """Boundary condition tests for TaskBudget (.1.2)."""
 
     def test_zero_max_pages(self) -> None:
         """Test budget with max_pages=0 (edge case)."""
@@ -402,7 +402,7 @@ class TestTaskBudgetBoundaryConditions:
 
 
 class TestBudgetManager:
-    """Tests for BudgetManager class (§3.2.2)."""
+    """Tests for BudgetManager class (ADR-0003)."""
 
     @pytest.fixture
     def mock_settings(self) -> SimpleNamespace:
@@ -785,7 +785,7 @@ class TestBudgetManagerGPUDetection:
 
 
 class TestBudgetIntegrationScenarios:
-    """Integration-style tests for budget control scenarios (§3.1, §3.2.2)."""
+    """Integration-style tests for budget control scenarios (ADR-0010, ADR-0003)."""
 
     @pytest.fixture
     def mock_settings(self) -> SimpleNamespace:
@@ -813,7 +813,7 @@ class TestBudgetIntegrationScenarios:
         3. Records LLM processing time
         4. Hits page limit and stops
 
-        Verifies §3.1 requirement: Total pages ≤max_pages.
+        Verifies ADR-0010 requirement: Total pages ≤max_pages.
         """
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
             # Given: BudgetManager with max_pages=10

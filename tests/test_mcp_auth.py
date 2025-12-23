@@ -1,6 +1,6 @@
 """Tests for get_auth_queue and resolve_auth MCP tools.
 
-Tests authentication queue management per §3.2.1 and §3.6.1.
+Tests authentication queue management per ADR-0003 and ADR-0007.
 
 ## Test Perspectives Table
 
@@ -598,7 +598,7 @@ class TestResolveAuthExecution:
 class TestCaptureAuthSessionCookies:
     """Tests for _capture_auth_session_cookies function (O.6 compliance).
 
-    Per §3.6.1: Capture session data after authentication for reuse.
+    Per ADR-0007: Capture session data after authentication for reuse.
     """
 
     @pytest.mark.asyncio

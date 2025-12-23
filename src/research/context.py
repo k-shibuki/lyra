@@ -4,14 +4,14 @@ Research context provider for Lyra.
 Provides design support information to Cursor AI for subquery design.
 Does NOT generate subquery candidates - that is Cursor AI's responsibility.
 
-See docs/REQUIREMENTS.md §2.1.4 and §3.1.7.1.
+See ADR-0002 and ADR-0010.
 
-Includes pivot exploration support per §3.1.1:
+Includes pivot exploration support per ADR-0010:
 - Organization → subsidiaries, officers, location, domain
 - Domain → subdomain, certificate SAN, organization
 - Person → aliases, handles, affiliations
 
-Registry integration support per §3.1.2, §3.1.3:
+Registry integration support per ADR-0006, ADR-0008:
 - RDAP/WHOIS for domain registration information
 - crt.sh for certificate transparency / SAN discovery
 """
@@ -145,7 +145,7 @@ class ResearchContext:
     and retrieves past query success rates. It does NOT generate
     subquery candidates - that responsibility belongs to Cursor AI.
 
-    Registry integration (§3.1.2, §3.1.3):
+    Registry integration (ADR-0006, ADR-0008):
     - RDAP/WHOIS lookups for domain entities
     - Certificate transparency (crt.sh) for domain discovery
     """
@@ -191,8 +191,8 @@ class ResearchContext:
             - similar_past_queries: Past queries with success rates
             - recommended_engines: Engines recommended for this query
             - high_success_domains: Domains with high success rates
-            - pivot_suggestions: Pivot exploration suggestions (§3.1.1)
-            - registry_info: Domain registry data (WHOIS/RDAP/CT) (§3.1.2)
+            - pivot_suggestions: Pivot exploration suggestions (ADR-0010)
+            - registry_info: Domain registry data (WHOIS/RDAP/CT) (ADR-0006)
             - notes: Additional hints for Cursor AI
 
         Note:
@@ -213,10 +213,10 @@ class ResearchContext:
         recommended_engines = await self._get_recommended_engines()
         high_success_domains = await self._get_high_success_domains()
 
-        # Generate pivot suggestions for extracted entities (§3.1.1)
+        # Generate pivot suggestions for extracted entities (ADR-0010)
         pivot_suggestions = self._get_pivot_suggestions(entities)
 
-        # Get registry info for domain entities (§3.1.2)
+        # Get registry info for domain entities (ADR-0006)
         registry_info = await self._get_registry_info(entities)
 
         return {
@@ -494,7 +494,7 @@ class ResearchContext:
         """
         Generate pivot exploration suggestions for entities.
 
-        Implements §3.1.1 pivot exploration patterns:
+        Implements ADR-0010 pivot exploration patterns:
         - Organization → subsidiaries, officers, location, domain
         - Domain → subdomain, certificate SAN, organization
         - Person → aliases, handles, affiliations
@@ -547,7 +547,7 @@ class ResearchContext:
         """
         Get registry information for domain entities.
 
-        Implements §3.1.2 infrastructure/registry integration:
+        Implements ADR-0006 infrastructure/registry integration:
         - RDAP/WHOIS for domain registration data
         - crt.sh for certificate transparency / SAN discovery
 

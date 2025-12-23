@@ -528,7 +528,7 @@ class LLMProvider(Protocol):
         """
         Unload a model to free resources.
 
-        Per §4.2: LLM processes should be released after task completion.
+        LLM processes should be released after task completion.
 
         Args:
             model: Model name to unload (provider-specific default if not specified).

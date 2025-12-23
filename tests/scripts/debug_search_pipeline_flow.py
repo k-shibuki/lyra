@@ -2,10 +2,10 @@
 """
 Debug script for Search Pipeline Flow (O.7 Problem 1).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the search → fetch → extract → claims pipeline.
 
-Per §3.2.1:
+Per ADR-0003:
 - search(task_id, query, options) executes full pipeline
 - Returns claims_found, harvest_rate, satisfaction_score, novelty_score
 - DB persistence of claims/fragments/edges

@@ -136,9 +136,9 @@ CREATE TABLE IF NOT EXISTS claims (
     claim_type TEXT,  -- fact, opinion, prediction, etc.
     granularity TEXT,  -- atomic, composite
     expected_polarity TEXT,  -- positive, negative, neutral
-    claim_confidence REAL,  -- Renamed from confidence_score (Decision 19)
+    claim_confidence REAL, -- Renamed from confidence_score 
     source_fragment_ids TEXT,  -- JSON array
-    claim_adoption_status TEXT DEFAULT 'adopted',  -- Renamed, default changed from 'pending' (Decision 19)
+    claim_adoption_status TEXT DEFAULT 'adopted', -- Renamed, default changed from 'pending' 
     claim_rejection_reason TEXT,  -- NEW: rejection reason (audit)
     claim_rejected_at TEXT,  -- NEW: rejection timestamp
     supporting_count INTEGER DEFAULT 0,
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS edges (
     -- Domain category information for ranking adjustment and high-reasoning AI (Phase P.2)
     source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
     target_domain_category TEXT,
-    -- Human correction metadata (Phase 6 / Decision 19)
+    -- Human correction metadata ( / )
     edge_human_corrected BOOLEAN DEFAULT 0,
     edge_correction_reason TEXT,
     edge_corrected_at TEXT,
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS domains (
     last_ipv6_failure_at DATETIME,
     last_ipv4_success_at DATETIME,
     last_ipv4_failure_at DATETIME,
-    -- HTTP/3 (QUIC) settings (§4.3)
+    -- HTTP/3 (QUIC) settings (ADR-0006)
     http3_detected BOOLEAN DEFAULT 0,
     http3_first_seen_at DATETIME,
     http3_last_seen_at DATETIME,
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS engine_health (
 );
 
 -- Lastmile Usage: Daily usage tracking for lastmile engines
--- Per §3.1.1: Track usage to enforce daily limits
+-- Per ADR-0010: Track usage to enforce daily limits
 CREATE TABLE IF NOT EXISTS lastmile_usage (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     engine TEXT NOT NULL,
@@ -657,7 +657,7 @@ CREATE TABLE IF NOT EXISTS replay_sessions (
 CREATE INDEX IF NOT EXISTS idx_replay_sessions_original ON replay_sessions(original_task_id);
 
 -- ============================================================
--- Calibration Evaluation (§4.6.1)
+-- Calibration Evaluation 
 -- ============================================================
 
 -- Calibration evaluations: Brier score, ECE, reliability diagram data
@@ -678,10 +678,10 @@ CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_source ON calibration_eva
 CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_evaluated_at ON calibration_evaluations(evaluated_at);
 
 -- ============================================================
--- Feedback & Override Tables (Phase 6 / Decision 19, 20)
+-- Feedback & Override Tables ( / , 20)
 -- ============================================================
 
--- NLI correction samples for ground-truth collection (Phase 6 / Phase R LoRA)
+-- NLI correction samples for ground-truth collection ( / Phase R LoRA)
 CREATE TABLE IF NOT EXISTS nli_corrections (
     id TEXT PRIMARY KEY,
     edge_id TEXT NOT NULL,
@@ -732,7 +732,7 @@ CREATE INDEX IF NOT EXISTS idx_domain_override_events_rule
     ON domain_override_events(rule_id);
 
 -- ============================================================
--- Query A/B Testing (§3.1.1)
+-- Query A/B Testing (ADR-0010)
 -- ============================================================
 
 -- A/B test sessions

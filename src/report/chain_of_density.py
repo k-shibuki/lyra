@@ -4,7 +4,7 @@ Chain-of-Density compression for Lyra.
 Implements iterative summarization that increases information density
 while preserving all essential citations and evidence.
 
-Per §3.3.1: Compression and Citation Strictness
+Compression and Citation Strictness
 - Increase summary density using Chain-of-Density approach
 - Require deep links, discovery timestamps, and excerpts for all claims
 """
@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 class CitationInfo:
     """Citation information required for each claim.
 
-    Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
+    Require deep links, discovery timestamps, and excerpts for all claims.
     """
 
     url: str
@@ -43,7 +43,7 @@ class CitationInfo:
     def is_primary(self) -> bool:
         """Check if this is a primary source based on source_tag.
 
-        Per §3.4: Primary sources include government, academic, official,
+        Per ADR-0005: Primary sources include government, academic, official,
         standard, registry.
         """
         return self.source_tag in ("government", "academic", "official", "standard", "registry")
@@ -115,7 +115,7 @@ class CitationInfo:
 class DenseClaim:
     """A claim with mandatory citation information.
 
-    Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
+    Require deep links, discovery timestamps, and excerpts for all claims.
     """
 
     claim_id: str
@@ -168,7 +168,7 @@ class DenseClaim:
 class DenseSummary:
     """A dense summary with increasing information density.
 
-    Per §3.3.1: Increase summary density using Chain-of-Density approach.
+    Increase summary density using Chain-of-Density approach.
     """
 
     iteration: int
@@ -260,7 +260,7 @@ class ChainOfDensityCompressor:
     2. Iteratively adds missing entities while maintaining length
     3. Increases information density with each iteration
 
-    Per §3.3.1: Increase summary density using Chain-of-Density approach,
+    Increase summary density using Chain-of-Density approach,
     requiring deep links, discovery timestamps, and excerpts for all claims.
     """
 
@@ -467,7 +467,7 @@ class ChainOfDensityCompressor:
                 confidence=claim.get("claim_confidence", claim.get("confidence", 0.5)),
                 citations=citations,
                 claim_type=claim.get("claim_type", "fact"),
-                is_verified=False,  # DB column removed (Decision 19)
+                is_verified=False, # DB column removed
                 refutation_status=claim.get("refutation_status", "pending"),
             )
             dense_claims.append(dense_claim)
@@ -783,7 +783,7 @@ async def compress_with_chain_of_density(
     """
     Compress claims and fragments using Chain-of-Density.
 
-    Per §3.3.1: Compression and Citation Strictness
+    Compression and Citation Strictness
     - Increase summary density using Chain-of-Density approach
     - Require deep links, discovery timestamps, and excerpts for all claims
 

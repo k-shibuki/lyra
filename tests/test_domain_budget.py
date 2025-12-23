@@ -1,11 +1,11 @@
 """
-Tests for DomainDailyBudgetManager (§4.3 - IP block prevention, Problem 11).
+Tests for DomainDailyBudgetManager (ADR-0006 - IP block prevention, Problem 11).
 
-Test design follows §7.1 Test Code Quality Standards:
-- No conditional assertions (§7.1.1)
-- Specific assertions with concrete values (§7.1.2)
-- Realistic test data (§7.1.3)
-- AAA pattern (§7.1.5)
+Test design follows .1 Test Code Quality Standards:
+- No conditional assertions (.1.1)
+- Specific assertions with concrete values (.1.2)
+- Realistic test data (.1.3)
+- AAA pattern (.1.5)
 
 ## Test Perspectives Table
 

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:feedback",
   "title": "feedback Response",
-  "description": "Response schema for feedback tool (6 actions). Phase 6.2.",
+  "description": "Response schema for feedback tool (6 actions). .",
   "oneOf": [
     {
       "title": "domain_block Response",

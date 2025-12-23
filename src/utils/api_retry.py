@@ -1,17 +1,17 @@
 """
-Retry utilities for official public APIs (§3.1.3, §4.3.5).
+Retry utilities for official public APIs (ADR-0008, ADR-0006).
 
-IMPORTANT: This module is ONLY for APIs listed in §3.1.3/§5.1.1:
+IMPORTANT: This module is ONLY for APIs listed in ADR-0008/ADR-0008:
 - e-Stat API, 法令API（e-Gov）, 国会会議録API, gBizINFO API, EDINET API
-- OpenAlex API, Semantic Scholar API (Decision 6: two-pillar strategy)
+- OpenAlex API, Semantic Scholar API (ADR-0008: two-pillar strategy)
 - Wikidata API, DBpedia SPARQL
 
-Per §3.1.3: "これらは公式APIであり、検索エンジンのようなbot検知問題はない"
-Per §4.3.5: "ネットワーク/APIリトライ（トランジェントエラー向け）"
+Per ADR-0008: "これらは公式APIであり、検索エンジンのようなbot検知問題はない"
+Per ADR-0006: "ネットワーク/APIリトライ（トランジェントエラー向け）"
 
 DO NOT use for:
-- Search engines (use escalation path in fetcher.py per §4.3.5)
-- Browser fetching (use InterventionQueue for CAPTCHA per §3.6.1)
+- Search engines (use escalation path in fetcher.py per ADR-0006)
+- Browser fetching (use InterventionQueue for CAPTCHA per ADR-0007)
 - General web scraping
 """
 
@@ -69,17 +69,17 @@ class HTTPStatusError(Exception):
 
 @dataclass
 class APIRetryPolicy:
-    """Retry policy for official public APIs per §3.1.3 and §4.3.5.
+    """Retry policy for official public APIs per ADR-0008 and ADR-0006.
 
     Safe to use because target APIs:
-    - Are official government/academic APIs (§3.1.3)
+    - Are official government/academic APIs (ADR-0008)
     - Have no bot detection mechanisms
     - Use explicit rate limiting (429) handled with backoff
 
-    Per §4.3.5: "検索エンジン/ブラウザ取得では使用禁止"
+    Per ADR-0006: "検索エンジン/ブラウザ取得では使用禁止"
 
     Attributes:
-        max_retries: Maximum retry attempts (default: 3 per §7)
+        max_retries: Maximum retry attempts (default: 3 per )
         backoff: Backoff configuration for delay calculation
         retryable_exceptions: Exception types that are safe to retry
         retryable_status_codes: HTTP status codes that are safe to retry
@@ -170,8 +170,8 @@ async def retry_api_call[T](
 ) -> T:
     """Execute async function with retry logic for public APIs.
 
-    Per §4.3.5: This function implements "ネットワーク/APIリトライ"
-    for official public APIs listed in §3.1.3.
+    Per ADR-0006: This function implements "ネットワーク/APIリトライ"
+    for official public APIs listed in ADR-0008.
 
     The function will retry on:
     - Network errors (ConnectionError, TimeoutError, OSError)
@@ -294,7 +294,7 @@ def with_api_retry(
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Decorator for adding retry logic to async API functions.
 
-    Per §4.3.5: Use only for official public APIs (§3.1.3).
+    Per ADR-0006: Use only for official public APIs (ADR-0008).
 
     Args:
         policy: Retry policy (default: APIRetryPolicy())

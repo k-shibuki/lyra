@@ -1,7 +1,7 @@
 """
 Claim Timeline for Lyra.
 
-Implements §3.4 requirement for claim timeline tracking:
+Implements ADR-0005 requirement for claim timeline tracking:
 - First appearance / update / correction / retraction / confirmation events
 - Integration with Wayback differential exploration
 - Timeline coverage metrics
@@ -32,14 +32,14 @@ FRESHNESS_THRESHOLD_DAYS = 365
 
 
 class TimelineEventType(str, Enum):
-    """Types of timeline events (§3.4, §16.12.2)."""
+    """Types of timeline events (ADR-0005)."""
 
     FIRST_APPEARED = "first_appeared"  # Initial discovery
     UPDATED = "updated"  # Content modified
     CORRECTED = "corrected"  # Error correction issued
     RETRACTED = "retracted"  # Claim withdrawn
     CONFIRMED = "confirmed"  # Additional supporting evidence
-    # §16.12.2: Archive-related events
+    # ADR-0005: Archive-related events
     CONTENT_MODIFIED = "content_modified"  # Archive differs from current
     CONTENT_MAJOR_CHANGE = "content_major_change"  # Significant archive diff
     ARCHIVE_ONLY = "archive_only"  # Only available in archive
@@ -238,7 +238,7 @@ class ClaimTimeline:
         """Convert to dictionary for JSON serialization.
 
         Note: Confidence adjustment is no longer calculated here.
-        Per Decision 13, confidence is computed solely via Bayesian updating
+        Per ADR-0005, confidence is computed solely via Bayesian updating
         on evidence graph edges (SUPPORTS/REFUTES with nli_confidence).
         Timeline events are for audit logging only.
         """
@@ -566,7 +566,7 @@ class ClaimTimelineManager:
 
         await self.save_timeline(timeline)
 
-        # Note: Per Decision 13, confidence is computed solely via Bayesian updating
+        # Note: Per ADR-0005, confidence is computed solely via Bayesian updating
         # on evidence graph edges. Retraction events are for audit logging only.
         # To affect confidence, create a REFUTES edge in the evidence graph.
 
@@ -651,7 +651,7 @@ class ClaimTimelineManager:
     ) -> TimelineEvent | None:
         """Add a timeline event from archive diff comparison.
 
-        Per §16.12.2: Records content changes detected between
+        Per ADR-0005: Records content changes detected between
         archived and current versions.
 
         Args:
@@ -719,7 +719,7 @@ class ClaimTimelineManager:
 
         await self.save_timeline(timeline)
 
-        # Note: Per Decision 13, confidence is computed solely via Bayesian updating
+        # Note: Per ADR-0005, confidence is computed solely via Bayesian updating
         # on evidence graph edges. Archive diff events are for audit logging only.
 
         logger.info(
@@ -787,7 +787,7 @@ class ClaimTimelineManager:
             "average_events_per_claim": total_events / claims_with_timeline
             if claims_with_timeline > 0
             else 0.0,
-            "meets_target": coverage_rate >= 0.9,  # §7: ≥90%
+            "meets_target": coverage_rate >= 0.9, # : ≥90%
         }
 
     def clear_cache(self) -> None:

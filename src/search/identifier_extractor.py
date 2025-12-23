@@ -2,7 +2,7 @@
 Identifier extractor for academic papers from URLs.
 
 Extracts DOI, PMID, arXiv ID from SERP result URLs.
-Per Decision 6: S2 + OpenAlex two-pillar strategy.
+Per ADR-0008: S2 + OpenAlex two-pillar strategy.
 """
 
 from __future__ import annotations

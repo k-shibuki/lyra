@@ -2,7 +2,7 @@
 Tests for metrics collection module.
 Tests the MetricsCollector, TaskMetrics, and related functionality.
 
-Related spec: §4.6 Auto-adaptation and Metrics-driven Control
+Related spec: Auto-adaptation and Metrics-driven Control
 
 ## Test Perspectives Table
 

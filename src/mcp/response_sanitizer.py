@@ -1,7 +1,7 @@
 """
 MCP Response Sanitizer.
 
-Implements L7 (MCP Response Sanitization) per §4.4.1:
+Implements L7 (MCP Response Sanitization) per ADR-0005:
 - Schema-based allowlist filtering (only defined fields pass through)
 - LLM-generated field sanitization (L4 validation)
 - Error response sanitization (no stack traces or internal paths)
@@ -117,7 +117,7 @@ class ResponseSanitizer:
     """
     Sanitizes MCP responses before they reach Cursor AI.
 
-    Implements L7 per §4.4.1:
+    Implements L7 per ADR-0005:
     - Allowlist-based field filtering using JSON schemas
     - L4 validation for LLM-generated content
     - Error response sanitization

@@ -2,7 +2,7 @@
 """
 DuckDuckGo Search Engine E2E Verification
 
-Verification target: §3.2 Agent Execution (Browser Search) - DuckDuckGo
+Verification target: ADR-0003 Agent Execution (Browser Search) - DuckDuckGo
 
 Verification items:
 1. CDP connection (Windows Chrome -> WSL2/Podman)
@@ -14,9 +14,9 @@ Verification items:
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
-- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: 16.9 "Setup Procedure"
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - CAPTCHA: 100% detection, reliable transition to manual intervention
 - Scraping success rate ≥95%
 
@@ -83,7 +83,7 @@ class VerificationResult:
 
 
 class BrowserSearchVerifier:
-    """Verifier for §3.2 browser search functionality."""
+    """Verifier for ADR-0003 browser search functionality."""
 
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
@@ -121,7 +121,7 @@ class BrowserSearchVerifier:
 
     async def verify_cdp_connection(self) -> VerificationResult:
         """Verify CDP connection."""
-        print("\n[1/5] Verifying CDP connection (§3.2 GUI連携)...")
+        print("\n[1/5] Verifying CDP connection (ADR-0003 GUI連携)...")
 
         from src.search.browser_search_provider import BrowserSearchProvider
 
@@ -133,7 +133,7 @@ class BrowserSearchVerifier:
                 await provider.close()
                 return VerificationResult(
                     name="CDP Connection",
-                    spec_ref="§3.2 GUI連携",
+                    spec_ref="ADR-0003 GUI連携",
                     passed=False,
                     error="Browser not connected",
                 )
@@ -157,7 +157,7 @@ class BrowserSearchVerifier:
 
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2 GUI連携",
+                spec_ref="ADR-0003 GUI連携",
                 passed=True,
                 details=browser_info,
             )
@@ -166,14 +166,14 @@ class BrowserSearchVerifier:
             logger.exception("CDP connection verification failed")
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2 GUI連携",
+                spec_ref="ADR-0003 GUI連携",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_duckduckgo_search(self) -> VerificationResult:
         """Verify DuckDuckGo search operation."""
-        print("\n[2/5] Verifying DuckDuckGo search (§3.2 検索エンジン統合)...")
+        print("\n[2/5] Verifying DuckDuckGo search (ADR-0003 検索エンジン統合)...")
 
         from src.search.browser_search_provider import BrowserSearchProvider
         from src.search.provider import SearchOptions
@@ -200,7 +200,7 @@ class BrowserSearchVerifier:
                     print(f"    ! CAPTCHA detected: {captcha_type}")
                     return VerificationResult(
                         name="DuckDuckGo Search",
-                        spec_ref="§3.2 検索エンジン統合",
+                        spec_ref="ADR-0003 検索エンジン統合",
                         passed=True,
                         details={
                             "captcha_detected": True,
@@ -211,7 +211,7 @@ class BrowserSearchVerifier:
                 else:
                     return VerificationResult(
                         name="DuckDuckGo Search",
-                        spec_ref="§3.2 検索エンジン統合",
+                        spec_ref="ADR-0003 検索エンジン統合",
                         passed=False,
                         error=f"Search failed: {result.error}",
                     )
@@ -222,7 +222,7 @@ class BrowserSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name="DuckDuckGo Search",
-                    spec_ref="§3.2 検索エンジン統合",
+                    spec_ref="ADR-0003 検索エンジン統合",
                     passed=False,
                     error="No results returned",
                 )
@@ -235,7 +235,7 @@ class BrowserSearchVerifier:
 
             return VerificationResult(
                 name="DuckDuckGo Search",
-                spec_ref="§3.2 検索エンジン統合",
+                spec_ref="ADR-0003 検索エンジン統合",
                 passed=True,
                 details={
                     "query": test_query,
@@ -248,7 +248,7 @@ class BrowserSearchVerifier:
             logger.exception("DuckDuckGo search verification failed")
             return VerificationResult(
                 name="DuckDuckGo Search",
-                spec_ref="§3.2 検索エンジン統合",
+                spec_ref="ADR-0003 検索エンジン統合",
                 passed=False,
                 error=str(e),
             )
@@ -257,7 +257,7 @@ class BrowserSearchVerifier:
 
     async def verify_parser_accuracy(self) -> VerificationResult:
         """Verify search result parser accuracy."""
-        print("\n[3/5] Verifying parser accuracy (§3.2 コンテンツ抽出)...")
+        print("\n[3/5] Verifying parser accuracy (ADR-0003 コンテンツ抽出)...")
 
         from src.search.browser_search_provider import BrowserSearchProvider
         from src.search.provider import SearchOptions
@@ -279,14 +279,14 @@ class BrowserSearchVerifier:
                 if _is_captcha_error(result):
                     return VerificationResult(
                         name="Parser Accuracy",
-                        spec_ref="§3.2 コンテンツ抽出",
+                        spec_ref="ADR-0003 コンテンツ抽出",
                         passed=True,
                         skipped=True,
                         skip_reason="CAPTCHA detected, cannot verify parser",
                     )
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2 コンテンツ抽出",
+                    spec_ref="ADR-0003 コンテンツ抽出",
                     passed=False,
                     error=f"Search failed: {result.error}",
                 )
@@ -294,7 +294,7 @@ class BrowserSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2 コンテンツ抽出",
+                    spec_ref="ADR-0003 コンテンツ抽出",
                     passed=False,
                     error="No results to verify",
                 )
@@ -336,7 +336,7 @@ class BrowserSearchVerifier:
             if accuracy >= 0.9:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2 コンテンツ抽出",
+                    spec_ref="ADR-0003 コンテンツ抽出",
                     passed=True,
                     details={
                         "accuracy": accuracy,
@@ -348,7 +348,7 @@ class BrowserSearchVerifier:
             else:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2 コンテンツ抽出",
+                    spec_ref="ADR-0003 コンテンツ抽出",
                     passed=False,
                     error=f"Parser accuracy {accuracy:.0%} < 90%",
                 )
@@ -357,7 +357,7 @@ class BrowserSearchVerifier:
             logger.exception("Parser accuracy verification failed")
             return VerificationResult(
                 name="Parser Accuracy",
-                spec_ref="§3.2 コンテンツ抽出",
+                spec_ref="ADR-0003 コンテンツ抽出",
                 passed=False,
                 error=str(e),
             )
@@ -366,7 +366,7 @@ class BrowserSearchVerifier:
 
     async def verify_stealth(self) -> VerificationResult:
         """Verify stealth evasion (bot detection avoidance)."""
-        print("\n[4/5] Verifying stealth (§4.3 ブラウザ/JS層)...")
+        print("\n[4/5] Verifying stealth (ADR-0006 ブラウザ/JS層)...")
 
         from src.crawler.fetcher import BrowserFetcher
 
@@ -382,7 +382,7 @@ class BrowserSearchVerifier:
             if not result.ok:
                 return VerificationResult(
                     name="Stealth",
-                    spec_ref="§4.3 ブラウザ/JS層",
+                    spec_ref="ADR-0006 ブラウザ/JS層",
                     passed=False,
                     error=f"Fetch failed: {result.reason}",
                 )
@@ -401,7 +401,7 @@ class BrowserSearchVerifier:
             if all(stealth_checks.values()):
                 return VerificationResult(
                     name="Stealth",
-                    spec_ref="§4.3 ブラウザ/JS層",
+                    spec_ref="ADR-0006 ブラウザ/JS層",
                     passed=True,
                     details=stealth_checks,
                 )
@@ -409,7 +409,7 @@ class BrowserSearchVerifier:
                 failed = [k for k, v in stealth_checks.items() if not v]
                 return VerificationResult(
                     name="Stealth",
-                    spec_ref="§4.3 ブラウザ/JS層",
+                    spec_ref="ADR-0006 ブラウザ/JS層",
                     passed=False,
                     error=f"Stealth checks failed: {failed}",
                 )
@@ -418,7 +418,7 @@ class BrowserSearchVerifier:
             logger.exception("Stealth verification failed")
             return VerificationResult(
                 name="Stealth",
-                spec_ref="§4.3 ブラウザ/JS層",
+                spec_ref="ADR-0006 ブラウザ/JS層",
                 passed=False,
                 error=str(e),
             )
@@ -427,7 +427,7 @@ class BrowserSearchVerifier:
 
     async def verify_session_management(self) -> VerificationResult:
         """Verify session management."""
-        print("\n[5/5] Verifying session management (§3.6.1 セッション再利用)...")
+        print("\n[5/5] Verifying session management (ADR-0007 セッション再利用)...")
 
         from src.crawler.session_transfer import get_session_transfer_manager
         from src.search.browser_search_provider import BrowserSearchProvider
@@ -468,7 +468,7 @@ class BrowserSearchVerifier:
             # Session management is working if we can track sessions
             return VerificationResult(
                 name="Session Management",
-                spec_ref="§3.6.1 セッション再利用",
+                spec_ref="ADR-0007 セッション再利用",
                 passed=True,
                 details={
                     "initial_sessions": initial_count,
@@ -482,7 +482,7 @@ class BrowserSearchVerifier:
             logger.exception("Session management verification failed")
             return VerificationResult(
                 name="Session Management",
-                spec_ref="§3.6.1 セッション再利用",
+                spec_ref="ADR-0007 セッション再利用",
                 passed=False,
                 error=str(e),
             )
@@ -493,7 +493,7 @@ class BrowserSearchVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("E2E: Browser Search Verification")
-        print("検証対象: §3.2 エージェント実行機能（ブラウザ検索）")
+        print("検証対象: ADR-0003 エージェント実行機能（ブラウザ検索）")
         print("=" * 70)
 
         # Prerequisites

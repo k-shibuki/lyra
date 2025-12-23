@@ -9,7 +9,7 @@ Features:
 - CDP connection to Windows Chrome for fingerprint consistency
 - Resource blocking (ads, trackers, large media)
 - Human-like behavior simulation
-- Lifecycle management for task-scoped cleanup (§4.2)
+- Lifecycle management for task-scoped cleanup
 """
 
 import asyncio
@@ -42,7 +42,7 @@ class HumanBehaviorSimulator:
     """Simulates human-like browser interactions.
 
     Implements realistic delays, mouse movements, and scrolling patterns
-    to reduce bot detection per §4.3 (stealth requirements).
+    to reduce bot detection per ADR-0006 (stealth requirements).
     """
 
     @staticmethod
@@ -185,12 +185,12 @@ class PlaywrightProvider(BaseBrowserProvider):
                     )
                     logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
                 except Exception as e:
-                    # Per spec §4.3.3: CDP connection is required, no fallback
+                    # Per spec ADR-0006: CDP connection is required, no fallback
                     raise RuntimeError(
                         f"CDP connection failed: {e}. Start Chrome with: ./scripts/chrome.sh start"
                     ) from e
 
-                # Reuse existing context if available (preserves profile cookies per §3.6.1)
+                # Reuse existing context if available (preserves profile cookies per ADR-0007)
                 # This only applies when connected via CDP to real Chrome
                 existing_contexts = self._headful_browser.contexts
                 if existing_contexts:
@@ -212,10 +212,10 @@ class PlaywrightProvider(BaseBrowserProvider):
 
             return self._headful_browser, self._headful_context
         else:
-            # Per spec §4.3.3: Headless mode is prohibited
+            # Per spec ADR-0006: Headless mode is prohibited
             # Lyra uses "real profile consistency" design, not "headless disguised as human"
             raise RuntimeError(
-                "Headless mode is prohibited per spec §4.3.3. "
+                "Headless mode is prohibited per spec ADR-0006. "
                 "Use headful mode with CDP connection to real Chrome profile."
             )
 

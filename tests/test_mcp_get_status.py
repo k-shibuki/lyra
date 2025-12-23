@@ -1,6 +1,6 @@
 """Tests for get_status MCP tool.
 
-Tests the unified task and exploration status endpoint per §3.2.1.
+Tests the unified task and exploration status endpoint per ADR-0003.
 """
 
 from typing import Any
@@ -172,7 +172,7 @@ class TestGetStatusWithExplorationState:
 
         // Given: Exploration status with subqueries
         // When: Calling get_status
-        // Then: Fields correctly mapped to §3.2.1 schema
+        // Then: Fields correctly mapped to ADR-0003 schema
         """
         from src.mcp.server import _handle_get_status
 
@@ -186,7 +186,7 @@ class TestGetStatusWithExplorationState:
             with patch("src.mcp.server._get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
 
-        # Verify search structure per §3.2.1
+        # Verify search structure per ADR-0003
         search = result["searches"][0]
         assert "id" in search
         assert "query" in search
@@ -358,7 +358,7 @@ class TestGetStatusStatusMapping:
 
         // Given: Exploration with specific task_status
         // When: Calling get_status
-        // Then: Status is correctly mapped per §3.2.1
+        // Then: Status is correctly mapped per ADR-0003
         """
         from src.mcp.server import _handle_get_status
 
@@ -412,7 +412,7 @@ class TestGetStatusToolDefinition:
 
         // Given: get_status tool definition
         // When: Reading description
-        // Then: Contains §3.2.1 reference
+        // Then: Contains ADR-0003 reference
         """
         from src.mcp.server import TOOLS
 

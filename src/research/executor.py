@@ -4,7 +4,7 @@ Search execution engine for Lyra.
 Executes Cursor AI-designed search queries through the search/fetch/extract pipeline.
 Handles mechanical expansions (synonyms, mirror queries, operators) only.
 
-See docs/REQUIREMENTS.md §2.1.3 and §3.1.7.
+See ADR-0002 and ADR-0010.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
@@ -53,7 +53,7 @@ PRIMARY_SOURCE_DOMAINS = {
     "doi.org",
 }
 
-# Mechanical refutation suffixes (§3.1.7.5)
+# Mechanical refutation suffixes (ADR-0010)
 REFUTATION_SUFFIXES = [
     "課題",
     "批判",
@@ -71,7 +71,7 @@ REFUTATION_SUFFIXES = [
 class SearchResult:
     """Result of search execution.
 
-    Per §16.7.4: Includes authentication queue information.
+    Per ADR-0007: Includes authentication queue information.
     """
 
     search_id: str
@@ -86,7 +86,7 @@ class SearchResult:
     new_claims: list[dict[str, Any]] = field(default_factory=list)
     budget_remaining: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
-    # §16.7.4: Authentication queue tracking
+    # ADR-0007: Authentication queue tracking
     auth_blocked_urls: int = 0  # Count of URLs blocked by authentication
     auth_queued_count: int = 0  # Count of items queued for authentication this run
     # Error tracking for MCP
@@ -121,7 +121,7 @@ class SearchResult:
         if self.errors:
             result["errors"] = self.errors
 
-        # §16.7.4: Include auth info only if there are blocked/queued items
+        # ADR-0007: Include auth info only if there are blocked/queued items
         if self.auth_blocked_urls > 0 or self.auth_queued_count > 0:
             result["auth_blocked_urls"] = self.auth_blocked_urls
             result["auth_queued_count"] = self.auth_queued_count
@@ -136,7 +136,7 @@ class SearchExecutor:
     """
     Executes search queries designed by Cursor AI.
 
-    Responsibilities (§2.1.3):
+    Responsibilities (ADR-0002):
     - Mechanical expansion of queries (synonyms, mirror queries, operators)
     - Search → Fetch → Extract → Evaluate pipeline
     - Metrics calculation (harvest rate, novelty, satisfaction)
@@ -158,7 +158,7 @@ class SearchExecutor:
         self._db: Database | None = None
         self._seen_fragment_hashes: set[str] = set()
         self._seen_domains: set[str] = set()
-        # Phase 3b: web citation detection budget (configurable)
+        # b: web citation detection budget (configurable)
         self._web_citation_pages_processed: int = 0
 
     def _should_run_web_citation_detection(
@@ -171,7 +171,7 @@ class SearchExecutor:
         is_primary: bool,
         is_useful: bool,
     ) -> bool:
-        """Return whether Phase 3b web citation detection should run for this page.
+        """Return whether b web citation detection should run for this page.
 
         This function centralizes policy decisions so they can be tested without I/O.
         """
@@ -279,7 +279,7 @@ class SearchExecutor:
                 )
 
                 # Step 3: Fetch and extract from top results
-                # Use dynamic budget from UCB allocator if available (§3.1.1)
+                # Use dynamic budget from UCB allocator if available (ADR-0010)
                 dynamic_budget = self.state.get_dynamic_budget(search_id)
                 budget = budget_pages or dynamic_budget or 15
 
@@ -359,7 +359,7 @@ class SearchExecutor:
 
     def _expand_query(self, query: str) -> list[str]:
         """
-        Mechanically expand a query (§2.1.3).
+        Mechanically expand a query (ADR-0002).
 
         Only performs mechanical expansions:
         - Original query
@@ -462,7 +462,7 @@ class SearchExecutor:
     ) -> None:
         """Fetch URL and extract content.
 
-        Per §16.7.4: Tracks authentication blocks and queued items.
+        Per ADR-0007: Tracks authentication blocks and queued items.
         """
         from src.crawler.fetcher import fetch_url
         from src.extractor.content import extract_content
@@ -507,7 +507,7 @@ class SearchExecutor:
                 reason = fetch_result.get("reason", "")
                 logger.debug("Fetch failed", url=url[:50], reason=reason)
 
-                # §16.7.4: Track authentication blocks
+                # ADR-0007: Track authentication blocks
                 if fetch_result.get("auth_queued"):
                     result.auth_blocked_urls += 1
                     result.auth_queued_count += 1
@@ -552,7 +552,7 @@ class SearchExecutor:
                     min_text_chars = max(0, int(wc.min_text_chars))
                     is_useful = len(extract_result.get("text", "")) > min_text_chars
 
-                    # Phase 3b: General web citation detection (LLM, conservative gating)
+                    # b: General web citation detection (LLM, conservative gating)
                     # Behavior is settings-driven (search.web_citation_detection.*).
                     # Defaults preserve the original "useful + primary only" gating.
                     if wc.enabled and html_path and fetch_result.get("page_id"):
@@ -663,7 +663,7 @@ class SearchExecutor:
                         is_primary=is_primary,
                     )
 
-                    # Extract claims using llm_extract for primary sources (§2.1.4, §3.3)
+                    # Extract claims using llm_extract for primary sources (ADR-0002, ADR-0005)
                     # LLM extraction is only applied to primary sources to control LLM time ratio
                     if is_useful:
                         extracted_claims = await self._extract_claims_from_text(
@@ -720,10 +720,10 @@ class SearchExecutor:
         is_primary: bool,
     ) -> list[dict[str, Any]]:
         """
-        Extract claims from text using LLM (§2.1.4, §3.3).
+        Extract claims from text using LLM (ADR-0002, ADR-0005).
 
         LLM extraction is only applied to primary sources to control
-        LLM processing time ratio (≤30% per §3.1).
+        LLM processing time ratio (≤30% per ADR-0010).
 
         Args:
             text: The text to extract claims from.
@@ -880,12 +880,12 @@ class SearchExecutor:
                     "fact",
                     confidence,
                     json.dumps([source_fragment_id]),  # JSON array
-                    "adopted",  # Default changed from 'pending' (Decision 19)
+                    "adopted", # Default changed from 'pending'
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
 
-            # Phase 4 / Task 4.0 (Prerequisite A):
+            # / (Prerequisite A):
             # Run NLI for (fragment -> claim) and persist edge with nli_confidence.
             #
             # Note: We intentionally do NOT use LLM-extracted confidence as Bayesian input.
@@ -971,7 +971,7 @@ class SearchExecutor:
         Generate refutation queries using mechanical patterns only.
 
         This applies predefined suffixes to the base query.
-        Does NOT use LLM for query design (§2.1.4).
+        Does NOT use LLM for query design (ADR-0002).
 
         Args:
             base_query: The base query to generate refutations for.

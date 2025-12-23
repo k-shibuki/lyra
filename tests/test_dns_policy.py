@@ -1,5 +1,5 @@
 """
-Tests for DNS policy management (§4.3).
+Tests for DNS policy management (ADR-0006).
 
 Tests cover:
 - SOCKS proxy URL generation (socks5:// vs socks5h://)

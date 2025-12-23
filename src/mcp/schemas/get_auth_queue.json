@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:get_auth_queue",
   "title": "get_auth_queue Response",
-  "description": "Response schema for get_auth_queue tool (§3.2.1, §3.6.1)",
+  "description": "Response schema for get_auth_queue tool (ADR-0003, ADR-0007)",
   "oneOf": [
     {
       "title": "Ungrouped Response",

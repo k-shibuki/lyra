@@ -4,7 +4,7 @@ UCB1-based budget allocation for search exploration.
 Implements UCB1 (Upper Confidence Bound) algorithm for dynamic budget reallocation
 based on search harvest rates. High-yield searches receive more budget.
 
-See docs/REQUIREMENTS.md §3.1.1:
+See ADR-0010:
 - Dynamic budget reallocation based on harvest rate (useful fragments / fetched pages) per search (UCB1-style)
 - Exploration tree control optimization
 
@@ -134,7 +134,7 @@ class UCBAllocator:
         Initialize the UCB allocator.
 
         Args:
-            total_budget: Total page budget for the task (§3.1: ≤120/task).
+            total_budget: Total page budget for the task (ADR-0010: ≤120/task).
             exploration_constant: UCB1 exploration constant C. Default: sqrt(2).
             min_budget_per_search: Minimum pages per search to prevent starvation.
             max_budget_ratio: Maximum ratio of total budget a single search can get.

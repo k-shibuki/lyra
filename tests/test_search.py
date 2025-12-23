@@ -167,7 +167,7 @@ class TestQueryExpander:
     def test_get_synonyms_known_word(self) -> None:
         """Test getting synonyms for known words.
 
-        Validates §3.1.1 synonym expansion for search query diversification.
+        Validates ADR-0010 synonym expansion for search query diversification.
         """
         from src.search.search_api import QueryExpander
 
@@ -196,7 +196,7 @@ class TestQueryExpander:
     def test_expand_with_normalized_forms(self) -> None:
         """Test normalized form expansion.
 
-        Validates query variant generation for §3.1.1 search diversification.
+        Validates query variant generation for ADR-0010 search diversification.
         Original query must always be included in results.
         """
         from src.search.search_api import QueryExpander
@@ -217,7 +217,7 @@ class TestQueryExpander:
     def test_expand_with_synonyms(self) -> None:
         """Test synonym-based expansion.
 
-        Validates §3.1.1 query diversification via synonyms.
+        Validates ADR-0010 query diversification via synonyms.
         Original query must always be first, additional variants expected.
         """
         from src.search.search_api import QueryExpander
@@ -237,7 +237,7 @@ class TestQueryExpander:
     def test_generate_variants_all(self) -> None:
         """Test generating all variants.
 
-        Validates combined query expansion for §3.1.1.
+        Validates combined query expansion for ADR-0010.
         人工知能 has synonyms ["AI", "エーアイ", "機械知能"].
         """
         from src.search.search_api import QueryExpander
@@ -291,7 +291,7 @@ class TestExpandQuery:
     async def test_expand_query_japanese(self) -> None:
         """Test expand_query with Japanese query.
 
-        Validates §3.1.1 query expansion for Japanese text.
+        Validates ADR-0010 query expansion for Japanese text.
         """
         from src.search.search_api import expand_query
 
@@ -357,7 +357,7 @@ class TestExpandQuery:
 
 
 # ============================================================================
-# Mirror Query Generation Tests (§3.1.1)
+# Mirror Query Generation Tests (ADR-0010)
 # ============================================================================
 
 
@@ -365,7 +365,7 @@ class TestExpandQuery:
 class TestGenerateMirrorQuery:
     """Tests for generate_mirror_query function.
 
-    Implements cross-language (JA↔EN) mirror query auto-generation (§3.1.1).
+    Implements cross-language (JA↔EN) mirror query auto-generation (ADR-0010).
     LLM calls are mocked to avoid external dependencies.
     """
 
@@ -563,7 +563,7 @@ class TestGenerateMirrorQuery:
 
 
 # ============================================================================
-# Query Operator Processing Tests (§3.1.1, §3.1.4)
+# Query Operator Processing Tests (ADR-0010, ADR-0006)
 # ============================================================================
 
 
@@ -571,7 +571,7 @@ class TestGenerateMirrorQuery:
 class TestParsedOperator:
     """Tests for ParsedOperator dataclass.
 
-    Validates the data structure for parsed search operators (§3.1.1).
+    Validates the data structure for parsed search operators (ADR-0010).
     """
 
     def test_parsed_operator_creation(self) -> None:
@@ -601,7 +601,7 @@ class TestParsedOperator:
 class TestParsedQuery:
     """Tests for ParsedQuery dataclass.
 
-    Validates the data structure for parsed queries with operators (§3.1.1).
+    Validates the data structure for parsed queries with operators (ADR-0010).
     """
 
     def test_parsed_query_has_operator(self) -> None:
@@ -659,14 +659,14 @@ class TestParsedQuery:
 class TestQueryOperatorProcessor:
     """Tests for QueryOperatorProcessor class.
 
-    Validates §3.1.1 (query operators: site:, filetype:, intitle:, "...", +/-, after:)
-    and §3.1.4 (engine normalization: mapping operators to engine-specific syntax).
+    Validates ADR-0010 (query operators: site:, filetype:, intitle:, "...", +/-, after:)
+    and ADR-0006 (engine normalization: mapping operators to engine-specific syntax).
     """
 
     def test_parse_site_operator(self) -> None:
         """Test parsing site: operator.
 
-        Validates §3.1.1: site: operator for domain restriction (e.g., site:go.jp).
+        Validates ADR-0010: site: operator for domain restriction (e.g., site:go.jp).
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -687,7 +687,7 @@ class TestQueryOperatorProcessor:
     def test_parse_filetype_operator(self) -> None:
         """Test parsing filetype: operator.
 
-        Validates §3.1.1: filetype: operator for file type restriction.
+        Validates ADR-0010: filetype: operator for file type restriction.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -708,7 +708,7 @@ class TestQueryOperatorProcessor:
     def test_parse_intitle_operator_unquoted(self) -> None:
         """Test parsing intitle: operator with unquoted value.
 
-        Validates §3.1.1: intitle: operator for title search.
+        Validates ADR-0010: intitle: operator for title search.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -729,7 +729,7 @@ class TestQueryOperatorProcessor:
     def test_parse_intitle_operator_quoted(self) -> None:
         """Test parsing intitle: operator with quoted value.
 
-        Validates §3.1.1: intitle:"phrase" for multi-word title search.
+        Validates ADR-0010: intitle:"phrase" for multi-word title search.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -750,7 +750,7 @@ class TestQueryOperatorProcessor:
     def test_parse_exact_phrase(self) -> None:
         """Test parsing exact phrase with quotes.
 
-        Validates §3.1.1: Phrase fixing ("...") for exact phrase matching.
+        Validates ADR-0010: Phrase fixing ("...") for exact phrase matching.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -771,7 +771,7 @@ class TestQueryOperatorProcessor:
     def test_parse_exclude_operator(self) -> None:
         """Test parsing exclude (-) operator.
 
-        Validates §3.1.1: Required/Exclude (+/-) for term exclusion.
+        Validates ADR-0010: Required/Exclude (+/-) for term exclusion.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -788,7 +788,7 @@ class TestQueryOperatorProcessor:
     def test_parse_required_operator(self) -> None:
         """Test parsing required (+) operator.
 
-        Validates §3.1.1: Required/Exclude (+/-) for required terms.
+        Validates ADR-0010: Required/Exclude (+/-) for required terms.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -811,7 +811,7 @@ class TestQueryOperatorProcessor:
     def test_parse_date_after_operator(self) -> None:
         """Test parsing after: operator for date filtering.
 
-        Validates §3.1.1: after: operator for time range filtering.
+        Validates ADR-0010: after: operator for time range filtering.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -832,7 +832,7 @@ class TestQueryOperatorProcessor:
     def test_parse_date_after_year_only(self) -> None:
         """Test parsing after: with year only.
 
-        Validates §3.1.1: after: operator with abbreviated date format.
+        Validates ADR-0010: after: operator with abbreviated date format.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -849,7 +849,7 @@ class TestQueryOperatorProcessor:
     def test_parse_multiple_operators(self) -> None:
         """Test parsing query with multiple operators.
 
-        Validates §3.1.1: systematic application of multiple operators in a single query.
+        Validates ADR-0010: systematic application of multiple operators in a single query.
         Tests the combination of site:, filetype:, "...", -, and after: operators.
         """
         from src.search.search_api import QueryOperatorProcessor
@@ -917,7 +917,7 @@ class TestQueryOperatorProcessor:
     def test_transform_for_google(self) -> None:
         """Test transforming query for Google engine.
 
-        Validates §3.1.4: Google supports all standard operators including after:.
+        Validates ADR-0006: Google supports all standard operators including after:.
         """
         from src.search.search_api import ParsedOperator, ParsedQuery, QueryOperatorProcessor
 
@@ -941,7 +941,7 @@ class TestQueryOperatorProcessor:
     def test_transform_for_duckduckgo(self) -> None:
         """Test transforming query for DuckDuckGo engine.
 
-        Validates §3.1.4: DuckDuckGo doesn't support date_after operator,
+        Validates ADR-0006: DuckDuckGo doesn't support date_after operator,
         which should be omitted from the transformed query.
         """
         from src.search.search_api import ParsedOperator, ParsedQuery, QueryOperatorProcessor
@@ -967,7 +967,7 @@ class TestQueryOperatorProcessor:
     def test_transform_preserves_exact_phrases(self) -> None:
         """Test that exact phrases are preserved with quotes.
 
-        Validates §3.1.4: exact phrase quotes must be preserved in transformation.
+        Validates ADR-0006: exact phrase quotes must be preserved in transformation.
         """
         from src.search.search_api import ParsedOperator, ParsedQuery, QueryOperatorProcessor
 
@@ -1005,8 +1005,8 @@ class TestQueryOperatorProcessor:
     def test_build_query_programmatic(self) -> None:
         """Test building queries programmatically.
 
-        Validates §3.1.1: systematic query construction using build_query API.
-        This is used for Academic Research vertical templates (§3.1.3).
+        Validates ADR-0010: systematic query construction using build_query API.
+        This is used for Academic Research vertical templates (ADR-0008).
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -1048,7 +1048,7 @@ class TestQueryOperatorProcessor:
     def test_get_supported_operators(self) -> None:
         """Test getting list of supported operators for engine.
 
-        Validates §3.1.4: operator support varies by engine.
+        Validates ADR-0006: operator support varies by engine.
         """
         from src.search.search_api import QueryOperatorProcessor
 
@@ -1103,12 +1103,12 @@ class TestQueryOperatorHelperFunctions:
     def test_build_search_query_function(self) -> None:
         """Test build_search_query helper function.
 
-        Validates §3.1.1/§3.1.3: programmatic query construction for Academic Research templates.
-        Example from §3.1.3: `site:go.jp 企業名`, `filetype:pdf 会社名 仕様`
+        Validates ADR-0010/ADR-0008: programmatic query construction for Academic Research templates.
+        Example from ADR-0008: `site:go.jp 企業名`, `filetype:pdf 会社名 仕様`
         """
         from src.search.search_api import build_search_query
 
-        # Build a query matching Academic Research template pattern from §3.1.3
+        # Build a query matching Academic Research template pattern from ADR-0008
         result = build_search_query(
             base_query="企業名",
             site="go.jp",
@@ -1122,7 +1122,7 @@ class TestQueryOperatorHelperFunctions:
     def test_build_search_query_with_date_filter(self) -> None:
         """Test build_search_query with date filter.
 
-        Validates §3.1.1: after: operator for time-based filtering.
+        Validates ADR-0010: after: operator for time-based filtering.
         """
         from src.search.search_api import build_search_query
 
@@ -1142,7 +1142,7 @@ class TestQueryOperatorHelperFunctions:
 class TestQueryOperatorEdgeCases:
     """Edge case tests for query operator processing.
 
-    Validates boundary conditions and unusual inputs per §7.1.2.
+    Validates boundary conditions and unusual inputs per .1.2.
     """
 
     def test_empty_query(self) -> None:
@@ -1261,7 +1261,7 @@ class TestQueryOperatorEdgeCases:
 
 
 class TestMirrorQueryGeneration:
-    """Tests for cross-language mirror query generation (§3.1.1)."""
+    """Tests for cross-language mirror query generation (ADR-0010)."""
 
     @pytest.fixture
     def mock_ollama_client(self) -> object:
@@ -1290,7 +1290,7 @@ class TestMirrorQueryGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client: object) -> None:
-        """Test Japanese to English translation (§3.1.1)."""
+        """Test Japanese to English translation (ADR-0010)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
         # Clear cache
@@ -1306,7 +1306,7 @@ class TestMirrorQueryGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client: object) -> None:
-        """Test English to Japanese translation (§3.1.1)."""
+        """Test English to Japanese translation (ADR-0010)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
         _mirror_query_cache.clear()

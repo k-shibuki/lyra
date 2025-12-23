@@ -1,20 +1,20 @@
 """
-Tests for InterventionQueue (Semi-automatic Operation) per §3.6.1.
+Tests for InterventionQueue (Semi-automatic Operation) per ADR-0007.
 
-Test Classification (§7.1.7):
+Test Classification (.1.7):
 - All tests here are unit tests (no external dependencies)
 - Database uses in-memory SQLite for isolation
 
-Requirements tested per §3.6.1 (Safe Operation Policy):
+Requirements tested per ADR-0007 (Safe Operation Policy):
 - Authentication queue with user-driven completion (no timeout)
 - start_session returns URLs only (no DOM operations)
 - User finds and resolves challenges themselves
 - complete_authentication is primary completion method
 
-Test Quality Standards (§7.1):
-- No conditional assertions (§7.1.1.1)
-- Specific value assertions (§7.1.1.2)
-- No OR-condition assertions (§7.1.1.3)
+Test Quality Standards (.1):
+- No conditional assertions (.1.1.1)
+- Specific value assertions (.1.1.2)
+- No OR-condition assertions (.1.1.3)
 - AAA pattern (Arrange-Act-Assert)
 - Docstrings explaining test intent
 
@@ -88,7 +88,7 @@ if TYPE_CHECKING:
 async def queue_with_db(test_database: "Database") -> InterventionQueue:
     """Create InterventionQueue with real in-memory database.
 
-    Per §7.1.7: Database should use in-memory SQLite for unit tests.
+    Per .1.7: Database should use in-memory SQLite for unit tests.
     """
     queue = InterventionQueue()
     queue._db = test_database
@@ -109,7 +109,7 @@ async def sample_task_id(test_database: "Database") -> str:
 def sample_domains() -> list[str]:
     """Sample domains for testing.
 
-    Per §7.1.3: Test data should be realistic and diverse.
+    Per .1.3: Test data should be realistic and diverse.
     """
     return ["example.com", "cloudflare-protected.com", "login-required.org"]
 
@@ -154,7 +154,7 @@ class TestInterventionQueueInit:
 
 
 # =============================================================================
-# Enqueue Tests (§3.6.1)
+# Enqueue Tests (ADR-0007)
 # =============================================================================
 
 
@@ -162,7 +162,7 @@ class TestInterventionQueueInit:
 class TestEnqueue:
     """Tests for enqueue functionality.
 
-    Per §3.6.1: Queue URLs requiring auth instead of blocking immediately.
+    Per ADR-0007: Queue URLs requiring auth instead of blocking immediately.
     """
 
     @pytest.mark.asyncio
@@ -306,7 +306,7 @@ class TestEnqueue:
 
 
 # =============================================================================
-# Get Pending Tests (§3.6.1)
+# Get Pending Tests (ADR-0007)
 # =============================================================================
 
 
@@ -314,7 +314,7 @@ class TestEnqueue:
 class TestGetPending:
     """Tests for get_pending functionality.
 
-    Per §3.6.1: Priority management: high (primary sources), medium (secondary), low.
+    Per ADR-0007: Priority management: high (primary sources), medium (secondary), low.
     """
 
     @pytest.mark.asyncio
@@ -362,7 +362,7 @@ class TestGetPending:
     ) -> None:
         """Test get_pending returns items ordered by priority (high first).
 
-        Per §3.6.1: Priority management - high > medium > low.
+        Per ADR-0007: Priority management - high > medium > low.
         """
         # Given: Add items in reverse priority order
         await queue_with_db.enqueue(
@@ -545,13 +545,13 @@ class TestGetPendingCount:
 
 
 # =============================================================================
-# Start Session Tests (§3.6.1 Safe Operation Policy)
+# Start Session Tests (ADR-0007 Safe Operation Policy)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestStartSession:
-    """Tests for start_session functionality per §3.6.1.
+    """Tests for start_session functionality per ADR-0007.
 
     Safe Operation Policy:
     - Returns URLs for user to process (no DOM operations)
@@ -723,15 +723,15 @@ class TestStartSession:
 
 
 # =============================================================================
-# Complete Tests (§3.6.1 - Primary Completion Method)
+# Complete Tests (ADR-0007 - Primary Completion Method)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestComplete:
-    """Tests for complete functionality per §3.6.1.
+    """Tests for complete functionality per ADR-0007.
 
-    Per §3.6.1: complete_authentication is the primary completion method.
+    Per ADR-0007: complete_authentication is the primary completion method.
     User explicitly reports when they have resolved the authentication challenge.
     This is the only way to mark authentication as complete (no timeout/auto-detect).
     """
@@ -790,7 +790,7 @@ class TestComplete:
     ) -> None:
         """Test complete stores session data when provided.
 
-        Per §3.6.1: Session reuse - store authenticated session data.
+        Per ADR-0007: Session reuse - store authenticated session data.
         """
         # Given
         queue_id = await queue_with_db.enqueue(
@@ -847,7 +847,7 @@ class TestComplete:
 
 
 # =============================================================================
-# Skip Tests (§3.6.1)
+# Skip Tests (ADR-0007)
 # =============================================================================
 
 
@@ -855,7 +855,7 @@ class TestComplete:
 class TestSkip:
     """Tests for skip functionality.
 
-    Per §3.6.1: skip_authentication - skip authentication.
+    Per ADR-0007: skip_authentication - skip authentication.
     """
 
     @pytest.mark.asyncio
@@ -932,7 +932,7 @@ class TestSkip:
 
 
 # =============================================================================
-# Get Session for Domain Tests (§3.6.1)
+# Get Session for Domain Tests (ADR-0007)
 # =============================================================================
 
 
@@ -940,7 +940,7 @@ class TestSkip:
 class TestGetSessionForDomain:
     """Tests for get_session_for_domain functionality.
 
-    Per §3.6.1: Session reuse - reuse for subsequent requests to same domain.
+    Per ADR-0007: Session reuse - reuse for subsequent requests to same domain.
     """
 
     @pytest.mark.asyncio
@@ -1092,13 +1092,13 @@ class TestCleanupExpired:
 
 
 # =============================================================================
-# Boundary Condition Tests (§7.1.2.4)
+# Boundary Condition Tests (.1.2.4)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestBoundaryConditions:
-    """Tests for boundary conditions per §7.1.2.4."""
+    """Tests for boundary conditions per .1.2.4."""
 
     @pytest.mark.asyncio
     async def test_get_pending_with_limit_zero(
@@ -1154,7 +1154,7 @@ class TestBoundaryConditions:
 
 
 # =============================================================================
-# Get Authentication Queue Summary Tests (§16.7.1)
+# Get Authentication Queue Summary Tests (ADR-0007)
 # =============================================================================
 
 
@@ -1162,7 +1162,7 @@ class TestBoundaryConditions:
 class TestGetAuthenticationQueueSummary:
     """Tests for get_authentication_queue_summary functionality.
 
-    Per §16.7.1: Provides comprehensive summary for get_exploration_status.
+    Per ADR-0007: Provides comprehensive summary for get_exploration_status.
     """
 
     @pytest.mark.asyncio
@@ -1319,7 +1319,7 @@ class TestGetAuthenticationQueueSummary:
 class TestGetItem:
     """Tests for get_item functionality added for O.6 auth compliance.
 
-    Per §3.6.1: Get specific queue item by ID for cookie capture.
+    Per ADR-0007: Get specific queue item by ID for cookie capture.
     """
 
     @pytest.mark.asyncio

@@ -522,7 +522,7 @@ class TestCitationGraphIntegration:
 
 
 class TestAPIReturnTypes:
-    """Tests for API return type consistency (Decision 12)."""
+    """Tests for API return type consistency (ADR-0008)."""
 
     @pytest.mark.asyncio
     async def test_openalex_get_references_returns_list_paper(self) -> None:

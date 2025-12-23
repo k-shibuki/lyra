@@ -6,8 +6,8 @@ Shared by:
 - APIRetryPolicy (src/utils/api_retry.py)
 - DomainPolicy cooldown calculation (src/utils/domain_policy.py)
 
-Per §4.3.5: Exponential backoff calculation for retry strategies.
-Per §4.3: "429/403検出時は指数バックオフ...を適用"
+Per ADR-0006: Exponential backoff calculation for retry strategies.
+Per ADR-0006: "429/403検出時は指数バックオフ...を適用"
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 class BackoffConfig:
     """Configuration for exponential backoff calculation.
 
-    Per §4.3.5:
+    Per ADR-0006:
     - base_delay: Starting delay in seconds (default: 1.0)
     - max_delay: Maximum delay cap in seconds (default: 60.0)
     - exponential_base: Base for exponential calculation (default: 2.0)
@@ -57,7 +57,7 @@ def calculate_backoff(
 ) -> float:
     """Calculate delay with exponential backoff and optional jitter.
 
-    Per §4.3.5: delay = min(base_delay * (2 ^ attempt), max_delay)
+    Per ADR-0006: delay = min(base_delay * (2 ^ attempt), max_delay)
     With jitter: ±jitter_factor random variation
 
     Args:
@@ -89,14 +89,14 @@ def calculate_backoff(
         config = BackoffConfig()
 
     # Calculate exponential delay with cap
-    # Per §4.3.5: delay = min(base_delay * (2 ^ attempt), max_delay)
+    # Per ADR-0006: delay = min(base_delay * (2 ^ attempt), max_delay)
     delay = min(
         config.base_delay * (config.exponential_base**attempt),
         config.max_delay,
     )
 
     # Add jitter to prevent thundering herd
-    # Per §4.3.5: ±10% random variation
+    # Per ADR-0006: ±10% random variation
     if add_jitter and config.jitter_factor > 0:
         jitter_range = delay * config.jitter_factor
         delay += random.uniform(-jitter_range, jitter_range)
@@ -111,9 +111,9 @@ def calculate_cooldown_minutes(
 ) -> int:
     """Calculate cooldown duration for circuit breaker / domain policy.
 
-    Per §4.3.5: cooldown = min(base_minutes * (2 ^ (failures // 3)), max_minutes)
-    Per §4.3: "クールダウン≥30分"
-    Per §3.1.4: "自動無効化: TTL（30〜120分）"
+    Per ADR-0006: cooldown = min(base_minutes * (2 ^ (failures // 3)), max_minutes)
+    Per ADR-0006: "クールダウン≥30分"
+    Per ADR-0006: "自動無効化: TTL（30〜120分）"
 
     The formula groups failures into tiers of 3, doubling cooldown each tier:
     - 0-2 failures: base_minutes (30 min default)
@@ -123,8 +123,8 @@ def calculate_cooldown_minutes(
 
     Args:
         failure_count: Number of failures (can be consecutive or total in window)
-        base_minutes: Minimum cooldown (default: 30 per §4.3)
-        max_minutes: Maximum cooldown (default: 120 per §3.1.4)
+        base_minutes: Minimum cooldown (default: 30 per ADR-0006)
+        max_minutes: Maximum cooldown (default: 120 per ADR-0006)
 
     Returns:
         Cooldown duration in minutes

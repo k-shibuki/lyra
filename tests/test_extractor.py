@@ -1,7 +1,7 @@
 """
 Tests for src/extractor/content.py
 
-OCR functionality tests (§5.1.1):
+OCR functionality tests (ADR-0008):
 - PaddleOCR (GPU-capable) as primary OCR engine
 - Tesseract as fallback
 - Scanned PDF detection and OCR application

@@ -1,7 +1,7 @@
 """
 Secure logging utilities for Lyra.
 
-Implements L8 (Log Security Policy) per §4.4.1:
+Implements L8 (Log Security Policy) per ADR-0005:
 - LLM input/output logging as summaries (hash, length, preview)
 - Exception sanitization (no stack traces, internal paths)
 - Security audit logging for detection events
@@ -186,7 +186,7 @@ class SecureLogger:
         """
         Log LLM input/output as safe summaries.
 
-        Per §4.4.1 L8: Never log full prompt text.
+        Per ADR-0005 L8: Never log full prompt text.
         Instead, log hash, length, and masked preview.
 
         Args:
@@ -224,7 +224,7 @@ class SecureLogger:
         """
         Log an exception with sanitized information.
 
-        Per §4.4.1 L8: Sanitize exception messages before logging.
+        Per ADR-0005 L8: Sanitize exception messages before logging.
         Internal trace is logged separately at DEBUG level only if requested.
 
         Args:
@@ -402,7 +402,7 @@ class AuditLogger:
     """
     Security audit logger for recording detection events.
 
-    Per §4.4.1: Records security-relevant events for monitoring and review.
+    Per ADR-0005: Records security-relevant events for monitoring and review.
 
     Usage:
         audit = AuditLogger()
@@ -558,7 +558,7 @@ def sanitize_log_processor(
     """
     Structlog processor that sanitizes sensitive content in logs.
 
-    Per §4.4.1 L8: Automatically detect and mask prompt content in logs.
+    Per ADR-0005 L8: Automatically detect and mask prompt content in logs.
 
     Add to structlog processors:
         processors = [

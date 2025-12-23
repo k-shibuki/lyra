@@ -9,15 +9,15 @@ This module provides:
 - Schema validation for engine definitions
 - Runtime caching with efficient lookups
 
-Per §17.2.2 of docs/IMPLEMENTATION_PLAN.md:
+Per of :
 - Dynamic management of search engine settings
 - Engine addition/deletion via YAML only (no code changes)
 - External operator normalization rules
 
 References:
-- §3.1.1 (Search strategies)
-- §3.1.4 (Engine health/normalization)
-- §4.3 (Stealth policies)
+- ADR-0010 (Search strategies)
+- ADR-0006 (Engine health/normalization)
+- ADR-0006 (Stealth policies)
 """
 
 from __future__ import annotations

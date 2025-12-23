@@ -2,7 +2,7 @@
 """
 Mojeek Search Engine E2E Verification
 
-Verification target: §3.2 Agent Execution (Browser Search) - Mojeek
+Verification target: ADR-0003 Agent Execution (Browser Search) - Mojeek
 
 Mojeek characteristics:
 - Independent search engine (own index)
@@ -20,7 +20,7 @@ Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - CAPTCHA: 100% detection
 - Scraping success rate ≥95%
 
@@ -148,7 +148,7 @@ class MojeekSearchVerifier:
                 await provider.close()
                 return VerificationResult(
                     name="CDP Connection",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="Browser not connected",
                 )
@@ -159,7 +159,7 @@ class MojeekSearchVerifier:
 
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details=browser_info,
             )
@@ -168,7 +168,7 @@ class MojeekSearchVerifier:
             logger.exception("CDP connection verification failed")
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -202,7 +202,7 @@ class MojeekSearchVerifier:
                     print(f"    ! CAPTCHA detected: {captcha_type}")
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         details={
                             "captcha_detected": True,
@@ -213,7 +213,7 @@ class MojeekSearchVerifier:
                 else:
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error=f"Search failed: {result.error}",
                     )
@@ -224,7 +224,7 @@ class MojeekSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name=f"{self.ENGINE_DISPLAY} Search",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results returned",
                 )
@@ -237,7 +237,7 @@ class MojeekSearchVerifier:
 
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "query": test_query,
@@ -250,7 +250,7 @@ class MojeekSearchVerifier:
             logger.exception(f"{self.ENGINE_DISPLAY} search verification failed")
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -280,14 +280,14 @@ class MojeekSearchVerifier:
                 if _is_captcha_error(result):
                     return VerificationResult(
                         name="Parser Accuracy",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         skipped=True,
                         skip_reason="CAPTCHA detected, cannot verify parser",
                     )
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Search failed: {result.error}",
                 )
@@ -295,7 +295,7 @@ class MojeekSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results to verify",
                 )
@@ -326,7 +326,7 @@ class MojeekSearchVerifier:
             if accuracy >= 0.9:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=True,
                     details={
                         "accuracy": accuracy,
@@ -338,7 +338,7 @@ class MojeekSearchVerifier:
             else:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Parser accuracy {accuracy:.0%} < 90%",
                 )
@@ -347,7 +347,7 @@ class MojeekSearchVerifier:
             logger.exception("Parser accuracy verification failed")
             return VerificationResult(
                 name="Parser Accuracy",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -365,7 +365,7 @@ class MojeekSearchVerifier:
             if not parser:
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error="Parser not available",
                 )
@@ -388,14 +388,14 @@ class MojeekSearchVerifier:
                 print("    ✓ CAPTCHA patterns correctly detected")
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=True,
                     details={"test_cases": len(test_cases)},
                 )
             else:
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error="Some CAPTCHA patterns not detected",
                 )
@@ -404,7 +404,7 @@ class MojeekSearchVerifier:
             logger.exception("CAPTCHA detection verification failed")
             return VerificationResult(
                 name="CAPTCHA Detection",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
@@ -413,7 +413,7 @@ class MojeekSearchVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print(f"E2E: {self.ENGINE_DISPLAY} Search Verification")
-        print("検証対象: §3.2 エージェント実行機能（ブラウザ検索）")
+        print("検証対象: ADR-0003 エージェント実行機能（ブラウザ検索）")
         print("=" * 70)
 
         # Prerequisites

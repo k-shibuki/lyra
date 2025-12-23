@@ -1,7 +1,7 @@
 """
 Browser stealth utilities for Lyra.
 
-Implements minimal anti-bot detection measures per §4.3:
+Implements minimal anti-bot detection measures per ADR-0006:
 - navigator.webdriver property override
 - Viewport jitter with hysteresis
 - Other minimal stealth properties
@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 # =============================================================================
 
 # Minimal stealth.js equivalent - overrides navigator.webdriver and related properties
-# per §4.3 (Browser/JS Layer)
+# per ADR-0006 (Browser/JS Layer)
 STEALTH_JS = """
 (() => {
     // Override navigator.webdriver
@@ -168,13 +168,13 @@ class ViewportJitterConfig:
         base_height: Base viewport height.
         max_width_jitter: Maximum width jitter in pixels.
         max_height_jitter: Maximum height jitter in pixels.
-        hysteresis_seconds: Minimum time between jitter changes (per §4.3).
+        hysteresis_seconds: Minimum time between jitter changes (per ADR-0006).
         enabled: Whether jitter is enabled.
     """
 
     base_width: int = 1920
     base_height: int = 1080
-    max_width_jitter: int = 20  # Narrow jitter per §4.3
+    max_width_jitter: int = 20 # Narrow jitter per ADR-0006
     max_height_jitter: int = 15
     hysteresis_seconds: float = 300.0  # 5 minutes minimum between changes
     enabled: bool = True
@@ -198,7 +198,7 @@ class ViewportState:
 class ViewportJitter:
     """Applies viewport jitter with hysteresis to reduce fingerprinting.
 
-    Per §4.3, viewport jitter is applied with narrow limits and hysteresis
+    Per ADR-0006, viewport jitter is applied with narrow limits and hysteresis
     to prevent oscillation while still providing some randomization.
     """
 
@@ -294,7 +294,7 @@ async def apply_stealth_to_page(page: "Page", is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright page.
 
     Injects JavaScript to override navigator.webdriver and related
-    properties per §4.3 requirements.
+    properties per ADR-0006 requirements.
 
     Args:
         page: Playwright page object.

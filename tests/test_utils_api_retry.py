@@ -1,9 +1,9 @@
 """
-Tests for API retry utilities (§3.1.3, §4.3.5).
+Tests for API retry utilities (ADR-0008, ADR-0006).
 
-Test coverage per §7.1 (Test Strategy):
-- §3.1.3: Official public APIs (e-Stat, OpenAlex, etc.)
-- §4.3.5: "ネットワーク/APIリトライ（トランジェントエラー向け）"
+Test coverage per .1 (Test Strategy):
+- ADR-0008: Official public APIs (e-Stat, OpenAlex, etc.)
+- ADR-0006: "ネットワーク/APIリトライ（トランジェントエラー向け）"
 
 Test Perspectives Table:
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
@@ -503,7 +503,7 @@ class TestSpecCompliance:
     """Tests for compliance with specification sections."""
 
     def test_spec_3_1_3_no_bot_detection_for_official_apis(self) -> None:
-        """Test that policy is designed for official APIs without bot detection (§3.1.3)."""
+        """Test that policy is designed for official APIs without bot detection (ADR-0008)."""
         # Given: Default policy
         policy = APIRetryPolicy()
 
@@ -515,7 +515,7 @@ class TestSpecCompliance:
         assert not policy.should_retry_status(403)
 
     def test_spec_4_3_5_network_transient_retry(self) -> None:
-        """Test that policy handles network transient errors (§4.3.5)."""
+        """Test that policy handles network transient errors (ADR-0006)."""
         # Given: Policy
         policy = APIRetryPolicy()
 
@@ -527,18 +527,18 @@ class TestSpecCompliance:
         assert 504 in policy.retryable_status_codes  # Gateway timeout
 
     def test_spec_4_3_5_not_for_search_engines(self) -> None:
-        """Test that 403 is NOT retryable (search engine protection) per §4.3.5."""
+        """Test that 403 is NOT retryable (search engine protection) per ADR-0006."""
         # Given: Policy
         policy = APIRetryPolicy()
 
         # Then: 403 is explicitly non-retryable
-        # Per §4.3.5: "検索エンジン/ブラウザ取得では使用禁止"
+        # Per ADR-0006: "検索エンジン/ブラウザ取得では使用禁止"
         assert 403 in policy.non_retryable_status_codes
         assert not policy.should_retry_status(403)
 
     @pytest.mark.asyncio
     async def test_spec_backoff_applied(self) -> None:
-        """Test that exponential backoff is applied per §4.3.5."""
+        """Test that exponential backoff is applied per ADR-0006."""
         # Given: Track timing
         timestamps: list[float] = []
         call_count = 0

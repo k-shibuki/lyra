@@ -2,7 +2,7 @@
 Tests for src/storage/database.py
 
 All tests in this module use a temporary database and are classified
-as integration tests per §7.1.7.
+as integration tests per .1.7.
 """
 
 from __future__ import annotations
