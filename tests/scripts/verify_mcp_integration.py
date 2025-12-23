@@ -2,7 +2,7 @@
 """
 MCP Tool Integration E2E Verification Script
 
-Verification target: N.2-2 - MCPツール疎通確認
+Verification target: MCP tool integration verification - MCPツール疎通確認
 
 Verification items:
 1. create_task - タスク作成、DB登録
@@ -63,7 +63,7 @@ class VerificationResult:
 
 class MCPIntegrationVerifier:
     """
-    Verifier for N.2-2 MCP Tool Integration.
+    Verifier for MCP tool integration verification MCP Tool Integration.
 
     Tests all 11 MCP tools defined in Phase M.
     """
@@ -1145,7 +1145,7 @@ class MCPIntegrationVerifier:
             2: Critical failure
         """
         print("\n" + "=" * 70)
-        print("MCP Tool Integration Verification (N.2-2)")
+        print("MCP Tool Integration Verification (MCP tool integration verification)")
         print("検証対象: Phase M MCPツール（11個）の疎通確認")
         print("=" * 70)
 

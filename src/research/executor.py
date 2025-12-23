@@ -6,7 +6,7 @@ Handles mechanical expansions (synonyms, mirror queries, operators) only.
 
 See ADR-0002 and ADR-0010.
 
-Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
+Note: This module uses "search" terminology (not "subquery").
 """
 
 import hashlib
@@ -406,7 +406,7 @@ class SearchExecutor:
         )
 
         try:
-            # Pass engines if specified (O.8 fix)
+            # Pass engines if specified
             results = await search_serp(
                 query=query,
                 limit=10,
@@ -650,7 +650,7 @@ class SearchExecutor:
                         is_novel=is_novel,
                     )
 
-                    # Persist fragment to DB for get_materials() (O.7 fix)
+                    # Persist fragment to DB for get_materials()
                     fragment_id = f"f_{uuid.uuid4().hex[:8]}"
                     page_id = fetch_result.get("page_id", f"p_{uuid.uuid4().hex[:8]}")
                     await self._persist_fragment(
@@ -677,7 +677,7 @@ class SearchExecutor:
                             self.state.record_claim(search_id)
                             result.new_claims.append(claim)
 
-                            # Persist claim to DB for get_materials() (O.7 fix)
+                            # Persist claim to DB for get_materials()
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
                                 claim_id=claim_id,
@@ -699,7 +699,7 @@ class SearchExecutor:
                                 }
                             )
 
-                            # Persist snippet as claim for get_materials() (O.7 fix)
+                            # Persist snippet as claim for get_materials()
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
                                 claim_id=claim_id,
@@ -795,8 +795,8 @@ class SearchExecutor:
         """
         Persist fragment to database for get_materials() retrieval.
 
-        O.7 fix: fragments were only tracked in memory, causing get_materials()
-        to return empty results.
+        Fragments must be persisted to DB; memory-only tracking causes
+        get_materials() to return empty results.
 
         Args:
             fragment_id: Unique fragment identifier.
@@ -850,8 +850,8 @@ class SearchExecutor:
         """
         Persist claim to database for get_materials() retrieval.
 
-        O.7 fix: claims were only tracked in memory, causing get_materials()
-        to return empty results.
+        Claims must be persisted to DB; memory-only tracking causes
+        get_materials() to return empty results.
 
         Args:
             claim_id: Unique claim identifier.

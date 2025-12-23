@@ -8,7 +8,7 @@ See ADR-0010:
 - Dynamic budget reallocation based on harvest rate (useful fragments / fetched pages) per search (UCB1-style)
 - Exploration tree control optimization
 
-Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
+Note: This module uses "search" terminology (not "subquery").
 """
 
 import math

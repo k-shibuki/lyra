@@ -1,5 +1,5 @@
 """
-Tests for DomainDailyBudgetManager (ADR-0006 - IP block prevention, Problem 11).
+Tests for DomainDailyBudgetManager (ADR-0006 - IP block prevention).
 
 Test design follows .1 Test Code Quality Standards:
 - No conditional assertions (.1.1)

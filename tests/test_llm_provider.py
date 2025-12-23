@@ -500,7 +500,7 @@ class TestBaseLLMProvider:
 
 
 class TestOllamaProviderInit:
-    """Tests for OllamaProvider initialization (Phase O.3 hybrid mode)."""
+    """Tests for OllamaProvider initialization (Hybrid mode hybrid mode)."""
 
     def test_default_configuration(self) -> None:
         """

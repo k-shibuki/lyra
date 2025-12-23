@@ -6,7 +6,8 @@ Manages LLM prompt templates using Jinja2, providing:
 - Variable injection and validation
 - Consistent error handling
 
-Per Phase K.2: External prompt template management for improved maintainability.
+External prompt template management for improved maintainability.
+Templates are stored in config/prompts/*.j2 and loaded dynamically.
 """
 
 import os

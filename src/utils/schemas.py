@@ -241,7 +241,7 @@ class DynamicWeightResult(BaseModel):
 
 
 # =============================================================================
-# Tor Daily Limit (Problem 10)
+# Tor Daily Limit (Tor daily usage limit)
 # =============================================================================
 
 
@@ -314,7 +314,7 @@ class DomainTorMetrics(BaseModel):
 
 
 # =============================================================================
-# Domain Daily Budget (Problem 11)
+# Domain Daily Budget (Domain daily budget)
 # =============================================================================
 
 

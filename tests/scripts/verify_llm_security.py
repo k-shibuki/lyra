@@ -2,7 +2,7 @@
 """
 LLM Security E2E Verification Script
 
-Verification target: N.2-3 - セキュリティE2E
+Verification target: Security E2E verification - セキュリティE2E
 
 Verification items (ADR-0005):
 1. L1: Network isolation - Ollama cannot access external networks
@@ -58,9 +58,9 @@ class VerificationResult:
 
 class SecurityE2EVerifier:
     """
-    Verifier for N.2-3 Security E2E.
+    Verifier for Security E2E verification Security E2E.
 
-    Tests all security layers (L1-L8) defined in Phase K.3.
+    Tests all security layers (L1-L8) defined in Security layers (ADR-0005 L1-L8).
     """
 
     def __init__(self) -> None:
@@ -847,7 +847,7 @@ class SecurityE2EVerifier:
             Exit code: 0 (all passed), 1 (some failed), 2 (critical failure)
         """
         print("\n" + "=" * 70)
-        print("Security E2E Verification (N.2-3)")
+        print("Security E2E Verification (Security E2E verification)")
         print("検証対象: ADR-0005 プロンプトインジェクション対策 L1-L8")
         print("=" * 70)
 

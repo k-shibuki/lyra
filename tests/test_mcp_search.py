@@ -787,7 +787,7 @@ class TestChromeCDPCheck:
 
 
 class TestChromeAutoStart:
-    """Tests for Chrome auto-start functionality (N.5.3)."""
+    """Tests for Chrome auto-start functionality (Chrome auto-start)."""
 
     @pytest.mark.asyncio
     async def test_auto_start_chrome_success(self) -> None:
