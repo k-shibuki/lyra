@@ -114,15 +114,11 @@
 | Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
 |---|---|---|---|---|
 | Phase 6 / Task 6.0 | クリーン実装ゲート（Phase 1-5 完了事項の徹底確認 + 完全クリーンアップ） | DONE | `tests/test_source_verification.py`, `tests/test_mcp_get_status.py`, `tests/test_evidence_graph.py`, `tests/test_evidence_graph_academic.py` | 旧フィールド言及（否定テスト・コメント含む）を完全削除。検証: 旧フィールド0件、テスト199 passed |
-| Phase 6 / Task 6.1 | `feedback` MCPツール新設（3レベル + `domain_clear_override`） | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/feedback.json` | 決定17/20参照。`calibration_metrics` は計測用として残す（入力は `feedback` に統一） |
-| Phase 6 / Task 6.2 | Domain override 実装（DB永続化 + pattern制約 + 優先順位） | PLANNED | `src/mcp/server.py`, `src/filter/source_verification.py`, `src/utils/domain_policy.py`, `src/storage/schema.sql` | 決定20参照。`domain_block`/`domain_unblock`/`domain_clear_override` |
-| Phase 6 / Task 6.3 | `claim_reject` / `claim_restore` 実装：claim採用状態操作 | PLANNED | `src/mcp/server.py`, `src/storage/schema.sql` | `claim_adoption_status` を `adopted` ↔ `not_adopted` に切替 |
-| Phase 6 / Task 6.4 | `edge_correct` 実装：NLIラベル訂正（即時反映 + 校正サンプル蓄積） | PLANNED | `src/mcp/server.py`, `src/filter/evidence_graph.py` | 3クラス（supports/refutes/neutral）の正解ラベルを入力 |
-| Phase 6 / Task 6.5 | スキーマ変更（命名規則統一 + 新規カラム追加） | PLANNED | `src/storage/schema.sql` | 決定19参照。`edge_*`, `claim_*` プレフィックス |
-| Phase 6 / Task 6.6 | DBスキーマ棚卸し（dead fields 削除: `calibrated_score`, `is_verified`） | PLANNED | `src/storage/schema.sql` | "現状→改善後"の表で仕様と実装を一致させる |
-| Phase 6 / Task 6.7 | NLI ground-truth サンプル蓄積（`nli_corrections`）+ 校正サンプル接続（計測のみ。推論への適用は Phase R） | PLANNED | `src/utils/calibration.py`, `src/storage/schema.sql` | Phase 6では蓄積と計測のみ（推論への適用はしない） |
-| Phase 6 / Task 6.8 | `get_materials` に `claim_adoption_status` 露出 | PLANNED | `src/research/materials.py`, `src/mcp/schemas/get_materials.json` | 不採用claimのフィルタリングを高推論AIに委ねる |
-| Phase 6 / Task 6.9 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | Phase 6の再編反映 |
+| Phase 6 / Task 6.1 | DBスキーマ変更（命名統一 + 新カラム + 新テーブル） | PLANNED | `src/storage/schema.sql` | 決定19/20参照。`nli_corrections`, `domain_override_rules/events` 作成。DB作り直し（マイグレーション不要） |
+| Phase 6 / Task 6.2 | `feedback` MCPツール新設（6アクション） | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/feedback.json`, `src/filter/source_verification.py`, `src/filter/evidence_graph.py` | 決定17/20参照。Domain/Claim/Edge 3レベル |
+| Phase 6 / Task 6.3 | `calibrate` → `calibration_metrics` リネーム + `add_sample` 削除 | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/calibration_metrics.json`, `src/utils/calibration.py` | feedbackで蓄積されたDBを使用。破壊操作は `calibration_rollback` に分離維持 |
+| Phase 6 / Task 6.4 | `get_materials` に `claim_adoption_status` 露出 | PLANNED | `src/research/materials.py`, `src/mcp/schemas/get_materials.json` | 不採用claimのフィルタリングを高推論AIに委ねる |
+| Phase 6 / Task 6.5 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | Phase 6完了反映 |
 
 ---
 
@@ -622,16 +618,16 @@ task_id = "task-123"
 - **監査可能**: 訂正/棄却には `reason` を記録し、後から追跡可能にする
 - **3レベル対応**: Domain（glob対応）、Claim（1件ずつ）、Edge（1件ずつ）
 
-**アクション一覧**:
+**アクション一覧（6アクション）**:
 
-| レベル | action | 目的 | 入力 |
-|--------|--------|------|------|
-| Domain | `domain_block` | ドメインをブロック | `domain_pattern`, `reason` |
-| Domain | `domain_unblock` | ブロック解除（overrideで許可） | `domain_pattern`, `reason` |
-| Domain | `domain_clear_override` | ドメインoverrideを解除（ベースラインへ戻す） | `domain_pattern`, `reason` |
-| Claim | `claim_reject` | claimを不採用に | `claim_id`, `reason` |
-| Claim | `claim_restore` | 不採用を撤回 | `claim_id` |
-| Edge | `edge_correct` | NLIラベル訂正 | `edge_id`, `correct_relation`, `reason?` |
+| レベル | action | 目的 | 入力 | 挙動 |
+|--------|--------|------|------|------|
+| Domain | `domain_block` | ドメインをブロック | `domain_pattern`, `reason` | DB永続化 + `domain_block_reason="manual"` |
+| Domain | `domain_unblock` | ブロック解除（overrideで許可） | `domain_pattern`, `reason` | DB永続化 + blocked_domains から削除 |
+| Domain | `domain_clear_override` | ドメインoverrideを解除（ベースラインへ戻す） | `domain_pattern`, `reason` | override解除 + 再評価 |
+| Claim | `claim_reject` | claimを不採用に | `claim_id`, `reason` | `claim_adoption_status="not_adopted"` |
+| Claim | `claim_restore` | 不採用を撤回 | `claim_id` | `claim_adoption_status="adopted"` |
+| Edge | `edge_correct` | NLIラベル訂正 | `edge_id`, `correct_relation`, `reason?` | 即時反映 + `nli_corrections` 蓄積 |
 
 **パラメータ詳細**:
 
@@ -654,11 +650,14 @@ task_id = "task-123"
 - `feedback`: Human-in-the-loop 入力用（訂正・棄却・ブロック）
 - 両者は責務が異なり、併存する
 
-**`calibration_metrics` の最小actionセット（必要十分）**:
+**`calibration_metrics` の最小actionセット（4アクション）**:
 - `get_stats`: source別の統計（サンプル数、最新version、最新Brier等）
-- `evaluate`: DBに蓄積されたサンプルから評価を実行し、結果を履歴として保存（外部から predictions/labels を渡さない）
-- `get_evaluations`: 評価履歴の取得（reliability diagram用のbinsを含むため、diagram専用actionは置かない）
-- 破壊操作は `calibration_rollback`（別ツール）に分離する
+- `evaluate`: `nli_corrections` テーブルに蓄積されたサンプルから評価を実行し、結果を履歴として保存
+- `get_evaluations`: 評価履歴の取得（reliability diagram用のbinsを含む）
+- `get_diagram_data`: 可視化用データ取得
+- 破壊操作は `calibration_rollback`（別ツール）に分離維持
+
+**注**: `add_sample` アクションは削除。サンプルは `feedback(edge_correct)` 経由で `nli_corrections` テーブルに蓄積される。
 
 **3クラス対応**:
 - `correct_relation` は `"supports"` / `"refutes"` / `"neutral"` の3値
@@ -3017,124 +3016,516 @@ rg -n "\\bcompatibility\\b" src/ tests/
 
 （注）`verdict` は一般語として出現し得るため、旧フィールドの検証は `edges.verdict` 等の**具体的な参照**に限定して確認する（例: `rg -n "\\bedges\\.verdict\\b|\"verdict\"\\s*:" src/ tests/`）。
 
-#### 6.1 `feedback` ツールの設計（決定17, 決定19）
+#### 6.1 DBスキーマ変更
 
-**思想**: 「パラメータを直接いじる」恣意性を排除し、「正解を教える」形でのみ入力を受け付ける。
+**方針**: DBを完全に作り直す。マイグレーション機構は温存するが、現段階では使用しない（リリース後に使用）。
 
-**3レベル対応**:
-
-| レベル | 対象 | 操作単位 |
-|--------|------|----------|
-| Domain | ドメイン | glob対応（`*.example.com`） |
-| Claim | 個別claim | 1件ずつ |
-| Edge | NLIエッジ | 1件ずつ |
-
-**アクション一覧**:
-
-| レベル | action | 目的 | 入力 | 挙動 |
-|--------|--------|------|------|------|
-| Domain | `domain_block` | ドメインをブロック | `domain_pattern`, `reason` | `domain_block_reason = "manual"` |
-| Domain | `domain_unblock` | ブロック解除 | `domain_pattern` | 動的ブロックから削除 |
-| Claim | `claim_reject` | claimを不採用に | `claim_id`, `reason` | `claim_adoption_status = "not_adopted"` |
-| Claim | `claim_restore` | 不採用を撤回 | `claim_id` | `claim_adoption_status = "adopted"` |
-| Edge | `edge_correct` | NLIラベル訂正 | `edge_id`, `correct_relation`, `reason?` | 即時反映 + 校正サンプル蓄積 |
-
-**MCPスキーマ**:
-```json
-{
-  "name": "feedback",
-  "description": "Human-in-the-loop feedback for domain/claim/edge management",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "action": {
-        "type": "string",
-        "enum": ["domain_block", "domain_unblock", "claim_reject", "claim_restore", "edge_correct"]
-      },
-      "domain_pattern": { "type": "string", "description": "For domain_block/domain_unblock. Glob pattern (e.g., *.example.com)" },
-      "claim_id": { "type": "string", "description": "For claim_reject/claim_restore" },
-      "edge_id": { "type": "string", "description": "For edge_correct" },
-      "correct_relation": { "type": "string", "enum": ["supports", "refutes", "neutral"], "description": "For edge_correct" },
-      "reason": { "type": "string", "description": "Required for domain_block, claim_reject. Optional for edge_correct" }
-    },
-    "required": ["action"]
-  }
-}
-```
-
-**`edge_correct` の処理フロー**:
-
-```
-1. 既存エッジ取得（edge_id）
-2. ground-truth サンプル蓄積（DB: `nli_corrections`。premise/hypothesis/予測/正解/理由を保存）
-3. エッジ即時更新（relation, nli_label, edge_human_corrected=True, edge_correction_reason, edge_corrected_at）
-4. ベイズ再計算は get_materials 時にオンデマンド（変更不要）
-```
-
-**`domain_block` の処理フロー**:
-
-```
-1. パターン検証（glob構文）
-2. 動的ブロックリストに追加（domain_block_reason = "manual"）
-3. 該当ドメインのソースを以降スキップ
-```
-
-**`calibration_metrics` ツールとの関係**:
-- `calibration_metrics` は**評価・統計・履歴参照用**として残す（計測系。入力は `feedback` に統一）
-- `feedback` は**Human-in-the-loop 入力用**（訂正・棄却・ブロック）
-- 両者は責務が異なる（計測 vs 入力）
-
-#### 6.2 スキーマ変更（決定19: 命名規則統一）
+##### 6.1.1 新テーブル: `nli_corrections`
 
 ```sql
--- edges テーブル（訂正履歴）
-ALTER TABLE edges ADD COLUMN edge_human_corrected BOOLEAN DEFAULT 0;
-ALTER TABLE edges ADD COLUMN edge_correction_reason TEXT;
-ALTER TABLE edges ADD COLUMN edge_corrected_at TEXT;
-
--- claims テーブル（採用状態・棄却履歴）
-ALTER TABLE claims RENAME COLUMN confidence_score TO claim_confidence;
-ALTER TABLE claims RENAME COLUMN adoption_status TO claim_adoption_status;
-ALTER TABLE claims ADD COLUMN claim_rejection_reason TEXT;
-ALTER TABLE claims ADD COLUMN claim_rejected_at TEXT;
-ALTER TABLE claims DROP COLUMN calibrated_score;  -- dead field
-ALTER TABLE claims DROP COLUMN is_verified;       -- verification_status に統一
-```
-
-#### 6.3 訂正履歴の蓄積と将来のモデル改善
-
-**Phase 6での方針**:
-- `edge_correct` で入力された訂正は**履歴としてDBに蓄積**する
-- 訂正されたエッジは `nli_confidence=1.0` に固定（人が確信を持って訂正したため）
-- NLIモデル自体の改善（ファインチューニング）は**Phase R**で検討
-
-**蓄積形式（DBテーブル）**:
-
-```sql
--- nli_corrections テーブル（新規）
+-- NLI correction samples for ground-truth collection (Phase 6 / Phase R LoRA)
 CREATE TABLE IF NOT EXISTS nli_corrections (
     id TEXT PRIMARY KEY,
     edge_id TEXT NOT NULL,
     task_id TEXT,
     premise TEXT NOT NULL,               -- NLI premise snapshot (for training reproducibility)
     hypothesis TEXT NOT NULL,            -- NLI hypothesis snapshot (for training reproducibility)
-    predicted_label TEXT NOT NULL,       -- 元のNLI判定
-    predicted_confidence REAL NOT NULL,  -- 元の確信度
-    correct_label TEXT NOT NULL,         -- 人が入力した正解
-    reason TEXT,                         -- 訂正理由（監査用）
+    predicted_label TEXT NOT NULL,       -- Original NLI prediction: supports/refutes/neutral
+    predicted_confidence REAL NOT NULL,  -- Original confidence (0.0-1.0)
+    correct_label TEXT NOT NULL,         -- Human-provided ground-truth: supports/refutes/neutral
+    reason TEXT,                         -- Correction reason (audit)
     corrected_at TEXT NOT NULL,
     FOREIGN KEY (edge_id) REFERENCES edges(id)
 );
+CREATE INDEX IF NOT EXISTS idx_nli_corrections_edge ON nli_corrections(edge_id);
+CREATE INDEX IF NOT EXISTS idx_nli_corrections_task ON nli_corrections(task_id);
+CREATE INDEX IF NOT EXISTS idx_nli_corrections_corrected_at ON nli_corrections(corrected_at);
 ```
 
-**将来のモデル改善（Phase 7以降）**:
-- 訂正サンプルが十分蓄積されたら（目安: 数百件）、ファインチューニングを検討
-- 方式は LoRA（軽量アダプタ）を推奨（詳細は別途検討）
-- 訂正が少ない段階では、エッジ訂正 → ベイズ反映で即時効果を得る
+##### 6.1.2 新テーブル: `domain_override_rules`, `domain_override_events`
 
-**注（重要）**: 確率キャリブレーション（Temperature Scaling等）は「確率のズレ」を補正するものであり、「ラベルの間違い」を直すものではない。ラベル改善にはファインチューニングが必要。
+```sql
+-- Domain override rules (source of truth for feedback domain_block/unblock)
+CREATE TABLE IF NOT EXISTS domain_override_rules (
+    id TEXT PRIMARY KEY,
+    domain_pattern TEXT NOT NULL,                 -- "example.com" or "*.example.com"
+    decision TEXT NOT NULL,                       -- "block" | "unblock"
+    reason TEXT NOT NULL,                         -- Required (audit)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT 1,
+    created_by TEXT DEFAULT 'feedback'            -- Audit trail
+);
+CREATE INDEX IF NOT EXISTS idx_domain_override_rules_active
+    ON domain_override_rules(is_active, decision, updated_at);
+CREATE INDEX IF NOT EXISTS idx_domain_override_rules_pattern
+    ON domain_override_rules(domain_pattern);
 
-#### 6.4 `high_rejection_rate` の定義
+-- Append-only audit log for domain overrides
+CREATE TABLE IF NOT EXISTS domain_override_events (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT,
+    action TEXT NOT NULL,                         -- "domain_block" | "domain_unblock" | "domain_clear_override"
+    domain_pattern TEXT NOT NULL,
+    decision TEXT NOT NULL,                       -- "block" | "unblock" | "clear"
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'feedback'
+);
+CREATE INDEX IF NOT EXISTS idx_domain_override_events_created_at
+    ON domain_override_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_domain_override_events_rule
+    ON domain_override_events(rule_id);
+```
+
+##### 6.1.3 既存テーブル変更: `edges`
+
+新規DB作成時は `CREATE TABLE` に以下カラムを含める:
+
+```sql
+-- edges テーブルに追加するカラム
+edge_human_corrected BOOLEAN DEFAULT 0,
+edge_correction_reason TEXT,
+edge_corrected_at TEXT
+```
+
+##### 6.1.4 既存テーブル変更: `claims`
+
+| 操作 | 旧カラム | 新カラム | 備考 |
+|------|----------|----------|------|
+| RENAME | `confidence_score` | `claim_confidence` | 命名統一 |
+| RENAME | `adoption_status` | `claim_adoption_status` | 命名統一 |
+| ADD | - | `claim_rejection_reason` | 棄却理由（監査用） |
+| ADD | - | `claim_rejected_at` | 棄却日時 |
+| DROP | `calibrated_score` | - | dead field |
+| DROP | `is_verified` | - | `source_verification_status` に統一 |
+| CHANGE DEFAULT | `claim_adoption_status` | DEFAULT 'adopted' | 旧: 'pending' |
+
+**新規DB作成時の `claims` テーブル定義**:
+
+```sql
+CREATE TABLE IF NOT EXISTS claims (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    claim_text TEXT NOT NULL,
+    claim_type TEXT,
+    granularity TEXT,
+    expected_polarity TEXT,
+    claim_confidence REAL,                        -- Renamed from confidence_score
+    source_fragment_ids TEXT,
+    claim_adoption_status TEXT DEFAULT 'adopted', -- Renamed, default changed from 'pending'
+    claim_rejection_reason TEXT,                  -- NEW: rejection reason (audit)
+    claim_rejected_at TEXT,                       -- NEW: rejection timestamp
+    supporting_count INTEGER DEFAULT 0,
+    refuting_count INTEGER DEFAULT 0,
+    neutral_count INTEGER DEFAULT 0,
+    verification_notes TEXT,
+    timeline_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    cause_id TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+```
+
+##### 6.1.5 スキーマ更新手順
+
+1. `src/storage/schema.sql` を直接編集（上記変更を反映）
+2. 既存DBファイル（`data/lyra.db`）を削除
+3. アプリ起動時に新規DB作成
+
+**マイグレーション機構について**: `src/storage/migrations/` は温存。リリース後のスキーマ変更時に使用。
+
+---
+
+#### 6.2 `feedback` MCPツール新設
+
+**思想**: 「パラメータを直接いじる」恣意性を排除し、「正解を教える」形でのみ入力を受け付ける。
+
+##### 6.2.1 ツール定義（inputSchema）
+
+```json
+{
+  "name": "feedback",
+  "description": "Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "domain_block",
+          "domain_unblock",
+          "domain_clear_override",
+          "claim_reject",
+          "claim_restore",
+          "edge_correct"
+        ],
+        "description": "Action to perform"
+      },
+      "domain_pattern": {
+        "type": "string",
+        "description": "For domain_* actions. Glob pattern (e.g., 'example.com', '*.example.com')"
+      },
+      "claim_id": {
+        "type": "string",
+        "description": "For claim_reject/claim_restore"
+      },
+      "edge_id": {
+        "type": "string",
+        "description": "For edge_correct"
+      },
+      "correct_relation": {
+        "type": "string",
+        "enum": ["supports", "refutes", "neutral"],
+        "description": "For edge_correct: the correct NLI relation"
+      },
+      "reason": {
+        "type": "string",
+        "description": "Required for domain_block, domain_unblock, domain_clear_override, claim_reject. Optional for edge_correct."
+      }
+    },
+    "required": ["action"]
+  }
+}
+```
+
+##### 6.2.2 Domain アクション処理フロー
+
+**`domain_block`**:
+
+```
+入力: { action: "domain_block", domain_pattern: "*.example.com", reason: "..." }
+
+1. パターン検証
+   - 禁止パターンチェック（"*", "*.com", "*.co.jp" 等は拒否）
+   - glob構文検証
+2. DB永続化
+   - domain_override_rules に INSERT (decision="block")
+   - domain_override_events に INSERT (action="domain_block")
+3. SourceVerifier 反映
+   - _mark_domain_blocked(domain, reason, block_reason_code=DomainBlockReason.MANUAL)
+4. レスポンス
+   { ok: true, action: "domain_block", domain_pattern: "*.example.com", rule_id: "dor_xxx" }
+```
+
+**`domain_unblock`**:
+
+```
+入力: { action: "domain_unblock", domain_pattern: "*.example.com", reason: "..." }
+
+1. パターン検証（同上）
+2. DB永続化
+   - domain_override_rules に INSERT (decision="unblock")
+   - domain_override_events に INSERT (action="domain_unblock")
+3. SourceVerifier 反映
+   - パターンにマッチするドメインを _blocked_domains から削除
+   - 該当ドメインの domain_category を original_domain_category に復元
+4. レスポンス
+   { ok: true, action: "domain_unblock", domain_pattern: "*.example.com", rule_id: "dor_xxx" }
+```
+
+**`domain_clear_override`**:
+
+```
+入力: { action: "domain_clear_override", domain_pattern: "*.example.com", reason: "..." }
+
+1. パターン検証（同上）
+2. DB更新
+   - domain_override_rules で該当パターンを is_active=0 に UPDATE
+   - domain_override_events に INSERT (action="domain_clear_override", decision="clear")
+3. SourceVerifier 反映
+   - ベースライン（denylist, dangerous_pattern等）に基づいて再評価
+4. レスポンス
+   { ok: true, action: "domain_clear_override", domain_pattern: "*.example.com", cleared_rules: 1 }
+```
+
+**禁止パターン一覧（決定20より）**:
+
+```python
+FORBIDDEN_PATTERNS = [
+    "*",           # 全ドメイン
+    "*.com",       # TLD全体
+    "*.co.jp",
+    "*.org",
+    "*.net",
+    "*.gov",
+    "*.edu",
+    "**",          # 再帰glob
+]
+```
+
+##### 6.2.3 Claim アクション処理フロー
+
+**`claim_reject`**:
+
+```
+入力: { action: "claim_reject", claim_id: "claim_xxx", reason: "..." }
+
+1. claim存在確認
+   - DB から claim を取得
+   - 存在しない場合: ClaimNotFoundError
+2. DB更新
+   - claim_adoption_status = "not_adopted"
+   - claim_rejection_reason = reason
+   - claim_rejected_at = now()
+3. SourceVerifier 反映
+   - manual_rejected_claims に追加（棄却率計算用）
+4. レスポンス
+   { ok: true, action: "claim_reject", claim_id: "claim_xxx" }
+```
+
+**`claim_restore`**:
+
+```
+入力: { action: "claim_restore", claim_id: "claim_xxx" }
+
+1. claim存在確認（同上）
+2. DB更新
+   - claim_adoption_status = "adopted"
+   - claim_rejection_reason = NULL
+   - claim_rejected_at = NULL
+3. SourceVerifier 反映
+   - manual_rejected_claims から削除
+4. レスポンス
+   { ok: true, action: "claim_restore", claim_id: "claim_xxx" }
+```
+
+##### 6.2.4 Edge アクション処理フロー
+
+**`edge_correct`**:
+
+```
+入力: { action: "edge_correct", edge_id: "edge_xxx", correct_relation: "refutes", reason: "..." }
+
+1. edge存在確認
+   - DB から edge を取得（premise/hypothesis も JOIN で取得）
+   - 存在しない場合: EdgeNotFoundError
+2. nli_corrections に蓄積（常に実行。訂正がなくても ground-truth として蓄積）
+   - INSERT INTO nli_corrections (
+       id, edge_id, task_id, premise, hypothesis,
+       predicted_label, predicted_confidence,
+       correct_label, reason, corrected_at
+     )
+3. edge 即時更新
+   - relation = correct_relation
+   - nli_label = correct_relation
+   - nli_confidence = 1.0（人が確信を持って訂正したため）
+   - edge_human_corrected = True
+   - edge_correction_reason = reason
+   - edge_corrected_at = now()
+4. レスポンス
+   { ok: true, action: "edge_correct", edge_id: "edge_xxx", 
+     previous_relation: "supports", new_relation: "refutes", sample_id: "nlc_xxx" }
+```
+
+##### 6.2.5 レスポンススキーマ（`src/mcp/schemas/feedback.json`）
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lyra:mcp:feedback",
+  "title": "feedback Response",
+  "description": "Response schema for feedback tool (6 actions)",
+  "oneOf": [
+    {
+      "title": "domain_block Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "domain_block" },
+        "domain_pattern": { "type": "string" },
+        "rule_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "domain_pattern", "rule_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "domain_unblock Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "domain_unblock" },
+        "domain_pattern": { "type": "string" },
+        "rule_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "domain_pattern", "rule_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "domain_clear_override Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "domain_clear_override" },
+        "domain_pattern": { "type": "string" },
+        "cleared_rules": { "type": "integer" }
+      },
+      "required": ["ok", "action", "domain_pattern", "cleared_rules"],
+      "additionalProperties": false
+    },
+    {
+      "title": "claim_reject Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "claim_reject" },
+        "claim_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "claim_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "claim_restore Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "claim_restore" },
+        "claim_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "claim_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "edge_correct Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "edge_correct" },
+        "edge_id": { "type": "string" },
+        "previous_relation": { "type": "string" },
+        "new_relation": { "type": "string" },
+        "sample_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "edge_id", "previous_relation", "new_relation", "sample_id"],
+      "additionalProperties": false
+    }
+  ]
+}
+```
+
+##### 6.2.6 実装ファイル・関数一覧
+
+| ファイル | 追加/変更 | 内容 |
+|----------|-----------|------|
+| `src/mcp/server.py` | 追加 | `feedback` ツール定義、`_handle_feedback()` ハンドラ |
+| `src/mcp/schemas/feedback.json` | 新規 | レスポンススキーマ |
+| `src/filter/source_verification.py` | 変更 | `block_domain()`, `unblock_domain()`, `clear_override()` メソッド追加 |
+| `src/filter/evidence_graph.py` | 変更 | `correct_edge()` メソッド追加 |
+| `src/storage/database.py` | 変更 | domain_override_rules/events, nli_corrections 操作関数 |
+
+---
+
+#### 6.3 `calibrate` → `calibration_metrics` リネーム
+
+##### 6.3.1 変更前後の対比
+
+| 項目 | 変更前 | 変更後 |
+|------|--------|--------|
+| ツール名 | `calibrate` | `calibration_metrics` |
+| アクション | `add_sample`, `get_stats`, `evaluate`, `get_evaluations`, `get_diagram_data` | `get_stats`, `evaluate`, `get_evaluations`, `get_diagram_data` |
+| サンプル追加 | `calibrate(add_sample)` | 削除（`feedback(edge_correct)` で蓄積） |
+| ロールバック | `calibrate_rollback`（別ツール） | 維持（変更なし） |
+
+##### 6.3.2 `add_sample` 削除の影響範囲
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/mcp/server.py` | `calibrate` → `calibration_metrics` にリネーム、`add_sample` case削除 |
+| `src/mcp/schemas/calibrate.json` | → `calibration_metrics.json` にリネーム、`add_sample` スキーマ削除 |
+| `src/utils/calibration.py` | `calibrate_action()` から `add_sample` 分岐削除 |
+| `tests/test_calibration.py` | `add_sample` テスト削除 |
+
+##### 6.3.3 `evaluate` の入力ソース変更
+
+**変更前**:
+```python
+# calibrate(evaluate) - 外部からサンプルを渡す
+def evaluate(source: str, predictions: list, labels: list) -> dict:
+    ...
+```
+
+**変更後**:
+```python
+# calibration_metrics(evaluate) - nli_corrections テーブルから読む
+def evaluate(source: str) -> dict:
+    # 1. nli_corrections からサンプル取得
+    samples = db.fetch_all(
+        "SELECT predicted_confidence, correct_label FROM nli_corrections WHERE ..."
+    )
+    # 2. Brier score, ECE 計算
+    # 3. calibration_evaluations に保存
+    ...
+```
+
+##### 6.3.4 `calibration_metrics` ツール定義
+
+```json
+{
+  "name": "calibration_metrics",
+  "description": "Calibration metrics and evaluation for NLI model. Uses samples accumulated via feedback(edge_correct).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["get_stats", "evaluate", "get_evaluations", "get_diagram_data"],
+        "description": "Action to perform"
+      },
+      "data": {
+        "type": "object",
+        "description": "Action-specific data. get_stats: no data required. evaluate: {source}. get_evaluations: {source?, limit?, since?}. get_diagram_data: {source, evaluation_id?}."
+      }
+    },
+    "required": ["action"]
+  }
+}
+```
+
+---
+
+#### 6.4 `get_materials` に `claim_adoption_status` 露出
+
+##### 6.4.1 追加フィールド
+
+`get_materials` レスポンスの `claims[]` 配列に以下を追加:
+
+```json
+{
+  "claims": [
+    {
+      "id": "claim_xxx",
+      "text": "...",
+      "claim_confidence": 0.85,
+      "claim_adoption_status": "adopted",
+      "claim_rejection_reason": null,
+      ...
+    }
+  ]
+}
+```
+
+##### 6.4.2 実装変更
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/research/materials.py` | `get_materials_action()` で `claim_adoption_status`, `claim_rejection_reason` を含める |
+| `src/mcp/schemas/get_materials.json` | `claims[]` に2フィールド追加 |
+
+---
+
+#### 6.5 ドキュメント更新
+
+Phase 6 完了時に以下を更新:
+
+| ドキュメント | 更新内容 |
+|--------------|----------|
+| `docs/P_EVIDENCE_SYSTEM.md` | Phase 6 タスク状態を DONE に更新 |
+| `docs/REQUIREMENTS.md` | `feedback` ツール仕様追加、`calibration_metrics` リネーム反映 |
+| `README.md` | 新ツール概要 |
+
+---
+
+#### 6.6 `high_rejection_rate` の定義
 
 `domain_block_reason="high_rejection_rate"` は、`feedback(action="claim_reject")` が運用可能になってから有効化する。
 
@@ -3164,48 +3555,58 @@ source_verification:
   high_rejection_min_samples: 5       # 最低5件のclaimが必要
 ```
 
-**閾値の根拠**:
-- 30%: 3件に1件以上が棄却されるドメインは信頼性に問題がある可能性が高い
-- 最低5件: サンプル数が少ない段階での誤判定を防ぐ（1件棄却で100%になることを回避）
+---
 
-#### 6.5 DBスキーマ棚卸し（現状→改善後）
+#### テスト観点表（Task 6.2 feedback）
 
-| テーブル.列 | 現状 | 問題 | Phase 6後 |
-|---|---|---|---|
-| `claims.confidence_score` | 使用中 | 命名不明確 | **リネーム** → `claim_confidence` |
-| `claims.adoption_status` | 生成時に `'pending'` 固定 | MCP入力/露出なし（dead） | **リネーム** → `claim_adoption_status`、`feedback` で更新 + `get_materials` で露出 + デフォルト `'adopted'` へ変更 |
-| `claims.calibrated_score` | 使用箇所なし | dead | **削除** |
-| `claims.is_verified` | report で参照 | `source_verification_status` と重複 | **削除** |
-| `edges.edge_human_corrected` | 新規 | - | `feedback(edge_correct)` で `True` に設定 |
-| `edges.edge_correction_reason` | 新規 | - | 訂正理由（監査用） |
-| `edges.edge_corrected_at` | 新規 | - | 訂正日時 |
-| `claims.claim_rejection_reason` | 新規 | - | 棄却理由（監査用） |
-| `claims.claim_rejected_at` | 新規 | - | 棄却日時 |
+| Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+|---------|---------------------|-------------|-----------------|-------|
+| **domain_block** | | | | |
+| TC-DB-01 | 有効なパターン `example.com` | 正常系 | rule_id返却、DB永続化、SourceVerifier反映 | |
+| TC-DB-02 | glob パターン `*.example.com` | 正常系 | 同上 | |
+| TC-DB-03 | 禁止パターン `*` | 異常系 | InvalidParamsError | |
+| TC-DB-04 | 禁止パターン `*.com` | 異常系 | InvalidParamsError | |
+| TC-DB-05 | reason 未指定 | 異常系 | InvalidParamsError（reason required） | |
+| TC-DB-06 | 空文字列 `""` | 境界値 | InvalidParamsError | |
+| **domain_unblock** | | | | |
+| TC-DU-01 | ブロック済みドメインを解除 | 正常系 | rule_id返却、blocked_domains から削除 | |
+| TC-DU-02 | 未ブロックドメインを解除 | 正常系 | rule_id返却（冪等） | |
+| TC-DU-03 | dangerous_pattern 由来のブロックを解除 | 正常系 | 解除される（決定20: 解除可能） | unblock_risk=high |
+| **domain_clear_override** | | | | |
+| TC-DC-01 | 既存override を解除 | 正常系 | cleared_rules=1 | |
+| TC-DC-02 | 存在しないパターン | 正常系 | cleared_rules=0（冪等） | |
+| **claim_reject** | | | | |
+| TC-CR-01 | 有効なclaim_id | 正常系 | adoption_status="not_adopted" | |
+| TC-CR-02 | 存在しないclaim_id | 異常系 | ClaimNotFoundError | |
+| TC-CR-03 | reason 未指定 | 異常系 | InvalidParamsError | |
+| TC-CR-04 | 既に不採用のclaimを再度reject | 正常系 | 冪等（状態変わらず） | |
+| **claim_restore** | | | | |
+| TC-CS-01 | 不採用claimを復元 | 正常系 | adoption_status="adopted" | |
+| TC-CS-02 | 採用済みclaimを復元 | 正常系 | 冪等 | |
+| TC-CS-03 | 存在しないclaim_id | 異常系 | ClaimNotFoundError | |
+| **edge_correct** | | | | |
+| TC-EC-01 | supports → refutes | 正常系 | relation更新、nli_corrections蓄積 | |
+| TC-EC-02 | 同じラベルを入力（supports → supports） | 正常系 | 変更なしでもサンプル蓄積 | ground-truth収集 |
+| TC-EC-03 | 存在しないedge_id | 異常系 | EdgeNotFoundError | |
+| TC-EC-04 | 無効なrelation `"unknown"` | 異常系 | InvalidParamsError | |
+| TC-EC-05 | 3クラス: supports | 正常系 | | |
+| TC-EC-06 | 3クラス: refutes | 正常系 | | |
+| TC-EC-07 | 3クラス: neutral | 正常系 | | |
 
-#### 6.6 タスク一覧
+---
 
-| # | タスク | 実装ファイル | テストファイル |
-|---|--------|-------------|---------------|
-| 6.1 | `feedback` MCPツール新設（3レベル） | `src/mcp/server.py`, `src/mcp/schemas/feedback.json` | `tests/test_mcp_feedback.py` |
-| 6.2 | `domain_block` / `domain_unblock` 実装 | `src/mcp/server.py`, `src/filter/source_verification.py` | `tests/test_mcp_feedback.py` |
-| 6.3 | `claim_reject` / `claim_restore` 実装 | `src/mcp/server.py` | `tests/test_mcp_feedback.py` |
-| 6.4 | `edge_correct` 実装 | `src/mcp/server.py`, `src/filter/evidence_graph.py` | `tests/test_mcp_feedback.py` |
-| 6.5 | スキーマ変更（命名規則統一 + 新規カラム） | `src/storage/schema.sql` | `tests/test_migrations.py` |
-| 6.6 | スキーマ棚卸し（dead fields 削除） | `src/storage/schema.sql` | - |
-| 6.7 | `NLICorrectionSample` 蓄積機構 | `src/utils/calibration.py` | `tests/test_calibration.py` |
-| 6.8 | `get_materials` に `claim_adoption_status` 露出 | `src/research/materials.py` | `tests/test_mcp_get_materials.py` |
-| 6.9 | ドキュメント更新 | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | - |
+#### テスト観点表（Task 6.3 calibration_metrics）
 
-#### テストケース
-
-- `feedback(edge_correct)` でエッジの `relation` が即時更新されること
-- `feedback(edge_correct)` で `edge_human_corrected=True` が設定されること
-- 訂正サンプルが `NLICorrectionSample` として蓄積されること
-- `feedback(claim_reject)` で `claim_adoption_status="not_adopted"` になること
-- `feedback(claim_restore)` で `claim_adoption_status="adopted"` に戻ること
-- `feedback(domain_block)` でドメインがブロックリストに追加されること
-- `feedback(domain_unblock)` でドメインがブロックリストから削除されること
-- `get_materials` の `claims[]` に `claim_adoption_status` が含まれること
+| Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+|---------|---------------------|-------------|-----------------|-------|
+| TC-CM-01 | get_stats（サンプルあり） | 正常系 | source別統計返却 | |
+| TC-CM-02 | get_stats（サンプルなし） | 境界値 | 空の統計 | |
+| TC-CM-03 | evaluate（サンプル十分） | 正常系 | Brier/ECE計算、履歴保存 | |
+| TC-CM-04 | evaluate（サンプル0件） | 境界値 | エラー or 警告 | |
+| TC-CM-05 | get_evaluations（履歴あり） | 正常系 | 評価履歴返却 | |
+| TC-CM-06 | get_evaluations（limit指定） | 正常系 | 指定件数以下 | |
+| TC-CM-07 | get_diagram_data | 正常系 | bins データ返却 | |
+| TC-CM-08 | 旧 add_sample アクション | 異常系 | InvalidParamsError（削除済み） | |
 
 ### テスト戦略（全Phase共通）
 
