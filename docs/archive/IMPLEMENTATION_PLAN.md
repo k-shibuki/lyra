@@ -1,3 +1,10 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2025-12-23
+
 # 実装計画: Local Yielding Research Aide (Lyra)
 
 ## 1. ドキュメントの位置づけ

@@ -14,8 +14,8 @@ Select exactly one implementation task from the given context, collect the missi
 ## Inputs (attach as `@...`)
 
 - User instructions describing the task to work on
-- Any planning/task documents (e.g. `@docs/IMPLEMENTATION_PLAN.md`, `@docs/TODO.md`, issue files)
-- `@docs/REQUIREMENTS.md` (recommended if the task is user-facing or has acceptance criteria)
+- Any planning/task documents (e.g. `@docs/P_EVIDENCE_SYSTEM.md`, `@docs/TODO.md`, issue files)
+- ADRs (`@docs/adr/`) (recommended if the task is user-facing or has acceptance criteria)
 
 **Note**: This command does not require a specific document format. It will extract tasks from whatever documents or instructions the user provides.
 

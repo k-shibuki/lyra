@@ -740,8 +740,9 @@ status = await call_tool("get_status", {
    - ハンドラ削除
 
 3. **ドキュメント更新**
-   - `docs/REQUIREMENTS.md` §3.2.1 更新（12ツール → 10ツール）
+   - `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
    - `docs/CURSOR_RULES_COMMANDS.md` 更新
+   - **注**: `docs/REQUIREMENTS.md` は 2025-12-23 にアーカイブ済み（`docs/archive/`）
 
 ### Phase 3: テストと最適化（3日）
 

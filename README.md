@@ -632,9 +632,19 @@ lyra/
 
 | Document | Description |
 |----------|-------------|
-| [REQUIREMENTS.md](docs/REQUIREMENTS.md) | Detailed specification |
-| [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) | Implementation status and roadmap |
 | [ADRs](docs/adr/) | Architecture Decision Records |
+| [P_EVIDENCE_SYSTEM.md](docs/P_EVIDENCE_SYSTEM.md) | Evidence system design (in progress) |
+| [Q_ASYNC_ARCHITECTURE.md](docs/Q_ASYNC_ARCHITECTURE.md) | Async architecture design (planned) |
+| [R_LORA.md](docs/R_LORA.md) | LoRA fine-tuning design (planned) |
+
+### Archived Documents
+
+Historical development snapshots (no longer maintained):
+
+| Document | Description |
+|----------|-------------|
+| [REQUIREMENTS.md](docs/archive/REQUIREMENTS.md) | Original specification (archived 2025-12-23) |
+| [IMPLEMENTATION_PLAN.md](docs/archive/IMPLEMENTATION_PLAN.md) | Implementation history (archived 2025-12-23) |
 
 ---
 
@@ -642,7 +652,7 @@ lyra/
 
 Contributions are welcome. Please:
 
-1. Read the [REQUIREMENTS.md](docs/REQUIREMENTS.md) for design context
+1. Read the [ADRs](docs/adr/) for design context
 2. Ensure tests pass before submitting pull requests
 3. Follow existing code style (enforced by ruff)
 
