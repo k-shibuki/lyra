@@ -1,10 +1,6 @@
 # 非同期アーキテクチャ改善
 
 > **Status**: DESIGN PROPOSAL（未実装）
-> **Phase**: Q
-> **Prerequisites**: Phase 6 (Evidence System) 完了後に実装開始予定
-
----
 
 ## Executive Summary
 
