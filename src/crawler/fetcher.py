@@ -891,7 +891,7 @@ class BrowserFetcher:
                     logger.info("CDP connection failed, attempting auto-start", error=str(exc))
                     cdp_error = exc
 
-                # Auto-start Chrome per docs/requirements.md ADR-0003 (if CDP connection failed)
+                # Auto-start Chrome if CDP connection failed
                 if not cdp_connected:
                     logger.debug("Calling _auto_start_chrome()")
                     auto_start_success = await self._auto_start_chrome()
@@ -1080,7 +1080,8 @@ class BrowserFetcher:
     async def _auto_start_chrome(self) -> bool:
         """Auto-start Chrome using chrome.sh script.
 
-        # Per docs/requirements.md ADR-0003: When a CDP (Chrome DevTools Protocol) connection is not detected, Lyra automatically executes ./scripts/chrome.sh start.
+        When a CDP (Chrome DevTools Protocol) connection is not detected,
+        Lyra automatically executes ./scripts/chrome.sh start to launch Chrome.
 
         Returns:
             True if chrome.sh start succeeded, False otherwise.
@@ -2094,7 +2095,7 @@ async def _fetch_url_impl(
                 reason="domain_cooldown",
             ).to_dict()
 
-        # Check domain daily budget (ADR-0006 - IP block prevention, Problem 11)
+        # Check domain daily budget (ADR-0006 - IP block prevention)
         from src.scheduler.domain_budget import get_domain_budget_manager
 
         budget_manager = get_domain_budget_manager()
@@ -2113,7 +2114,7 @@ async def _fetch_url_impl(
                 reason="domain_budget_exceeded",
             ).to_dict()
 
-        # Record request for Tor daily limit tracking (Problem 10)
+        # Record request for Tor daily limit tracking (Tor daily usage limit)
         # Must be after cooldown check to only count actual fetches
         from src.utils.metrics import get_metrics_collector
 
@@ -2180,7 +2181,7 @@ async def _fetch_url_impl(
             )
             escalation_path.append(f"http_client(tor={use_tor})")
 
-            # Record Tor usage when explicitly requested (Problem 10)
+            # Record Tor usage when explicitly requested (Tor daily usage limit)
             if use_tor:
                 from src.utils.metrics import get_metrics_collector
 
@@ -2206,7 +2207,7 @@ async def _fetch_url_impl(
 
             # Handle 403/429 - try Tor circuit renewal (with daily limit check)
             if not result.ok and result.status in (403, 429) and not use_tor:
-                # Check Tor daily limit before escalating (Problem 10)
+                # Check Tor daily limit before escalating (Tor daily usage limit)
                 if await _can_use_tor(domain):
                     logger.info("HTTP error, trying with Tor", url=url[:80], status=result.status)
 
@@ -2634,7 +2635,7 @@ async def _fetch_url_impl(
                 details=event_details,
             )
 
-            # Record domain request for daily budget tracking (ADR-0006 - Problem 11)
+            # Record domain request for daily budget tracking (ADR-0006 - Domain daily budget)
             # Only record successful fetches with actual content (not 304)
             if result.ok and result.status != 304:
                 budget_manager.record_domain_request(domain, is_page=True)

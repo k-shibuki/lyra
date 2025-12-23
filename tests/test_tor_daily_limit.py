@@ -1,5 +1,5 @@
 """
-Unit tests for Tor Daily Usage Limit (Problem 10).
+Unit tests for Tor Daily Usage Limit (Tor daily usage limit).
 
 Tests the Tor daily usage limit functionality per ADR-0006 and :
 - Global daily limit (20%)

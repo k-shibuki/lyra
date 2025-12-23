@@ -1,5 +1,5 @@
 """
-Tests for PromptManager (Phase K.2).
+Tests for PromptManager (Prompt template management).
 
 Verifies:
 - Template loading and caching

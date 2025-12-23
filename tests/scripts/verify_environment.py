@@ -2,7 +2,7 @@
 """
 E2E Environment Verification Script
 
-Verification target: N.2-1 - E2E実行環境確認
+Verification target: E2E environment verification - E2E実行環境確認
 
 Verification items:
 1. Container proxy status (lyra proxy, ollama, lyra-ml)
@@ -64,7 +64,7 @@ class VerificationResult:
 
 class EnvironmentVerifier:
     """
-    Verifier for N.2-1 E2E execution environment.
+    Verifier for E2E environment verification E2E execution environment.
 
     Checks all prerequisites for running E2E tests:
     - Container status
@@ -125,7 +125,7 @@ class EnvironmentVerifier:
 
             return VerificationResult(
                 name="Container Environment",
-                spec_ref="N.2-1",
+                spec_ref="E2E environment verification",
                 passed=passed,
                 details=details,
                 error=None if passed else "Config directory not found",
@@ -135,7 +135,7 @@ class EnvironmentVerifier:
             logger.exception("Container status verification failed")
             return VerificationResult(
                 name="Container Environment",
-                spec_ref="N.2-1",
+                spec_ref="E2E environment verification",
                 passed=False,
                 error=str(e),
             )
@@ -560,7 +560,7 @@ class EnvironmentVerifier:
             Exit code: 0 (all passed), 1 (some failed), 2 (critical failure)
         """
         print("\n" + "=" * 70)
-        print("E2E Environment Verification (N.2-1)")
+        print("E2E Environment Verification (E2E environment verification)")
         print("検証対象: E2E実行環境の確認")
         print("=" * 70)
 

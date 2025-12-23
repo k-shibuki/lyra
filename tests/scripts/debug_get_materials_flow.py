@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug script for get_materials Flow (O.7 Problem 3).
+Debug script for get_materials Flow (MCP tool implementation).
 
 This is a "straight-line" debug script.
 Verifies the get_materials tool returns claims/fragments/evidence_graph from DB.
@@ -26,7 +26,7 @@ sys.path.insert(0, "/home/statuser/lyra")
 async def main() -> int:
     """Run get_materials verification."""
     print("=" * 70)
-    print("get_materials Flow Debug Script (O.7)")
+    print("get_materials Flow Debug Script (MCP tool fixes)")
     print("=" * 70)
 
     # =========================================================================

@@ -6,7 +6,7 @@ Reports state to Cursor AI for decision making.
 
 See ADR-0010.
 
-Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
+Note: This module uses "search" terminology (not "subquery").
 """
 
 import time

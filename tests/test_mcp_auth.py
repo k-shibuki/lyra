@@ -596,7 +596,7 @@ class TestResolveAuthExecution:
 
 
 class TestCaptureAuthSessionCookies:
-    """Tests for _capture_auth_session_cookies function (O.6 compliance).
+    """Tests for _capture_auth_session_cookies function (Auth cookie capture compliance).
 
     Per ADR-0007: Capture session data after authentication for reuse.
     """
@@ -853,7 +853,7 @@ class TestCaptureAuthSessionCookies:
 
 
 class TestResolveAuthCookieCapture:
-    """Tests for resolve_auth cookie capture integration (O.6 compliance)."""
+    """Tests for resolve_auth cookie capture integration (Auth cookie capture compliance)."""
 
     @pytest.mark.asyncio
     async def test_complete_item_captures_cookies(self) -> None:

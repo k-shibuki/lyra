@@ -176,7 +176,7 @@ class SourceVerifier:
         """Initialize the source verifier."""
         self._domain_states: dict[str, DomainVerificationState] = {}
         self._blocked_domains: set[str] = set()
-        # K.3-8: Pending blocked notifications (processed via send_pending_notifications)
+        # Pending blocked domain notifications (processed via send_pending_notifications)
         self._pending_blocked_notifications: list[
             tuple[str, str, str | None, str | None]
         ] = []  # (domain, reason, task_id, cause_id)
@@ -235,7 +235,7 @@ class SourceVerifier:
                 claim_id=claim_id,
             )
 
-            # K.3-8: Queue notification for blocked domain
+            # Queue notification for blocked domain
             self._queue_blocked_notification(
                 domain, "Dangerous pattern detected (L2/L4)", task_id=None, cause_id=cause_id
             )
@@ -320,7 +320,7 @@ class SourceVerifier:
                     rejected_count=len(combined_rejected),
                 )
 
-                # K.3-8: Queue notification for blocked domain
+                # Queue notification for blocked domain
                 self._queue_blocked_notification(
                     domain,
                     f"High rejection rate ({domain_state.domain_claim_combined_rejection_rate:.0%})",
@@ -586,7 +586,7 @@ class SourceVerifier:
         task_id: str | None = None,
         cause_id: str | None = None,
     ) -> None:
-        """Queue a blocked domain notification (K.3-8).
+        """Queue a blocked domain notification.
 
         Notifications are queued and sent asynchronously via send_pending_notifications().
 
@@ -609,7 +609,7 @@ class SourceVerifier:
             )
 
     async def send_pending_notifications(self, task_id: str | None = None) -> list[dict]:
-        """Send pending blocked domain notifications (K.3-8).
+        """Send pending blocked domain notifications.
 
         Call this method after batch verification to send notifications.
         The notifications inform Cursor AI that domains have been blocked.

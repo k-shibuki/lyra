@@ -1311,13 +1311,13 @@ class TestGetAuthenticationQueueSummary:
 
 
 # =============================================================================
-# Get Item Tests (O.6 Auth Compliance)
+# Get Item Tests (Auth cookie capture Auth Compliance)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestGetItem:
-    """Tests for get_item functionality added for O.6 auth compliance.
+    """Tests for get_item functionality added for Auth cookie capture auth compliance.
 
     Per ADR-0007: Get specific queue item by ID for cookie capture.
     """

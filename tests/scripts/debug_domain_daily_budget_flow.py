@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug script for Domain Daily Budget Flow (Problem 11).
+Debug script for Domain Daily Budget Flow (Domain daily budget).
 
 This is a "straight-line" debug script.
 Verifies the domain daily budget checking and tracking functionality.
