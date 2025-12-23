@@ -481,7 +481,13 @@ crawler:
 
 ### Testing
 
-Lyra includes 3000+ tests across three layers:
+Lyra includes 3000+ tests across three layers (see [ADR-0009](docs/adr/0009-test-layer-strategy.md) for rationale):
+
+| Layer | Scope | External Dependencies | Command |
+|:-----:|-------|----------------------|---------|
+| L1 | Unit | None (all mocked) | `pytest -m "not e2e and not slow"` |
+| L2 | Integration | SQLite real, others mocked | (same as L1) |
+| L3 | E2E | All real (Chrome, Ollama, network) | `pytest -m e2e` |
 
 ```bash
 # Run tests via test.sh (recommended - handles venv and environment detection)
@@ -497,8 +503,6 @@ pytest tests/ -m 'e2e'                    # E2E (requires Chrome CDP + container
 
 ### Test Markers
 
-See [TEST_LAYERS.md](docs/TEST_LAYERS.md) for detailed test execution guide.
-
 | Marker | Description | CI/Cloud | Local | Full |
 |--------|-------------|:--------:|:-----:|:----:|
 | `unit` | No external dependencies, fast | ✅ | ✅ | ✅ |
@@ -508,6 +512,33 @@ See [TEST_LAYERS.md](docs/TEST_LAYERS.md) for detailed test execution guide.
 | `external` | E2E + moderate block risk (Mojeek, Qwant) | ❌ | ❌ | ✅ |
 | `rate_limited` | E2E + high block risk (DuckDuckGo) | ❌ | ❌ | ✅ |
 | `manual` | Requires human interaction (CAPTCHA) | ❌ | ❌ | ✅ |
+
+### Cloud Agent / CI Environment
+
+The test runner auto-detects cloud agent environments (Cursor, Claude Code, GitHub Actions, GitLab CI) and automatically excludes E2E/slow tests:
+
+| Environment | Detection Method |
+|-------------|------------------|
+| Cursor Cloud Agent | `CURSOR_CLOUD_AGENT`, `CURSOR_SESSION_ID`, `CURSOR_BACKGROUND` |
+| Claude Code | `CLAUDE_CODE` |
+| GitHub Actions | `GITHUB_ACTIONS=true` |
+| Generic CI | `CI=true` |
+
+**⚠️ Important**: After CI/cloud agent testing, run E2E tests locally:
+
+```bash
+pytest -m e2e      # E2E tests (Chrome, Ollama required)
+pytest -m slow     # Slow tests (>5s)
+pytest             # All tests
+```
+
+**Environment variables**:
+
+| Variable | Description |
+|----------|-------------|
+| `LYRA_TEST_LAYER=e2e` | Run E2E tests explicitly |
+| `LYRA_TEST_LAYER=all` | Run all tests |
+| `LYRA_LOCAL=1` | Force local mode (disable cloud detection) |
 
 ### Code Quality
 
@@ -601,10 +632,21 @@ lyra/
 
 | Document | Description |
 |----------|-------------|
-| [REQUIREMENTS.md](docs/REQUIREMENTS.md) | Detailed specification |
-| [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) | Implementation status and roadmap |
-| [J2_ACADEMIC_API_INTEGRATION.md](docs/J2_ACADEMIC_API_INTEGRATION.md) | Academic API integration details |
-| [TEST_LAYERS.md](docs/TEST_LAYERS.md) | Test execution guide |
+| [ADRs](docs/adr/) | Architecture Decision Records |
+| [P_EVIDENCE_SYSTEM.md](docs/P_EVIDENCE_SYSTEM.md) | Evidence system design (in progress) |
+| [Q_ASYNC_ARCHITECTURE.md](docs/Q_ASYNC_ARCHITECTURE.md) | Async architecture design (planned) |
+| [R_LORA.md](docs/R_LORA.md) | LoRA fine-tuning design (planned) |
+
+### Directory Structure
+
+```
+docs/
+├── adr/           # Architecture Decision Records (12 ADRs)
+├── archive/       # Historical snapshots (not maintained)
+├── P_EVIDENCE_SYSTEM.md
+├── Q_ASYNC_ARCHITECTURE.md
+└── R_LORA.md
+```
 
 ---
 
@@ -612,7 +654,7 @@ lyra/
 
 Contributions are welcome. Please:
 
-1. Read the [REQUIREMENTS.md](docs/REQUIREMENTS.md) for design context
+1. Read the [ADRs](docs/adr/) for design context
 2. Ensure tests pass before submitting pull requests
 3. Follow existing code style (enforced by ruff)
 

@@ -153,7 +153,8 @@ OPENALEX_CONFIG = {
 | PubMedのみ | 医学に強い | カバレッジ限定 | 却下 |
 
 ## References
-- `docs/P_EVIDENCE_SYSTEM.md` 決定6（アーカイブ）
-- `src/crawler/academic/s2_client.py` - Semantic Scholar実装
-- `src/crawler/academic/openalex_client.py` - OpenAlex実装
+- `src/search/apis/semantic_scholar.py` - Semantic Scholar API クライアント
+- `src/search/apis/openalex.py` - OpenAlex API クライアント
+- `src/search/academic_provider.py` - 学術API統合プロバイダー
+- `config/academic_apis.yaml` - API設定
 - ADR-0005: Evidence Graph Structure
