@@ -93,6 +93,22 @@
         },
         "additionalProperties": false
       }
+    },
+    "domain_overrides": {
+      "type": "array",
+      "description": "Active domain override rules from feedback tool (Decision 20).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rule_id": {"type": "string"},
+          "domain_pattern": {"type": "string"},
+          "decision": {"type": "string", "enum": ["block", "unblock"]},
+          "reason": {"type": "string"},
+          "updated_at": {"type": "string"}
+        },
+        "required": ["rule_id", "domain_pattern", "decision", "reason", "updated_at"],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
@@ -105,7 +121,8 @@
     "budget",
     "warnings",
     "idle_seconds",
-    "blocked_domains"
+    "blocked_domains",
+    "domain_overrides"
   ],
   "additionalProperties": false
 }

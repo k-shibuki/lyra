@@ -2062,27 +2062,26 @@ async def get_reliability_diagram_data(
 
 
 # =============================================================================
-# Unified Calibration API (Phase M)
+# Unified Calibration API (Phase 6.3)
 # =============================================================================
 
 
-async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Unified calibration API for MCP.
+async def calibration_metrics_action(
+    action: str, data: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Unified calibration metrics API for MCP (Phase 6.3).
 
-    This is the single entry point for all calibration operations (except rollback).
-    Implements Phase M unified architecture: MCPハンドラーは薄いラッパーとし、
-    ロジックはドメインモジュールの統合APIに集約する。
+    This is the single entry point for calibration metrics operations (except rollback).
+    Renamed from calibrate_action in Phase 6.3; add_sample removed.
 
     Args:
-        action: One of "add_sample", "get_stats", "evaluate", "get_evaluations", "get_diagram_data"
+        action: One of "get_stats", "evaluate", "get_evaluations", "get_diagram_data"
         data: Action-specific data (optional for get_stats)
 
     Returns:
         Action result with ok: bool and action-specific fields
 
     Actions:
-        - add_sample: Add a calibration sample
-            data: {source: str, prediction: float, actual: int, logit?: float}
         - get_stats: Get calibration statistics (no data required)
         - evaluate: Execute batch evaluation and save to DB
             data: {source: str, predictions: list[float], labels: list[int]}
@@ -2091,6 +2090,10 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
         - get_diagram_data: Get reliability diagram data
             data: {source: str, evaluation_id?: str}
 
+    Note:
+        add_sample was removed in Phase 6.3. Use feedback(edge_correct) for
+        ground-truth collection which accumulates samples in nli_corrections table.
+
     Raises:
         ValueError: If action is invalid or required data is missing
     """
@@ -2098,28 +2101,7 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
         data = {}
 
     try:
-        if action == "add_sample":
-            # Validate required fields
-            source = data.get("source")
-            prediction = data.get("prediction")
-            actual = data.get("actual")
-
-            if source is None:
-                return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
-            if prediction is None:
-                return {"ok": False, "error": "INVALID_PARAMS", "message": "prediction is required"}
-            if actual is None:
-                return {"ok": False, "error": "INVALID_PARAMS", "message": "actual is required"}
-
-            result = await add_calibration_sample(
-                source=source,
-                predicted_prob=float(prediction),
-                actual_label=int(actual),
-                logit=data.get("logit"),
-            )
-            return {"ok": True, **result}
-
-        elif action == "get_stats":
+        if action == "get_stats":
             result = await get_calibration_stats()
             return {"ok": True, **result}
 
@@ -2170,11 +2152,11 @@ async def calibrate_action(action: str, data: dict[str, Any] | None = None) -> d
             return {
                 "ok": False,
                 "error": "INVALID_PARAMS",
-                "message": f"Unknown action: {action}. Valid actions: add_sample, get_stats, evaluate, get_evaluations, get_diagram_data",
+                "message": f"Unknown action: {action}. Valid actions: get_stats, evaluate, get_evaluations, get_diagram_data",
             }
 
     except Exception as e:
-        logger.error("calibrate_action failed", action=action, error=str(e))
+        logger.error("calibration_metrics_action failed", action=action, error=str(e))
         return {
             "ok": False,
             "error": "INTERNAL_ERROR",
