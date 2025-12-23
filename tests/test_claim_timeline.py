@@ -1,12 +1,12 @@
 """
 Tests for claim timeline functionality.
 
-Implements §3.4 requirements:
+Implements ADR-0005 requirements:
 - Timeline event tracking (first_appeared, updated, corrected, retracted, confirmed)
 - Wayback integration
 - Timeline coverage metrics
 
-Test quality complies with §7.1 standards.
+Test quality complies with .1 standards.
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -357,7 +357,7 @@ class TestClaimTimeline:
         assert "summary" in result
         assert result["summary"]["event_count"] == 1
         assert result["summary"]["is_retracted"] is False
-        # Per Decision 13: confidence_adjustment is no longer included
+        # Per ADR-0005: confidence_adjustment is no longer included
         assert "confidence_adjustment" not in result["summary"]
 
     def test_to_json_serialization(self) -> None:
@@ -635,7 +635,7 @@ class TestClaimTimelineManager:
     ) -> None:
         """Verify add_retraction creates retraction event for audit logging.
 
-        Note: Per Decision 13, retraction events are for audit logging only.
+        Note: Per ADR-0005, retraction events are for audit logging only.
         Confidence is computed solely via Bayesian updating on evidence graph edges.
         """
         # Given:
@@ -653,7 +653,7 @@ class TestClaimTimelineManager:
             assert event is not None
             assert event.event_type == TimelineEventType.RETRACTED
             assert event.notes == "Withdrawn due to errors"
-            # Note: No confidence adjustment is applied (see Decision 13)
+            # Note: No confidence adjustment is applied (see ADR-0005)
 
     @pytest.mark.asyncio
     async def test_integrate_wayback_result_adds_events(

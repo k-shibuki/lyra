@@ -26,7 +26,7 @@ Architecture:
 
 See also:
     - test_ml_server.py: Unit tests (some skipped without ML libs)
-    - docs/REQUIREMENTS.md §5.3: Hybrid architecture
+    - ADR-0008: Hybrid architecture
 =============================================================================
 """
 

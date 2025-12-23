@@ -1,5 +1,5 @@
 """
-Tests for browser archive functionality (§4.3.2).
+Tests for browser archive functionality (ADR-0006).
 
 Tests CDXJ metadata generation and simplified HAR creation
 for browser-fetched pages.

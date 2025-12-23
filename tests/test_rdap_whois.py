@@ -1,7 +1,7 @@
 """
 Tests for RDAP/WHOIS client.
 
-Tests §3.1.2: RDAP/WHOIS registry integration via HTML scraping.
+Tests ADR-0006: RDAP/WHOIS registry integration via HTML scraping.
 
 ## Test Perspectives Table
 

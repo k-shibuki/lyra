@@ -1,7 +1,7 @@
 """
 Tests for report generation module.
 
-Tests deep link generation and citation formatting per §3.4 and §9.2.
+Tests deep link generation and citation formatting per ADR-0005 and .
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -257,7 +257,7 @@ class TestCitation:
 
 
 class TestCitationSourcePriority:
-    """Tests for source priority classification per §3.4."""
+    """Tests for source priority classification per ADR-0005."""
 
     @pytest.mark.parametrize(
         "source_tag,expected",

@@ -2,7 +2,7 @@
 """
 Google Search Engine E2E Verification
 
-Verification target: §3.2 Agent Execution (Browser Search) - Google
+Verification target: ADR-0003 Agent Execution (Browser Search) - Google
 
 Google characteristics:
 - Highest block risk among all engines
@@ -21,7 +21,7 @@ Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - CAPTCHA: 100% detection
 - Scraping success rate ≥95% (when not blocked)
 
@@ -152,7 +152,7 @@ class GoogleSearchVerifier:
                 await provider.close()
                 return VerificationResult(
                     name="CDP Connection",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="Browser not connected",
                 )
@@ -163,7 +163,7 @@ class GoogleSearchVerifier:
 
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details=browser_info,
             )
@@ -172,7 +172,7 @@ class GoogleSearchVerifier:
             logger.exception("CDP connection verification failed")
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -207,7 +207,7 @@ class GoogleSearchVerifier:
                     print(f"    ✓ CAPTCHA detected (expected): {captcha_type}")
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         details={
                             "captcha_detected": True,
@@ -218,7 +218,7 @@ class GoogleSearchVerifier:
                 else:
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error=f"Search failed: {result.error}",
                     )
@@ -229,7 +229,7 @@ class GoogleSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name=f"{self.ENGINE_DISPLAY} Search",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results returned",
                 )
@@ -242,7 +242,7 @@ class GoogleSearchVerifier:
 
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "query": test_query,
@@ -256,7 +256,7 @@ class GoogleSearchVerifier:
             logger.exception(f"{self.ENGINE_DISPLAY} search verification failed")
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -286,14 +286,14 @@ class GoogleSearchVerifier:
                 if _is_captcha_error(result):
                     return VerificationResult(
                         name="Parser Accuracy",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         skipped=True,
                         skip_reason="CAPTCHA detected (expected for Google)",
                     )
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Search failed: {result.error}",
                 )
@@ -301,7 +301,7 @@ class GoogleSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results to verify",
                 )
@@ -332,7 +332,7 @@ class GoogleSearchVerifier:
             if accuracy >= 0.9:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=True,
                     details={
                         "accuracy": accuracy,
@@ -344,7 +344,7 @@ class GoogleSearchVerifier:
             else:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Parser accuracy {accuracy:.0%} < 90%",
                 )
@@ -353,7 +353,7 @@ class GoogleSearchVerifier:
             logger.exception("Parser accuracy verification failed")
             return VerificationResult(
                 name="Parser Accuracy",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -371,7 +371,7 @@ class GoogleSearchVerifier:
             if not parser:
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error="Parser not available",
                 )
@@ -399,14 +399,14 @@ class GoogleSearchVerifier:
                 print("    ✓ CAPTCHA patterns correctly detected")
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=True,
                     details={"test_cases": len(test_cases)},
                 )
             else:
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.6.1",
+                    spec_ref="ADR-0007",
                     passed=False,
                     error="Some CAPTCHA patterns not detected",
                 )
@@ -415,7 +415,7 @@ class GoogleSearchVerifier:
             logger.exception("CAPTCHA detection verification failed")
             return VerificationResult(
                 name="CAPTCHA Detection",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
@@ -424,7 +424,7 @@ class GoogleSearchVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print(f"E2E: {self.ENGINE_DISPLAY} Search Verification")
-        print("検証対象: §3.2 エージェント実行機能（ブラウザ検索）")
+        print("検証対象: ADR-0003 エージェント実行機能（ブラウザ検索）")
         print("⚠ HIGH BLOCK RISK - CAPTCHA expected")
         print("=" * 70)
 

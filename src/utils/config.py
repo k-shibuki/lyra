@@ -21,16 +21,16 @@ class TaskLimitsConfig(BaseModel):
     llm_time_ratio_max: float = 0.30
     max_manual_interventions: int = 3
     max_manual_intervention_time_minutes: int = 5
-    cursor_idle_timeout_seconds: int = 60  # §2.1.5: Cursor AI idle timeout
+    cursor_idle_timeout_seconds: int = 60 # ADR-0002: Cursor AI idle timeout
 
 
 class WebCitationDetectionConfig(BaseModel):
-    """General web citation detection configuration (Phase 3b).
+    """General web citation detection configuration (b).
 
     Controls when/where we spend LLM calls to classify outbound links as citations.
 
     Notes:
-    - This is separate from Phase 3 academic citation tracking (search.citation_filter.*).
+    - This is separate from academic citation tracking (search.citation_filter.*).
     - Setting max_* to 0 means "no limit".
     """
 
@@ -67,7 +67,7 @@ class SearchConfig(BaseModel):
     novelty_threshold: float = 0.10
     novelty_cycles_to_stop: int = 2
 
-    # Academic citation graph integration (Phase 3)
+    # Academic citation graph integration
     citation_graph_top_n_papers: int = 5
     citation_graph_depth: int = 1
     citation_graph_direction: str = "both"  # references, citations, both
@@ -78,7 +78,7 @@ class SearchConfig(BaseModel):
 
 
 class CitationFilterConfig(BaseModel):
-    """Citation relevance filtering configuration (Phase 3).
+    """Citation relevance filtering configuration .
 
     Design:
     - Stage 0 uses metadata filter (min_citation_count threshold).
@@ -129,7 +129,7 @@ class CrawlerConfig(BaseModel):
 
 
 class DNSPolicyConfig(BaseModel):
-    """DNS policy configuration (§4.3)."""
+    """DNS policy configuration (ADR-0006)."""
 
     # Resolve DNS through Tor SOCKS proxy (socks5h://) when using Tor route
     resolve_through_tor: bool = True
@@ -159,7 +159,7 @@ class TorConfig(BaseModel):
 
 
 class UndetectedChromeDriverConfig(BaseModel):
-    """Undetected ChromeDriver configuration (§4.3 fallback)."""
+    """Undetected ChromeDriver configuration (ADR-0006 fallback)."""
 
     enabled: bool = True
     auto_escalate_captcha_rate: float = 0.5
@@ -189,7 +189,7 @@ class BrowserConfig(BaseModel):
 class LLMConfig(BaseModel):
     """LLM configuration.
 
-    Per §K.1: Single 3B model for all LLM tasks.
+    Per ADR-0004: Single 3B model for all LLM tasks.
     VRAM budget (8GB) accommodates 3B (~2.5GB) + embedding (~1GB) + reranker (~1GB) + NLI (~0.5GB).
     """
 
@@ -198,7 +198,7 @@ class LLMConfig(BaseModel):
     model_context: int = 4096
     temperature: float = 0.3
     gpu_layers: int = -1
-    unload_on_task_complete: bool = True  # Per §4.2: Release model context after task
+    unload_on_task_complete: bool = True # Release model context after task
 
 
 class EmbeddingConfig(BaseModel):

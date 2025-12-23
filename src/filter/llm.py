@@ -2,8 +2,8 @@
 LLM-based extraction for Lyra.
 Uses local Ollama models for fact/claim extraction and summarization.
 
-Per §4.2: LLM processes are destroyed after task completion to prevent memory leaks.
-Per §4.4.1 L4: LLM output is validated for prompt leakage and suspicious content.
+LLM processes are destroyed after task completion to prevent memory leaks.
+Per ADR-0005 L4: LLM output is validated for prompt leakage and suspicious content.
 
 This module provides high-level LLM extraction functions that use the LLMProvider
 abstraction layer. The provider can be configured or switched at runtime.
@@ -44,7 +44,7 @@ class OllamaClient:
     """
     Thin facade for OllamaProvider.
 
-    Per §4.2, LLM processes should be released after task completion.
+    Per , LLM processes should be released after task completion.
     Prefer LLMProvider directly for new code.
     """
 
@@ -187,7 +187,7 @@ async def cleanup_llm_for_task(task_id: str | None = None) -> None:
     """
     Cleanup LLM resources after task completion.
 
-    Per §4.2: LLM processes should be released after task completion.
+    LLM processes should be released after task completion.
     """
     global _client
     if _client is not None:
@@ -338,7 +338,7 @@ async def chat_with_provider(
 # Use render_prompt() to render templates with variables.
 # Template names: extract_facts, extract_claims, summarize, translate
 
-# Instruction-only templates for leakage detection (§4.4.1 L4)
+# Instruction-only templates for leakage detection (ADR-0005 L4)
 # These exclude user-provided text to avoid false positive leakage detection
 # Note: Use single braces here (not double) since these are NOT f-string templates.
 # These templates are used for n-gram matching against LLM output.
@@ -390,7 +390,7 @@ async def llm_extract(
         Extraction result.
 
     Note:
-        Per §K.1: Single 3B model is used for all LLM tasks.
+        Per ADR-0004: Single 3B model is used for all LLM tasks.
     """
     settings = get_settings()
 
@@ -407,7 +407,7 @@ async def llm_extract(
         if default_provider is None:
             raise RuntimeError("No LLM provider available")
 
-        # Use single model (per §K.1)
+        # Use single model (per ADR-0004)
         model = None
         if hasattr(default_provider, "model"):
             model = default_provider.model
@@ -455,7 +455,7 @@ async def llm_extract(
 
                 response_text = response.text
 
-                # Validate LLM output per §4.4.1 L4
+                # Validate LLM output per ADR-0005 L4
                 # Use instruction-only template to avoid false positives from user text
                 validation_result = validate_llm_output(
                     response_text,
@@ -547,7 +547,7 @@ async def llm_extract(
             try:
                 response_text = await client.generate(prompt, model=model)
 
-                # Validate LLM output per §4.4.1 L4
+                # Validate LLM output per ADR-0005 L4
                 # Use instruction-only template to avoid false positives from user text
                 validation_result = validate_llm_output(
                     response_text,

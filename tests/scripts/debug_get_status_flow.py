@@ -2,10 +2,10 @@
 """
 Debug script for get_status Flow (O.7 Problem 2).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the get_status tool returns correct metrics and search states.
 
-Per §3.2.1:
+Per ADR-0003:
 - get_status(task_id) returns task state, searches, metrics, budget
 - searches array maps from internal subqueries
 - metrics include total_claims, satisfied_count
@@ -131,7 +131,7 @@ async def main() -> int:
     print(f"  - time_limit_seconds: {budget.get('time_limit_seconds')}")
 
     # Note: remaining_percent is NOT in ExplorationState.get_status() but is in _handle_get_status()
-    # Spec §3.2.1 expects remaining_percent, added by _handle_get_status
+    # Spec ADR-0003 expects remaining_percent, added by _handle_get_status
     has_remaining_percent = "remaining_percent" in budget
     print(f"  - remaining_percent present: {has_remaining_percent}")
 

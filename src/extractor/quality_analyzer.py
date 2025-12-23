@@ -3,7 +3,7 @@ Content Quality Analyzer for Lyra.
 
 Detects low-quality and AI-generated content based on structural and textual features.
 
-Features analyzed (§3.1.1, §3.3.3):
+Features analyzed (ADR-0010):
 - Template/boilerplate density
 - Advertisement density
 - Text structure anomalies

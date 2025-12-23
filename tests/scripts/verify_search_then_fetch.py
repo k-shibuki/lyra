@@ -13,9 +13,9 @@ Verification items:
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
-- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: 16.9 "Setup Procedure"
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - CAPTCHA: 100% detection, reliable transition to manual intervention
 - Scraping success rate ≥95%
 
@@ -61,7 +61,7 @@ class VerificationResult:
 
 
 class SearchFetchVerifier:
-    """Verifier for §3.2 search -> fetch consistency."""
+    """Verifier for ADR-0003 search -> fetch consistency."""
 
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
@@ -109,8 +109,8 @@ class SearchFetchVerifier:
         return True
 
     async def verify_browser_search(self) -> VerificationResult:
-        """§3.2 Search Engine Integration: Browser-based search execution."""
-        print("\n[1/6] Verifying browser search (§3.2 検索エンジン統合)...")
+        """ADR-0003 Search Engine Integration: Browser-based search execution."""
+        print("\n[1/6] Verifying browser search (ADR-0003 検索エンジン統合)...")
 
         from src.search.browser_search_provider import BrowserSearchProvider
         from src.search.provider import SearchOptions
@@ -142,7 +142,7 @@ class SearchFetchVerifier:
                     print("      This is expected behavior - CAPTCHA detection works!")
                     return VerificationResult(
                         name="Browser Search",
-                        spec_ref="§3.2 検索エンジン統合",
+                        spec_ref="ADR-0003 検索エンジン統合",
                         passed=True,
                         details={
                             "captcha_detected": True,
@@ -153,7 +153,7 @@ class SearchFetchVerifier:
                 else:
                     return VerificationResult(
                         name="Browser Search",
-                        spec_ref="§3.2 検索エンジン統合",
+                        spec_ref="ADR-0003 検索エンジン統合",
                         passed=False,
                         error=f"Search failed: {result.error}",
                     )
@@ -164,7 +164,7 @@ class SearchFetchVerifier:
             if not result.results:
                 return VerificationResult(
                     name="Browser Search",
-                    spec_ref="§3.2 検索エンジン統合",
+                    spec_ref="ADR-0003 検索エンジン統合",
                     passed=False,
                     error="No results returned",
                 )
@@ -191,7 +191,7 @@ class SearchFetchVerifier:
 
             return VerificationResult(
                 name="Browser Search",
-                spec_ref="§3.2 検索エンジン統合",
+                spec_ref="ADR-0003 検索エンジン統合",
                 passed=True,
                 details={
                     "query": test_query,
@@ -205,7 +205,7 @@ class SearchFetchVerifier:
             logger.exception("Browser search verification failed")
             return VerificationResult(
                 name="Browser Search",
-                spec_ref="§3.2 検索エンジン統合",
+                spec_ref="ADR-0003 検索エンジン統合",
                 passed=False,
                 error=str(e),
             )
@@ -219,7 +219,7 @@ class SearchFetchVerifier:
         if not self.search_results:
             return VerificationResult(
                 name="Result Fetch",
-                spec_ref="§3.2 コンテンツ抽出",
+                spec_ref="ADR-0003 コンテンツ抽出",
                 passed=False,
                 skipped=True,
                 skip_reason="No search results available",
@@ -288,7 +288,7 @@ class SearchFetchVerifier:
                 await asyncio.sleep(1.0)
 
             success_rate = successful_fetches / total_fetches
-            threshold = 0.95  # §7: スクレイピング成功率≥95%
+            threshold = 0.95 # : スクレイピング成功率≥95%
 
             print(
                 f"\n    Fetch success rate: {success_rate:.0%} ({successful_fetches}/{total_fetches})"
@@ -297,7 +297,7 @@ class SearchFetchVerifier:
             if success_rate >= threshold:
                 return VerificationResult(
                     name="Result Fetch",
-                    spec_ref="§3.2 コンテンツ抽出",
+                    spec_ref="ADR-0003 コンテンツ抽出",
                     passed=True,
                     details={
                         "success_rate": success_rate,
@@ -308,7 +308,7 @@ class SearchFetchVerifier:
             else:
                 return VerificationResult(
                     name="Result Fetch",
-                    spec_ref="§3.2 コンテンツ抽出",
+                    spec_ref="ADR-0003 コンテンツ抽出",
                     passed=False,
                     error=f"Success rate {success_rate:.0%} < {threshold:.0%}",
                 )
@@ -317,7 +317,7 @@ class SearchFetchVerifier:
             logger.exception("Result fetch verification failed")
             return VerificationResult(
                 name="Result Fetch",
-                spec_ref="§3.2 コンテンツ抽出",
+                spec_ref="ADR-0003 コンテンツ抽出",
                 passed=False,
                 error=str(e),
             )
@@ -325,8 +325,8 @@ class SearchFetchVerifier:
             await fetcher.close()
 
     async def verify_session_consistency(self) -> VerificationResult:
-        """§3.1.2 Session Transfer: Session consistency between search and fetch."""
-        print("\n[3/6] Verifying session consistency (§3.1.2 セッション一貫性)...")
+        """ADR-0006 Session Transfer: Session consistency between search and fetch."""
+        print("\n[3/6] Verifying session consistency (ADR-0006 セッション一貫性)...")
 
         from src.crawler.session_transfer import get_session_transfer_manager
 
@@ -341,7 +341,7 @@ class SearchFetchVerifier:
                 print("      (This may be normal if no fetches completed successfully)")
                 return VerificationResult(
                     name="Session Consistency",
-                    spec_ref="§3.1.2 セッション一貫性",
+                    spec_ref="ADR-0006 セッション一貫性",
                     passed=True,
                     skipped=True,
                     skip_reason="No sessions available to verify",
@@ -387,7 +387,7 @@ class SearchFetchVerifier:
                 if consistency_rate >= 0.9:
                     return VerificationResult(
                         name="Session Consistency",
-                        spec_ref="§3.1.2 セッション一貫性",
+                        spec_ref="ADR-0006 セッション一貫性",
                         passed=True,
                         details={
                             "verified": verified_count,
@@ -398,14 +398,14 @@ class SearchFetchVerifier:
                 else:
                     return VerificationResult(
                         name="Session Consistency",
-                        spec_ref="§3.1.2 セッション一貫性",
+                        spec_ref="ADR-0006 セッション一貫性",
                         passed=False,
                         error=f"Consistency rate {consistency_rate:.0%} < 90%",
                     )
 
             return VerificationResult(
                 name="Session Consistency",
-                spec_ref="§3.1.2 セッション一貫性",
+                spec_ref="ADR-0006 セッション一貫性",
                 passed=True,
                 details={"note": "No domains to verify"},
             )
@@ -414,7 +414,7 @@ class SearchFetchVerifier:
             logger.exception("Session consistency verification failed")
             return VerificationResult(
                 name="Session Consistency",
-                spec_ref="§3.1.2 セッション一貫性",
+                spec_ref="ADR-0006 セッション一貫性",
                 passed=False,
                 error=str(e),
             )
@@ -434,7 +434,7 @@ class SearchFetchVerifier:
                 print("    ! Only one domain in sessions, skipping isolation test")
                 return VerificationResult(
                     name="Cross-Domain Isolation",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=True,
                     skipped=True,
                     skip_reason="Need 2+ domains to test isolation",
@@ -451,7 +451,7 @@ class SearchFetchVerifier:
             if not result_a:
                 return VerificationResult(
                     name="Cross-Domain Isolation",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error=f"No session for {domain_a}",
                 )
@@ -467,7 +467,7 @@ class SearchFetchVerifier:
             if transfer.ok:
                 return VerificationResult(
                     name="Cross-Domain Isolation",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error=f"Session for {domain_a} was accepted for {domain_b}!",
                 )
@@ -476,7 +476,7 @@ class SearchFetchVerifier:
                 print(f"    ✓ Session for {domain_a} correctly rejected for {domain_b}")
                 return VerificationResult(
                     name="Cross-Domain Isolation",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=True,
                     details={
                         "domain_a": domain_a,
@@ -487,7 +487,7 @@ class SearchFetchVerifier:
             else:
                 return VerificationResult(
                     name="Cross-Domain Isolation",
-                    spec_ref="§3.1.2 同一ドメイン限定",
+                    spec_ref="ADR-0006 同一ドメイン限定",
                     passed=False,
                     error=f"Unexpected rejection reason: {transfer.reason}",
                 )
@@ -496,14 +496,14 @@ class SearchFetchVerifier:
             logger.exception("Cross-domain isolation verification failed")
             return VerificationResult(
                 name="Cross-Domain Isolation",
-                spec_ref="§3.1.2 同一ドメイン限定",
+                spec_ref="ADR-0006 同一ドメイン限定",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_captcha_detection(self) -> VerificationResult:
-        """§3.2 CAPTCHA Continuity: CAPTCHA detection and manual intervention."""
-        print("\n[5/6] Verifying CAPTCHA detection (§3.2 CAPTCHA対応)...")
+        """ADR-0003 CAPTCHA Continuity: CAPTCHA detection and manual intervention."""
+        print("\n[5/6] Verifying CAPTCHA detection (ADR-0003 CAPTCHA対応)...")
 
         from src.crawler.fetcher import BrowserFetcher
 
@@ -535,7 +535,7 @@ class SearchFetchVerifier:
 
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.2 CAPTCHA対応",
+                    spec_ref="ADR-0003 CAPTCHA対応",
                     passed=False,
                     error=f"Missing fields: {missing}",
                 )
@@ -545,7 +545,7 @@ class SearchFetchVerifier:
                 print("    ✓ No false positive on clean page")
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.2 CAPTCHA対応",
+                    spec_ref="ADR-0003 CAPTCHA対応",
                     passed=True,
                     details={
                         "has_detection_fields": True,
@@ -558,7 +558,7 @@ class SearchFetchVerifier:
                 print("      This is unusual but shows detection is working")
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.2 CAPTCHA対応",
+                    spec_ref="ADR-0003 CAPTCHA対応",
                     passed=True,
                     details={
                         "has_detection_fields": True,
@@ -569,7 +569,7 @@ class SearchFetchVerifier:
             else:
                 return VerificationResult(
                     name="CAPTCHA Detection",
-                    spec_ref="§3.2 CAPTCHA対応",
+                    spec_ref="ADR-0003 CAPTCHA対応",
                     passed=False,
                     error=f"Fetch failed: {result.reason}",
                 )
@@ -578,7 +578,7 @@ class SearchFetchVerifier:
             logger.exception("CAPTCHA detection verification failed")
             return VerificationResult(
                 name="CAPTCHA Detection",
-                spec_ref="§3.2 CAPTCHA対応",
+                spec_ref="ADR-0003 CAPTCHA対応",
                 passed=False,
                 error=str(e),
             )
@@ -601,7 +601,7 @@ class SearchFetchVerifier:
             if len(available_engines) < 2:
                 return VerificationResult(
                     name="Multiple Engines",
-                    spec_ref="§3.2 対応エンジン",
+                    spec_ref="ADR-0003 対応エンジン",
                     passed=True,
                     skipped=True,
                     skip_reason="Only one engine available",
@@ -651,7 +651,7 @@ class SearchFetchVerifier:
             if success_rate >= 0.5:  # At least half should work
                 return VerificationResult(
                     name="Multiple Engines",
-                    spec_ref="§3.2 対応エンジン",
+                    spec_ref="ADR-0003 対応エンジン",
                     passed=True,
                     details={
                         "tested": test_engines,
@@ -663,7 +663,7 @@ class SearchFetchVerifier:
             else:
                 return VerificationResult(
                     name="Multiple Engines",
-                    spec_ref="§3.2 対応エンジン",
+                    spec_ref="ADR-0003 対応エンジン",
                     passed=False,
                     error=f"Only {len(successful_engines)}/{len(test_engines)} engines working",
                 )
@@ -672,7 +672,7 @@ class SearchFetchVerifier:
             logger.exception("Multiple engines verification failed")
             return VerificationResult(
                 name="Multiple Engines",
-                spec_ref="§3.2 対応エンジン",
+                spec_ref="ADR-0003 対応エンジン",
                 passed=False,
                 error=str(e),
             )
@@ -683,7 +683,7 @@ class SearchFetchVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("E2E: Search→Fetch Consistency Verification")
-        print("検証対象: §3.2 エージェント実行機能")
+        print("検証対象: ADR-0003 エージェント実行機能")
         print("=" * 70)
 
         # Prerequisites

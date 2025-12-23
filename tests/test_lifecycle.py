@@ -1,7 +1,7 @@
 """
 Tests for process lifecycle management.
 
-Per §4.2: Browser instances and LLM processes should be destroyed (Kill)
+Browser instances and LLM processes should be destroyed (Kill)
 after each task completion to prevent memory leaks.
 
 ## Test Perspectives Table

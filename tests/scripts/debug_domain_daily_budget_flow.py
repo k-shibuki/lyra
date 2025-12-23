@@ -2,10 +2,10 @@
 """
 Debug script for Domain Daily Budget Flow (Problem 11).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the domain daily budget checking and tracking functionality.
 
-Per §4.3:
+Per ADR-0006:
 - Daily request/page limits per domain
 - Automatic daily reset at midnight
 - Fail-open on errors

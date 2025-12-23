@@ -1,15 +1,15 @@
 """
 Confidence calibration for Lyra.
 
-Implements probability calibration for LLM/NLI outputs (§3.3.4):
+Implements probability calibration for LLM/NLI outputs :
 - Platt scaling (logistic regression on logits)
 - Temperature scaling (single parameter scaling)
 - Brier score evaluation
 - Incremental recalibration (triggered after N samples accumulate)
 
 References:
-- §3.3.4: Confidence Calibration
-- §7: Acceptance Criteria (Brier score improvement ≥20%)
+- : Confidence Calibration
+- : Acceptance Criteria (Brier score improvement ≥20%)
 """
 
 import json
@@ -415,7 +415,7 @@ def expected_calibration_error(
 class CalibrationHistory:
     """Manages calibration parameter history for rollback support.
 
-    Implements §4.6.1 requirements:
+    Implements requirements:
     - Parameter history preservation (up to max_history entries per source)
     - Degradation detection (Brier score worsening)
     - Automatic rollback to previous good parameters
@@ -591,7 +591,7 @@ class CalibrationHistory:
     ) -> tuple[bool, float]:
         """Check if new calibration shows degradation.
 
-        Implements §4.6.1 degradation detection.
+        Implements degradation detection.
 
         Args:
             source: Source model identifier.
@@ -632,7 +632,7 @@ class CalibrationHistory:
     ) -> CalibrationParams | None:
         """Rollback to previous calibration parameters.
 
-        Implements §4.6.1 automatic rollback.
+        Implements automatic rollback.
 
         Args:
             source: Source model identifier.
@@ -800,7 +800,7 @@ class Calibrator:
     - Applying calibration to predictions
     - Persistence of calibration parameters
     - Incremental recalibration as new samples arrive
-    - Degradation detection and automatic rollback (§4.6.1)
+    - Degradation detection and automatic rollback
     """
 
     PARAMS_FILE = "calibration_params.json"
@@ -1221,7 +1221,7 @@ class Calibrator:
         return list(self._params.keys())
 
     # =========================================================================
-    # Rollback Methods (§4.6.1)
+    # Rollback Methods
     # =========================================================================
 
     def rollback(
@@ -1467,7 +1467,7 @@ async def rollback_calibration(
 ) -> dict[str, Any]:
     """Rollback calibration to a previous version (for MCP tool use).
 
-    Implements §4.6.1 rollback functionality.
+    Implements rollback functionality.
 
     Args:
         source: Source model identifier.
@@ -1586,7 +1586,7 @@ async def get_calibration_stats() -> dict[str, Any]:
 
 
 # =============================================================================
-# Calibration Evaluation (§4.6.1)
+# Calibration Evaluation
 # =============================================================================
 
 
@@ -1624,7 +1624,7 @@ class CalibrationEvaluation:
 
 
 class CalibrationEvaluator:
-    """Manages calibration evaluation persistence (§4.6.1).
+    """Manages calibration evaluation persistence .
 
     Responsibilities (Lyra Worker):
     - Execute evaluation calculations
@@ -1969,7 +1969,7 @@ def get_calibration_evaluator() -> CalibrationEvaluator:
 
 
 # =============================================================================
-# MCP Tool Integration (§4.6.1)
+# MCP Tool Integration
 # =============================================================================
 
 
@@ -1980,7 +1980,7 @@ async def save_calibration_evaluation(
 ) -> dict[str, Any]:
     """Execute evaluation and save to database (for MCP tool use).
 
-    Implements §4.6.1: Lyra Worker - Evaluation calculation and DB persistence.
+    Implements : Lyra Worker - Evaluation calculation and DB persistence.
 
     Args:
         source: Source model identifier.
@@ -2007,7 +2007,7 @@ async def get_calibration_evaluations(
 ) -> dict[str, Any]:
     """Get evaluation history (for MCP tool use).
 
-    Implements §4.6.1: Lyra Worker - Return structured data.
+    Implements : Lyra Worker - Return structured data.
 
     Args:
         source: Optional source filter.
@@ -2047,7 +2047,7 @@ async def get_reliability_diagram_data(
 ) -> dict[str, Any]:
     """Get reliability diagram data for visualization (for MCP tool use).
 
-    Implements §4.6.1: Lyra Worker - Return bin data for reliability curve.
+    Implements : Lyra Worker - Return bin data for reliability curve.
 
     Args:
         source: Source model identifier.
@@ -2062,17 +2062,17 @@ async def get_reliability_diagram_data(
 
 
 # =============================================================================
-# Unified Calibration API (Phase 6.3)
+# Unified Calibration API
 # =============================================================================
 
 
 async def calibration_metrics_action(
     action: str, data: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """Unified calibration metrics API for MCP (Phase 6.3).
+    """Unified calibration metrics API for MCP .
 
     This is the single entry point for calibration metrics operations (except rollback).
-    Renamed from calibrate_action in Phase 6.3; add_sample removed.
+    Renamed from calibrate_action; add_sample removed.
 
     Args:
         action: One of "get_stats", "evaluate", "get_evaluations", "get_diagram_data"
@@ -2091,7 +2091,7 @@ async def calibration_metrics_action(
             data: {source: str, evaluation_id?: str}
 
     Note:
-        add_sample was removed in Phase 6.3. Use feedback(edge_correct) for
+        add_sample was removed. Use feedback(edge_correct) for
         ground-truth collection which accumulates samples in nli_corrections table.
 
     Raises:

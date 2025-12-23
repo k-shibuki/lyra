@@ -2,15 +2,15 @@
 Entity Knowledge Base for Lyra.
 
 Normalizes and stores entities extracted from Academic Research sources (RDAP/WHOIS, crt.sh, etc.).
-Implements §3.1.2:
+Implements ADR-0006:
 - Name normalization (alternate representations, identity estimation)
 - Address normalization
 - Identifier normalization
 - Entity deduplication and linking
 
 References:
-- §3.1.2: Infrastructure/Registry Direct Access - Entity KB normalization
-- §3.1.1: Pivot Exploration - Entity expansion
+- ADR-0006: Infrastructure/Registry Direct Access - Entity KB normalization
+- ADR-0010: Pivot Exploration - Entity expansion
 """
 
 import json

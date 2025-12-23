@@ -10,7 +10,7 @@ Validates:
 - CAPTCHA detection
 - Error handling and diagnostic messages
 
-Follows §7.1 test code quality standards:
+Follows .1 test code quality standards:
 - Specific assertions with concrete values
 - No conditional assertions
 - Proper HTML fixtures for testing

@@ -1,7 +1,7 @@
 """
 Query A/B testing module for Lyra.
 
-Implements §3.1.1: Query A/B Testing
+Implements ADR-0010: Query A/B Testing
 - Small-scale A/B tests with notation/particle/word-order variants
 - Cache and reuse high-yield queries
 
@@ -651,7 +651,7 @@ class HighYieldQueryCache:
     """
     Cache and retrieve high-yield query patterns.
 
-    Implements §3.1.1: Cache and reuse high-yield queries.
+    Implements ADR-0010: Cache and reuse high-yield queries.
     """
 
     async def get_improved_query(

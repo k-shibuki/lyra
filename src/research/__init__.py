@@ -5,8 +5,8 @@ This module implements the exploration control engine where:
 - Cursor AI designs all search queries (strategic decisions)
 - Lyra provides design support information and executes queries (operational work)
 
-See docs/REQUIREMENTS.md §2.1 for the responsibility matrix.
-See docs/REQUIREMENTS.md §3.1.1 for UCB1-based budget allocation and pivot exploration.
+See ADR-0002 for the responsibility matrix.
+See ADR-0010 for UCB1-based budget allocation and pivot exploration.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
@@ -75,12 +75,12 @@ __all__ = [
     # Refutation
     "RefutationExecutor",
     "RefutationResult",
-    # UCB1 Budget Allocation (§3.1.1, new names)
+    # UCB1 Budget Allocation (ADR-0010, new names)
     "UCBAllocator",
     "SearchArm",
     # UCB1 (deprecated alias)
     "SubqueryArm",
-    # Pivot Exploration (§3.1.1)
+    # Pivot Exploration (ADR-0010)
     "PivotExpander",
     "PivotSuggestion",
     "PivotType",

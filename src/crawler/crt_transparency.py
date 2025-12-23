@@ -2,15 +2,15 @@
 Certificate Transparency client for Lyra.
 
 Retrieves certificate information from crt.sh via HTML scraping (no API).
-Implements §3.1.2:
+Implements ADR-0006:
 - SAN (Subject Alternative Names) extraction
 - Issuer information
 - Issue date timeline
 - Related domain discovery
 
 References:
-- §3.1.2: Infrastructure/Registry Direct Access (HTML only)
-- §3.1.1: Pivot Exploration (domain → certificate → organization)
+- ADR-0006: Infrastructure/Registry Direct Access (HTML only)
+- ADR-0010: Pivot Exploration (domain → certificate → organization)
 """
 
 import asyncio
@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 # Constants
 # =============================================================================
 
-# crt.sh HTML endpoint (no API per §4.1)
+# crt.sh HTML endpoint (no API per ADR-0001)
 CRT_SH_BASE = "https://crt.sh"
 CRT_SH_SEARCH = f"{CRT_SH_BASE}/?q={{domain}}"
 CRT_SH_CERT = f"{CRT_SH_BASE}/?id={{cert_id}}"
@@ -541,7 +541,7 @@ class CertTransparencyParser:
 class CertTransparencyClient:
     """Client for certificate transparency log queries via crt.sh.
 
-    Implements HTML scraping only (no API per §4.1).
+    Implements HTML scraping only (no API per ADR-0001).
     """
 
     def __init__(
@@ -702,7 +702,7 @@ class CertTransparencyClient:
     ) -> list[str]:
         """Discover domains related via certificate sharing.
 
-        This is useful for Academic Research pivot exploration per §3.1.1.
+        This is useful for Academic Research pivot exploration per ADR-0010.
 
         Args:
             domain: Domain to start from.

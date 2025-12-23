@@ -12,7 +12,7 @@ Key functions:
 
 BrowserSearchProvider handles all searches:
 - Uses the user's browser profile (Cookie/fingerprint)
-- Enables CAPTCHA resolution via manual intervention (§3.6.1)
+- Enables CAPTCHA resolution via manual intervention (ADR-0007)
 - Maintains session consistency with fetch operations
 """
 
@@ -97,7 +97,7 @@ class SerpSearchError(SearchError):
 
 
 # ============================================================================
-# Query Operator Processing (§3.1.1, §3.1.4 in docs/REQUIREMENTS.md)
+# Query Operator Processing (ADR-0010, ADR-0006)
 # ============================================================================
 
 
@@ -139,7 +139,7 @@ class QueryOperatorProcessor:
     - +term            - Required term
     - after:YYYY-MM-DD - Date filter
 
-    Implements engine-specific mapping from config/engines.yaml (§3.1.4).
+    Implements engine-specific mapping from config/engines.yaml (ADR-0006).
     Uses SearchEngineConfigManager for centralized configuration.
     """
 
@@ -1206,7 +1206,7 @@ async def generate_mirror_query(
 ) -> str | None:
     """Generate a mirror query in another language using local LLM.
 
-    Implements §3.1.1: Cross-language (JA↔EN) mirror query auto-generation.
+    Implements ADR-0010: Cross-language (JA↔EN) mirror query auto-generation.
     Uses Ollama for translation to maintain Zero OpEx requirement.
 
     Args:

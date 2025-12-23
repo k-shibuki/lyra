@@ -58,7 +58,7 @@ class TestContentQualityAnalyzer:
     # === Thin Content Detection ===
 
     def test_thin_content_detection_very_short(self, analyzer: ContentQualityAnalyzer) -> None:
-        """Test detection of very thin content (§3.3.3)."""
+        """Test detection of very thin content ."""
         html = """
         <html>
             <body>
@@ -146,7 +146,7 @@ class TestContentQualityAnalyzer:
     # === Ad-Heavy Content Detection ===
 
     def test_ad_heavy_detection(self, analyzer: ContentQualityAnalyzer) -> None:
-        """Test detection of ad-heavy content (§3.1.1)."""
+        """Test detection of ad-heavy content (ADR-0010)."""
         html = """
         <html>
             <body>
@@ -233,7 +233,7 @@ class TestContentQualityAnalyzer:
     # === Repetitive Content Detection ===
 
     def test_repetitive_content_detection(self, analyzer: ContentQualityAnalyzer) -> None:
-        """Test detection of repetitive content (§3.3.3)."""
+        """Test detection of repetitive content ."""
         # Highly repetitive text
         repeated_sentence = "This is a repeated sentence that appears many times. "
         html = f"""
@@ -271,7 +271,7 @@ class TestContentQualityAnalyzer:
     # === Keyword Stuffing Detection ===
 
     def test_keyword_stuffing_detection(self, analyzer: ContentQualityAnalyzer) -> None:
-        """Test detection of keyword stuffing (§3.1.1)."""
+        """Test detection of keyword stuffing (ADR-0010)."""
         html = """
         <html>
             <body>
@@ -294,7 +294,7 @@ class TestContentQualityAnalyzer:
     # === AI-Generated Content Detection ===
 
     def test_ai_generated_content_detection(self, analyzer: ContentQualityAnalyzer) -> None:
-        """Test detection of AI-generated content patterns (§3.3.3)."""
+        """Test detection of AI-generated content patterns ."""
         html = """
         <html>
             <body>
@@ -345,7 +345,7 @@ class TestContentQualityAnalyzer:
     # === SEO Spam Detection ===
 
     def test_seo_spam_detection(self, analyzer: ContentQualityAnalyzer) -> None:
-        """Test detection of SEO spam patterns (§3.1.1)."""
+        """Test detection of SEO spam patterns (ADR-0010)."""
         html = """
         <html>
             <body>
@@ -371,7 +371,7 @@ class TestContentQualityAnalyzer:
     # === Aggregator/Curation Site Detection ===
 
     def test_aggregator_detection(self, analyzer: ContentQualityAnalyzer) -> None:
-        """Test detection of aggregator/curation sites (§3.1.1)."""
+        """Test detection of aggregator/curation sites (ADR-0010)."""
         html = """
         <html>
             <body>

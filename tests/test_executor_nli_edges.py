@@ -1,5 +1,5 @@
 """
-Tests for Phase 4 / Task 4.0 prerequisite A:
+Tests for / prerequisite A:
 Wire Step 7 (NLI) into the normal search path and persist edges.nli_confidence.
 
 Goal:

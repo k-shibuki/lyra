@@ -1,7 +1,7 @@
 """
 Human-like browser behavior simulation for Lyra.
 
-Implements realistic human interaction patterns per §4.3.4:
+Implements realistic human interaction patterns per ADR-0006:
 - Mouse trajectory with Bezier curves and natural acceleration/deceleration
 - Typing rhythm with Gaussian-distributed delays and occasional typos
 - Inertial scrolling with ease-out animation

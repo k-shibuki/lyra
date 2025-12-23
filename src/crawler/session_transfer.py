@@ -1,7 +1,7 @@
 """
 Session Transfer Utility for Lyra.
 
-Implements §3.1.2 requirement for safe session context transfer:
+Implements ADR-0006 requirement for safe session context transfer:
 - Browser → HTTP Client session migration
 - Cookie/ETag/UA/Accept-Language transfer
 - Same-domain restriction enforcement
@@ -155,7 +155,7 @@ class SessionData(BaseModel):
     def is_valid_for_url(self, url: str) -> bool:
         """Check if session is valid for the target URL.
 
-        Implements §3.1.2 same-domain restriction.
+        Implements ADR-0006 same-domain restriction.
 
         Args:
             url: Target URL to check.
@@ -320,7 +320,7 @@ class TransferResult(BaseModel):
 class SessionTransferManager:
     """Manages session transfer between browser and HTTP client.
 
-    Implements §3.1.2 session transfer requirements:
+    Implements ADR-0006 session transfer requirements:
     - Safe cookie/header transfer from browser context
     - Same-domain restriction enforcement
     - Sec-Fetch-*/Referer consistency maintenance
@@ -521,7 +521,7 @@ class SessionTransferManager:
         """Generate HTTP headers from session data.
 
         Creates headers suitable for HTTP client requests, maintaining
-        Referer/sec-fetch-* consistency per §3.1.2.
+        Referer/sec-fetch-* consistency per ADR-0006.
 
         Args:
             session_id: Session identifier.

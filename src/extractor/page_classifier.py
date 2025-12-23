@@ -3,7 +3,7 @@ Page Type Classifier for Lyra.
 
 Classifies web pages into types for extraction/traversal strategy selection.
 
-Page Types (§3.1.2):
+Page Types (ADR-0006):
 - article: News articles, blog posts, research papers
 - knowledge: Wiki pages, documentation, manuals, FAQs
 - notice: Official announcements, press releases, notices

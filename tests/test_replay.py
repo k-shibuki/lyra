@@ -2,7 +2,7 @@
 Tests for replay module.
 Tests DecisionLogger, ReplayEngine, and decision tracking.
 
-Related spec: §4.6 Replay/Reproduction Mode
+Related spec: Replay/Reproduction Mode
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |

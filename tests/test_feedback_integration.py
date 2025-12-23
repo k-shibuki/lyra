@@ -1,12 +1,12 @@
 """
-Tests for feedback ⇔ SourceVerifier integration (Phase 6.3).
+Tests for feedback ⇔ SourceVerifier integration .
 
-Test matrix based on P_EVIDENCE_SYSTEM.md テスト観点表（Task 6.3）:
+Test matrix based on P_EVIDENCE_SYSTEM.md テスト観点表（）:
 
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
 |---------|---------------------|-------------|-----------------|-------|
 | TC-FI-01 | domain_block call | Normal | Added to SourceVerifier._blocked_domains | wiring |
-| TC-FI-02 | domain_unblock (dangerous_pattern) | Normal (TC-DU-03) | Removed from _blocked_domains | Decision 20 |
+| TC-FI-02 | domain_unblock (dangerous_pattern) | Normal (TC-DU-03) | Removed from _blocked_domains | ADR-0012 |
 | TC-FI-03 | domain_unblock (high_rejection_rate) | Normal | Removed from _blocked_domains | |
 | TC-FI-04 | domain_unblock (manual) | Normal | Removed from _blocked_domains | |
 | TC-FI-05 | get_status | Normal | domain_overrides[] contains active rules | |
@@ -92,7 +92,7 @@ class TestDomainUnblockSourceVerifierWiring:
         """
         TC-FI-02 (TC-DU-03): domain_unblock should unblock dangerous_pattern domain.
 
-        Per Decision 20: feedback(domain_unblock) can unblock any domain,
+        Per ADR-0012: feedback(domain_unblock) can unblock any domain,
         including dangerous_pattern.
 
         // Given: Domain blocked with dangerous_pattern reason
@@ -346,7 +346,7 @@ class TestBoundaryCases:
 
 
 class TestSourceVerifierAPI:
-    """Unit tests for SourceVerifier methods added in Phase 6.3."""
+    """Unit tests for SourceVerifier methods added in ."""
 
     def test_unblock_domain_returns_true_when_blocked(self) -> None:
         """

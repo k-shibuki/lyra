@@ -1,7 +1,7 @@
 """
 Pivot exploration for Academic Research entity expansion.
 
-Implements §3.1.1 pivot exploration patterns:
+Implements ADR-0010 pivot exploration patterns:
 - Organization → subsidiaries, officers, location, domain
 - Domain → subdomain, certificate SAN, organization
 - Person → aliases, handles, affiliations
@@ -292,10 +292,10 @@ class PivotExpander:
     """
     Generates pivot queries for Academic Research entity expansion.
 
-    Implements §3.1.1 pivot exploration patterns. This class generates
+    Implements ADR-0010 pivot exploration patterns. This class generates
     query suggestions for Cursor AI to consider when designing subqueries.
     It does NOT decide which pivots to execute - that remains Cursor AI's
-    responsibility per §2.1 responsibility matrix.
+    responsibility per ADR-0002 responsibility matrix.
     """
 
     def __init__(self) -> None:

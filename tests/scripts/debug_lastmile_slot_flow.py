@@ -6,7 +6,7 @@ This script verifies that BrowserSearchProvider.search() correctly
 selects lastmile engines based on harvest rate.
 
 Per spec:
-- §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
+- ADR-0010: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
            Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
 """
 
@@ -308,7 +308,7 @@ async def main() -> None:
     print("Lastmile Slot Selection Flow Debug Script")
     print("=" * 80)
     print("\nThis script verifies the lastmile slot selection implementation.")
-    print("Per spec §3.1.1: Lastmile engines for final 10% harvest rate.")
+    print("Per spec ADR-0010: Lastmile engines for final 10% harvest rate.")
 
     results = []
 

@@ -2,7 +2,7 @@
 robots.txt and sitemap.xml parser for Lyra.
 
 Implements:
-- robots.txt parsing and compliance checking (§3.1.2)
+- robots.txt parsing and compliance checking (ADR-0006)
 - sitemap.xml parsing and priority URL extraction
 - Crawl-delay respect and rate limiting integration
 - Caching with TTL for efficiency

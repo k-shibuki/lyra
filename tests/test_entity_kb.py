@@ -2,15 +2,15 @@
 Tests for Entity Knowledge Base.
 
 Tests entity normalization, storage, and retrieval functionality.
-Follows §7.1 test quality standards:
+Follows .1 test quality standards:
 - Specific assertions with expected values
 - No conditional assertions
 - Realistic test data
 - Clear AAA pattern
 
 References:
-- §3.1.2: Infrastructure/Registry Direct Access - Entity KB normalization
-- §7.1: Test code quality standards
+- ADR-0006: Infrastructure/Registry Direct Access - Entity KB normalization
+- .1: Test code quality standards
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -905,7 +905,7 @@ class TestEdgeCases:
 
 
 class TestBoundaryConditions:
-    """Tests for boundary conditions per §7.1.2."""
+    """Tests for boundary conditions per .1.2."""
 
     def test_similarity_single_token(self, name_normalizer: NameNormalizer) -> None:
         """Test similarity with single-token names."""

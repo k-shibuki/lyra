@@ -1,7 +1,7 @@
 """
 Profile Health Audit for Lyra.
 
-Implements profile health monitoring per §4.3.1:
+Implements profile health monitoring per ADR-0006:
 - High-frequency checks at task start and browser session initialization
 - UA/major version, font set, language/timezone, Canvas/Audio fingerprint drift detection
 - Automatic repair: Chrome restart flag, font resync, profile recreation
@@ -322,7 +322,7 @@ FINGERPRINT_JS = """
 class ProfileAuditor:
     """Profile health auditor for browser fingerprint consistency.
 
-    Implements §4.3.1 profile health audit:
+    Implements ADR-0006 profile health audit:
     - Captures baseline fingerprint on first initialization
     - Compares current fingerprint against baseline
     - Detects drift in UA, fonts, language, timezone, canvas, audio

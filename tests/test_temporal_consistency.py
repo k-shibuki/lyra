@@ -1,5 +1,5 @@
 """
-Unit tests for Temporal Consistency Checker (§3.3.3).
+Unit tests for Temporal Consistency Checker .
 
 Tests the temporal consistency validation functionality including:
 - Date extraction from text and metadata

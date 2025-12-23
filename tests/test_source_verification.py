@@ -1,5 +1,5 @@
 """
-Tests for Source Verification Flow (K.3-6, §4.4.1 L6).
+Tests for Source Verification Flow (K.3-6, ADR-0005 L6).
 
 Test Coverage:
 - Claim verification with EvidenceGraph
@@ -2035,7 +2035,7 @@ class TestPhaseP2RelaxedBlocking:
 
 
 class TestDomainBlockReason:
-    """Tests for DomainBlockReason enum and related functionality (Phase 5 Task 5.1)."""
+    """Tests for DomainBlockReason enum and related functionality ."""
 
     def test_domain_block_reason_enum_values(self) -> None:
         """
@@ -2341,7 +2341,7 @@ class TestDomainBlockReason:
 
 
 class TestRejectionRateSeparation:
-    """Tests for rejection rate separation (Task 5.5, Decision 18).
+    """Tests for rejection rate separation (ADR-0005).
 
     Test Perspectives Table:
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
@@ -2355,7 +2355,7 @@ class TestRejectionRateSeparation:
     | TC-5.5-N-05 | verify_claim with dangerous_pattern | Wiring - security rejection | Claim in security_rejected_claims | Propagation test |
     | TC-5.5-N-06 | High combined rejection rate | Effect - block decision | Domain blocked | Uses combined rate |
     | TC-5.5-A-01 | NULL claim_id | Boundary - NULL | Handled gracefully | - |
-    | TC-5.5-E-01 | RejectionType.MANUAL | Equiv - manual | Claim in manual_rejected_claims | Phase 6 preparation |
+    | TC-5.5-E-01 | RejectionType.MANUAL | Equiv - manual | Claim in manual_rejected_claims | preparation |
     | TC-5.5-A-01 | rejection_type=\"manual\" (str) | Abnormal - invalid type | TypeError with message | Runtime guard |
     | TC-5.5-A-02 | rejection_type=None | Boundary - NULL | TypeError with message | Runtime guard |
     """
@@ -2558,7 +2558,7 @@ class TestRejectionRateSeparation:
 
         // Given: Claim rejected with MANUAL type
         // When: Calling _update_domain_state
-        // Then: Claim in manual_rejected_claims (Phase 6 preparation)
+        // Then: Claim in manual_rejected_claims ( preparation)
         """
         verifier._update_domain_state(
             domain="test.com",

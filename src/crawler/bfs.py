@@ -1,14 +1,14 @@
 """
 Domain-internal BFS crawler for Lyra.
 
-Implements breadth-first search within a single domain (§3.1.2):
+Implements breadth-first search within a single domain (ADR-0006):
 - Maximum depth of 2 from seed URL
 - Link prioritization based on heading/TOC/related article structure
 - robots.txt compliance
 - Rate limiting and domain policy respect
 
 References:
-- §3.1.2: Crawling Strategy - Domain internal exploration
+- ADR-0006: Crawling Strategy - Domain internal exploration
 """
 
 import asyncio
@@ -334,7 +334,7 @@ class LinkExtractor:
         Returns:
             Priority score (0.0 - 1.0).
         """
-        # Base priority by type (per §3.1.2)
+        # Base priority by type (per ADR-0006)
         type_priority = {
             LinkType.HEADING: 0.9,  # High value - linked from headings
             LinkType.TOC: 0.85,  # Table of contents - structured
@@ -393,7 +393,7 @@ class LinkExtractor:
 class DomainBFSCrawler:
     """Breadth-first search crawler within a single domain.
 
-    Implements §3.1.2 requirements:
+    Implements ADR-0006 requirements:
     - Maximum depth of 2 from seed URL
     - Heading/TOC/related article link prioritization
     - robots.txt compliance

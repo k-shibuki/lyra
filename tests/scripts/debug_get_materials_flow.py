@@ -2,10 +2,10 @@
 """
 Debug script for get_materials Flow (O.7 Problem 3).
 
-This is a "straight-line" debug script per §debug-integration rule.
+This is a "straight-line" debug script.
 Verifies the get_materials tool returns claims/fragments/evidence_graph from DB.
 
-Per §3.2.1:
+Per ADR-0003:
 - get_materials(task_id) returns claims, fragments, evidence_graph, summary
 - Data should come from DB (populated by search pipeline)
 

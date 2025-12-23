@@ -1,5 +1,5 @@
 """
-Tests for profile health audit (§4.3.1).
+Tests for profile health audit (ADR-0006).
 
 Tests cover:
 - Fingerprint collection and comparison

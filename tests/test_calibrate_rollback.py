@@ -15,7 +15,7 @@ from src.mcp.errors import (
 
 
 class TestCalibrateRollbackHandler:
-    """Tests for _handle_calibration_rollback MCP handler (Phase 6.3)."""
+    """Tests for _handle_calibration_rollback MCP handler ."""
 
     @pytest.fixture
     def mock_calibrator(self) -> MagicMock:
@@ -338,7 +338,7 @@ class TestToolDefinition:
 
     def test_calibrate_rollback_in_tools(self) -> None:
         """
-        Test that calibration_rollback is defined in TOOLS (Phase 6.3).
+        Test that calibration_rollback is defined in TOOLS .
 
         // Given: TOOLS list
         // When: Searching for calibration_rollback

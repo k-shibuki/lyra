@@ -1,7 +1,7 @@
 """
-Tests for calibration_metrics MCP tool (Phase 6.3).
+Tests for calibration_metrics MCP tool.
 
-Renamed from calibrate in Phase 6.3. add_sample action was removed.
+Renamed from calibrate. add_sample action was removed.
 Use feedback(edge_correct) for ground-truth collection.
 
 Test Perspectives Table (Equivalence Partitioning / Boundary Value Analysis)
@@ -21,7 +21,7 @@ Test Perspectives Table (Equivalence Partitioning / Boundary Value Analysis)
 | TC-A-09   | evaluate: labels=None                       | Boundary – NULL                      | ok=False, error=INVALID_PARAMS            | -                        |
 | TC-A-10   | get_diagram_data: source=None               | Boundary – NULL                      | ok=False, error=INVALID_PARAMS            | -                        |
 | TC-B-05   | get_evaluations: limit=0                    | Boundary – zero                      | Empty list returned                       | -                        |
-| TC-CM-08  | action="add_sample"                         | Abnormal – removed action            | ok=False, Unknown action                  | BREAKING: Phase 6.3      |
+| TC-CM-08 | action="add_sample" | Abnormal – removed action | ok=False, Unknown action | BREAKING: |
 """
 
 from typing import Any
@@ -145,7 +145,7 @@ def mock_diagram_data() -> dict[str, Any]:
 
 
 class TestCalibrationMetricsHandler:
-    """Tests for _handle_calibration_metrics MCP handler (Phase 6.3)."""
+    """Tests for _handle_calibration_metrics MCP handler ."""
 
     # =========================================================================
     # Normal Cases (TC-N-*)
@@ -433,7 +433,7 @@ class TestCalibrationMetricsHandler:
     @pytest.mark.asyncio
     async def test_add_sample_removed(self) -> None:
         """
-        TC-CM-08: add_sample action was removed in Phase 6.3.
+        TC-CM-08: add_sample action was removed.
 
         // Given: Trying to use the removed add_sample action
         // When: Calling calibration_metrics with action="add_sample"

@@ -2,7 +2,7 @@
 ID resolver for converting between different paper identifier formats.
 
 Converts PMID, arXiv ID to DOI using Semantic Scholar API.
-Per Decision 6: S2 + OpenAlex two-pillar strategy.
+Per ADR-0008: S2 + OpenAlex two-pillar strategy.
 """
 
 from typing import Any, cast

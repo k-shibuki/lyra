@@ -2,7 +2,7 @@
 Content extraction for Lyra.
 Extracts text, metadata, and structure from HTML and PDF documents.
 
-OCR Support (§5.1.1):
+OCR Support (ADR-0008):
 - PaddleOCR (GPU-capable): Primary OCR engine for scanned PDFs/images
 - Tesseract: Lightweight fallback when PaddleOCR unavailable
 """

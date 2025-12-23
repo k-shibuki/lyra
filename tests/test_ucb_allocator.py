@@ -2,7 +2,7 @@
 Tests for UCB1-based budget allocation.
 
 Tests the UCBAllocator class and its integration with ExplorationState.
-See docs/REQUIREMENTS.md §3.1.1.
+See ADR-0010.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 
