@@ -67,9 +67,9 @@ class TestMCPErrorCode:
 
         // Given: MCPErrorCode enum
         // When: Counting all codes
-        // Then: Count equals 14 (including PIPELINE_TIMEOUT)
+        // Then: Count equals 15 (including RESOURCE_NOT_FOUND from Phase 6.2)
         """
-        assert len(MCPErrorCode) == 14
+        assert len(MCPErrorCode) == 15
 
 
 class TestMCPError:

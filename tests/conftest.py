@@ -506,6 +506,9 @@ async def test_database(temp_db_path: Path) -> AsyncGenerator["Database", None]:
     Guards against global database singleton interference by saving
     and restoring the global state around the test.
     Uses try/finally to ensure connection is closed even if test fails.
+
+    IMPORTANT: Sets global _db to test database so that get_database()
+    returns the test database instead of creating a new connection.
     """
     from src.storage import database as db_module
     from src.storage.database import Database
@@ -517,6 +520,9 @@ async def test_database(temp_db_path: Path) -> AsyncGenerator["Database", None]:
     db = Database(temp_db_path)
     await db.connect()
     await db.initialize_schema()
+
+    # Set global _db to test database so get_database() returns it
+    db_module._db = db
 
     try:
         yield db

@@ -34,6 +34,10 @@ class MCPErrorCode(str, Enum):
     """Specified task_id does not exist.
     Action: Create a new task with create_task, or verify task_id."""
 
+    RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"
+    """Specified resource (claim, edge, etc.) does not exist.
+    Action: Verify resource_id or check if resource was deleted."""
+
     # Resource limits
     BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
     """Task budget (pages or time) has been exhausted.
@@ -177,6 +181,29 @@ class TaskNotFoundError(MCPError):
             MCPErrorCode.TASK_NOT_FOUND,
             f"Task not found: {task_id}",
             details={"task_id": task_id},
+        )
+
+
+class ResourceNotFoundError(MCPError):
+    """Raised when specified resource (claim, edge, etc.) does not exist."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ):
+        details: dict[str, Any] = {}
+        if resource_type:
+            details["resource_type"] = resource_type
+        if resource_id:
+            details["resource_id"] = resource_id
+
+        super().__init__(
+            MCPErrorCode.RESOURCE_NOT_FOUND,
+            message,
+            details=details if details else None,
         )
 
 

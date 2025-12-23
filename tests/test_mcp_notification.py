@@ -549,7 +549,7 @@ class TestOldToolsRemoved:
         """
         from src.mcp.server import TOOLS
 
-        assert len(TOOLS) == 11, f"Expected 11 tools per §3.2.1, got {len(TOOLS)}"
+        assert len(TOOLS) == 12, f"Expected 12 tools (§3.2.1 + feedback from Phase 6.2), got {len(TOOLS)}"
 
     def test_all_new_tools_present(self) -> None:
         """
