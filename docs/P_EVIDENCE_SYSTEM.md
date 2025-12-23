@@ -17,7 +17,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-23（Phase 5 Task 5.1 完了: `domain_block_reason`/`domain_unblock_risk` 露出、BREAKING: `can_restore` 削除）
+**最終更新**: 2025-12-23（Phase 6 Task 6.1 完了: DBスキーマ変更（命名統一 + 新テーブル）、BREAKING: `confidence_score`→`claim_confidence`, `adoption_status`→`claim_adoption_status`, `calibrated_score`/`is_verified`削除）
 
 このセクションは、`docs/P_EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -114,7 +114,7 @@
 | Phase / Task | 内容 | 状態 | 参照（主な実装箇所） | 備考 |
 |---|---|---|---|---|
 | Phase 6 / Task 6.0 | クリーン実装ゲート（Phase 1-5 完了事項の徹底確認 + 完全クリーンアップ） | DONE | `tests/test_source_verification.py`, `tests/test_mcp_get_status.py`, `tests/test_evidence_graph.py`, `tests/test_evidence_graph_academic.py` | 旧フィールド言及（否定テスト・コメント含む）を完全削除。検証: 旧フィールド0件、テスト199 passed |
-| Phase 6 / Task 6.1 | DBスキーマ変更（命名統一 + 新カラム + 新テーブル） | PLANNED | `src/storage/schema.sql` | 決定19/20参照。`nli_corrections`, `domain_override_rules/events` 作成。DB作り直し（マイグレーション不要） |
+| Phase 6 / Task 6.1 | DBスキーマ変更（命名統一 + 新カラム + 新テーブル） | DONE | `src/storage/schema.sql`, `src/filter/evidence_graph.py`, `src/research/*.py`, `src/report/*.py` | 決定19/20参照。`nli_corrections`, `domain_override_rules/events` 作成。`claims`/`edges` カラム名統一。DB作り直し（マイグレーション不要）。検証: テスト3344 passed |
 | Phase 6 / Task 6.2 | `feedback` MCPツール新設（6アクション） | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/feedback.json`, `src/filter/source_verification.py`, `src/filter/evidence_graph.py` | 決定17/20参照。Domain/Claim/Edge 3レベル |
 | Phase 6 / Task 6.3 | `calibrate` → `calibration_metrics` リネーム + `add_sample` 削除 | PLANNED | `src/mcp/server.py`, `src/mcp/schemas/calibration_metrics.json`, `src/utils/calibration.py` | feedbackで蓄積されたDBを使用。破壊操作は `calibration_rollback` に分離維持 |
 | Phase 6 / Task 6.4 | `get_materials` に `claim_adoption_status` 露出 | PLANNED | `src/research/materials.py`, `src/mcp/schemas/get_materials.json` | 不採用claimのフィルタリングを高推論AIに委ねる |

@@ -108,7 +108,7 @@ async def main() -> int:
     import json
 
     await db.execute(
-        """INSERT INTO claims (id, task_id, claim_text, claim_type, confidence_score, source_fragment_ids, verification_notes, created_at)
+        """INSERT INTO claims (id, task_id, claim_text, claim_type, claim_confidence, source_fragment_ids, verification_notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
         (
             claim_id,

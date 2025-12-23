@@ -100,7 +100,7 @@ class RefutationExecutor:
         with LogContext(task_id=self.task_id, claim_id=claim_id):
             # Get claim text from database
             claim = await self._db.fetch_one(
-                "SELECT claim_text, confidence_score FROM claims WHERE id = ?",
+                "SELECT claim_text, claim_confidence FROM claims WHERE id = ?",
                 (claim_id,),
             )
 
@@ -109,7 +109,7 @@ class RefutationExecutor:
                 return result
 
             claim_text = claim.get("claim_text", "")
-            current_confidence = claim.get("confidence_score", 1.0)
+            current_confidence = claim.get("claim_confidence", 1.0)
 
             logger.info("Executing refutation for claim", claim_text=claim_text[:50])
 
@@ -131,7 +131,7 @@ class RefutationExecutor:
                 new_confidence = max(0, current_confidence + result.confidence_adjustment)
 
                 await self._db.execute(
-                    "UPDATE claims SET confidence_score = ? WHERE id = ?",
+                    "UPDATE claims SET claim_confidence = ? WHERE id = ?",
                     (new_confidence, claim_id),
                 )
 

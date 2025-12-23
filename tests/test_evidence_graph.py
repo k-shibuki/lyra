@@ -1441,7 +1441,7 @@ class TestClaimAdoptionStatus:
         Test setting not_adopted status for rejected claim.
 
         // Given: Claim that was rejected
-        // When: Setting adoption_status to not_adopted
+        // When: Setting claim_adoption_status to not_adopted
         // Then: Status is preserved in graph
         """
         graph = EvidenceGraph()
@@ -1455,17 +1455,17 @@ class TestClaimAdoptionStatus:
 
     def test_get_claim_adoption_status_default(self) -> None:
         """
-        Test default adoption status is pending.
+        Test default adoption status is adopted.
 
         // Given: Claim without explicit status
         // When: Getting adoption status
-        // Then: Returns pending
+        // Then: Returns adopted (Decision 19: default changed from 'pending')
         """
         graph = EvidenceGraph()
         graph.add_node(NodeType.CLAIM, "c1", text="New claim")
 
-        # Then: Default is pending
-        assert graph.get_claim_adoption_status("c1") == "pending"
+        # Then: Default is adopted (Decision 19)
+        assert graph.get_claim_adoption_status("c1") == "adopted"
 
     def test_get_claim_adoption_status_not_found(self) -> None:
         """
@@ -1526,16 +1526,16 @@ class TestClaimAdoptionStatus:
         graph.add_node(NodeType.CLAIM, "c2", text="Claim 2")
         graph.add_node(NodeType.CLAIM, "c3", text="Claim 3")
 
-        graph.set_claim_adoption_status("c1", "adopted")
+        # c1 stays adopted (default)
         graph.set_claim_adoption_status("c2", "not_adopted")
-        # c3 stays pending
+        graph.set_claim_adoption_status("c3", "pending")
 
-        # When: Get adopted claims
+        # When: Get claims by status
         adopted = graph.get_claims_by_adoption_status("adopted")
         not_adopted = graph.get_claims_by_adoption_status("not_adopted")
         pending = graph.get_claims_by_adoption_status("pending")
 
-        # Then: Correct filtering
+        # Then: Correct filtering (default is now 'adopted')
         assert adopted == ["c1"]
         assert not_adopted == ["c2"]
         assert pending == ["c3"]
@@ -1558,7 +1558,7 @@ class TestClaimAdoptionStatus:
         # Then: Claim preserved with status
         claim_nodes = [n for n in data["nodes"] if n.get("node_type") == "claim"]
         assert len(claim_nodes) == 1
-        assert claim_nodes[0]["adoption_status"] == "not_adopted"
+        assert claim_nodes[0]["claim_adoption_status"] == "not_adopted"
 
 
 class TestPhaseP2DomainCategoryOnEdges:
@@ -1775,7 +1775,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         # Then create a claim referencing the task
         await test_database.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, confidence_score)
+            INSERT INTO claims (id, task_id, claim_text, claim_confidence)
             VALUES ('claim-1', 'test-task', 'Test claim', 0.9)
             """
         )

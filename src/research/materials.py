@@ -113,7 +113,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
     try:
         rows = await db.fetch_all(
             """
-            SELECT c.id, c.claim_text, c.confidence_score, c.verification_notes,
+            SELECT c.id, c.claim_text, c.claim_confidence, c.verification_notes,
                    c.source_fragment_ids,
                    COUNT(DISTINCT e.id) as evidence_count,
                    MAX(CASE WHEN e.relation = 'refutes' THEN 1 ELSE 0 END) as has_refutation
@@ -121,7 +121,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
             LEFT JOIN edges e ON e.target_id = c.id AND e.target_type = 'claim'
             WHERE c.task_id = ?
             GROUP BY c.id
-            ORDER BY c.confidence_score DESC
+            ORDER BY c.claim_confidence DESC
             """,
             (task_id,),
         )
@@ -214,7 +214,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                     "id": row["id"],
                     "text": row.get("claim_text", ""),
                     "confidence": confidence_info.get(
-                        "confidence", row.get("confidence_score", 0.5)
+                        "confidence", row.get("claim_confidence", 0.5)
                     ),
                     "uncertainty": confidence_info.get("uncertainty", 0.0),
                     "controversy": confidence_info.get("controversy", 0.0),

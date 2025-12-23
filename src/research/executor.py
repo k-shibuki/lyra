@@ -869,8 +869,8 @@ class SearchExecutor:
             await db.execute(
                 """
                 INSERT OR IGNORE INTO claims
-                (id, task_id, claim_text, claim_type, confidence_score,
-                 source_fragment_ids, adoption_status, verification_notes, created_at)
+                (id, task_id, claim_text, claim_type, claim_confidence,
+                 source_fragment_ids, claim_adoption_status, verification_notes, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
                 (
@@ -880,7 +880,7 @@ class SearchExecutor:
                     "fact",
                     confidence,
                     json.dumps([source_fragment_id]),  # JSON array
-                    "pending",
+                    "adopted",  # Default changed from 'pending' (Decision 19)
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
