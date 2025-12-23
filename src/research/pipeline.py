@@ -4,7 +4,7 @@ Search pipeline for Lyra.
 Unified pipeline that combines search execution with optional refutation mode.
 Replaces execute_subquery and execute_refutation MCPtools with a single `search` interface.
 
-See docs/REQUIREMENTS.md §2.1, §3.2.1.
+See relevant ADR ADR-0002, ADR-0003.
 """
 
 import asyncio
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 class SearchResult:
     """Result of a search pipeline execution.
 
-    Conforms to §3.2.1 search response schema.
+    Conforms to ADR-0003 search response schema.
     """
 
     search_id: str
@@ -49,7 +49,7 @@ class SearchResult:
     is_refutation: bool = False
     refutations_found: int = 0
 
-    # Timeout flag (§2.1.5)
+    # Timeout flag (ADR-0002)
     is_partial: bool = False  # True if result is partial due to timeout
 
     # Auth tracking
@@ -61,7 +61,7 @@ class SearchResult:
     error_details: dict[str, Any] = field(default_factory=dict)  # Additional error info
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary conforming to §3.2.1 schema."""
+        """Convert to dictionary conforming to ADR-0003 schema."""
         # Determine ok based on error_code presence (error_code takes precedence)
         is_ok = self.error_code is None and len(self.errors) == 0
 
@@ -94,7 +94,7 @@ class SearchResult:
             result["auth_blocked_urls"] = self.auth_blocked_urls
             result["auth_queued_count"] = self.auth_queued_count
 
-        # Include partial flag for timeout (§2.1.5)
+        # Include partial flag for timeout (ADR-0002)
         if self.is_partial:
             result["is_partial"] = True
 
@@ -118,7 +118,7 @@ class SearchPipeline:
     Executes Cursor AI-designed queries through the search/fetch/extract pipeline.
     Supports both normal search and refutation mode.
 
-    Responsibilities (§2.1.3, §3.2.1):
+    Responsibilities (ADR-0002, ADR-0003):
     - Execute search → fetch → extract → evaluate pipeline
     - Apply mechanical query expansions
     - Calculate metrics (harvest rate, novelty, satisfaction)
@@ -155,7 +155,7 @@ class SearchPipeline:
         """
         Execute a search designed by Cursor AI.
 
-        Applies §2.1.5 pipeline timeout for safe stop on Cursor AI idle.
+        Applies ADR-0002 pipeline timeout for safe stop on Cursor AI idle.
 
         Args:
             query: The search query (designed by Cursor AI).
@@ -172,7 +172,7 @@ class SearchPipeline:
         # Generate search ID
         search_id = f"s_{uuid.uuid4().hex[:8]}"
 
-        # Get timeout from config (§2.1.5)
+        # Get timeout from config (ADR-0002)
         from src.utils.config import get_settings
 
         settings = get_settings()
@@ -193,7 +193,7 @@ class SearchPipeline:
             )
 
             try:
-                # Wrap execution with timeout (§2.1.5)
+                # Wrap execution with timeout (ADR-0002)
                 result = await asyncio.wait_for(
                     self._execute_impl(search_id, query, options, result),
                     timeout=float(timeout_seconds),
@@ -209,7 +209,7 @@ class SearchPipeline:
                 result.status = "timeout"
                 result.is_partial = True
                 result.errors.append(
-                    f"Pipeline timeout after {timeout_seconds}s (§2.1.5 safe stop)"
+                    f"Pipeline timeout after {timeout_seconds}s (ADR-0002 safe stop)"
                 )
 
                 # Try to get partial budget info
@@ -246,7 +246,7 @@ class SearchPipeline:
         """
         Internal implementation of search execution.
 
-        Separated from execute() for timeout wrapping (§2.1.5).
+        Separated from execute for timeout wrapping (ADR-0002).
         """
         if options.refute:
             # Refutation mode: use mechanical suffix patterns
@@ -300,7 +300,7 @@ class SearchPipeline:
         """Execute browser search only.
 
         After executor execution, extracts identifiers from SERP results and
-        complements with academic API if identifiers are found (Phase 3, Task 3.5).
+        complements with academic API if identifiers are found .
         """
         executor = SearchExecutor(self.task_id, self.state)
         budget_pages = options.max_pages
@@ -340,8 +340,8 @@ class SearchPipeline:
         if exec_result.errors:
             result.errors.extend(exec_result.errors)
 
-        # Phase 3: Extract identifiers from SERP and complement with academic API
-        # (Task 3.5: Non-academic queries should also trigger API complement)
+        # : Extract identifiers from SERP and complement with academic API
+        # (: Non-academic queries should also trigger API complement)
         try:
             from src.search.search_api import search_serp
 
@@ -551,7 +551,7 @@ class SearchPipeline:
         try:
             unique_entries = index.get_all_entries()
 
-            # Phase 5: Process unique entries (Abstract Only strategy)
+            # : Process unique entries (Abstract Only strategy)
             pages_created = 0
             fragments_created = 0
 
@@ -586,7 +586,7 @@ class SearchPipeline:
             result.pages_fetched += pages_created
             result.useful_fragments += fragments_created
 
-            # Phase 6: Citation graph integration
+            # : Citation graph integration
             papers_with_abstracts = [
                 entry.paper
                 for entry in unique_entries
@@ -723,7 +723,7 @@ class SearchPipeline:
         academic_provider = AcademicSearchProvider()
 
         try:
-            # Phase 1: Parallel search
+            # : Parallel search
             browser_task = search_serp(
                 query=query,
                 limit=options.max_pages or 20,
@@ -750,7 +750,7 @@ class SearchPipeline:
                 logger.warning("Academic API search failed", error=str(academic_response))
                 academic_response = None
 
-            # Phase 2: Register Academic API results first (structured, high priority)
+            # : Register Academic API results first (structured, high priority)
             # Get Paper objects from AcademicSearchProvider's internal CanonicalPaperIndex
             academic_count = 0
 
@@ -772,7 +772,7 @@ class SearchPipeline:
                         index.register_serp_result(search_result, identifier)
                         academic_count += 1
 
-            # Phase 3: Process browser SERP results with identifier extraction
+            # : Process browser SERP results with identifier extraction
             serp_count = 0
             for item in serp_items:
                 if not isinstance(item, dict):
@@ -846,7 +846,7 @@ class SearchPipeline:
                             error=str(e),
                         )
 
-            # Phase 4: Get deduplication stats
+            # : Get deduplication stats
             stats = index.get_stats()
             unique_entries = index.get_all_entries()
 
@@ -863,7 +863,7 @@ class SearchPipeline:
                 serp_only=stats["serp_only"],
             )
 
-            # Phase 5-6: Process unique entries and citation graph (using common method)
+            # -6: Process unique entries and citation graph (using common method)
             await self._process_citation_graph(
                 search_id=search_id,
                 query=query,
@@ -1208,7 +1208,7 @@ class SearchPipeline:
         Generate refutation queries using mechanical patterns only.
 
         Applies predefined suffixes to the text.
-        Does NOT use LLM to generate hypotheses (§2.1.4).
+        Does NOT use LLM to generate hypotheses (ADR-0002).
 
         Args:
             text: The claim or query text.
@@ -1307,7 +1307,7 @@ async def search_action(
         options: Optional search options dict.
 
     Returns:
-        Search result conforming to §3.2.1 schema.
+        Search result conforming to ADR-0003 schema.
     """
     # Convert options dict to SearchOptions
     search_options = SearchOptions()
@@ -1339,7 +1339,7 @@ async def stop_task_action(
         reason: Stop reason ("completed", "budget_exhausted", "user_cancelled").
 
     Returns:
-        Finalization result conforming to §3.2.1 schema.
+        Finalization result conforming to ADR-0003 schema.
     """
     with LogContext(task_id=task_id):
         logger.info("Stopping task", reason=reason)
@@ -1350,7 +1350,7 @@ async def stop_task_action(
         # Save final state
         await state.save_state()
 
-        # Map to §3.2.1 schema
+        # Map to ADR-0003 schema
         # Use safe .get() access to handle potential missing keys
         summary = finalize_result.get("summary", {})
         evidence_graph_summary = finalize_result.get("evidence_graph_summary", {})

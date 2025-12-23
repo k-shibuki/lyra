@@ -2,13 +2,13 @@
 Tests for URL fetcher module.
 
 Covers:
-- WARC file creation and validation (§3.1.2)
-- Challenge page detection (§3.5)
-- FetchResult cache fields for 304 support (§3.1.2, §4.3)
-- URL normalization for cache keys (§5.1.2)
-- Human-like behavior simulation (§4.3)
-- Tor controller (§4.3)
-- Fetch cache database operations (§5.1.2)
+- WARC file creation and validation (ADR-0006)
+- Challenge page detection (ADR-0006)
+- FetchResult cache fields for 304 support (ADR-0006, ADR-0006)
+- URL normalization for cache keys (ADR-0008)
+- Human-like behavior simulation (ADR-0006)
+- Tor controller (ADR-0006)
+- Fetch cache database operations (ADR-0008)
 """
 
 from __future__ import annotations
@@ -227,7 +227,7 @@ class TestFetchResult:
 
 @pytest.mark.unit
 class TestIsChallengePageFunction:
-    """Tests for challenge page detection (§3.5 - CAPTCHA/challenge handling)."""
+    """Tests for challenge page detection (ADR-0006 - CAPTCHA/challenge handling)."""
 
     def test_detect_cloudflare_challenge(self) -> None:
         """Test detection of Cloudflare challenge pages."""
@@ -277,7 +277,7 @@ class TestIsChallengePageFunction:
 
 @pytest.mark.unit
 class TestFetchResultCacheFields:
-    """Tests for FetchResult cache-related fields (§3.1.2 - 304 support)."""
+    """Tests for FetchResult cache-related fields (ADR-0006 - 304 support)."""
 
     def test_fetch_result_default_cache_fields(self) -> None:
         """Test FetchResult has correct defaults for cache fields."""
@@ -329,7 +329,7 @@ class TestFetchResultCacheFields:
     def test_fetch_result_304_response(self) -> None:
         """Test FetchResult for 304 Not Modified response.
 
-        Per §4.3: 304 utilization rate ≥70% requires proper 304 handling.
+        Per ADR-0006: 304 utilization rate ≥70% requires proper 304 handling.
         """
         from src.crawler.fetcher import FetchResult
 
@@ -350,7 +350,7 @@ class TestFetchResultCacheFields:
 
 @pytest.mark.unit
 class TestFetchResultAuthFields:
-    """Tests for FetchResult authentication-related fields (§16.7.4)."""
+    """Tests for FetchResult authentication-related fields (ADR-0007)."""
 
     def test_fetch_result_default_auth_fields(self) -> None:
         """Test FetchResult has correct defaults for auth fields."""
@@ -370,7 +370,7 @@ class TestFetchResultAuthFields:
     def test_fetch_result_with_auth_fields(self) -> None:
         """Test FetchResult with auth fields populated.
 
-        Per §16.7.4: auth_type and estimated_effort should be included.
+        Per ADR-0007: auth_type and estimated_effort should be included.
         """
         from src.crawler.fetcher import FetchResult
 
@@ -394,7 +394,7 @@ class TestFetchResultAuthFields:
     def test_fetch_result_to_dict_includes_auth_type_when_set(self) -> None:
         """Test FetchResult.to_dict() includes auth_type when set.
 
-        Per §16.7.4: Include auth details only when relevant.
+        Per ADR-0007: Include auth details only when relevant.
         """
         from src.crawler.fetcher import FetchResult
 
@@ -415,7 +415,7 @@ class TestFetchResultAuthFields:
     def test_fetch_result_to_dict_omits_auth_type_when_none(self) -> None:
         """Test FetchResult.to_dict() omits auth fields when None.
 
-        Per §16.7.4: Include auth details only when relevant.
+        Per ADR-0007: Include auth details only when relevant.
         """
         from src.crawler.fetcher import FetchResult
 
@@ -434,7 +434,7 @@ class TestFetchResultAuthFields:
 
 @pytest.mark.unit
 class TestEstimateAuthEffort:
-    """Tests for _estimate_auth_effort function (§16.7.4)."""
+    """Tests for _estimate_auth_effort function (ADR-0007)."""
 
     def test_cloudflare_is_low_effort(self) -> None:
         """Test Cloudflare challenge is estimated as low effort."""
@@ -497,7 +497,7 @@ class TestEstimateAuthEffort:
 class TestDatabaseUrlNormalization:
     """Tests for URL normalization used in fetch cache.
 
-    Per §5.1.2: cache_fetch key should be normalized URL.
+    Per ADR-0008: cache_fetch key should be normalized URL.
     """
 
     def test_normalize_url_lowercase_scheme_and_host(self) -> None:
@@ -549,7 +549,7 @@ class TestDatabaseUrlNormalization:
 
 @pytest.mark.unit
 class TestHumanBehavior:
-    """Tests for human-like behavior simulation (§4.3 - stealth requirements)."""
+    """Tests for human-like behavior simulation (ADR-0006 - stealth requirements)."""
 
     def test_random_delay_within_bounds(self) -> None:
         """Test random delay stays within specified bounds."""
@@ -574,13 +574,13 @@ class TestHumanBehavior:
 
         Note: New implementation returns fine-grained inertial animation steps,
         so we get more positions with shorter delays (in seconds, not ms).
-        Per §7.1.3.3: Random seed is fixed for determinism.
+        Per .1.3.3: Random seed is fixed for determinism.
         """
         import random
 
         from src.crawler.fetcher import HumanBehavior
 
-        # Fix seed for determinism per §7.1.3.3
+        # Fix seed for determinism per .1.3.3
         random.seed(42)
 
         positions = HumanBehavior.scroll_pattern(
@@ -671,7 +671,7 @@ class TestHumanBehavior:
 
 @pytest.mark.unit
 class TestTorController:
-    """Tests for Tor circuit controller (§4.3 - network layer)."""
+    """Tests for Tor circuit controller (ADR-0006 - network layer)."""
 
     def test_tor_controller_initialization(self) -> None:
         """Test TorController initializes correctly."""
@@ -698,7 +698,7 @@ class TestTorController:
 
 @pytest.mark.integration
 class TestDatabaseFetchCache:
-    """Tests for fetch cache database operations (§5.1.2 - cache_fetch).
+    """Tests for fetch cache database operations (ADR-0008 - cache_fetch).
 
     Tests cache storage and retrieval for conditional request support.
     Uses in-memory SQLite database for isolation.
@@ -1137,7 +1137,7 @@ class TestHTTPFetcherConditionalHeaders:
 
 @pytest.mark.unit
 class TestBrowserFetcherHumanBehavior:
-    """Tests for human-like behavior integration in BrowserFetcher.fetch() (§4.3.4)."""
+    """Tests for human-like behavior integration in BrowserFetcher.fetch (ADR-0006)."""
 
     @pytest.mark.asyncio
     async def test_fetch_with_human_behavior_enabled(self) -> None:

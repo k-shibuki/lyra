@@ -12,7 +12,7 @@ Validates:
 - Engine selection logic (category detection, weighted selection, circuit breaker)
 - Engine health recording
 
-Follows §7.1 test code quality standards:
+Follows .1 test code quality standards:
 - Specific assertions with concrete values
 - No conditional assertions
 - Proper mocking of external dependencies (Playwright)
@@ -674,7 +674,7 @@ class TestCDPConnection:
     """
     Tests for CDP connection handling.
 
-    Per spec (§3.2, §4.3.3), CDP connection is required and headless
+    Per spec (ADR-0003, ADR-0006), CDP connection is required and headless
     fallback is not supported.
     """
 
@@ -684,7 +684,7 @@ class TestCDPConnection:
         Test that CDP connection failure returns a clear error message.
 
         Validates:
-        - No headless fallback (per §4.3.3)
+        - No headless fallback (per ADR-0006)
         - Error message includes chrome.sh guidance
         - connection_mode is None when CDP fails
         """
@@ -1042,7 +1042,7 @@ class TestSearchOptionsIntegration:
 
 @pytest.mark.unit
 class TestBrowserSearchProviderHumanBehavior:
-    """Tests for human-like behavior integration in BrowserSearchProvider.search() (§4.3.4)."""
+    """Tests for human-like behavior integration in BrowserSearchProvider.search (ADR-0006)."""
 
     @pytest.mark.asyncio
     async def test_search_applies_human_behavior(
@@ -2093,8 +2093,8 @@ class TestBrowserSearchProviderHumanBehavior:
 class TestPerEngineQPSRateLimiting:
     """Tests for per-engine QPS rate limiting.
 
-    Per spec §3.1: "Engine-specific rate control (concurrency=1, strict QPS)"
-    Per spec §4.3: "Engine QPS≤0.25 (1 request/4s), concurrency=1"
+    Per spec ADR-0010: "Engine-specific rate control (concurrency=1, strict QPS)"
+    Per spec ADR-0006: "Engine QPS≤0.25 (1 request/4s), concurrency=1"
 
     Validates:
     - _last_search_times attribute exists for per-engine tracking
@@ -2373,8 +2373,8 @@ class TestPerEngineQPSRateLimiting:
 class TestQueryNormalization:
     """Tests for query operator normalization in BrowserSearchProvider.search().
 
-    Per spec §3.1.1: "Query operators (site:, filetype:, intitle:, "...", +/-, after:)"
-    Per spec §3.1.4: "Engine normalization (transform operators to engine-specific syntax)"
+    Per spec ADR-0010: "Query operators (site:, filetype:, intitle:, "...", +/-, after:)"
+    Per spec ADR-0006: "Engine normalization (transform operators to engine-specific syntax)"
 
     Test Perspectives Table:
     | Case ID   | Input / Precondition                    | Perspective              | Expected Result                          | Notes                     |
@@ -3001,7 +3001,7 @@ class TestQueryNormalization:
 class TestDynamicWeightUsage:
     """Tests for dynamic weight usage in BrowserSearchProvider.
 
-    Per §3.1.1, §3.1.4, §4.6: Dynamic weight adjustment based on
+    Per ADR-0010, ADR-0006, : Dynamic weight adjustment based on
     past accuracy/failure/block rates.
 
     ## Test Perspectives Table
@@ -3412,7 +3412,7 @@ class TestLastmileSlotSelection:
     """
     Tests for lastmile slot selection feature.
 
-    Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
+    Per ADR-0010: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
     Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
 
     ## Test Perspectives Table

@@ -1,7 +1,7 @@
 """
 Undetected ChromeDriver integration for Lyra.
 
-Provides fallback browser automation for Cloudflare/Turnstile bypass per §4.3:
+Provides fallback browser automation for Cloudflare/Turnstile bypass per ADR-0006:
 - Cloudflare advanced challenge bypass
 - Turnstile CAPTCHA bypass
 - Other sophisticated anti-bot protection bypass
@@ -60,7 +60,7 @@ class UndetectedChromeFetcher:
     """Browser-based fetcher using undetected-chromedriver.
 
     This is a fallback for cases where Playwright fails due to strong
-    anti-bot protection like Cloudflare or Turnstile (§4.3).
+    anti-bot protection like Cloudflare or Turnstile (ADR-0006).
 
     Features:
     - Automatic ChromeDriver patching to avoid detection

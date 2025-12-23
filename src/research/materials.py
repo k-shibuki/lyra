@@ -4,7 +4,7 @@ Report materials collection for Lyra.
 Provides unified API for collecting report materials including claims,
 fragments, and evidence graph.
 
-See docs/REQUIREMENTS.md §3.2.1.
+See relevant ADR ADR-0003.
 """
 
 from typing import Any
@@ -32,7 +32,7 @@ async def get_materials_action(
         format: Output format - "structured" or "narrative" (default: "structured").
 
     Returns:
-        Materials conforming to §3.2.1 schema.
+        Materials conforming to ADR-0003 schema.
     """
     db = await get_database()
 
@@ -96,8 +96,8 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
     - claims table has verification_notes (stores source_url) not source_url
     - fragments table has relevance_reason (stores source metadata) not source_url
 
-    Phase 4: Includes Bayesian confidence metrics (uncertainty, controversy).
-    Phase 4b: Includes evidence details with time metadata for temporal judgments.
+    : Includes Bayesian confidence metrics (uncertainty, controversy).
+    b: Includes evidence details with time metadata for temporal judgments.
     """
     from src.filter.evidence_graph import EvidenceGraph
 
@@ -206,7 +206,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                     }
                 ]
 
-            # Calculate Bayesian confidence metrics (Phase 4 + 4b)
+            # Calculate Bayesian confidence metrics ( + 4b)
             confidence_info = graph.calculate_claim_confidence(row["id"])
 
             claims.append(
@@ -221,7 +221,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                     "evidence_count": row.get("evidence_count", 0),
                     "has_refutation": bool(row.get("has_refutation", 0)),
                     "sources": parsed_sources,
-                    # Phase 4b: Evidence details with time metadata
+                    # b: Evidence details with time metadata
                     "evidence": confidence_info.get("evidence", []),
                     "evidence_years": confidence_info.get("evidence_years", {}),
                 }

@@ -4,7 +4,7 @@ Exploration state management for Lyra.
 Manages task and search states, calculates satisfaction and novelty scores.
 Reports state to Cursor AI for decision making.
 
-See docs/REQUIREMENTS.md §3.1.7.2, §3.1.7.3, §3.1.7.4.
+See relevant ADR ADR-0010, ADR-0010, ADR-0010.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
@@ -55,7 +55,7 @@ class TaskStatus(Enum):
 class SearchState(BaseModel):
     """State of a single search query.
 
-    Per §3.1.7.2, §3.1.7.3: Tracks source count, satisfaction score,
+    Per ADR-0010, ADR-0010: Tracks source count, satisfaction score,
     and novelty metrics for Cursor AI decision making.
 
     Migrated from dataclass to Pydantic BaseModel for type safety
@@ -149,7 +149,7 @@ class SearchState(BaseModel):
 
     def calculate_satisfaction_score(self) -> float:
         """
-        Calculate satisfaction score per §3.1.7.3.
+        Calculate satisfaction score per ADR-0010.
 
         Formula: min(1.0, (independent_sources / 3) * 0.7 + (primary ? 0.3 : 0))
         Satisfied when score >= 0.8
@@ -226,7 +226,7 @@ class ExplorationState:
     Tracks search execution, calculates metrics, and provides
     status reports to Cursor AI for decision making.
 
-    Integrates UCB1-based dynamic budget allocation (§3.1.1):
+    Integrates UCB1-based dynamic budget allocation (ADR-0010):
     - High-yield searches receive more budget
     - Budget is reallocated based on harvest rates
     """
@@ -258,7 +258,7 @@ class ExplorationState:
         self._pages_used = 0
         self._time_started: float | None = None
 
-        # UCB1 allocation (§3.1.1)
+        # UCB1 allocation (ADR-0010)
         self._enable_ucb = enable_ucb_allocation
         self._ucb_allocator: UCBAllocator | None = None
         self._ucb_exploration_constant = ucb_exploration_constant
@@ -275,7 +275,7 @@ class ExplorationState:
         # Novelty tracking (last 2 cycles)
         self._novelty_history: list[float] = []
 
-        # Activity tracking for §2.1.5 Cursor AI idle timeout
+        # Activity tracking for ADR-0002 Cursor AI idle timeout
         self._last_activity_at: float = time.time()
 
     def _init_ucb_allocator(self) -> None:
@@ -296,7 +296,7 @@ class ExplorationState:
         )
 
     def record_activity(self) -> None:
-        """Record activity timestamp for §2.1.5 idle timeout tracking."""
+        """Record activity timestamp for ADR-0002 idle timeout tracking."""
         self._last_activity_at = time.time()
 
     def get_idle_seconds(self) -> float:
@@ -390,7 +390,7 @@ class ExplorationState:
         )
         self._searches[search_id] = search
 
-        # Register with UCB allocator (§3.1.1)
+        # Register with UCB allocator (ADR-0010)
         if self._ucb_allocator:
             self._ucb_allocator.register_search(
                 search_id=search_id,
@@ -498,7 +498,7 @@ class ExplorationState:
             search.add_fragment(fragment_hash, is_useful, is_novel)
             self._total_fragments += 1
 
-            # Record observation in UCB allocator (§3.1.1)
+            # Record observation in UCB allocator (ADR-0010)
             if self._ucb_allocator:
                 self._ucb_allocator.record_observation(search_id, is_useful)
 
@@ -560,7 +560,7 @@ class ExplorationState:
 
     def get_dynamic_budget(self, search_id: str) -> int:
         """
-        Get dynamic budget for a search using UCB1 allocation (§3.1.1).
+        Get dynamic budget for a search using UCB1 allocation (ADR-0010).
 
         If UCB allocation is enabled, returns budget based on harvest rates.
         Otherwise, returns the static budget from SearchState.
@@ -629,7 +629,7 @@ class ExplorationState:
         """
         Calculate overall harvest rate across all searches.
 
-        Per §3.1.1: Used for lastmile slot determination.
+        Per ADR-0010: Used for lastmile slot determination.
         Lastmile engines are activated when harvest rate >= 0.9.
 
         Returns:
@@ -648,7 +648,7 @@ class ExplorationState:
 
     def check_novelty_stop_condition(self, search_id: str) -> bool:
         """
-        Check if novelty stop condition is met (§3.1.7.4).
+        Check if novelty stop condition is met (ADR-0010).
 
         Stop if novelty < 10% for 2 consecutive cycles.
         """
@@ -678,8 +678,8 @@ class ExplorationState:
         Returns metrics and state only - no recommendations.
         Cursor AI makes all decisions based on this data.
 
-        Per §16.7.1: Now includes authentication_queue information.
-        Per §16.7.3: Includes authentication threshold alerts in warnings.
+        Per ADR-0007: Now includes authentication_queue information.
+        Per ADR-0007: Includes authentication threshold alerts in warnings.
 
         Returns:
             - Task status
@@ -687,8 +687,8 @@ class ExplorationState:
             - Metrics (counts, pages, fragments, claims)
             - Budget information
             - UCB scores (raw data, not recommendations)
-            - Authentication queue status (§16.7.1)
-            - Warnings (including auth queue alerts per §16.7.3)
+            - Authentication queue status (ADR-0007)
+            - Warnings (including auth queue alerts per ADR-0007)
         """
         elapsed_seconds = 0
         if self._time_started:
@@ -711,14 +711,14 @@ class ExplorationState:
         if exhausted_count > 0:
             warnings.append(f"{exhausted_count}件の検索が収穫逓減で停止")
 
-        # Get authentication queue summary (§16.7.1)
+        # Get authentication queue summary (ADR-0007)
         authentication_queue = await self._get_authentication_queue_summary()
 
-        # Add authentication queue alerts (§16.7.3)
+        # Add authentication queue alerts (ADR-0007)
         auth_warnings = self._generate_auth_queue_alerts(authentication_queue)
         warnings.extend(auth_warnings)
 
-        # Add idle time warning (§2.1.5)
+        # Add idle time warning (ADR-0002)
         idle_seconds = self.get_idle_seconds()
         from src.utils.config import get_settings
 
@@ -769,13 +769,13 @@ class ExplorationState:
             "ucb_scores": ucb_scores,
             "authentication_queue": authentication_queue,
             "warnings": warnings,
-            "idle_seconds": int(idle_seconds),  # §2.1.5: Cursor AI idle timeout tracking
+            "idle_seconds": int(idle_seconds), # ADR-0002: Cursor AI idle timeout tracking
         }
 
     async def _get_authentication_queue_summary(self) -> dict[str, Any] | None:
         """Get authentication queue summary for this task.
 
-        Per §16.7.1: Provides authentication queue information.
+        Per ADR-0007: Provides authentication queue information.
 
         Returns:
             Authentication queue summary or None if no pending items.
@@ -805,7 +805,7 @@ class ExplorationState:
     ) -> list[str]:
         """Generate alerts for authentication queue status.
 
-        Per §16.7.3: Warning levels based on queue depth.
+        Per ADR-0007: Warning levels based on queue depth.
         - warning: pending auth ≥3 items
         - critical: pending auth ≥5 items OR high priority ≥2 items
 

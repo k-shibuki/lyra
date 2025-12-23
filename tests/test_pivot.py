@@ -1,7 +1,7 @@
 """
 Tests for pivot exploration module.
 
-Tests entity expansion patterns per §3.1.1:
+Tests entity expansion patterns per ADR-0010:
 - Organization → subsidiaries, officers, location, domain
 - Domain → subdomain, certificate SAN, organization
 - Person → aliases, handles, affiliations
@@ -46,7 +46,7 @@ class TestPivotExpander:
         return PivotExpander()
 
     # ==========================================================================
-    # Organization Expansion Tests (§3.1.1)
+    # Organization Expansion Tests (ADR-0010)
     # ==========================================================================
 
     def test_expand_organization_returns_suggestions(self, expander: PivotExpander) -> None:
@@ -138,7 +138,7 @@ class TestPivotExpander:
         assert "subsidiary" in " ".join(subsidiary_pivot.query_examples).lower()
 
     # ==========================================================================
-    # Domain Expansion Tests (§3.1.1)
+    # Domain Expansion Tests (ADR-0010)
     # ==========================================================================
 
     def test_expand_domain_returns_suggestions(self, expander: PivotExpander) -> None:
@@ -203,7 +203,7 @@ class TestPivotExpander:
                 assert "example.com" in example, f"Expected 'example.com' in query: {example}"
 
     # ==========================================================================
-    # Person Expansion Tests (§3.1.1)
+    # Person Expansion Tests (ADR-0010)
     # ==========================================================================
 
     def test_expand_person_returns_suggestions(self, expander: PivotExpander) -> None:

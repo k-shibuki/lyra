@@ -1,7 +1,7 @@
 """
 DNS Policy Management for Lyra.
 
-Implements DNS policies per §4.3:
+Implements DNS policies per ADR-0006:
 - Resolve DNS through Tor SOCKS proxy when using Tor route (socks5h://)
 - Disable EDNS Client Subnet (ECS) to prevent location leakage
 - Respect DNS cache TTL to reduce exposure from frequent re-resolution
@@ -146,7 +146,7 @@ class DNSMetrics:
 
 
 class DNSPolicyManager:
-    """Manages DNS resolution policies per §4.3.
+    """Manages DNS resolution policies per ADR-0006.
 
     Key responsibilities:
     - Select appropriate DNS route (direct vs Tor)
@@ -470,7 +470,7 @@ class DNSPolicyManager:
         return DNSLeakType.NONE
 
     # =========================================================================
-    # IPv6 Integration (§4.3)
+    # IPv6 Integration (ADR-0006)
     # =========================================================================
 
     async def resolve_with_ipv6_preference(

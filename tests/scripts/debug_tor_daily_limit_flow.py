@@ -5,7 +5,7 @@ Debug script for Tor Daily Limit Flow (Problem 10).
 This is a "straight-line" debug script per §debug-integration rule.
 Verifies the Tor daily usage limit checking and tracking functionality.
 
-Per §4.3 and §7:
+Per ADR-0006 and :
 - Global daily limit: 20% (max_usage_ratio)
 - Domain-specific limits via domain policy
 - Daily reset at midnight

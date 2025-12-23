@@ -1,7 +1,7 @@
 """
 Process Lifecycle Management for Lyra.
 
-Per §4.2: Browser instances and LLM processes should be destroyed (Kill)
+Per : Browser instances and LLM processes should be destroyed (Kill)
 after each task completion to prevent memory leaks.
 
 This module provides:
@@ -74,7 +74,7 @@ class ProcessLifecycleManager:
     - HTTP sessions
     - Tor controller connections
 
-    Per §4.2 requirements:
+    Per requirements:
     - Resources are tracked per task
     - Automatic cleanup on task completion
     - Prevention of memory leaks
@@ -173,7 +173,7 @@ class ProcessLifecycleManager:
     async def cleanup_task_resources(self, task_id: str) -> dict[str, bool]:
         """Cleanup all resources associated with a task.
 
-        Per §4.2: Browser instances and LLM processes are destroyed
+        Per : Browser instances and LLM processes are destroyed
         after task completion to prevent memory leaks.
 
         Args:
@@ -403,7 +403,7 @@ class ProcessLifecycleManager:
     async def _cleanup_ollama_session(self, session_info: dict) -> None:
         """Cleanup Ollama session and release model context.
 
-        Per §4.2: LLM process context should be released after task completion.
+        Per : LLM process context should be released after task completion.
 
         Args:
             session_info: Dict with 'session' and optionally 'model' keys.

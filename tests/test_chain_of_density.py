@@ -1,7 +1,7 @@
 """
 Tests for Chain-of-Density compression module.
 
-Per §7.1: Test Code Quality Standards
+Per .1: Test Code Quality Standards
 - Avoid prohibited patterns (conditional assertions, vague assertions, etc.)
 - Cover specific assertions and boundary conditions
 - Test with production settings
@@ -144,7 +144,7 @@ class TestCitationInfo:
     def test_from_fragment_with_complete_data(self, sample_fragment: dict[str, object]) -> None:
         """Test creating CitationInfo from a complete fragment.
 
-        Verifies that all required fields (§3.3.1) are populated:
+        Verifies that all required fields are populated:
         - deep_link
         - discovered_at
         - excerpt
@@ -209,7 +209,7 @@ class TestCitationInfo:
     def test_primary_source_detection(self) -> None:
         """Test detection of primary sources.
 
-        Per §3.4: Primary sources include government, academic, official,
+        Per ADR-0005: Primary sources include government, academic, official,
         standard, registry.
         """
         # Given: Primary source tags
@@ -313,7 +313,7 @@ class TestDenseClaim:
     def test_validation_fails_without_citations(self) -> None:
         """Test validation fails when citations are missing.
 
-        Per §3.3.1: All claims must have citations.
+        Per : All claims must have citations.
         """
         # Given: DenseClaim without citations
         claim = DenseClaim(
@@ -612,7 +612,7 @@ class TestChainOfDensityIntegration:
     async def test_citation_mandatory_fields_enforced(self) -> None:
         """Test that all mandatory citation fields are enforced.
 
-        Per §3.3.1: Require deep links, discovery timestamps, and excerpts for all claims.
+        Per : Require deep links, discovery timestamps, and excerpts for all claims.
         """
         # Given: Claim with matching fragment
         claims = [

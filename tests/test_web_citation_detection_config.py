@@ -1,5 +1,5 @@
 """
-Tests for Phase 3b web citation detection policy (settings-driven gating).
+Tests for b web citation detection policy (settings-driven gating).
 
 This module focuses on the pure decision logic in SearchExecutor to avoid I/O.
 

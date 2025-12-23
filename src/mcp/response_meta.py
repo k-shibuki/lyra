@@ -1,7 +1,7 @@
 """
 MCP Response Metadata Generator.
 
-Implements L5 (MCP Response Metadata) per §4.4.1:
+Implements L5 (MCP Response Metadata) per ADR-0005:
 - Adds _lyra_meta to all MCP responses
 - Includes source trust level and verification status
 - Provides security warnings from L2/L4 detection
@@ -18,7 +18,7 @@ from typing import Any
 
 
 class VerificationStatus(str, Enum):
-    """Verification status for claims/sources (§4.4.1 L6)."""
+    """Verification status for claims/sources (ADR-0005 L6)."""
 
     PENDING = "pending"  # Not yet verified
     VERIFIED = "verified"  # Corroborated by independent sources
@@ -27,7 +27,7 @@ class VerificationStatus(str, Enum):
 
 @dataclass
 class VerificationDetails:
-    """Details about verification status (§4.4.1 L5)."""
+    """Details about verification status (ADR-0005 L5)."""
 
     independent_sources: int = 0
     corroborating_claims: list[str] = field(default_factory=list)
@@ -63,7 +63,7 @@ class SecurityWarning:
 
 @dataclass
 class LyraMeta:
-    """Metadata attached to MCP responses (§4.4.1 L5).
+    """Metadata attached to MCP responses (ADR-0005 L5).
 
     This provides Cursor AI with information to assess trustworthiness
     of the data returned by Lyra.
@@ -105,7 +105,7 @@ class LyraMeta:
 
 @dataclass
 class ClaimMeta:
-    """Per-claim metadata for verification status (§4.4.1 L5/L6)."""
+    """Per-claim metadata for verification status (ADR-0005 L5/L6)."""
 
     claim_id: str
     source_domain_category: str  # DomainCategory value

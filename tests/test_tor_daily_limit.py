@@ -1,7 +1,7 @@
 """
 Unit tests for Tor Daily Usage Limit (Problem 10).
 
-Tests the Tor daily usage limit functionality per §4.3 and §7:
+Tests the Tor daily usage limit functionality per ADR-0006 and :
 - Global daily limit (20%)
 - Domain-specific limits
 - Metrics tracking and reset

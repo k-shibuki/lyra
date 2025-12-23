@@ -6,9 +6,9 @@ This script verifies that BrowserSearchProvider correctly uses dynamic weights
 from PolicyEngine based on engine health metrics with time decay.
 
 Per spec:
-- §3.1.1: "Stratify by category and learn weights based on past accuracy/failure/block rates"
-- §3.1.4: "Store EMA (1h/24h) in engine_health table, auto-adjust weights/QPS/exploration slots"
-- §4.6: "Event-driven: immediate feedback after each request/query completion"
+- ADR-0010: "Stratify by category and learn weights based on past accuracy/failure/block rates"
+- ADR-0006: "Store EMA (1h/24h) in engine_health table, auto-adjust weights/QPS/exploration slots"
+- : "Event-driven: immediate feedback after each request/query completion"
 """
 
 import asyncio
@@ -358,9 +358,9 @@ async def main() -> int:
     print("Dynamic Weight Learning Flow Debug Script")
     print("=" * 80)
     print("\nPer spec:")
-    print("- §3.1.1: Learn weights based on past accuracy/failure/block rates")
-    print("- §3.1.4: Store EMA in engine_health table, auto-adjust weights")
-    print("- §4.6: Event-driven immediate feedback")
+    print("- ADR-0010: Learn weights based on past accuracy/failure/block rates")
+    print("- ADR-0006: Store EMA in engine_health table, auto-adjust weights")
+    print("- : Event-driven immediate feedback")
 
     results = []
 

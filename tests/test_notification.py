@@ -1,11 +1,11 @@
 """
 Tests for notification and manual intervention module.
 
-Test Classification (§7.1.7):
+Test Classification (.1.7):
 - All tests here are unit tests (no external dependencies)
 - External dependencies (database, browser) are mocked
 
-Requirements tested per §3.6.1 (Safe Operation Policy):
+Requirements tested per ADR-0007 (Safe Operation Policy):
 - Authentication queue with user-driven completion (no timeout)
 - No DOM operations (scroll, highlight, focus) during auth sessions
 - Window bring-to-front via OS API only
@@ -21,8 +21,8 @@ Requirements tested per §3.6.1 (Safe Operation Policy):
 | TC-IR-N-01 | Success result | Equivalence – normal | Correct defaults | - |
 | TC-IR-N-02 | Timeout result | Equivalence – normal | Cooldown set | - |
 | TC-IR-N-03 | to_dict | Equivalence – normal | Serializable | - |
-| TC-IM-N-01 | max_domain_failures | Equivalence – normal | Returns 3 | §3.1 |
-| TC-IM-N-02 | cooldown_minutes | Equivalence – normal | ≥60 min | §3.5 |
+| TC-IM-N-01 | max_domain_failures | Equivalence – normal | Returns 3 | ADR-0010 |
+| TC-IM-N-02 | cooldown_minutes | Equivalence – normal | ≥60 min | ADR-0006 |
 | TC-IM-N-03 | Initial failure count | Boundary – zero | Returns 0 | - |
 | TC-IM-N-04 | Set/get failures | Equivalence – normal | Value stored | - |
 | TC-IM-N-05 | Reset failures | Equivalence – normal | Returns to 0 | - |
@@ -35,19 +35,19 @@ Requirements tested per §3.6.1 (Safe Operation Policy):
 | TC-SK-N-02 | Expired cooldown | Equivalence – normal | Not skipped | - |
 | TC-TN-N-01 | is_wsl returns bool | Equivalence – normal | Boolean result | - |
 | TC-TN-N-02 | send_toast | Equivalence – normal | Returns bool | - |
-| TC-TB-N-01 | Safe CDP command | Equivalence – normal | Page.bringToFront | §3.6.1 |
-| TC-TB-A-01 | Forbidden commands | Equivalence – abnormal | Not called | §3.6.1 |
+| TC-TB-N-01 | Safe CDP command | Equivalence – normal | Page.bringToFront | ADR-0007 |
+| TC-TB-A-01 | Forbidden commands | Equivalence – abnormal | Not called | ADR-0007 |
 | TC-TB-N-02 | CDP fail fallback | Equivalence – normal | OS API used | - |
 | TC-IF-N-01 | Skip 3 failures | Equivalence – normal | SKIPPED status | - |
-| TC-IF-N-02 | Returns PENDING | Equivalence – normal | Immediate return | §3.6.1 |
+| TC-IF-N-02 | Returns PENDING | Equivalence – normal | Immediate return | ADR-0007 |
 | TC-IF-N-03 | Logs to database | Equivalence – normal | execute called | - |
 | TC-IF-N-04 | Success resets | Equivalence – normal | Counter = 0 | - |
 | TC-IF-N-05 | Failure increments | Equivalence – normal | Counter +1 | - |
 | TC-NU-N-01 | Simple event | Equivalence – normal | shown + event | - |
-| TC-NU-N-02 | CAPTCHA event | Equivalence – normal | pending status | §3.6.1 |
-| TC-II-N-01 | Full lifecycle | Equivalence – normal | Returns PENDING | §3.6.1 |
+| TC-NU-N-02 | CAPTCHA event | Equivalence – normal | pending status | ADR-0007 |
+| TC-II-N-01 | Full lifecycle | Equivalence – normal | Returns PENDING | ADR-0007 |
 | TC-II-N-02 | Complete marks success | Equivalence – normal | Counter reset | - |
-| TC-II-N-03 | Check status pending | Equivalence – normal | No timeout | §3.6.1 |
+| TC-II-N-03 | Check status pending | Equivalence – normal | No timeout | ADR-0007 |
 """
 
 from collections.abc import Generator
@@ -73,7 +73,7 @@ from src.utils.notification import (
 def mock_db() -> AsyncMock:
     """Mock database for intervention tests.
 
-    Per §7.1.7: Database should be mocked in unit tests.
+    Per .1.7: Database should be mocked in unit tests.
     """
     db = AsyncMock()
     db.execute = AsyncMock(return_value=None)
@@ -85,7 +85,7 @@ def mock_db() -> AsyncMock:
 def mock_settings() -> MagicMock:
     """Mock settings with notification config.
 
-    Note: intervention_timeout has been removed per §3.6.1
+    Note: intervention_timeout has been removed per ADR-0007
     (user-driven completion, no timeout).
     """
     settings = MagicMock()
@@ -98,7 +98,7 @@ def intervention_manager(
 ) -> Generator[InterventionManager, None, None]:
     """Create InterventionManager with mocked dependencies.
 
-    Per §7.1.7: External services should be mocked in unit tests.
+    Per .1.7: External services should be mocked in unit tests.
     """
     with patch("src.utils.notification.get_settings", return_value=mock_settings):
         with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
@@ -110,7 +110,7 @@ def intervention_manager(
 def mock_page() -> AsyncMock:
     """Mock Playwright page object.
 
-    Per §7.1.7: Chrome/browser should be mocked in unit tests.
+    Per .1.7: Chrome/browser should be mocked in unit tests.
     """
     page = AsyncMock()
     page.context = MagicMock()
@@ -125,7 +125,7 @@ def mock_page() -> AsyncMock:
 def challenge_page() -> AsyncMock:
     """Mock Playwright page with Cloudflare challenge content.
 
-    Per §7.1.3: Test data should be realistic.
+    Per .1.3: Test data should be realistic.
     """
     page = AsyncMock()
     page.context = MagicMock()
@@ -186,12 +186,12 @@ class TestInterventionStatus:
 class TestInterventionType:
     """Tests for InterventionType enum.
 
-    Verifies all required intervention types per §3.6.
+    Verifies all required intervention types per ADR-0007.
     """
 
     def test_all_types_exist(self) -> None:
         """Verify all required intervention types are defined."""
-        # Given: Expected type mappings per §3.6
+        # Given: Expected type mappings per ADR-0007
         expected_types = {
             "CAPTCHA": "captcha",
             "LOGIN_REQUIRED": "login_required",
@@ -246,9 +246,9 @@ class TestInterventionResult:
         assert result.skip_domain_today is False, "skip_domain_today should default to False"
 
     def test_timeout_result_with_cooldown_per_spec(self) -> None:
-        """Test creating a timeout intervention result per §3.6.
+        """Test creating a timeout intervention result per ADR-0007.
 
-        Per §3.6: Timeout should trigger cooldown of ≥60 minutes.
+        Per ADR-0007: Timeout should trigger cooldown of ≥60 minutes.
         """
         # Given
         cooldown = datetime.now(UTC) + timedelta(minutes=60)
@@ -307,36 +307,36 @@ class TestInterventionResult:
 class TestInterventionManagerCore:
     """Core tests for InterventionManager.
 
-    Tests configuration properties and basic functionality per §3.6.1.
+    Tests configuration properties and basic functionality per ADR-0007.
     Note: intervention_timeout test removed (timeout no longer used).
     """
 
     def test_max_domain_failures_is_three_per_spec(
         self, intervention_manager: InterventionManager
     ) -> None:
-        """Test max domain failures is 3 per §3.1.
+        """Test max domain failures is 3 per ADR-0010.
 
-        Per §3.1: Skip domain for the day after 3 failures.
+        Per ADR-0010: Skip domain for the day after 3 failures.
         """
         expected_max = 3
         actual_max = intervention_manager.max_domain_failures
 
         assert actual_max == expected_max, (
-            f"max_domain_failures should be {expected_max} per §3.1, got {actual_max}"
+            f"max_domain_failures should be {expected_max} per ADR-0010, got {actual_max}"
         )
 
     def test_cooldown_at_least_60_minutes_per_spec(
         self, intervention_manager: InterventionManager
     ) -> None:
-        """Test cooldown is ≥60 minutes per §3.5.
+        """Test cooldown is ≥60 minutes per ADR-0006.
 
-        Per §3.5: Cooldown (minimum 60 minutes).
+        Per ADR-0006: Cooldown (minimum 60 minutes).
         """
         actual_cooldown = intervention_manager.cooldown_minutes
         min_cooldown = 60
 
         assert actual_cooldown >= min_cooldown, (
-            f"cooldown_minutes should be >= {min_cooldown} per §3.5, got {actual_cooldown}"
+            f"cooldown_minutes should be >= {min_cooldown} per ADR-0006, got {actual_cooldown}"
         )
 
     def test_domain_failure_tracking_initial_state(
@@ -380,10 +380,10 @@ class TestInterventionManagerCore:
 
 
 # =============================================================================
-# Challenge Detection Tests - REMOVED per §3.6.1
+# Challenge Detection Tests - REMOVED per ADR-0007
 # =============================================================================
 # NOTE: TestChallengeDetection class has been removed.
-# _has_challenge_indicators method was deleted per §3.6.1 safe operation policy.
+# _has_challenge_indicators method was deleted per ADR-0007 safe operation policy.
 # DOM content inspection during auth sessions is forbidden.
 
 
@@ -446,15 +446,15 @@ class TestInterventionMessages:
 
 
 # =============================================================================
-# Domain Skip Logic Tests (§3.1)
+# Domain Skip Logic Tests (ADR-0010)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestDomainSkipLogic:
-    """Tests for domain skip logic per §3.1.
+    """Tests for domain skip logic per ADR-0010.
 
-    Per §3.1: Skip domain for the day after 3 failures (after connection refresh, headful escalation, cooldown applied).
+    Per ADR-0010: Skip domain for the day after 3 failures (after connection refresh, headful escalation, cooldown applied).
     """
 
     @pytest.mark.asyncio
@@ -475,10 +475,10 @@ class TestDomainSkipLogic:
         failure_count: int,
         should_skip: bool,
     ) -> None:
-        """Test domain skip at boundary conditions per §3.1.
+        """Test domain skip at boundary conditions per ADR-0010.
 
         Parametrized test verifying skip behavior at 0, 1, 2, 3, 4 failures.
-        Per §7.1.2.4: Boundary conditions should be tested.
+        Per .1.2.4: Boundary conditions should be tested.
         """
         domain = "test.com"
 
@@ -596,13 +596,13 @@ class TestToastNotification:
 
 
 # =============================================================================
-# Tab Bring-to-Front Tests (Safe Mode per §3.6.1)
+# Tab Bring-to-Front Tests (Safe Mode per ADR-0007)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestTabBringToFront:
-    """Tests for browser window bring-to-front functionality per §3.6.1.
+    """Tests for browser window bring-to-front functionality per ADR-0007.
 
     Safe Operation Policy:
     - Uses CDP Page.bringToFront only (allowed)
@@ -624,7 +624,7 @@ class TestTabBringToFront:
         # When
         await intervention_manager._bring_tab_to_front(mock_page)
 
-        # Then: Uses Page.bringToFront (allowed per §3.6.1)
+        # Then: Uses Page.bringToFront (allowed per ADR-0007)
         cdp_session.send.assert_any_call("Page.bringToFront")
 
     @pytest.mark.asyncio
@@ -633,7 +633,7 @@ class TestTabBringToFront:
     ) -> None:
         """Test that bring tab to front does NOT use forbidden CDP commands.
 
-        Per §3.6.1: Runtime.evaluate, DOM.*, Input.* are forbidden.
+        Per ADR-0007: Runtime.evaluate, DOM.*, Input.* are forbidden.
         """
         # Given
         cdp_session = AsyncMock()
@@ -650,7 +650,7 @@ class TestTabBringToFront:
             forbidden_prefixes = ["Runtime.evaluate", "DOM.", "Input.", "Emulation."]
             for prefix in forbidden_prefixes:
                 assert not command.startswith(prefix), (
-                    f"Forbidden CDP command '{command}' was called. Per §3.6.1, "
+                    f"Forbidden CDP command '{command}' was called. Per ADR-0007, "
                     f"only Page.navigate, Network.enable, Page.bringToFront are allowed."
                 )
 
@@ -674,23 +674,23 @@ class TestTabBringToFront:
 
 
 # =============================================================================
-# Element Highlighting Tests - REMOVED per §3.6.1
+# Element Highlighting Tests - REMOVED per ADR-0007
 # =============================================================================
 # NOTE: TestElementHighlighting class has been removed.
-# _highlight_element method was deleted per §3.6.1 safe operation policy.
+# _highlight_element method was deleted per ADR-0007 safe operation policy.
 # DOM operations (scroll, highlight) during auth sessions are forbidden.
 
 
 # =============================================================================
-# Full Intervention Flow Tests (Updated per §3.6.1)
+# Full Intervention Flow Tests (Updated per ADR-0007)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestInterventionFlow:
-    """Tests for the intervention flow per §3.6.1.
+    """Tests for the intervention flow per ADR-0007.
 
-    Key behavior changes per §3.6.1:
+    Key behavior changes per ADR-0007:
     - request_intervention returns PENDING immediately (no waiting)
     - No timeout enforcement (user-driven completion)
     - User calls complete_authentication when done
@@ -700,7 +700,7 @@ class TestInterventionFlow:
     async def test_skips_domain_with_three_failures(
         self, mock_settings: MagicMock, mock_db: AsyncMock
     ) -> None:
-        """Test intervention is skipped for domains with 3 failures per §3.1."""
+        """Test intervention is skipped for domains with 3 failures per ADR-0010."""
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
                 # Given
@@ -725,9 +725,9 @@ class TestInterventionFlow:
     async def test_returns_pending_immediately_per_spec(
         self, mock_settings: MagicMock, mock_db: AsyncMock, mock_page: AsyncMock
     ) -> None:
-        """Test intervention returns PENDING immediately per §3.6.1.
+        """Test intervention returns PENDING immediately per ADR-0007.
 
-        Per §3.6.1: No waiting/polling. Returns PENDING for user to complete.
+        Per ADR-0007: No waiting/polling. Returns PENDING for user to complete.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
@@ -746,7 +746,7 @@ class TestInterventionFlow:
 
                         # Then: Should return PENDING immediately
                         assert result.status == InterventionStatus.PENDING, (
-                            f"Expected PENDING status per §3.6.1, got {result.status}"
+                            f"Expected PENDING status per ADR-0007, got {result.status}"
                         )
                         assert "complete_authentication" in (result.notes or ""), (
                             "Notes should mention complete_authentication method"
@@ -852,7 +852,7 @@ class TestInterventionFlow:
 
 @pytest.mark.unit
 class TestNotifyUserFunction:
-    """Tests for the notify_user convenience function per §3.6.1."""
+    """Tests for the notify_user convenience function per ADR-0007."""
 
     @pytest.mark.asyncio
     async def test_simple_event_returns_shown_and_event(
@@ -890,9 +890,9 @@ class TestNotifyUserFunction:
     async def test_captcha_event_returns_pending_per_spec(
         self, mock_settings: MagicMock, mock_db: AsyncMock
     ) -> None:
-        """Test notify_user with captcha event returns PENDING per §3.6.1.
+        """Test notify_user with captcha event returns PENDING per ADR-0007.
 
-        Per §3.6.1: Intervention returns PENDING immediately for user to complete.
+        Per ADR-0007: Intervention returns PENDING immediately for user to complete.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
@@ -920,24 +920,24 @@ class TestNotifyUserFunction:
                         },
                     )
 
-                    # Then: Should be PENDING per §3.6.1
+                    # Then: Should be PENDING per ADR-0007
                     assert result["status"] == "pending", (
-                        f"Result 'status' should be 'pending' per §3.6.1, got '{result['status']}'"
+                        f"Result 'status' should be 'pending' per ADR-0007, got '{result['status']}'"
                     )
 
 
 # =============================================================================
-# Integration-style Tests (still unit - using mocks) - Updated per §3.6.1
+# Integration-style Tests (still unit - using mocks) - Updated per ADR-0007
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestInterventionIntegration:
-    """Integration-style tests for intervention flows (mocked) per §3.6.1.
+    """Integration-style tests for intervention flows (mocked) per ADR-0007.
 
     Tests complete flows end-to-end with mocked dependencies.
 
-    Key changes per §3.6.1:
+    Key changes per ADR-0007:
     - No timeout enforcement (user-driven completion)
     - Returns PENDING immediately
     - No element_selector or on_success_callback parameters
@@ -947,7 +947,7 @@ class TestInterventionIntegration:
     async def test_full_lifecycle_returns_pending_per_spec(
         self, mock_settings: MagicMock, mock_db: AsyncMock, mock_page: AsyncMock
     ) -> None:
-        """Test full intervention lifecycle returns PENDING per §3.6.1."""
+        """Test full intervention lifecycle returns PENDING per ADR-0007."""
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
                 # Given
@@ -956,7 +956,7 @@ class TestInterventionIntegration:
 
                 with patch.object(manager, "send_toast", new_callable=AsyncMock, return_value=True):
                     with patch.object(manager, "_bring_tab_to_front", new_callable=AsyncMock):
-                        # When: Per §3.6.1, no element_selector or on_success_callback
+                        # When: Per ADR-0007, no element_selector or on_success_callback
                         result = await manager.request_intervention(
                             intervention_type=InterventionType.CLOUDFLARE,
                             url=f"https://{domain}",
@@ -966,7 +966,7 @@ class TestInterventionIntegration:
 
                         # Then: Should return PENDING immediately
                         assert result.status == InterventionStatus.PENDING, (
-                            f"Expected PENDING status per §3.6.1, got {result.status}"
+                            f"Expected PENDING status per ADR-0007, got {result.status}"
                         )
 
     @pytest.mark.asyncio
@@ -975,7 +975,7 @@ class TestInterventionIntegration:
     ) -> None:
         """Test complete_intervention marks intervention as successful.
 
-        Per §3.6.1: User calls complete_authentication when done.
+        Per ADR-0007: User calls complete_authentication when done.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
@@ -1013,9 +1013,9 @@ class TestInterventionIntegration:
     async def test_check_status_shows_pending_without_timeout(
         self, mock_settings: MagicMock, mock_db: AsyncMock
     ) -> None:
-        """Test check_intervention_status shows pending without timeout per §3.6.1.
+        """Test check_intervention_status shows pending without timeout per ADR-0007.
 
-        Per §3.6.1: No timeout enforcement - user-driven completion only.
+        Per ADR-0007: No timeout enforcement - user-driven completion only.
         """
         with patch("src.utils.notification.get_settings", return_value=mock_settings):
             with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
@@ -1032,9 +1032,9 @@ class TestInterventionIntegration:
                 # When
                 status = await manager.check_intervention_status(intervention_id)
 
-                # Then: Should still be pending (no timeout per §3.6.1)
+                # Then: Should still be pending (no timeout per ADR-0007)
                 assert status["status"] == "pending", (
-                    f"Expected 'pending' status per §3.6.1, got '{status['status']}'"
+                    f"Expected 'pending' status per ADR-0007, got '{status['status']}'"
                 )
                 assert "elapsed_seconds" in status, "Status should include elapsed_seconds"
                 assert "note" in status, "Status should include note about user completion"

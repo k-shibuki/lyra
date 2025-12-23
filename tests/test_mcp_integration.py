@@ -351,7 +351,7 @@ class TestGetMaterialsIntegration:
         self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
-        TC-4.3-N-01: get_materials includes uncertainty and controversy (Phase 4).
+        TC-4.3-N-01: get_materials includes uncertainty and controversy .
 
         // Given: Task with claims and evidence edges (with nli_confidence)
         // When: Calling get_materials_action

@@ -5,7 +5,7 @@ Executes refutation searches using mechanical patterns only.
 Cursor AI designs which claims/subqueries to refute;
 Lyra applies mechanical suffix patterns.
 
-See docs/REQUIREMENTS.md §2.1.4 and §3.1.7.5.
+See relevant ADR ADR-0002 and ADR-0010.
 """
 
 from dataclasses import dataclass, field
@@ -55,7 +55,7 @@ class RefutationExecutor:
     """
     Executes refutation searches for claims/subqueries.
 
-    Responsibilities (§2.1.4, §3.1.7.5):
+    Responsibilities (ADR-0002, ADR-0010):
     - Apply mechanical suffix patterns to generate reverse queries
     - Execute reverse query searches
     - Detect refuting evidence using NLI
@@ -126,7 +126,7 @@ class RefutationExecutor:
 
             # Adjust confidence
             if result.refutations_found == 0:
-                # No refutation found - decay confidence (§3.1.7.5)
+                # No refutation found - decay confidence (ADR-0010)
                 result.confidence_adjustment = -NO_REFUTATION_CONFIDENCE_DECAY
                 new_confidence = max(0, current_confidence + result.confidence_adjustment)
 
@@ -197,7 +197,7 @@ class RefutationExecutor:
         Generate reverse queries using mechanical patterns only.
 
         Applies predefined suffixes to the text.
-        Does NOT use LLM to generate hypotheses (§2.1.4).
+        Does NOT use LLM to generate hypotheses (ADR-0002).
 
         Args:
             text: The claim or subquery text.

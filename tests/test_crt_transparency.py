@@ -1,7 +1,7 @@
 """
 Tests for Certificate Transparency client.
 
-Tests §3.1.2: crt.sh integration via HTML scraping.
+Tests ADR-0006: crt.sh integration via HTML scraping.
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |

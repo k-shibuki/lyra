@@ -1,7 +1,7 @@
 """
 MCP Error Code definitions for Lyra.
 
-Implements §3.2.1 error code schema for consistent error handling across all MCP tools.
+Implements ADR-0003 error code schema for consistent error handling across all MCP tools.
 Each error code has a specific meaning and recommended action for Cursor AI.
 
 Error codes follow the pattern:
@@ -19,7 +19,7 @@ from typing import Any
 
 class MCPErrorCode(str, Enum):
     """
-    MCP Error codes per §3.2.1.
+    MCP Error codes per ADR-0003.
 
     Each code indicates a specific error condition with recommended Cursor AI action.
     """
@@ -67,7 +67,7 @@ class MCPErrorCode(str, Enum):
     Action: Retry with smaller scope or longer timeout."""
 
     PIPELINE_TIMEOUT = "PIPELINE_TIMEOUT"
-    """Search pipeline timed out (§2.1.5 safe stop).
+    """Search pipeline timed out (ADR-0002 safe stop).
     Partial results may be available. Pipeline state has been saved.
     Action: Call get_status for partial results, decide to resume or stop."""
 

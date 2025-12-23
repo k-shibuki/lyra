@@ -1,5 +1,5 @@
 """
-Unit tests for PageClassifier (§3.1.2).
+Unit tests for PageClassifier (ADR-0006).
 
 Tests page type classification for:
 - article: News articles, blog posts

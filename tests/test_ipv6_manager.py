@@ -1,5 +1,5 @@
 """
-Tests for IPv6 Connection Management (§4.3).
+Tests for IPv6 Connection Management (ADR-0006).
 
 Tests cover:
 - IPv6/IPv4 address resolution with preference ordering
@@ -9,7 +9,7 @@ Tests cover:
 - Switch metrics tracking for acceptance criteria
 - Integration with DNSPolicyManager
 
-Per §7.1 test quality standards:
+Per .1 test quality standards:
 - No conditional assertions
 - Specific expected values
 - Mock external dependencies
@@ -861,7 +861,7 @@ class TestIPv6ManagerIntegration:
 
     @pytest.mark.asyncio
     async def test_learning_improves_preference(self, mock_settings: MagicMock) -> None:
-        """Repeated successes should improve preference for that family (§4.3).
+        """Repeated successes should improve preference for that family (ADR-0006).
 
         EMA calculation with alpha=0.1, initial=0.5, 5 successes:
         - After 1: 0.1*1 + 0.9*0.5 = 0.55
@@ -932,12 +932,12 @@ class TestIPv6ManagerIntegration:
             # Check metrics
             metrics = manager.metrics
 
-            # §7 acceptance criteria: switch success rate ≥80%
+            # acceptance criteria: switch success rate ≥80%
             assert metrics.switch_success_rate == pytest.approx(0.8)
 
     @pytest.mark.asyncio
     async def test_happy_eyeballs_interleaving(self, mock_settings: MagicMock) -> None:
-        """Addresses should be interleaved for Happy Eyeballs (§4.3)."""
+        """Addresses should be interleaved for Happy Eyeballs (ADR-0006)."""
         mock_addr_info = [
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::1", 0)),
             (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2001:db8::2", 0)),
@@ -959,12 +959,12 @@ class TestIPv6ManagerIntegration:
 
 
 # =============================================================================
-# Boundary Condition Tests (§7.1.2.4)
+# Boundary Condition Tests (.1.2.4)
 # =============================================================================
 
 
 class TestIPv6BoundaryConditions:
-    """Boundary condition tests per §7.1.2.4."""
+    """Boundary condition tests per .1.2.4."""
 
     @pytest.mark.asyncio
     async def test_empty_address_resolution(self, mock_settings: MagicMock) -> None:

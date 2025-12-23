@@ -129,7 +129,7 @@ class TransferResult(BaseModel):
 class EngineHealthMetrics(BaseModel):
     """Engine health metrics for dynamic weight calculation.
 
-    Per §3.1.4: EMA metrics from engine_health table used for weight adjustment.
+    Per ADR-0006: EMA metrics from engine_health table used for weight adjustment.
     Includes time decay support for stale metrics.
     """
 
@@ -168,7 +168,7 @@ class EngineHealthMetrics(BaseModel):
 class LastmileCheckResult(BaseModel):
     """Result of lastmile slot check.
 
-    Per §3.1.1: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
+    Per ADR-0010: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
     Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
 
     Used to determine if lastmile engines should be used based on harvest rate.
@@ -195,7 +195,7 @@ class LastmileCheckResult(BaseModel):
 class DynamicWeightResult(BaseModel):
     """Result of dynamic weight calculation.
 
-    Per §3.1.1, §4.6: Dynamic weight adjusted based on engine health
+    Per ADR-0010, : Dynamic weight adjusted based on engine health
     with time decay for stale metrics.
     """
 
@@ -248,7 +248,7 @@ class DynamicWeightResult(BaseModel):
 class TorUsageMetrics(BaseModel):
     """Daily Tor usage metrics for rate limiting.
 
-    Per §4.3 and §7: Track global Tor usage to enforce daily limit (20%).
+    Per ADR-0006 and : Track global Tor usage to enforce daily limit (20%).
     Metrics are reset at the start of each new day.
     """
 
@@ -280,7 +280,7 @@ class TorUsageMetrics(BaseModel):
 class DomainTorMetrics(BaseModel):
     """Domain-specific Tor usage metrics.
 
-    Per §4.3: Track per-domain Tor usage to enforce domain-specific limits.
+    Per ADR-0006: Track per-domain Tor usage to enforce domain-specific limits.
     Each domain can have its own tor_usage_ratio limit in domain policy.
     """
 
@@ -321,7 +321,7 @@ class DomainTorMetrics(BaseModel):
 class DomainDailyBudget(BaseModel):
     """Daily budget state for a domain.
 
-    Per §4.3: "時間帯・日次の予算上限を設定" for IP block prevention.
+    Per ADR-0006: "時間帯・日次の予算上限を設定" for IP block prevention.
     Tracks requests and pages consumed today for rate limiting.
     """
 
@@ -374,7 +374,7 @@ class DomainDailyBudget(BaseModel):
 class DomainBudgetCheckResult(BaseModel):
     """Result of domain daily budget check.
 
-    Per §4.3: Used by fetch_url() to determine if request should proceed.
+    Per ADR-0006: Used by fetch_url to determine if request should proceed.
     Provides detailed information for logging and debugging.
     """
 
@@ -473,7 +473,7 @@ class AcademicSearchResult(BaseModel):
 class PaperIdentifier(BaseModel):
     """Paper identifier (multiple format support).
 
-    Supported identifiers per Decision 6 (S2 + OpenAlex two-pillar strategy):
+    Supported identifiers per ADR-0008 (S2 + OpenAlex two-pillar strategy):
     - DOI, PMID, arXiv ID (resolved via Semantic Scholar API)
     """
 

@@ -1,5 +1,5 @@
 """
-Tests for human_behavior.py module (§16.11).
+Tests for human_behavior.py module .
 
 Tests MouseTrajectory, HumanTyping, InertialScroll, and HumanBehaviorSimulator.
 

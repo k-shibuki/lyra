@@ -1,5 +1,5 @@
 """
-Citation relevance filtering (Phase 3).
+Citation relevance filtering .
 
 Design:
 - Use a source-agnostic impact_score derived from Paper.citation_count (local normalization).
@@ -7,7 +7,7 @@ Design:
 - Stage 2: LLM "evidence usefulness" score + Stage 1 signals (precise selection).
 
 Important:
-- We do NOT ask the LLM to judge SUPPORTS/REFUTES here (Decision 8).
+- We do NOT ask the LLM to judge SUPPORTS/REFUTES here (ADR-0004).
 """
 
 from __future__ import annotations

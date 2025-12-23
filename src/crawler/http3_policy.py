@@ -1,7 +1,7 @@
 """
 HTTP/3 (QUIC) Policy Manager for Lyra.
 
-Implements §4.3 HTTP/3(QUIC) policy:
+Implements ADR-0006 HTTP/3(QUIC) policy:
 - Browser route naturally uses HTTP/3 when site provides it
 - HTTP client uses HTTP/2 by default to minimize behavioral differences
 - Auto-increase browser route ratio for sites where HTTP/3 makes a difference
@@ -225,7 +225,7 @@ class HTTP3PolicyDecision:
 class HTTP3PolicyManager:
     """Manages HTTP/3 policy decisions for route selection.
 
-    Per §4.3:
+    Per ADR-0006:
     - Browser route naturally uses HTTP/3 when site provides it
     - HTTP client uses HTTP/2 by default
     - Auto-increase browser route ratio when HTTP/3 sites show behavioral differences

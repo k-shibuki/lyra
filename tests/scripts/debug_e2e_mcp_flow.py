@@ -5,7 +5,7 @@ E2E Integration Test for MCP Tools (O.7.6).
 This is an end-to-end debug script that verifies the full MCP tool flow:
 create_task → search → get_status → get_materials → stop_task
 
-Per §3.2.1: All MCP tools should work together in a coherent pipeline.
+Per ADR-0003: All MCP tools should work together in a coherent pipeline.
 
 Note: This script simulates the MCP flow without actual network/browser access.
 For full E2E testing, use the actual MCP server with Cursor AI.

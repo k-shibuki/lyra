@@ -2,7 +2,7 @@
 Pytest fixtures and configuration for Lyra tests.
 
 =============================================================================
-Test Classification (§7.1.7, §16.10.1)
+Test Classification (.1.7, ADR-0009)
 =============================================================================
 
 Test Execution Layers (Cloud Agent Compatible):
@@ -46,7 +46,7 @@ Primary Markers (Execution Speed):
   - DEFAULT EXCLUDED: Must use `pytest -m slow` to run
   - Typically heavy LLM or large data processing
 
-Risk-Based Sub-Markers (E2E only, §16.10.1):
+Risk-Based Sub-Markers (E2E only, ADR-0009):
 - @pytest.mark.external: Uses external services with moderate block risk
   - Example: Mojeek, Qwant (block-resistant engines)
   - Run with: `pytest -m "e2e and external"`
@@ -106,7 +106,7 @@ To run E2E with specific risk level:
     pytest -m "e2e and rate_limited"
 
 =============================================================================
-Mock Strategy (§7.1.7)
+Mock Strategy (.1.7)
 =============================================================================
 
 - External services (Ollama, Chrome): Always mocked in unit/integration
@@ -340,7 +340,7 @@ def pytest_ignore_collect(collection_path: Path, config: "Config") -> bool | Non
 
 
 def pytest_configure(config: "Config") -> None:
-    """Register custom markers for test classification per §7.1.7 and §16.10.1."""
+    """Register custom markers for test classification per .1.7 and ADR-0009."""
     # Primary classification markers
     config.addinivalue_line(
         "markers", "unit: Unit tests with no external dependencies (fast, <1s/test)"
@@ -355,7 +355,7 @@ def pytest_configure(config: "Config") -> None:
         "markers", "slow: Tests that take more than 5 seconds (excluded by default)"
     )
 
-    # Risk-based sub-markers for E2E tests (§16.10.1)
+    # Risk-based sub-markers for E2E tests (ADR-0009)
     config.addinivalue_line(
         "markers", "external: E2E using external services with moderate block risk (Mojeek, Qwant)"
     )
@@ -408,7 +408,7 @@ def pytest_collection_modifyitems(config: "Config", items: list["Item"]) -> None
     """
     Auto-apply markers and skip tests based on environment.
 
-    Per §7.1.7, tests should be classified as unit/integration/e2e.
+    Per .1.7, tests should be classified as unit/integration/e2e.
     Tests without explicit markers are assumed to be unit tests.
 
     In cloud agent environments (Cursor, Claude Code, GitHub Actions, etc.):
@@ -693,7 +693,7 @@ def reset_global_database() -> Generator[None, None, None]:
 
 
 # =============================================================================
-# Mock Fixtures for External Services (§7.1.7 Mock Strategy)
+# Mock Fixtures for External Services (.1.7 Mock Strategy)
 # =============================================================================
 
 
@@ -701,7 +701,7 @@ def reset_global_database() -> Generator[None, None, None]:
 def mock_ollama() -> Generator[MagicMock, None, None]:
     """Mock Ollama client for unit tests.
 
-    Per §7.1.7: External services (Ollama) should be mocked in unit/integration tests.
+    Per .1.7: External services (Ollama) should be mocked in unit/integration tests.
     """
     with patch("src.filter.llm_extract.ollama") as mock_ollama:
         mock_ollama.chat = AsyncMock(return_value={"message": {"content": "{}"}})
@@ -712,7 +712,7 @@ def mock_ollama() -> Generator[MagicMock, None, None]:
 def mock_browser() -> Generator[MagicMock, None, None]:
     """Mock Playwright browser for unit tests.
 
-    Per §7.1.7: External services (Chrome) should be mocked in unit/integration tests.
+    Per .1.7: External services (Chrome) should be mocked in unit/integration tests.
     """
     with patch("src.crawler.browser.playwright") as mock_pw:
         mock_browser = MagicMock()
@@ -726,7 +726,7 @@ def mock_browser() -> Generator[MagicMock, None, None]:
 
 
 # =============================================================================
-# Database Fixtures (§7.1.7 Mock Strategy)
+# Database Fixtures (.1.7 Mock Strategy)
 # =============================================================================
 
 
@@ -734,7 +734,7 @@ def mock_browser() -> Generator[MagicMock, None, None]:
 async def memory_database() -> AsyncGenerator["Database", None]:
     """Create an in-memory database for fast unit tests.
 
-    Per §7.1.7: Database should use in-memory SQLite for unit tests.
+    Per .1.7: Database should use in-memory SQLite for unit tests.
     Uses try/finally to ensure connection is closed even if test fails.
     """
     from src.storage.database import Database
@@ -757,7 +757,7 @@ async def memory_database() -> AsyncGenerator["Database", None]:
 def assert_dict_contains(actual: dict, expected: dict) -> None:
     """Assert that actual dict contains all key-value pairs from expected.
 
-    Provides clear error messages per §7.1.2 (Diagnosability).
+    Provides clear error messages per .1.2 (Diagnosability).
     """
     for key, value in expected.items():
         assert key in actual, (
@@ -771,7 +771,7 @@ def assert_dict_contains(actual: dict, expected: dict) -> None:
 def assert_async_called_with(mock: AsyncMock, *args: object, **kwargs: object) -> None:
     """Assert that async mock was called with specific arguments.
 
-    Provides clear error messages per §7.1.2 (Diagnosability).
+    Provides clear error messages per .1.2 (Diagnosability).
     """
     mock.assert_called()
     call_args = mock.call_args
@@ -784,7 +784,7 @@ def assert_async_called_with(mock: AsyncMock, *args: object, **kwargs: object) -
 def assert_in_range(value: float, min_val: float, max_val: float, name: str = "value") -> None:
     """Assert that a value is within a specified range.
 
-    Per §7.1.2: Range checks should be explicit with tolerance.
+    Per .1.2: Range checks should be explicit with tolerance.
     """
     assert min_val <= value <= max_val, (
         f"{name} = {value} is outside expected range [{min_val}, {max_val}]"
@@ -792,7 +792,7 @@ def assert_in_range(value: float, min_val: float, max_val: float, name: str = "v
 
 
 # =============================================================================
-# Test Data Factories (§7.1.3 Test Data Requirements)
+# Test Data Factories (.1.3 Test Data Requirements)
 # =============================================================================
 
 
@@ -800,7 +800,7 @@ def assert_in_range(value: float, min_val: float, max_val: float, name: str = "v
 def make_fragment() -> Callable[..., dict[str, str]]:
     """Factory for creating test fragments with realistic data.
 
-    Per §7.1.3: Test data should be realistic and diverse.
+    Per .1.3: Test data should be realistic and diverse.
     """
 
     def _make(
@@ -824,7 +824,7 @@ def make_fragment() -> Callable[..., dict[str, str]]:
 def make_claim() -> Callable[..., dict[str, str | float]]:
     """Factory for creating test claims with realistic data.
 
-    Per §7.1.3: Test data should be realistic and diverse.
+    Per .1.3: Test data should be realistic and diverse.
     """
 
     def _make(

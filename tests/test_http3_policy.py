@@ -1,14 +1,14 @@
 """
 Tests for HTTP/3 (QUIC) Policy Manager.
 
-Per §7.1 Test Code Quality Standards:
+Per .1 Test Code Quality Standards:
 - Specific assertions with concrete values
 - No conditional assertions
 - Realistic test data
 - Deterministic behavior (no random without seed)
 - AAA pattern (Arrange-Act-Assert)
 
-Tests verify §4.3 HTTP/3(QUIC) policy requirements:
+Tests verify ADR-0006 HTTP/3(QUIC) policy requirements:
 - Browser route naturally uses HTTP/3 when site provides it
 - HTTP client uses HTTP/2 by default
 - Auto-increase browser route ratio when HTTP/3 sites show behavioral differences
@@ -385,7 +385,7 @@ class TestHTTP3PolicyManager:
     ) -> None:
         """Behavioral difference should be calculated with enough samples.
 
-        Per §4.3: Behavioral difference tracking to inform route selection.
+        Per ADR-0006: Behavioral difference tracking to inform route selection.
         EMA calculation: new_ema = alpha * difference + (1-alpha) * old_ema
         With alpha=0.1, first update from 0: ema = 0.1 * 0.3 = 0.03
 
@@ -436,7 +436,7 @@ class TestHTTP3PolicyManager:
 
         # With 10 samples, EMA (~0.066) is below threshold (0.15)
         # So browser_ratio_boost should still be 0.0
-        # This is correct behavior per §4.3
+        # This is correct behavior per ADR-0006
         assert stats.browser_ratio_boost == 0.0, (
             f"Expected browser_ratio_boost=0.0 when EMA ({stats.behavioral_difference_ema}) "
             f"is below threshold (0.15), got {stats.browser_ratio_boost}"
@@ -448,7 +448,7 @@ class TestHTTP3PolicyManager:
     ) -> None:
         """Browser ratio boost should be applied when EMA exceeds threshold.
 
-        Per §4.3: Auto-increase browser route ratio when HTTP/3 sites show
+        Per ADR-0006: Auto-increase browser route ratio when HTTP/3 sites show
         behavioral differences exceeding the threshold (default=0.15).
 
         This test uses more samples to ensure EMA exceeds threshold.
@@ -505,7 +505,7 @@ class TestHTTP3PolicyManager:
     ) -> None:
         """Behavioral difference should only be calculated at min_samples boundary.
 
-        Per §4.3: Need minimum samples (default=5) before calculating difference.
+        Per ADR-0006: Need minimum samples (default=5) before calculating difference.
         Tests boundary: 4 samples = no calculation, 5 samples = calculation starts.
         """
         import uuid
@@ -765,7 +765,7 @@ class TestGlobalManager:
 class TestEMACalculation:
     """Tests for EMA (Exponential Moving Average) calculation accuracy.
 
-    Per §4.3: EMA tracks behavioral differences for adaptive policy.
+    Per ADR-0006: EMA tracks behavioral differences for adaptive policy.
     EMA formula: new_ema = alpha * value + (1 - alpha) * old_ema
     Default alpha = 0.1
     """
@@ -823,7 +823,7 @@ class TestEMACalculation:
     async def test_ema_decay_when_no_advantage(self, manager: HTTP3PolicyManager) -> None:
         """EMA should decay toward zero when browser has no advantage.
 
-        Per §4.3: Decay formula when no advantage detected.
+        Per ADR-0006: Decay formula when no advantage detected.
         """
         import uuid
 
@@ -890,7 +890,7 @@ class TestHTTP3PolicyIntegration:
     ) -> None:
         """Browser ratio should increase when HTTP/3 provides advantage.
 
-        Per §4.3: Auto-increase browser route ratio when HTTP/3 sites
+        Per ADR-0006: Auto-increase browser route ratio when HTTP/3 sites
         show behavioral differences between browser and HTTP client routes.
         """
         # Simulate scenario: HTTP/3 site where browser (with HTTP/3) succeeds
@@ -941,7 +941,7 @@ class TestHTTP3PolicyIntegration:
     ) -> None:
         """Browser ratio should not increase when HTTP client performs equally.
 
-        Per §4.3: Only increase browser ratio when there's behavioral difference.
+        Per ADR-0006: Only increase browser ratio when there's behavioral difference.
         """
         # Both routes perform equally well (90% success)
         for i in range(10):

@@ -269,7 +269,7 @@ class TestAddAcademicPageWithCitations:
                 assert edge_data["target_type"] == NodeType.PAGE.value
                 assert edge_data["relation"] == RelationType.CITES.value
                 assert edge_data["citation_source"] in ("semantic_scholar", "openalex")
-                # Phase 2: domain_category should be present (from pages table domain)
+                # : domain_category should be present (from pages table domain)
                 assert "source_domain_category" in edge_data
                 assert "target_domain_category" in edge_data
 

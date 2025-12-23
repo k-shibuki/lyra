@@ -1,7 +1,7 @@
 """
 End-to-End Tests for Lyra.
 
-Per §7.1.7: E2E tests require real environment (Browser, Ollama, etc.) and
+Per .1.7: E2E tests require real environment (Browser, Ollama, etc.) and
 should be executed manually, not in CI.
 
 These tests validate:
@@ -151,7 +151,7 @@ class TestSearchToReportPipeline:
     """
     E2E test for the complete research pipeline.
 
-    Verifies §3.1-§3.4 requirements:
+    Verifies ADR-0010-ADR-0005 requirements:
     - Search execution via browser-based search
     - URL fetching with rate limiting
     - Content extraction from HTML
@@ -169,7 +169,7 @@ class TestSearchToReportPipeline:
         """
         Verify browser-based search returns normalized results.
 
-        Tests §3.2.1 search_serp tool:
+        Tests ADR-0003 search_serp tool:
         - Query execution with real browser search
         - Result normalization (title, url, snippet, engine, rank)
         """
@@ -210,7 +210,7 @@ class TestSearchToReportPipeline:
         """
         Verify URL fetching and content extraction.
 
-        Tests §3.2 fetch_url and §3.3 extract_content:
+        Tests ADR-0003 fetch_url and ADR-0005 extract_content:
         - HTTP fetching with rate limiting
         - Content extraction from HTML
         - Text and metadata extraction
@@ -266,7 +266,7 @@ class TestSearchToReportPipeline:
         Simulate a complete research pipeline.
 
         Tests the flow: Search → Fetch → Extract → Store
-        Verifies §3.1.7 exploration control and §3.3 filtering.
+        Verifies ADR-0010 exploration control and ADR-0005 filtering.
         """
         from src.research.context import ResearchContext
         from src.research.state import ExplorationState, SubqueryStatus
@@ -334,7 +334,7 @@ class TestSearchToReportPipeline:
         """
         Test report materials can be generated from research data.
 
-        Verifies §3.4 and §3.2.1 get_report_materials.
+        Verifies ADR-0005 and ADR-0003 get_report_materials.
         Note: This tests data structure, not Cursor AI composition.
         """
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
@@ -734,7 +734,7 @@ class TestAuthenticationQueueFlow:
         """
         Test getting pending count for exploration status.
 
-        Verifies §3.6.1 integration with get_exploration_status:
+        Verifies ADR-0007 integration with get_exploration_status:
         - Pending count by priority
         - High priority count for alerts
         """
@@ -784,7 +784,7 @@ class TestAuthenticationQueueFlow:
         assert counts["medium"] == 1, f"Expected 1 medium priority, got {counts['medium']}"
         assert counts["low"] == 1, f"Expected 1 low priority, got {counts['low']}"
 
-        # Then: Threshold alerts would be triggered per §3.6.1
+        # Then: Threshold alerts would be triggered per ADR-0007
         assert counts["total"] >= 3, "Should trigger warning threshold"
         assert counts["high"] >= 2, "Should trigger critical due to high priority count"
 
@@ -839,7 +839,7 @@ class TestInterventionManagerFlow:
     """
     E2E test for the intervention manager (immediate/legacy mode).
 
-    Verifies §3.6.2 requirements:
+    Verifies ADR-0007 requirements:
     - Intervention request handling
     - Timeout management
     - Domain failure tracking
@@ -853,7 +853,7 @@ class TestInterventionManagerFlow:
         """
         Test that intervention requests create database records.
 
-        Verifies §3.6.2 logging requirements.
+        Verifies ADR-0007 logging requirements.
         """
         from src.utils.notification import InterventionManager
 
@@ -874,7 +874,7 @@ class TestInterventionManagerFlow:
         """
         Test domain failure tracking for skip decisions.
 
-        Verifies §3.6.2: Skip domain after 3 consecutive failures.
+        Verifies ADR-0007: Skip domain after 3 consecutive failures.
         Uses get_domain_failures() and max_domain_failures property.
         """
         from src.utils.notification import InterventionManager
@@ -892,7 +892,7 @@ class TestInterventionManagerFlow:
         # When: Check max_domain_failures property
         max_failures = manager.max_domain_failures
 
-        # Then: Max failures should be 3 per §3.6.2
+        # Then: Max failures should be 3 per ADR-0007
         assert max_failures == 3, f"Max failures should be 3, got {max_failures}"
 
         # When: Reset domain failures
@@ -1050,7 +1050,7 @@ class TestLLMIntegration:
     """
     E2E test for LLM integration.
 
-    Tests §3.3 LLM extraction functionality with real Ollama.
+    Tests ADR-0005 LLM extraction functionality with real Ollama.
     Optional - skipped if Ollama is not available.
     """
 

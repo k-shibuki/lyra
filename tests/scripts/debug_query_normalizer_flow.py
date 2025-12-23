@@ -6,8 +6,8 @@ This script verifies that BrowserSearchProvider.search() correctly
 normalizes query operators using transform_query_for_engine().
 
 Per spec:
-- §3.1.1: "Query operators (site:, filetype:, intitle:, "...", +/-, after:)"
-- §3.1.4: "Engine normalization (transform operators to engine-specific syntax)"
+- ADR-0010: "Query operators (site:, filetype:, intitle:, "...", +/-, after:)"
+- ADR-0006: "Engine normalization (transform operators to engine-specific syntax)"
 """
 
 import asyncio
@@ -372,7 +372,7 @@ async def main() -> int:
     print("Query Normalizer Flow Debug Script")
     print("=" * 80)
     print("\nThis script verifies query operator normalization for search engines.")
-    print("Per spec §3.1.1 and §3.1.4: Query operators and engine normalization.")
+    print("Per spec ADR-0010 and ADR-0006: Query operators and engine normalization.")
 
     results = []
 

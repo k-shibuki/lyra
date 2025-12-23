@@ -1,7 +1,7 @@
 """
 Site-internal search UI automation for Lyra.
 
-Implements automated interaction with site-internal search forms (§3.1.5):
+Implements automated interaction with site-internal search forms :
 - Allowlist-based domain management for stable internal search UIs
 - Automatic form detection and interaction
 - Result extraction and link prioritization
@@ -9,7 +9,7 @@ Implements automated interaction with site-internal search forms (§3.1.5):
 - Success/harvest rate learning for domain policy
 
 References:
-- §3.1.5: Site Internal Search UI Automation (allowlist operation)
+- : Site Internal Search UI Automation (allowlist operation)
 """
 
 import asyncio
@@ -137,7 +137,7 @@ class DomainSearchStats:
         self.consecutive_failures += 1
         self.last_failure_at = datetime.now(UTC)
 
-        # Skip domain after 2 consecutive failures (§3.1.5)
+        # Skip domain after 2 consecutive failures
         if self.consecutive_failures >= 2:
             # Skip for rest of day
             now = datetime.now(UTC)

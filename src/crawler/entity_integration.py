@@ -2,14 +2,14 @@
 Entity Integration for Lyra.
 
 Integrates RDAP/WHOIS and Certificate Transparency data with Entity KB.
-Implements §3.1.2:
+Implements ADR-0006:
 - Automatic entity extraction from registry data
 - Entity normalization and KB storage
 - Relationship discovery between entities
 
 References:
-- §3.1.2: Infrastructure/Registry Direct Access - Entity KB normalization
-- §3.1.1: Pivot Exploration - Entity expansion
+- ADR-0006: Infrastructure/Registry Direct Access - Entity KB normalization
+- ADR-0010: Pivot Exploration - Entity expansion
 """
 
 import asyncio

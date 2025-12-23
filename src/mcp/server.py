@@ -2,7 +2,7 @@
 MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
-Phase M: Refactored to 11 tools per docs/REQUIREMENTS.md §3.2.1.
+Phase M: Refactored to 11 tools per relevant ADR ADR-0003.
 """
 
 import asyncio
@@ -26,7 +26,7 @@ app = Server("lyra")
 
 
 # ============================================================
-# Tool Definitions (Phase M - §3.2.1: 11 Tools)
+# Tool Definitions (Phase M - ADR-0003: 11 Tools)
 # ============================================================
 
 TOOLS = [
@@ -68,7 +68,7 @@ TOOLS = [
     ),
     Tool(
         name="get_status",
-        description="Get unified task and exploration status. Returns task info, search states, metrics, budget, and auth queue. Cursor AI uses this to decide next actions. Per §3.2.1: No recommendations - data only.",
+        description="Get unified task and exploration status. Returns task info, search states, metrics, budget, and auth queue. Cursor AI uses this to decide next actions. Per ADR-0003: No recommendations - data only.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -139,7 +139,7 @@ TOOLS = [
     # ============================================================
     Tool(
         name="get_materials",
-        description="Get report materials (claims, fragments, evidence graph) for Cursor AI to compose a report. Does NOT generate report - Cursor AI handles composition/writing (§2.1).",
+        description="Get report materials (claims, fragments, evidence graph) for Cursor AI to compose a report. Does NOT generate report - Cursor AI handles composition/writing (ADR-0002).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -168,7 +168,7 @@ TOOLS = [
     # ============================================================
     Tool(
         name="calibration_metrics",
-        description="Calibration metrics operations (Phase 6.3). Actions: get_stats, evaluate, get_evaluations, get_diagram_data. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback.",
+        description="Calibration metrics operations . Actions: get_stats, evaluate, get_evaluations, get_diagram_data. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -192,7 +192,7 @@ TOOLS = [
     ),
     Tool(
         name="calibration_rollback",
-        description="Rollback calibration parameters to a previous version (destructive operation). Per §3.2.1: Separate tool because rollback is destructive and irreversible. Renamed from calibrate_rollback in Phase 6.3.",
+        description="Rollback calibration parameters to a previous version (destructive operation). Per ADR-0003: Separate tool because rollback is destructive and irreversible. Renamed from calibrate_rollback in .",
         inputSchema={
             "type": "object",
             "properties": {
@@ -211,7 +211,7 @@ TOOLS = [
     # ============================================================
     Tool(
         name="get_auth_queue",
-        description="Get pending authentication queue. Per §3.2.1: Supports grouping by domain/type and priority filtering.",
+        description="Get pending authentication queue. Per ADR-0003: Supports grouping by domain/type and priority filtering.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -236,7 +236,7 @@ TOOLS = [
     ),
     Tool(
         name="resolve_auth",
-        description="Report authentication completion or skip. Per §3.2.1: Supports single item or domain-batch operations.",
+        description="Report authentication completion or skip. Per ADR-0003: Supports single item or domain-batch operations.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -270,7 +270,7 @@ TOOLS = [
     # ============================================================
     Tool(
         name="notify_user",
-        description="Send notification to user. Per §3.2.1: Event types for auth, progress, and errors.",
+        description="Send notification to user. Per ADR-0003: Event types for auth, progress, and errors.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -296,7 +296,7 @@ TOOLS = [
     ),
     Tool(
         name="wait_for_user",
-        description="Wait for user input/acknowledgment. Per §3.2.1: Blocks until user responds or timeout.",
+        description="Wait for user input/acknowledgment. Per ADR-0003: Blocks until user responds or timeout.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -316,11 +316,11 @@ TOOLS = [
         },
     ),
     # ============================================================
-    # 7. Feedback (1 tool - Phase 6.2)
+    # 7. Feedback (1 tool - )
     # ============================================================
     Tool(
         name="feedback",
-        description="Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge). Phase 6.2.",
+        description="Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge). .",
         inputSchema={
             "type": "object",
             "properties": {
@@ -382,7 +382,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         List of text content responses.
 
     Note:
-        All responses pass through L7 sanitization (§4.4.1)
+        All responses pass through L7 sanitization (ADR-0005)
         before being returned to Cursor AI.
     """
     from src.mcp.errors import MCPError, generate_error_id
@@ -451,7 +451,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "stop_task": _handle_stop_task,
         # Materials
         "get_materials": _handle_get_materials,
-        # Calibration (Phase 6.3: renamed from calibrate/calibrate_rollback)
+        # Calibration (: renamed from calibrate/calibrate_rollback)
         "calibration_metrics": _handle_calibration_metrics,
         "calibration_rollback": _handle_calibration_rollback,
         # Authentication Queue
@@ -460,7 +460,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Notification
         "notify_user": _handle_notify_user,
         "wait_for_user": _handle_wait_for_user,
-        # Feedback (Phase 6.2)
+        # Feedback
         "feedback": _handle_feedback,
     }
 
@@ -505,8 +505,8 @@ def _clear_exploration_state(task_id: str) -> None:
 async def _get_domain_overrides() -> list[dict[str, Any]]:
     """Get active domain override rules from DB.
 
-    Returns list of override rules for get_status response (Phase 6.3).
-    Per Decision 20: expose domain_overrides for auditability.
+    Returns list of override rules for get_status response .
+    Per ADR-0012: expose domain_overrides for auditability.
     """
     try:
         db = await get_database()
@@ -553,7 +553,7 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
     Handle create_task tool call.
 
     Creates a new research task and returns task_id.
-    Per §3.2.1: Returns task_id, query, created_at, budget.
+    Per ADR-0003: Returns task_id, query, created_at, budget.
     """
     import uuid
     from datetime import datetime
@@ -602,7 +602,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_status tool call.
 
-    Implements §3.2.1: Unified task and exploration status.
+    Implements ADR-0003: Unified task and exploration status.
     Returns task info, search states, metrics, budget, auth queue.
 
     Note: Returns data only, no recommendations. Cursor AI decides next actions.
@@ -637,7 +637,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
         exploration_status = None
         try:
             state = await _get_exploration_state(task_id)
-            # Record activity for §2.1.5 idle timeout tracking
+            # Record activity for ADR-0002 idle timeout tracking
             state.record_activity()
             exploration_status = await state.get_status()
         except Exception as e:
@@ -647,9 +647,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 error=str(e),
             )
 
-        # Build unified response per §3.2.1
+        # Build unified response per ADR-0003
         if exploration_status:
-            # Convert searches to §3.2.1 format (text -> query field name mapping)
+            # Convert searches to ADR-0003 format (text -> query field name mapping)
             searches = []
             for sq in exploration_status.get("searches", []):
                 searches.append(
@@ -691,7 +691,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             verifier = get_source_verifier()
             blocked_domains = verifier.get_blocked_domains_info()
 
-            # Get domain overrides from DB (Phase 6.3)
+            # Get domain overrides from DB
             domain_overrides = await _get_domain_overrides()
 
             response = {
@@ -717,9 +717,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 },
                 "auth_queue": exploration_status.get("authentication_queue"),
                 "warnings": exploration_status.get("warnings", []),
-                "idle_seconds": exploration_status.get("idle_seconds", 0),  # §2.1.5
+                "idle_seconds": exploration_status.get("idle_seconds", 0), # ADR-0002
                 "blocked_domains": blocked_domains,  # Added for transparency
-                "domain_overrides": domain_overrides,  # Phase 6.3
+                "domain_overrides": domain_overrides, #
             }
             return attach_meta(response, create_minimal_meta())
         else:
@@ -730,7 +730,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             verifier = get_source_verifier()
             blocked_domains = verifier.get_blocked_domains_info()
 
-            # Get domain overrides from DB (Phase 6.3)
+            # Get domain overrides from DB
             domain_overrides = await _get_domain_overrides()
 
             response = {
@@ -756,9 +756,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 },
                 "auth_queue": None,
                 "warnings": [],
-                "idle_seconds": 0,  # §2.1.5 (no exploration state)
+                "idle_seconds": 0, # ADR-0002 (no exploration state)
                 "blocked_domains": blocked_domains,  # Added for transparency
-                "domain_overrides": domain_overrides,  # Phase 6.3
+                "domain_overrides": domain_overrides, #
             }
             return attach_meta(response, create_minimal_meta())
 
@@ -866,7 +866,7 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
     """
     Ensure Chrome CDP is ready, auto-starting if needed.
 
-    Per N.5.3 and docs/requirements.md §3.2.1:
+    Per N.5.3 and docs/requirements.md ADR-0003:
     1. Check if CDP is already connected
     2. If not, auto-start Chrome using chrome.sh
     3. Wait up to timeout seconds for CDP connection
@@ -921,7 +921,7 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle search tool call.
 
-    Implements §3.2.1: Executes Cursor AI-designed query through
+    Implements ADR-0003: Executes Cursor AI-designed query through
     the search→fetch→extract→evaluate pipeline.
 
     Supports refute:true for refutation mode.
@@ -970,7 +970,7 @@ async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
         # Get exploration state
         state = await _get_exploration_state(task_id)
 
-        # Record activity for §2.1.5 idle timeout tracking
+        # Record activity for ADR-0002 idle timeout tracking
         state.record_activity()
 
         # Execute search through unified API
@@ -1023,7 +1023,7 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle stop_task tool call.
 
-    Implements §3.2.1: Finalizes task and returns summary.
+    Implements ADR-0003: Finalizes task and returns summary.
     """
     from src.mcp.errors import InvalidParamsError, TaskNotFoundError
     from src.research.pipeline import stop_task_action
@@ -1052,7 +1052,7 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
         # Get exploration state
         state = await _get_exploration_state(task_id)
 
-        # Record activity for §2.1.5 idle timeout tracking
+        # Record activity for ADR-0002 idle timeout tracking
         state.record_activity()
 
         # Execute stop through unified API
@@ -1083,7 +1083,7 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_materials tool call.
 
-    Implements §3.2.1: Returns report materials for Cursor AI.
+    Implements ADR-0003: Returns report materials for Cursor AI.
     Does NOT generate report - composition is Cursor AI's responsibility.
     """
     from src.mcp.errors import InvalidParamsError, TaskNotFoundError
@@ -1121,18 +1121,18 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Calibration Handlers (§3.2.1, §4.6.1)
+# Calibration Handlers (ADR-0003)
 # ============================================================
 
 
 async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle calibration_metrics tool call (Phase 6.3).
+    Handle calibration_metrics tool call .
 
     Implements calibration metrics operations (4 actions).
     Actions: get_stats, evaluate, get_evaluations, get_diagram_data.
 
-    Note: add_sample was removed in Phase 6.3. Use feedback(edge_correct) for ground-truth collection.
+    Note: add_sample was removed in . Use feedback(edge_correct) for ground-truth collection.
     For rollback (destructive operation), use calibration_rollback tool.
     """
     from src.mcp.errors import InvalidParamsError
@@ -1153,9 +1153,9 @@ async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
 
 async def _handle_calibration_rollback(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle calibration_rollback tool call (Phase 6.3).
+    Handle calibration_rollback tool call .
 
-    Implements §3.2.1: Rollback calibration parameters (destructive operation).
+    Implements ADR-0003: Rollback calibration parameters (destructive operation).
     Separate tool to prevent accidental invocation.
     """
     from src.mcp.errors import (
@@ -1238,7 +1238,7 @@ async def _handle_calibration_rollback(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Authentication Queue Handlers (§3.2.1, §3.6.1)
+# Authentication Queue Handlers (ADR-0003, ADR-0007)
 # ============================================================
 
 
@@ -1246,7 +1246,7 @@ async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle get_auth_queue tool call.
 
-    Implements §3.2.1: Get pending authentication queue.
+    Implements ADR-0003: Get pending authentication queue.
     Supports grouping by domain/type and priority filtering.
     """
     from src.utils.notification import get_intervention_queue
@@ -1306,7 +1306,7 @@ async def _handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
 async def _capture_auth_session_cookies(domain: str) -> dict | None:
     """Capture cookies from browser for authentication session storage.
 
-    Per §3.6.1: Capture session data after authentication completion
+    Per ADR-0007: Capture session data after authentication completion
     so subsequent requests can reuse the authenticated session.
 
     This function connects to the existing Chrome browser via CDP and
@@ -1417,8 +1417,8 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle resolve_auth tool call.
 
-    Implements §3.2.1: Report authentication completion or skip.
-    Per §3.6.1: Captures session cookies on completion for reuse.
+    Implements ADR-0003: Report authentication completion or skip.
+    Per ADR-0007: Captures session cookies on completion for reuse.
     Supports single item or domain-batch operations.
     """
     from src.mcp.errors import InvalidParamsError
@@ -1521,7 +1521,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Notification Handlers (§3.2.1)
+# Notification Handlers (ADR-0003)
 # ============================================================
 
 
@@ -1529,8 +1529,8 @@ async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle notify_user tool call.
 
-    Implements §3.2.1: Send notification to user.
-    Per §3.6.1: No DOM operations during auth sessions.
+    Implements ADR-0003: Send notification to user.
+    Per ADR-0007: No DOM operations during auth sessions.
     """
     from src.mcp.errors import InvalidParamsError
     from src.utils.notification import notify_user as send_notification
@@ -1597,7 +1597,7 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle wait_for_user tool call.
 
-    Implements §3.2.1: Wait for user input/acknowledgment.
+    Implements ADR-0003: Wait for user input/acknowledgment.
 
     Note: This is a simplified implementation that sends a notification
     and returns immediately with a "waiting" status. The actual wait
@@ -1646,7 +1646,7 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Feedback Handler (Phase 6.2)
+# Feedback Handler
 # ============================================================
 
 
@@ -1654,7 +1654,7 @@ async def _handle_feedback(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle feedback tool call.
 
-    Implements Phase 6.2: Human-in-the-loop feedback for domain/claim/edge management.
+    Implements : Human-in-the-loop feedback for domain/claim/edge management.
     Provides 6 actions across 3 levels:
     - Domain: domain_block, domain_unblock, domain_clear_override
     - Claim: claim_reject, claim_restore

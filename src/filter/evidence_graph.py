@@ -350,7 +350,7 @@ class EvidenceGraph:
         Uses Beta distribution with uninformative prior Beta(1, 1) and updates
         based on NLI confidence-weighted evidence edges.
 
-        Phase 4b: Also returns evidence details with time metadata for
+        b: Also returns evidence details with time metadata for
         high-reasoning AI to make temporal judgments.
 
         Args:
@@ -382,7 +382,7 @@ class EvidenceGraph:
         alpha = 1.0
         beta = 1.0
 
-        # Phase 4b: Collect evidence details with time metadata
+        # b: Collect evidence details with time metadata
         evidence_list: list[dict[str, Any]] = []
         all_years: list[int] = []
 
@@ -440,7 +440,7 @@ class EvidenceGraph:
             # Controversy is high when both alpha and beta are large
             controversy = min(alpha - 1.0, beta - 1.0) / total_evidence
 
-        # Phase 4b: Year summary for high-reasoning AI
+        # b: Year summary for high-reasoning AI
         evidence_years: dict[str, int | None] = {
             "oldest": min(all_years) if all_years else None,
             "newest": max(all_years) if all_years else None,
@@ -457,7 +457,7 @@ class EvidenceGraph:
             "alpha": round(alpha, 2),
             "beta": round(beta, 2),
             "evidence_count": total_count,
-            # Phase 4b: Evidence details with time metadata
+            # b: Evidence details with time metadata
             "evidence": evidence_list,
             "evidence_years": evidence_years,
         }
@@ -903,7 +903,7 @@ class EvidenceGraph:
             "secondary_count": secondary_count,
             "total_pages": total,
             "primary_ratio": round(primary_ratio, 3),
-            "meets_threshold": primary_ratio >= 0.6,  # §7 requirement
+            "meets_threshold": primary_ratio >= 0.6, # requirement
         }
 
     def get_stats(self) -> dict[str, Any]:

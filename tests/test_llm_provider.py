@@ -3,12 +3,12 @@ Unit tests for LLM provider abstraction layer.
 
 Tests the LLMProvider protocol, OllamaProvider implementation, and registry.
 
-Follows §7.1 test quality standards:
-- No conditional assertions (§7.1.1)
-- Specific expected values (§7.1.2)
-- Proper boundary testing (§7.1.2)
-- Realistic test data with Ollama API format (§7.1.3)
-- External dependencies fully mocked (§7.1.7)
+Follows .1 test quality standards:
+- No conditional assertions (.1.1)
+- Specific expected values (.1.2)
+- Proper boundary testing (.1.2)
+- Realistic test data with Ollama API format (.1.3)
+- External dependencies fully mocked (.1.7)
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -95,7 +95,7 @@ def ollama_provider() -> OllamaProvider:
 
 
 class TestLLMOptions:
-    """Tests for LLMOptions dataclass (§3.2.1 MCP Tool IF Spec)."""
+    """Tests for LLMOptions dataclass (ADR-0003 MCP Tool IF Spec)."""
 
     def test_default_values(self) -> None:
         """LLMOptions should have None defaults for optional fields."""
@@ -178,7 +178,7 @@ class TestChatMessage:
 
 
 class TestLLMResponse:
-    """Tests for LLMResponse dataclass (§3.2.1 MCP Tool IF Spec)."""
+    """Tests for LLMResponse dataclass (ADR-0003 MCP Tool IF Spec)."""
 
     def test_success_response(self) -> None:
         """success() should create a successful response with all fields set."""
@@ -219,7 +219,7 @@ class TestLLMResponse:
         assert response.status == LLMResponseStatus.ERROR, f"Expected ERROR, got {response.status}"
 
     def test_timeout_error(self) -> None:
-        """make_error() with TIMEOUT status should indicate timeout (§4.3 Resilience)."""
+        """make_error with TIMEOUT status should indicate timeout (ADR-0006 Resilience)."""
         response = LLMResponse.make_error(
             error="Request timed out",
             model="test-model",
@@ -637,7 +637,7 @@ class TestOllamaProviderGenerate:
 
     @pytest.mark.asyncio
     async def test_generate_api_error(self, ollama_provider: OllamaProvider) -> None:
-        """generate() should return error response on non-200 (§4.3 Resilience)."""
+        """generate should return error response on non-200 (ADR-0006 Resilience)."""
         mock_response = MagicMock()
         mock_response.status = 500
         mock_response.text = AsyncMock(return_value="Internal server error")
@@ -919,7 +919,7 @@ class TestOllamaProviderListModels:
 
 
 class TestLLMProviderRegistry:
-    """Tests for LLMProviderRegistry (§5.2 Plugin Mechanism)."""
+    """Tests for LLMProviderRegistry (ADR-0008 Plugin Mechanism)."""
 
     def test_register_provider(self) -> None:
         """register() should add provider to registry."""
@@ -935,7 +935,7 @@ class TestLLMProviderRegistry:
         )
 
     def test_register_sets_default(self) -> None:
-        """First registered provider should become default (§4.3.1 Fallback)."""
+        """First registered provider should become default (ADR-0006 Fallback)."""
         registry = LLMProviderRegistry()
         provider = OllamaProvider()
 
@@ -1039,7 +1039,7 @@ class TestLLMProviderRegistry:
 
     @pytest.mark.asyncio
     async def test_generate_with_fallback_success(self) -> None:
-        """generate_with_fallback() should return on first success (§4.3.1 Fallback)."""
+        """generate_with_fallback should return on first success (ADR-0006 Fallback)."""
         registry = LLMProviderRegistry()
 
         class SuccessProvider(BaseLLMProvider):
@@ -1072,7 +1072,7 @@ class TestLLMProviderRegistry:
 
     @pytest.mark.asyncio
     async def test_generate_with_fallback_tries_multiple(self) -> None:
-        """generate_with_fallback() should try next provider on failure (§4.3.1 Fallback)."""
+        """generate_with_fallback should try next provider on failure (ADR-0006 Fallback)."""
         registry = LLMProviderRegistry()
 
         class FailProvider(BaseLLMProvider):
@@ -1125,7 +1125,7 @@ class TestLLMProviderRegistry:
 
     @pytest.mark.asyncio
     async def test_generate_with_fallback_skips_unhealthy(self) -> None:
-        """generate_with_fallback() should skip unhealthy providers (§4.3.1 Health Check)."""
+        """generate_with_fallback should skip unhealthy providers (ADR-0006 Health Check)."""
         registry = LLMProviderRegistry()
 
         class UnhealthyProvider(BaseLLMProvider):
@@ -1176,7 +1176,7 @@ class TestLLMProviderRegistry:
 
     @pytest.mark.asyncio
     async def test_generate_with_fallback_all_fail(self) -> None:
-        """generate_with_fallback() should return error when all fail (§4.3 Error Cases)."""
+        """generate_with_fallback should return error when all fail (ADR-0006 Error Cases)."""
         registry = LLMProviderRegistry()
 
         class FailProvider(BaseLLMProvider):

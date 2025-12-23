@@ -7,15 +7,15 @@ This module provides:
 - Schema validation for policy definitions
 - Runtime caching with efficient lookups
 
-Per §17.2.1 of docs/IMPLEMENTATION_PLAN.md:
+Per of :
 - Complete externalization of domain policies to config/domains.yaml
 - Hot-reload support without restart
 - Enhanced schema validation
 
 References:
-- §4.3 (Stealth/Anti-detection policies)
-- §3.1.2 (Crawling strategies)
-- §3.6 (Intervention/cooldown policies)
+- ADR-0006 (Stealth/Anti-detection policies)
+- ADR-0006 (Crawling strategies)
+- ADR-0007 (Intervention/cooldown policies)
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ logger = get_logger(__name__)
 
 
 class DomainCategory(str, Enum):
-    """Domain category for ranking adjustment (§3.3 Trust Scoring, §4.4.1 L6).
+    """Domain category for ranking adjustment (ADR-0005 Trust Scoring, ADR-0005 L6).
 
     Categories (for ranking weight adjustment only, NOT for confidence calculation):
     - PRIMARY: Public institutions, standards bodies (iso.org, ietf.org)
@@ -79,7 +79,7 @@ class SkipReason(str, Enum):
     PERSISTENT_CAPTCHA = "persistent_captcha"
 
 
-# Category weights for ranking adjustment (§3.3 Trust Scoring, §4.4.1 L6)
+# Category weights for ranking adjustment (ADR-0005 Trust Scoring, ADR-0005 L6)
 # Used ONLY for ranking score adjustment, NOT for confidence calculation
 CATEGORY_WEIGHTS: dict[DomainCategory, float] = {
     DomainCategory.PRIMARY: 1.0,
@@ -111,7 +111,7 @@ class DefaultPolicySchema(BaseModel):
     domain_category: DomainCategory = Field(
         default=DomainCategory.UNVERIFIED, description="Domain category"
     )
-    # Daily budget limits (§4.3 - IP block prevention)
+    # Daily budget limits (ADR-0006 - IP block prevention)
     max_requests_per_day: int = Field(
         default=200, ge=0, description="Max requests per day (0=unlimited)"
     )
@@ -130,7 +130,7 @@ class AllowlistEntrySchema(BaseModel):
     concurrent: int | None = Field(default=None, ge=1, le=10)
     cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
     max_retries: int | None = Field(default=None, ge=0, le=10)
-    # Daily budget limits (§4.3 - IP block prevention)
+    # Daily budget limits (ADR-0006 - IP block prevention)
     max_requests_per_day: int | None = Field(
         default=None, ge=0, description="Max requests per day (0=unlimited)"
     )
@@ -226,7 +226,7 @@ class CloudflareSiteSchema(BaseModel):
 
 
 class InternalSearchTemplateSchema(BaseModel):
-    """Schema for internal search UI templates (§3.1.5)."""
+    """Schema for internal search UI templates ."""
 
     domain: str = Field(..., description="Target domain")
     search_input: str = Field(..., description="CSS selector for search input")
@@ -253,7 +253,7 @@ class LearningStateDomainSchema(BaseModel):
 
 
 class SearchEnginePolicySchema(BaseModel):
-    """Schema for search engine policy settings (§3.1.4, §4.3)."""
+    """Schema for search engine policy settings (ADR-0006, ADR-0006)."""
 
     default_qps: float = Field(
         default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines"
@@ -279,7 +279,7 @@ class SearchEnginePolicySchema(BaseModel):
 
 
 class PolicyBoundsEntrySchema(BaseModel):
-    """Schema for a single policy bounds entry (§4.6)."""
+    """Schema for a single policy bounds entry ."""
 
     min: float = Field(default=0.0, description="Minimum value")
     max: float = Field(default=1.0, description="Maximum value")
@@ -289,7 +289,7 @@ class PolicyBoundsEntrySchema(BaseModel):
 
 
 class PolicyBoundsSchema(BaseModel):
-    """Schema for policy auto-update bounds (§4.6)."""
+    """Schema for policy auto-update bounds ."""
 
     engine_weight: PolicyBoundsEntrySchema = Field(
         default_factory=lambda: PolicyBoundsEntrySchema(
@@ -382,7 +382,7 @@ class DomainPolicy:
     headful_required: bool = False
     tor_blocked: bool = False
 
-    # Daily budget limits (§4.3 - IP block prevention)
+    # Daily budget limits (ADR-0006 - IP block prevention)
     max_requests_per_day: int = 200
     max_pages_per_day: int = 100
 
@@ -402,7 +402,7 @@ class DomainPolicy:
 
     @property
     def category_weight(self) -> float:
-        """Get category weight for ranking adjustment (§3.3)."""
+        """Get category weight for ranking adjustment (ADR-0005)."""
         return CATEGORY_WEIGHTS.get(self.domain_category, 0.3)
 
     @property
@@ -808,7 +808,7 @@ class DomainPolicyManager:
                         policy.cooldown_minutes = allow_entry.cooldown_minutes
                     if allow_entry.max_retries is not None:
                         policy.max_retries = allow_entry.max_retries
-                    # Daily budget limits (§4.3 - IP block prevention)
+                    # Daily budget limits (ADR-0006 - IP block prevention)
                     if allow_entry.max_requests_per_day is not None:
                         policy.max_requests_per_day = allow_entry.max_requests_per_day
                     if allow_entry.max_pages_per_day is not None:
@@ -859,7 +859,7 @@ class DomainPolicyManager:
         return self.get_policy(domain).domain_category
 
     def get_category_weight(self, domain: str) -> float:
-        """Get category weight for ranking adjustment (§3.3)."""
+        """Get category weight for ranking adjustment (ADR-0005)."""
         return self.get_policy(domain).category_weight
 
     def get_qps_limit(self, domain: str) -> float:
@@ -950,7 +950,7 @@ class DomainPolicyManager:
             }
 
     # =========================================================================
-    # Search Engine Policy Access (§3.1.4, §4.3)
+    # Search Engine Policy Access (ADR-0006, ADR-0006)
     # =========================================================================
 
     def get_search_engine_policy(self) -> SearchEnginePolicySchema:
@@ -978,7 +978,7 @@ class DomainPolicyManager:
         return self.config.search_engine_policy.default_min_interval
 
     def get_site_search_qps(self) -> float:
-        """Get QPS for site-internal search (§3.1.5).
+        """Get QPS for site-internal search .
 
         Returns:
             Site search QPS.
@@ -1018,7 +1018,7 @@ class DomainPolicyManager:
         return self.config.search_engine_policy.failure_threshold
 
     # =========================================================================
-    # Policy Bounds Access (§4.6)
+    # Policy Bounds Access
     # =========================================================================
 
     def get_policy_bounds(self) -> PolicyBoundsSchema:

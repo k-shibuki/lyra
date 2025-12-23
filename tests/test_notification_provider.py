@@ -1,7 +1,7 @@
 """
 Tests for notification provider abstraction layer.
 
-Test Classification (§7.1.7):
+Test Classification (.1.7):
 - All tests here are unit tests (no external dependencies)
 - External dependencies (subprocess, platform) are mocked
 
@@ -1078,7 +1078,7 @@ class TestProtocolCompliance:
 
 @pytest.mark.unit
 class TestEdgeCases:
-    """Tests for edge cases and boundary conditions per §7.1.4."""
+    """Tests for edge cases and boundary conditions per .1.4."""
 
     @pytest.mark.asyncio
     async def test_send_empty_title_and_message(self, mock_subprocess_success: AsyncMock) -> None:

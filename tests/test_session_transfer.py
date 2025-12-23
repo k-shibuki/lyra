@@ -1,5 +1,5 @@
 """
-Unit tests for Session Transfer Utility (§3.1.2).
+Unit tests for Session Transfer Utility (ADR-0006).
 
 Tests the session transfer functionality for moving browser session context
 to HTTP client requests, including:
@@ -163,7 +163,7 @@ class TestSessionData:
         assert session.is_valid_for_url("https://api.example.com/v1/data")
 
     def test_session_invalid_for_different_domain(self) -> None:
-        """Session should be invalid for different domain (§3.1.2 restriction)."""
+        """Session should be invalid for different domain (ADR-0006 restriction)."""
         session = SessionData(domain="example.com")
 
         assert not session.is_valid_for_url("https://other.com/page")
@@ -317,7 +317,7 @@ class TestSessionTransferManager:
         assert "Referer" in result.headers
 
     def test_generate_transfer_headers_domain_mismatch(self) -> None:
-        """Should reject transfer to different domain (§3.1.2)."""
+        """Should reject transfer to different domain (ADR-0006)."""
         manager = SessionTransferManager()
 
         session = SessionData(domain="example.com")

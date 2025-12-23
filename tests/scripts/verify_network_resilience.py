@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-Verification target: §7 Acceptance Criteria - Network Resilience
+Verification target: Acceptance Criteria - Network Resilience
 
 Verification items:
-1. Recovery rate after 429/403 (§7: ≥70% within 3 retries)
-2. IPv6 success rate (§7: ≥80% for IPv6-capable sites)
-3. IPv4↔IPv6 auto-switch success rate (§7: ≥80%)
-4. DNS leak detection for Tor routes (§7: 0 leaks)
-5. 304 utilization rate (§7: ≥70% for revisits)
+1. Recovery rate after 429/403 (: ≥70% within 3 retries)
+2. IPv6 success rate (: ≥80% for IPv6-capable sites)
+3. IPv4↔IPv6 auto-switch success rate (: ≥80%)
+4. DNS leak detection for Tor routes (: 0 leaks)
+5. 304 utilization rate (: ≥70% for revisits)
 
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured
-- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: 16.9 "Setup Procedure"
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - Recovery: ≥70% success within 3 retries after 429/403
 - IPv6: ≥80% success rate on IPv6-capable sites
 - IPv6 switch: ≥80% auto-switch success rate
@@ -57,7 +57,7 @@ class VerificationResult:
 
 
 class NetworkResilienceVerifier:
-    """Verifier for §7 network resilience acceptance criteria."""
+    """Verifier for network resilience acceptance criteria."""
 
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
@@ -91,8 +91,8 @@ class NetworkResilienceVerifier:
         return True
 
     async def verify_recovery_after_error(self) -> VerificationResult:
-        """§7 Recovery: ≥70% success within 3 retries after 429/403."""
-        print("\n[1/5] Verifying recovery after 429/403 (§7 Recovery ≥70%)...")
+        """ Recovery: ≥70% success within 3 retries after 429/403."""
+        print("\n[1/5] Verifying recovery after 429/403 ( Recovery ≥70%)...")
 
         from src.crawler.fetcher import HTTPFetcher
 
@@ -130,7 +130,7 @@ class NetworkResilienceVerifier:
             if recovery_attempts == 0:
                 return VerificationResult(
                     name="Recovery After Error",
-                    spec_ref="§7 Recovery ≥70%",
+                    spec_ref=" Recovery ≥70%",
                     passed=True,
                     skipped=True,
                     skip_reason="No error scenarios to test",
@@ -146,7 +146,7 @@ class NetworkResilienceVerifier:
             if recovery_rate >= threshold:
                 return VerificationResult(
                     name="Recovery After Error",
-                    spec_ref="§7 Recovery ≥70%",
+                    spec_ref=" Recovery ≥70%",
                     passed=True,
                     details={
                         "recovery_rate": recovery_rate,
@@ -158,7 +158,7 @@ class NetworkResilienceVerifier:
             else:
                 return VerificationResult(
                     name="Recovery After Error",
-                    spec_ref="§7 Recovery ≥70%",
+                    spec_ref=" Recovery ≥70%",
                     passed=False,
                     error=f"Recovery rate {recovery_rate:.0%} < {threshold:.0%}",
                 )
@@ -167,7 +167,7 @@ class NetworkResilienceVerifier:
             logger.exception("Recovery verification failed")
             return VerificationResult(
                 name="Recovery After Error",
-                spec_ref="§7 Recovery ≥70%",
+                spec_ref=" Recovery ≥70%",
                 passed=False,
                 error=str(e),
             )
@@ -176,8 +176,8 @@ class NetworkResilienceVerifier:
             pass
 
     async def verify_ipv6_success_rate(self) -> VerificationResult:
-        """§7 IPv6: ≥80% success rate on IPv6-capable sites."""
-        print("\n[2/5] Verifying IPv6 success rate (§7 IPv6 ≥80%)...")
+        """ IPv6: ≥80% success rate on IPv6-capable sites."""
+        print("\n[2/5] Verifying IPv6 success rate ( IPv6 ≥80%)...")
 
         try:
             from src.crawler.ipv6_manager import get_ipv6_manager
@@ -197,7 +197,7 @@ class NetworkResilienceVerifier:
                 print("    ! No IPv6 attempts recorded yet")
                 return VerificationResult(
                     name="IPv6 Success Rate",
-                    spec_ref="§7 IPv6 ≥80%",
+                    spec_ref=" IPv6 ≥80%",
                     passed=True,
                     skipped=True,
                     skip_reason="No IPv6 attempts recorded (run actual fetches first)",
@@ -212,7 +212,7 @@ class NetworkResilienceVerifier:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
                 return VerificationResult(
                     name="IPv6 Success Rate",
-                    spec_ref="§7 IPv6 ≥80%",
+                    spec_ref=" IPv6 ≥80%",
                     passed=True,
                     details={
                         "success_rate": success_rate,
@@ -224,7 +224,7 @@ class NetworkResilienceVerifier:
             else:
                 return VerificationResult(
                     name="IPv6 Success Rate",
-                    spec_ref="§7 IPv6 ≥80%",
+                    spec_ref=" IPv6 ≥80%",
                     passed=False,
                     error=f"Success rate {success_rate:.0%} < {threshold:.0%}",
                 )
@@ -232,7 +232,7 @@ class NetworkResilienceVerifier:
         except ImportError:
             return VerificationResult(
                 name="IPv6 Success Rate",
-                spec_ref="§7 IPv6 ≥80%",
+                spec_ref=" IPv6 ≥80%",
                 passed=True,
                 skipped=True,
                 skip_reason="IPv6 manager not available",
@@ -241,14 +241,14 @@ class NetworkResilienceVerifier:
             logger.exception("IPv6 verification failed")
             return VerificationResult(
                 name="IPv6 Success Rate",
-                spec_ref="§7 IPv6 ≥80%",
+                spec_ref=" IPv6 ≥80%",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_ipv6_switch_rate(self) -> VerificationResult:
-        """§7 IPv6 Switch: ≥80% auto-switch success rate."""
-        print("\n[3/5] Verifying IPv4↔IPv6 switch rate (§7 Switch ≥80%)...")
+        """ IPv6 Switch: ≥80% auto-switch success rate."""
+        print("\n[3/5] Verifying IPv4↔IPv6 switch rate ( Switch ≥80%)...")
 
         try:
             from src.crawler.ipv6_manager import get_ipv6_manager
@@ -263,7 +263,7 @@ class NetworkResilienceVerifier:
                 print("    ! No switch attempts recorded yet")
                 return VerificationResult(
                     name="IPv6 Switch Rate",
-                    spec_ref="§7 Switch ≥80%",
+                    spec_ref=" Switch ≥80%",
                     passed=True,
                     skipped=True,
                     skip_reason="No switch attempts recorded",
@@ -278,7 +278,7 @@ class NetworkResilienceVerifier:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
                 return VerificationResult(
                     name="IPv6 Switch Rate",
-                    spec_ref="§7 Switch ≥80%",
+                    spec_ref=" Switch ≥80%",
                     passed=True,
                     details={
                         "switch_rate": switch_rate,
@@ -290,7 +290,7 @@ class NetworkResilienceVerifier:
             else:
                 return VerificationResult(
                     name="IPv6 Switch Rate",
-                    spec_ref="§7 Switch ≥80%",
+                    spec_ref=" Switch ≥80%",
                     passed=False,
                     error=f"Switch rate {switch_rate:.0%} < {threshold:.0%}",
                 )
@@ -298,7 +298,7 @@ class NetworkResilienceVerifier:
         except ImportError:
             return VerificationResult(
                 name="IPv6 Switch Rate",
-                spec_ref="§7 Switch ≥80%",
+                spec_ref=" Switch ≥80%",
                 passed=True,
                 skipped=True,
                 skip_reason="IPv6 manager not available",
@@ -307,14 +307,14 @@ class NetworkResilienceVerifier:
             logger.exception("IPv6 switch verification failed")
             return VerificationResult(
                 name="IPv6 Switch Rate",
-                spec_ref="§7 Switch ≥80%",
+                spec_ref=" Switch ≥80%",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_dns_leak_detection(self) -> VerificationResult:
-        """§7 DNS: 0 leaks detected on Tor routes."""
-        print("\n[4/5] Verifying DNS leak detection (§7 DNS Leak = 0)...")
+        """ DNS: 0 leaks detected on Tor routes."""
+        print("\n[4/5] Verifying DNS leak detection ( DNS Leak = 0)...")
 
         try:
             from src.crawler.dns_policy import get_dns_policy_manager
@@ -332,7 +332,7 @@ class NetworkResilienceVerifier:
                 print("    ! No Tor requests recorded yet")
                 return VerificationResult(
                     name="DNS Leak Detection",
-                    spec_ref="§7 DNS Leak = 0",
+                    spec_ref=" DNS Leak = 0",
                     passed=True,
                     skipped=True,
                     skip_reason="No Tor requests recorded",
@@ -342,7 +342,7 @@ class NetworkResilienceVerifier:
                 print("    ✓ No DNS leaks detected")
                 return VerificationResult(
                     name="DNS Leak Detection",
-                    spec_ref="§7 DNS Leak = 0",
+                    spec_ref=" DNS Leak = 0",
                     passed=True,
                     details={
                         "leaks_detected": 0,
@@ -352,7 +352,7 @@ class NetworkResilienceVerifier:
             else:
                 return VerificationResult(
                     name="DNS Leak Detection",
-                    spec_ref="§7 DNS Leak = 0",
+                    spec_ref=" DNS Leak = 0",
                     passed=False,
                     error=f"{leaks_detected} DNS leak(s) detected",
                 )
@@ -360,7 +360,7 @@ class NetworkResilienceVerifier:
         except ImportError:
             return VerificationResult(
                 name="DNS Leak Detection",
-                spec_ref="§7 DNS Leak = 0",
+                spec_ref=" DNS Leak = 0",
                 passed=True,
                 skipped=True,
                 skip_reason="DNS policy manager not available",
@@ -369,14 +369,14 @@ class NetworkResilienceVerifier:
             logger.exception("DNS leak verification failed")
             return VerificationResult(
                 name="DNS Leak Detection",
-                spec_ref="§7 DNS Leak = 0",
+                spec_ref=" DNS Leak = 0",
                 passed=False,
                 error=str(e),
             )
 
     async def verify_304_utilization(self) -> VerificationResult:
-        """§7 304: ≥70% utilization rate on revisits."""
-        print("\n[5/5] Verifying 304 utilization rate (§7 304 ≥70%)...")
+        """ 304: ≥70% utilization rate on revisits."""
+        print("\n[5/5] Verifying 304 utilization rate ( 304 ≥70%)...")
 
         from src.crawler.fetcher import HTTPFetcher
         from src.crawler.session_transfer import get_session_transfer_manager
@@ -441,7 +441,7 @@ class NetworkResilienceVerifier:
             if total_revisits == 0:
                 return VerificationResult(
                     name="304 Utilization",
-                    spec_ref="§7 304 ≥70%",
+                    spec_ref=" 304 ≥70%",
                     passed=True,
                     skipped=True,
                     skip_reason="No revisitable URLs available",
@@ -458,7 +458,7 @@ class NetworkResilienceVerifier:
                 print(f"    ✓ Meets threshold (≥{threshold:.0%})")
                 return VerificationResult(
                     name="304 Utilization",
-                    spec_ref="§7 304 ≥70%",
+                    spec_ref=" 304 ≥70%",
                     passed=True,
                     details={
                         "utilization_rate": utilization_rate,
@@ -470,7 +470,7 @@ class NetworkResilienceVerifier:
             else:
                 return VerificationResult(
                     name="304 Utilization",
-                    spec_ref="§7 304 ≥70%",
+                    spec_ref=" 304 ≥70%",
                     passed=False,
                     error=f"Utilization rate {utilization_rate:.0%} < {threshold:.0%}",
                 )
@@ -479,7 +479,7 @@ class NetworkResilienceVerifier:
             logger.exception("304 utilization verification failed")
             return VerificationResult(
                 name="304 Utilization",
-                spec_ref="§7 304 ≥70%",
+                spec_ref=" 304 ≥70%",
                 passed=False,
                 error=str(e),
             )
@@ -491,7 +491,7 @@ class NetworkResilienceVerifier:
         """Run all verifications and output results."""
         print("\n" + "=" * 70)
         print("E2E: Network Resilience Verification")
-        print("Target: §7 Acceptance Criteria - Network Resilience")
+        print("Target: Acceptance Criteria - Network Resilience")
         print("=" * 70)
 
         # Prerequisites

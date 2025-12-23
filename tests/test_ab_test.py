@@ -1,7 +1,7 @@
 """
 Tests for Query A/B Testing module.
 
-Tests §3.1.1: Query A/B Testing
+Tests ADR-0010: Query A/B Testing
 - Small-scale A/B tests with notation/particle/word-order variants
 - Cache and reuse high-yield queries
 

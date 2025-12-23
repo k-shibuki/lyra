@@ -1,7 +1,7 @@
 """
 Sec-Fetch-* and Sec-CH-UA-* Header Generation for Lyra.
 
-Implements proper security header generation per §4.3 (stealth requirements):
+Implements proper security header generation per ADR-0006 (stealth requirements):
 
 Sec-Fetch-* Headers:
 - sec-fetch-site: Indicates the relationship between request initiator and target
@@ -94,7 +94,7 @@ class NavigationContext:
 class SecFetchHeaders:
     """Generated Sec-Fetch-* headers for a request.
 
-    Implements §4.3 requirement:
+    Implements ADR-0006 requirement:
     Align `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin with navigation context.
     """
 
@@ -230,7 +230,7 @@ class SecCHUAConfig:
 class SecCHUAHeaders:
     """Generated Sec-CH-UA-* headers for a request.
 
-    Implements §4.3 requirement for Client Hints headers:
+    Implements ADR-0006 requirement for Client Hints headers:
     - Sec-CH-UA: Browser brand and version list
     - Sec-CH-UA-Mobile: Mobile device indicator
     - Sec-CH-UA-Platform: Operating system platform
@@ -290,7 +290,7 @@ def generate_sec_ch_ua_headers(
 ) -> SecCHUAHeaders:
     """Generate Sec-CH-UA-* headers with realistic Chrome values.
 
-    Per §4.3: sec-ch-ua* headers should match the browser impersonation
+    Per ADR-0006: sec-ch-ua* headers should match the browser impersonation
     settings used by curl_cffi to maintain consistency.
 
     Args:
@@ -481,7 +481,7 @@ def generate_sec_fetch_headers(
 ) -> SecFetchHeaders:
     """Generate Sec-Fetch-* headers for a navigation.
 
-    Implements natural header generation per §4.3:
+    Implements natural header generation per ADR-0006:
     - SERP → article transitions should look like cross-site navigation
     - Same-domain navigation should look like same-origin/same-site
     - Direct URL access should have Sec-Fetch-Site: none
@@ -522,7 +522,7 @@ def generate_headers_for_serp_click(
 ) -> dict[str, str]:
     """Generate headers for clicking a SERP result.
 
-    Per §4.3: SERP → article transitions should maintain natural header flow.
+    Per ADR-0006: SERP → article transitions should maintain natural header flow.
 
     Args:
         target_url: The article URL being clicked.
@@ -615,7 +615,7 @@ def generate_all_security_headers(
     """Generate all security headers for a navigation.
 
     Combines Sec-Fetch-* and Sec-CH-UA-* headers for complete stealth.
-    Implements §4.3 requirement:
+    Implements ADR-0006 requirement:
     Align `sec-ch-ua*`/`sec-fetch-*`/Referer/Origin with navigation context.
 
     Args:

@@ -2,7 +2,7 @@
 """
 Ecosia Search Engine E2E Verification
 
-Verification target: §3.2 Agent Execution (Browser Search) - Ecosia
+Verification target: ADR-0003 Agent Execution (Browser Search) - Ecosia
 
 Ecosia characteristics:
 - Bing-based search backend
@@ -18,9 +18,9 @@ Verification items:
 Prerequisites:
 - Chrome running with remote debugging on Windows
 - config/settings.yaml browser.chrome_host configured correctly
-- See: docs/IMPLEMENTATION_PLAN.md 16.9 "Setup Procedure"
+- See: 16.9 "Setup Procedure"
 
-Acceptance criteria (§7):
+Acceptance criteria :
 - CAPTCHA: 100% detection
 - Scraping success rate ≥95%
 
@@ -149,7 +149,7 @@ class EcosiaSearchVerifier:
                 await provider.close()
                 return VerificationResult(
                     name="CDP Connection",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="Browser not connected",
                 )
@@ -160,7 +160,7 @@ class EcosiaSearchVerifier:
 
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details=browser_info,
             )
@@ -169,7 +169,7 @@ class EcosiaSearchVerifier:
             logger.exception("CDP connection verification failed")
             return VerificationResult(
                 name="CDP Connection",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -203,7 +203,7 @@ class EcosiaSearchVerifier:
                     print(f"    ! CAPTCHA detected: {captcha_type}")
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         details={
                             "captcha_detected": True,
@@ -214,7 +214,7 @@ class EcosiaSearchVerifier:
                 else:
                     return VerificationResult(
                         name=f"{self.ENGINE_DISPLAY} Search",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=False,
                         error=f"Search failed: {result.error}",
                     )
@@ -225,7 +225,7 @@ class EcosiaSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name=f"{self.ENGINE_DISPLAY} Search",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results returned",
                 )
@@ -238,7 +238,7 @@ class EcosiaSearchVerifier:
 
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=True,
                 details={
                     "query": test_query,
@@ -251,7 +251,7 @@ class EcosiaSearchVerifier:
             logger.exception(f"{self.ENGINE_DISPLAY} search verification failed")
             return VerificationResult(
                 name=f"{self.ENGINE_DISPLAY} Search",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -282,14 +282,14 @@ class EcosiaSearchVerifier:
                 if _is_captcha_error(result):
                     return VerificationResult(
                         name="Parser Accuracy",
-                        spec_ref="§3.2",
+                        spec_ref="ADR-0003",
                         passed=True,
                         skipped=True,
                         skip_reason="CAPTCHA detected, cannot verify parser",
                     )
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error=f"Search failed: {result.error}",
                 )
@@ -297,7 +297,7 @@ class EcosiaSearchVerifier:
             if not result.results:
                 return VerificationResult(
                     name="Parser Accuracy",
-                    spec_ref="§3.2",
+                    spec_ref="ADR-0003",
                     passed=False,
                     error="No results to verify",
                 )
@@ -328,7 +328,7 @@ class EcosiaSearchVerifier:
             passed = accuracy >= 0.9
             return VerificationResult(
                 name="Parser Accuracy",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=passed,
                 details={
                     "accuracy": accuracy,
@@ -343,7 +343,7 @@ class EcosiaSearchVerifier:
             logger.exception("Parser accuracy verification failed")
             return VerificationResult(
                 name="Parser Accuracy",
-                spec_ref="§3.2",
+                spec_ref="ADR-0003",
                 passed=False,
                 error=str(e),
             )
@@ -375,7 +375,7 @@ class EcosiaSearchVerifier:
 
             return VerificationResult(
                 name="Session Management",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=True,
                 details={
                     "has_session": search_session is not None,
@@ -387,7 +387,7 @@ class EcosiaSearchVerifier:
             logger.exception("Session management verification failed")
             return VerificationResult(
                 name="Session Management",
-                spec_ref="§3.6.1",
+                spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
