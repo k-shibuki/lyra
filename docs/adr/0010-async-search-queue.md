@@ -193,8 +193,15 @@ class StatusResult:
 | 短いポーリング | シンプル | リクエスト過多 | 却下 |
 | Server-Sent Events | 軽量 | MCP非対応 | 却下 |
 
+## Implementation Status
+
+**Note**: 本ADRで記載されたqueue_searchesツールとLong Polling方式は一部簡略化されて実装されている。
+現在の実装では、`search`ツールが同期的にパイプラインを実行し、結果を返却する。
+`get_status`ツールでタスク進捗を確認可能。
+
 ## References
-- `docs/Q_ASYNC_ARCHITECTURE.md`（アーカイブ）
-- `src/queue/search_queue.py` - キュー実装
-- `src/workers/search_worker.py` - ワーカー実装
-- `src/mcp/tools/search.py` - MCPツール定義
+- `src/mcp/server.py` - MCPツール定義（search, get_status）
+- `src/research/executor.py` - 検索実行
+- `src/research/pipeline.py` - パイプラインオーケストレーション
+- `src/scheduler/jobs.py` - ジョブスケジューラ
+- `src/storage/schema.sql` - jobsテーブル（非同期ジョブ管理）

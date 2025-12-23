@@ -134,8 +134,15 @@ await call_tool("calibrate_rollback", {
 | Adapter Tuning | LoRA類似 | LoRAより効率悪い | 却下 |
 | QLoRA | 超軽量 | 品質低下リスク | 将来検討 |
 
+## Implementation Status
+
+**Note**: 本ADRで記載されたLoRA学習機能は将来の実装予定である。
+現在の実装では、フィードバックデータはDBに蓄積され（`nli_corrections`テーブル）、
+`calibrate`ツールで確率キャリブレーション（Platt Scaling/Temperature Scaling）が可能。
+LoRAアダプタ学習は、十分なフィードバックサンプルが蓄積された後に実装予定。
+
 ## References
-- `docs/R_LORA.md`（アーカイブ）
-- `src/calibration/lora_trainer.py` - LoRA学習実装
-- `src/calibration/adapter_manager.py` - アダプタ管理
+- `src/utils/calibration.py` - 確率キャリブレーション実装（Platt Scaling）
+- `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations`テーブル
+- `src/mcp/server.py` - `calibrate`, `calibrate_rollback` MCPツール
 - ADR-0012: Feedback Tool Design

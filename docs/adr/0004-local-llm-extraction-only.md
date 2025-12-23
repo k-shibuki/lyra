@@ -104,7 +104,8 @@ response = await ollama.generate(
 | 外部NLIサービス | 高精度 | API依存 | 却下 |
 
 ## References
-- `src/llm/ollama_client.py` - Ollamaクライアント
-- `src/filter/nli_filter.py` - NLI判定実装
+- `src/filter/ollama_provider.py` - Ollamaクライアント
+- `src/filter/llm.py` - LLM抽出処理
+- `src/filter/nli.py` - NLI判定実装
 - ADR-0001: Local-First / Zero OpEx
 - ADR-0002: Thinking-Working Separation
