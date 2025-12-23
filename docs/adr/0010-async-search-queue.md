@@ -209,7 +209,7 @@ class StatusResult:
 | 削除予定 | `search`, `notify_user`, `wait_for_user` |
 | 追加予定 | `queue_searches`（複数クエリをキューに投入） |
 | 変更予定 | `get_status`に`sleep_seconds`パラメータ追加 |
-| 結果 | 11ツール → 9ツール（18%削減） |
+| 結果 | 12ツール → 10ツール（17%削減） |
 
 ## References
 - `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計
