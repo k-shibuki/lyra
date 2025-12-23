@@ -18,6 +18,7 @@ from src.filter.source_verification import (
     DomainVerificationState,
     PromotionResult,
     ReasonCode,
+    RejectionType,
     SourceVerifier,
     VerificationResult,
     get_source_verifier,
@@ -396,7 +397,7 @@ class TestDomainStateTracking:
         verifier._domain_states["high-reject.com"] = DomainVerificationState(
             domain="high-reject.com",
             domain_category=DomainCategory.UNVERIFIED,
-            rejected_claims=["r1", "r2", "r3"],  # Already 3 rejections
+            security_rejected_claims=["r1", "r2", "r3"],  # Already 3 rejections
             verified_claims=[],
         )
 
@@ -432,7 +433,7 @@ class TestDomainVerificationState:
             domain="test.com",
             domain_category=DomainCategory.UNVERIFIED,
             verified_claims=["v1", "v2"],
-            rejected_claims=["r1"],
+            security_rejected_claims=["r1"],
             pending_claims=["p1", "p2", "p3"],
         )
 
@@ -450,7 +451,7 @@ class TestDomainVerificationState:
             domain="test.com",
             domain_category=DomainCategory.UNVERIFIED,
             verified_claims=["v1", "v2"],
-            rejected_claims=["r1"],
+            security_rejected_claims=["r1"],
             pending_claims=["p1"],
         )
 
@@ -471,23 +472,23 @@ class TestDomainVerificationState:
 
         assert state.verification_rate == 0.0
 
-    def test_rejection_rate_calculation(self) -> None:
+    def test_domain_claim_combined_rejection_rate_calculation(self) -> None:
         """
-        TC-N-08: rejection_rate property calculates correctly.
+        TC-N-08: domain_claim_combined_rejection_rate property calculates correctly.
 
         // Given: Domain state with rejections
-        // When: Accessing rejection_rate
+        // When: Accessing domain_claim_combined_rejection_rate
         // Then: Correct ratio returned
         """
         state = DomainVerificationState(
             domain="test.com",
             domain_category=DomainCategory.UNVERIFIED,
             verified_claims=["v1"],
-            rejected_claims=["r1", "r2"],
+            security_rejected_claims=["r1", "r2"],
             pending_claims=["p1"],
         )
 
-        assert state.rejection_rate == 0.5  # 2/4
+        assert state.domain_claim_combined_rejection_rate == 0.5  # 2/4
 
 
 class TestVerificationResult:
@@ -698,11 +699,11 @@ class TestTrustedDomainBehavior:
 class TestBoundaryValues:
     """Boundary value tests for thresholds and edge cases."""
 
-    def test_rejection_rate_exactly_at_threshold_not_blocked(
+    def test_combined_rejection_rate_exactly_at_threshold_not_blocked(
         self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
     ) -> None:
         """
-        TC-B-05: Rejection rate at threshold with dangerous pattern triggers block.
+        TC-B-05: Combined rejection rate boundary with dangerous pattern triggers block.
 
         // Given: Domain with existing rejections + dangerous pattern
         // When: Verifying claim with has_dangerous_pattern=True
@@ -723,7 +724,7 @@ class TestBoundaryValues:
         verifier._domain_states["threshold.com"] = DomainVerificationState(
             domain="threshold.com",
             domain_category=DomainCategory.UNVERIFIED,
-            rejected_claims=["r1", "r2"],  # 2 rejected
+            security_rejected_claims=["r1", "r2"],  # 2 rejected
             verified_claims=["v1", "v2", "v3", "v4", "v5", "v6"],  # 6 verified
             pending_claims=[],  # 0 pending
             # Total = 8, after adding 1 rejected = 3/9 = 33.3% > 30%
@@ -771,7 +772,7 @@ class TestBoundaryValues:
         verifier._domain_states["low-reject.com"] = DomainVerificationState(
             domain="low-reject.com",
             domain_category=DomainCategory.UNVERIFIED,
-            rejected_claims=[],
+            security_rejected_claims=[],
             verified_claims=["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"],
             pending_claims=[],
         )
@@ -972,12 +973,12 @@ class TestEmptyInputs:
 
         assert result.domain == ""
 
-    def test_domain_verification_state_rejection_rate_zero_claims(self) -> None:
+    def test_domain_claim_combined_rejection_rate_zero_claims(self) -> None:
         """
-        TC-B-08: rejection_rate is 0 when no claims (division by zero protection).
+        TC-B-08: domain_claim_combined_rejection_rate is 0 when no claims (division by zero protection).
 
         // Given: Empty domain state
-        // When: Accessing rejection_rate
+        // When: Accessing domain_claim_combined_rejection_rate
         // Then: Returns 0.0
         """
         state = DomainVerificationState(
@@ -985,7 +986,7 @@ class TestEmptyInputs:
             domain_category=DomainCategory.UNVERIFIED,
         )
 
-        assert state.rejection_rate == 0.0
+        assert state.domain_claim_combined_rejection_rate == 0.0
 
     def test_build_response_meta_empty_results(self, verifier: SourceVerifier) -> None:
         """
@@ -1714,11 +1715,11 @@ class TestDomainBlockingTransparency:
         verification_status=REJECTED and has_dangerous_pattern=False.
         We patch the internal outcome function to force REJECTED and exercise the branch.
         """
-        # Pre-populate domain state with 3 rejections (rejection_rate = 100% > 30%)
+        # Pre-populate domain state with 3 rejections (domain_claim_combined_rejection_rate = 100% > 30%)
         verifier._domain_states["high-reject-cause.com"] = DomainVerificationState(
             domain="high-reject-cause.com",
             domain_category=DomainCategory.UNVERIFIED,
-            rejected_claims=["r1", "r2", "r3"],
+            security_rejected_claims=["r1", "r2", "r3"],
             verified_claims=[],
             pending_claims=[],
         )
@@ -2257,7 +2258,7 @@ class TestDomainBlockReason:
         verifier._domain_states["high-reject.com"] = DomainVerificationState(
             domain="high-reject.com",
             domain_category=DomainCategory.UNVERIFIED,
-            rejected_claims=["r1", "r2", "r3"],
+            security_rejected_claims=["r1", "r2", "r3"],
             verified_claims=[],
         )
 
@@ -2340,3 +2341,292 @@ class TestDomainBlockReason:
         assert info[0]["domain_block_reason"] == "unknown"
         assert info[0]["domain_unblock_risk"] == "high"
         assert "can_restore" not in info[0]
+
+
+class TestRejectionRateSeparation:
+    """Tests for rejection rate separation (Task 5.5, Decision 18).
+
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-5.5-N-01 | security_rejected_claims=["a","b"] | Equiv - normal | domain_claim_security_rejection_rate = 2/total | - |
+    | TC-5.5-N-02 | manual_rejected_claims=["c"] | Equiv - normal | domain_claim_manual_rejection_rate = 1/total | - |
+    | TC-5.5-N-03 | security=["a"], manual=["b"] | Equiv - combined | domain_claim_combined_rejection_rate = 2/total | Deduplicated |
+    | TC-5.5-N-04 | security=["a"], manual=["a"] | Boundary - overlap | domain_claim_combined_rejection_rate = 1/total | Same claim in both |
+    | TC-5.5-B-01 | total_claims=0 | Boundary - zero div | All rates = 0.0 | Division by zero protection |
+    | TC-5.5-B-02 | Only pending claims | Boundary - no rejections | All rejection rates = 0.0 | - |
+    | TC-5.5-N-05 | verify_claim with dangerous_pattern | Wiring - security rejection | Claim in security_rejected_claims | Propagation test |
+    | TC-5.5-N-06 | High combined rejection rate | Effect - block decision | Domain blocked | Uses combined rate |
+    | TC-5.5-A-01 | NULL claim_id | Boundary - NULL | Handled gracefully | - |
+    | TC-5.5-E-01 | RejectionType.MANUAL | Equiv - manual | Claim in manual_rejected_claims | Phase 6 preparation |
+    | TC-5.5-A-01 | rejection_type=\"manual\" (str) | Abnormal - invalid type | TypeError with message | Runtime guard |
+    | TC-5.5-A-02 | rejection_type=None | Boundary - NULL | TypeError with message | Runtime guard |
+    """
+
+    def test_domain_claim_security_rejection_rate_calculation(self) -> None:
+        """
+        TC-5.5-N-01: domain_claim_security_rejection_rate calculates correctly.
+
+        // Given: Domain state with security-rejected claims
+        // When: Accessing domain_claim_security_rejection_rate
+        // Then: Correct ratio returned
+        """
+        state = DomainVerificationState(
+            domain="test.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            verified_claims=["v1"],
+            security_rejected_claims=["a", "b"],
+            pending_claims=["p1"],
+        )
+
+        assert state.domain_claim_security_rejection_rate == 0.5  # 2/4
+
+    def test_domain_claim_manual_rejection_rate_calculation(self) -> None:
+        """
+        TC-5.5-N-02: domain_claim_manual_rejection_rate calculates correctly.
+
+        // Given: Domain state with manually-rejected claims
+        // When: Accessing domain_claim_manual_rejection_rate
+        // Then: Correct ratio returned
+        """
+        state = DomainVerificationState(
+            domain="test.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            verified_claims=["v1"],
+            manual_rejected_claims=["c"],
+            pending_claims=["p1"],
+        )
+
+        # total_claims = 1 verified + 1 unique rejected + 1 pending = 3
+        assert state.domain_claim_manual_rejection_rate == 1 / 3
+
+    def test_domain_claim_combined_rejection_rate_no_overlap(self) -> None:
+        """
+        TC-5.5-N-03: domain_claim_combined_rejection_rate deduplicates correctly.
+
+        // Given: Domain state with security and manual rejections (no overlap)
+        // When: Accessing domain_claim_combined_rejection_rate
+        // Then: Correct deduplicated ratio returned
+        """
+        state = DomainVerificationState(
+            domain="test.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            verified_claims=["v1"],
+            security_rejected_claims=["a"],
+            manual_rejected_claims=["b"],
+            pending_claims=["p1"],
+        )
+
+        assert state.domain_claim_combined_rejection_rate == 0.5  # 2/4 (deduplicated)
+
+    def test_domain_claim_combined_rejection_rate_with_overlap(self) -> None:
+        """
+        TC-5.5-N-04: domain_claim_combined_rejection_rate handles overlap correctly.
+
+        // Given: Domain state with same claim in both security and manual lists
+        // When: Accessing domain_claim_combined_rejection_rate
+        // Then: Claim counted only once
+        """
+        state = DomainVerificationState(
+            domain="test.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            verified_claims=["v1"],
+            security_rejected_claims=["a"],
+            manual_rejected_claims=["a"],  # Same claim
+            pending_claims=["p1"],
+        )
+
+        # total_claims = 1 verified + 1 unique rejected (a) + 1 pending = 3
+        assert state.domain_claim_combined_rejection_rate == 1 / 3
+
+    def test_rejection_rates_zero_when_no_claims(self) -> None:
+        """
+        TC-5.5-B-01: All rejection rates return 0.0 when total_claims=0.
+
+        // Given: Empty domain state
+        // When: Accessing rejection rate properties
+        // Then: All return 0.0 (division by zero protection)
+        """
+        state = DomainVerificationState(
+            domain="empty.com",
+            domain_category=DomainCategory.UNVERIFIED,
+        )
+
+        assert state.domain_claim_security_rejection_rate == 0.0
+        assert state.domain_claim_manual_rejection_rate == 0.0
+        assert state.domain_claim_combined_rejection_rate == 0.0
+
+    def test_rejection_rates_zero_when_no_rejections(self) -> None:
+        """
+        TC-5.5-B-02: All rejection rates return 0.0 when only pending claims exist.
+
+        // Given: Domain state with only pending claims
+        // When: Accessing rejection rate properties
+        // Then: All return 0.0
+        """
+        state = DomainVerificationState(
+            domain="pending-only.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            pending_claims=["p1", "p2"],
+        )
+
+        assert state.domain_claim_security_rejection_rate == 0.0
+        assert state.domain_claim_manual_rejection_rate == 0.0
+        assert state.domain_claim_combined_rejection_rate == 0.0
+
+    def test_verify_claim_dangerous_pattern_adds_to_security_rejected(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-5.5-N-05: verify_claim with dangerous_pattern adds claim to security_rejected_claims.
+
+        // Given: Claim with dangerous pattern detected
+        // When: Verifying claim
+        // Then: Claim in security_rejected_claims (wiring test)
+        """
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            verifier.verify_claim(
+                claim_id="dangerous_claim",
+                domain="dangerous-pattern.com",
+                evidence_graph=mock_evidence_graph,
+                has_dangerous_pattern=True,
+            )
+
+        state = verifier.get_domain_state("dangerous-pattern.com")
+        assert state is not None
+        assert "dangerous_claim" in state.security_rejected_claims
+        assert "dangerous_claim" not in state.manual_rejected_claims
+
+    def test_high_combined_rejection_rate_blocks_domain(
+        self, verifier: SourceVerifier, mock_evidence_graph: MagicMock
+    ) -> None:
+        """
+        TC-5.5-N-06: High domain_claim_combined_rejection_rate triggers domain block.
+
+        // Given: Domain with high combined rejection rate (>30%)
+        // When: Verifying claim that triggers rejection
+        // Then: Domain gets blocked (effect test)
+        """
+        mock_evidence_graph.calculate_claim_confidence.return_value = {
+            "confidence": 0.1,
+            "supporting_count": 0,
+            "refuting_count": 0,
+            "neutral_count": 0,
+            "independent_sources": 0,
+        }
+        mock_evidence_graph.find_contradictions.return_value = []
+
+        # Pre-populate with 3 security rejections (3/10 = 30%, but we need >30%)
+        verifier._domain_states["high-combined.com"] = DomainVerificationState(
+            domain="high-combined.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            security_rejected_claims=["r1", "r2", "r3"],
+            verified_claims=["v1", "v2", "v3", "v4", "v5", "v6"],
+            pending_claims=[],
+        )
+
+        with patch(
+            "src.filter.source_verification.get_domain_category",
+            return_value=DomainCategory.UNVERIFIED,
+        ):
+            with patch.object(
+                verifier,
+                "_determine_verification_outcome",
+                return_value=(
+                    VerificationStatus.REJECTED,
+                    DomainCategory.UNVERIFIED,
+                    PromotionResult.UNCHANGED,
+                    ReasonCode.DANGEROUS_PATTERN,
+                ),
+            ):
+                verifier.verify_claim(
+                    claim_id="rejected_claim_4",
+                    domain="high-combined.com",
+                    evidence_graph=mock_evidence_graph,
+                    has_dangerous_pattern=False,
+                )
+
+        # Then: Domain should be blocked (4/10 = 40% > 30%)
+        state = verifier.get_domain_state("high-combined.com")
+        assert state is not None
+        assert state.is_blocked is True
+        assert verifier.is_domain_blocked("high-combined.com") is True
+
+    def test_update_domain_state_with_manual_rejection_type(self, verifier: SourceVerifier) -> None:
+        """
+        TC-5.5-E-01: _update_domain_state with RejectionType.MANUAL adds to manual_rejected_claims.
+
+        // Given: Claim rejected with MANUAL type
+        // When: Calling _update_domain_state
+        // Then: Claim in manual_rejected_claims (Phase 6 preparation)
+        """
+        verifier._update_domain_state(
+            domain="test.com",
+            claim_id="manual_reject_claim",
+            status=VerificationStatus.REJECTED,
+            rejection_type=RejectionType.MANUAL,
+        )
+
+        state = verifier.get_domain_state("test.com")
+        assert state is not None
+        assert "manual_reject_claim" in state.manual_rejected_claims
+        assert "manual_reject_claim" not in state.security_rejected_claims
+
+    def test_update_domain_state_rejects_invalid_rejection_type_str(
+        self, verifier: SourceVerifier
+    ) -> None:
+        """
+        TC-5.5-A-01: _update_domain_state rejects invalid rejection_type (str).
+
+        // Given: rejection_type passed as a string (invalid)
+        // When:  Calling _update_domain_state
+        // Then:  TypeError is raised with a clear message
+        """
+        with pytest.raises(TypeError, match=r"rejection_type must be RejectionType, got str"):
+            verifier._update_domain_state(
+                domain="test.com",
+                claim_id="bad_type_claim",
+                status=VerificationStatus.REJECTED,
+                rejection_type="manual",  # type: ignore[arg-type]
+            )
+
+    def test_update_domain_state_rejects_invalid_rejection_type_none(
+        self, verifier: SourceVerifier
+    ) -> None:
+        """
+        TC-5.5-A-02: _update_domain_state rejects invalid rejection_type (None).
+
+        // Given: rejection_type passed as None (invalid)
+        // When:  Calling _update_domain_state
+        // Then:  TypeError is raised with a clear message
+        """
+        with pytest.raises(TypeError, match=r"rejection_type must be RejectionType, got NoneType"):
+            verifier._update_domain_state(
+                domain="test.com",
+                claim_id="none_type_claim",
+                status=VerificationStatus.REJECTED,
+                rejection_type=None,  # type: ignore[arg-type]
+            )
+
+    def test_total_claims_deduplicates_rejections(self) -> None:
+        """
+        TC-5.5-N-07: total_claims property deduplicates security and manual rejections.
+
+        // Given: Domain state with overlapping rejections
+        // When: Accessing total_claims
+        // Then: Overlapping claims counted only once
+        """
+        state = DomainVerificationState(
+            domain="test.com",
+            domain_category=DomainCategory.UNVERIFIED,
+            verified_claims=["v1"],
+            security_rejected_claims=["r1", "r2"],
+            manual_rejected_claims=["r2", "r3"],  # r2 overlaps
+            pending_claims=["p1"],
+        )
+
+        # Should be: 1 verified + 3 unique rejected (r1, r2, r3) + 1 pending = 5
+        assert state.total_claims == 5

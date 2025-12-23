@@ -1504,7 +1504,7 @@ MCPハンドラー (_handle_*)
 | 項目 | 状態 | 備考 |
 |------|:----:|------|
 | Cursor AI無応答ハンドリング（§2.1.5） | ✅ | **実装済み**: パイプラインタイムアウト（30秒）とアクティビティ追跡。`get_status`で`idle_seconds`と警告を返却。 |
-| DBスキーマ列名変更（subquery→search） | ✅ **不要** | **調査結果**: DBスキーマには`subquery`列名は存在しない。`queries`テーブルの`parent_query_id`カラムに「For sub-queries」というコメントがあるが、列名自体は`subquery`ではない。コードベースでは`subquery`用語は後方互換性のために残っているが、実際のDBスキーマには影響なし。マイグレーション不要。 |
+| DBスキーマ列名変更（subquery→search） | ✅ **不要** | **調査結果**: DBスキーマには`subquery`列名は存在しない。`queries`テーブルの`parent_query_id`カラムに「For sub-queries」というコメントがあるが、列名自体は`subquery`ではない。コードベースでは`subquery`用語が歴史的経緯で残っているが、実際のDBスキーマには影響なし。マイグレーション不要。 |
 
 ---
 

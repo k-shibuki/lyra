@@ -68,6 +68,13 @@ class DomainBlockReason(str, Enum):
     UNKNOWN = "unknown"  # Unknown reason (fallback, high risk)
 
 
+class RejectionType(str, Enum):
+    """Type of rejection for tracking purposes (Decision 18)."""
+
+    SECURITY = "security"  # L2/L4 detection
+    MANUAL = "manual"  # feedback(claim_reject)
+
+
 @dataclass
 class VerificationResult:
     """Result of verifying a claim or source."""
@@ -102,7 +109,8 @@ class DomainVerificationState:
     domain: str
     domain_category: DomainCategory
     verified_claims: list[str] = field(default_factory=list)
-    rejected_claims: list[str] = field(default_factory=list)
+    security_rejected_claims: list[str] = field(default_factory=list)  # L2/L4 detection
+    manual_rejected_claims: list[str] = field(default_factory=list)  # feedback(claim_reject)
     pending_claims: list[str] = field(default_factory=list)
     last_updated: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     # Block information (added for transparency)
@@ -116,7 +124,8 @@ class DomainVerificationState:
     @property
     def total_claims(self) -> int:
         """Total number of claims from this domain."""
-        return len(self.verified_claims) + len(self.rejected_claims) + len(self.pending_claims)
+        combined_rejected = set(self.security_rejected_claims) | set(self.manual_rejected_claims)
+        return len(self.verified_claims) + len(combined_rejected) + len(self.pending_claims)
 
     @property
     def verification_rate(self) -> float:
@@ -126,11 +135,26 @@ class DomainVerificationState:
         return len(self.verified_claims) / self.total_claims
 
     @property
-    def rejection_rate(self) -> float:
-        """Rate of rejected claims (0.0 to 1.0)."""
+    def domain_claim_security_rejection_rate(self) -> float:
+        """Rate of security-rejected claims (L2/L4 detection)."""
         if self.total_claims == 0:
             return 0.0
-        return len(self.rejected_claims) / self.total_claims
+        return len(self.security_rejected_claims) / self.total_claims
+
+    @property
+    def domain_claim_manual_rejection_rate(self) -> float:
+        """Rate of manually-rejected claims (feedback)."""
+        if self.total_claims == 0:
+            return 0.0
+        return len(self.manual_rejected_claims) / self.total_claims
+
+    @property
+    def domain_claim_combined_rejection_rate(self) -> float:
+        """Combined rejection rate (deduplicated). Used for block decisions (Decision 18)."""
+        if self.total_claims == 0:
+            return 0.0
+        combined = set(self.security_rejected_claims) | set(self.manual_rejected_claims)
+        return len(combined) / self.total_claims
 
 
 class SourceVerifier:
@@ -201,7 +225,9 @@ class SourceVerifier:
                 cause_id=cause_id,
                 block_reason_code=DomainBlockReason.DANGEROUS_PATTERN,
             )
-            self._update_domain_state(domain, claim_id, VerificationStatus.REJECTED)
+            self._update_domain_state(
+                domain, claim_id, VerificationStatus.REJECTED, RejectionType.SECURITY
+            )
 
             logger.warning(
                 "Domain blocked due to dangerous pattern",
@@ -264,15 +290,22 @@ class SourceVerifier:
             )
             # Require at least 3 rejected claims before auto-blocking
             min_rejections_for_block = 3
+            combined_rejected = (
+                set(domain_state.security_rejected_claims)
+                | set(domain_state.manual_rejected_claims)
+                if domain_state
+                else set()
+            )
             if (
                 can_auto_block
                 and domain_state
-                and len(domain_state.rejected_claims) >= min_rejections_for_block
-                and domain_state.rejection_rate > self.MAX_REJECTION_RATE_BEFORE_BLOCK
+                and len(combined_rejected) >= min_rejections_for_block
+                and domain_state.domain_claim_combined_rejection_rate
+                > self.MAX_REJECTION_RATE_BEFORE_BLOCK
             ):
                 self._mark_domain_blocked(
                     domain,
-                    f"High rejection rate ({domain_state.rejection_rate:.0%}) with {len(domain_state.rejected_claims)} rejections",
+                    f"High rejection rate ({domain_state.domain_claim_combined_rejection_rate:.0%}) with {len(combined_rejected)} rejections",
                     cause_id=cause_id,
                     block_reason_code=DomainBlockReason.HIGH_REJECTION_RATE,
                 )
@@ -283,14 +316,14 @@ class SourceVerifier:
                 logger.warning(
                     "Domain blocked due to high rejection rate",
                     domain=domain,
-                    rejection_rate=domain_state.rejection_rate,
-                    rejected_count=len(domain_state.rejected_claims),
+                    domain_claim_combined_rejection_rate=domain_state.domain_claim_combined_rejection_rate,
+                    rejected_count=len(combined_rejected),
                 )
 
                 # K.3-8: Queue notification for blocked domain
                 self._queue_blocked_notification(
                     domain,
-                    f"High rejection rate ({domain_state.rejection_rate:.0%})",
+                    f"High rejection rate ({domain_state.domain_claim_combined_rejection_rate:.0%})",
                     task_id=None,
                     cause_id=cause_id,
                 )
@@ -366,6 +399,7 @@ class SourceVerifier:
         domain: str,
         claim_id: str,
         status: VerificationStatus,
+        rejection_type: RejectionType = RejectionType.SECURITY,
     ) -> None:
         """Update domain verification state.
 
@@ -373,6 +407,7 @@ class SourceVerifier:
             domain: Domain to update.
             claim_id: Claim ID being verified.
             status: Verification status.
+            rejection_type: Type of rejection (SECURITY or MANUAL). Defaults to SECURITY for L2/L4 detection.
         """
         if domain not in self._domain_states:
             self._domain_states[domain] = DomainVerificationState(
@@ -383,6 +418,11 @@ class SourceVerifier:
         state = self._domain_states[domain]
         state.last_updated = datetime.now(UTC).isoformat()
 
+        if not isinstance(rejection_type, RejectionType):
+            raise TypeError(
+                f"rejection_type must be RejectionType, got {type(rejection_type).__name__}"
+            )
+
         # Remove from pending if present
         if claim_id in state.pending_claims:
             state.pending_claims.remove(claim_id)
@@ -392,8 +432,12 @@ class SourceVerifier:
             if claim_id not in state.verified_claims:
                 state.verified_claims.append(claim_id)
         elif status == VerificationStatus.REJECTED:
-            if claim_id not in state.rejected_claims:
-                state.rejected_claims.append(claim_id)
+            if rejection_type == RejectionType.SECURITY:
+                if claim_id not in state.security_rejected_claims:
+                    state.security_rejected_claims.append(claim_id)
+            else:  # MANUAL
+                if claim_id not in state.manual_rejected_claims:
+                    state.manual_rejected_claims.append(claim_id)
         else:  # PENDING
             if claim_id not in state.pending_claims:
                 state.pending_claims.append(claim_id)

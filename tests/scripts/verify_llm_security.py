@@ -529,7 +529,7 @@ class SecurityE2EVerifier:
                 domain="example-test-domain.com",
                 domain_category=DomainCategory.UNVERIFIED,
                 verified_claims=["claim1", "claim2"],
-                rejected_claims=[],
+                security_rejected_claims=[],
                 pending_claims=["claim3"],
             )
 
