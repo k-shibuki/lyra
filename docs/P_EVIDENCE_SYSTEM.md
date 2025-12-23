@@ -106,8 +106,8 @@
 | Phase 5 / Task 5.1 | ブロック理由のコード化（`domain_block_reason`）+ MCP露出 + `domain_unblock_risk`（High/Low） | DONE | `src/filter/source_verification.py`, `src/mcp/schemas/get_status.json`, `tests/test_mcp_get_status.py` | ブロック理由の混線を解消（dangerous_pattern vs high_rejection_rate等）。BREAKING CHANGE: `can_restore` 削除 |
 | Phase 5 / Task 5.2 | `user_overrides` 導入（完全一致。**QPS/カテゴリ等のDomainPolicy上書き**。ブロック解除は扱わない） | DONE | `config/domains.yaml`, `src/utils/domain_policy.py`, `tests/test_domain_policy.py` | ブロック/解除は Phase 6 の DB override（決定20）で統一。user_overrides は allowlist/graylist より高優先 |
 | Phase 5 / Task 5.3 | hot-reloadで `user_overrides` が即反映（DomainPolicyManager） | DONE | `src/utils/domain_policy.py` | DomainPolicyManager reload callback で反映（SourceVerifierの `_blocked_domains` とは切り離す） |
-| Phase 5 / Task 5.4 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md`, `README.md` | - |
-| Phase 5 / Task 5.5 | 棄却率パラメータ分離（`domain_claim_security_rejection_rate` / `domain_claim_manual_rejection_rate` / `domain_claim_combined_rejection_rate`） | PLANNED | `src/filter/source_verification.py` | 決定18参照。合算棄却率でブロック判定。Phase 6の `feedback` と連動 |
+| Phase 5 / Task 5.4 | ドキュメント更新 | DONE | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md`, `README.md` | Task 5.5完了後に実施 |
+| Phase 5 / Task 5.5 | 棄却率パラメータ分離（`domain_claim_security_rejection_rate` / `domain_claim_manual_rejection_rate` / `domain_claim_combined_rejection_rate`） | DONE | `src/filter/source_verification.py` | 決定18参照。合算棄却率でブロック判定。Phase 6の `feedback` と連動。`rejected_claims`/`rejection_rate`を完全削除 |
 
 #### Phase 6（フィードバック + スキーマ棚卸し）
 
@@ -1774,7 +1774,7 @@ async def get_citations(self, paper_id: str) -> list[Paper]:
 
 #### 2.2 補助API → 削除（S2 + OpenAlexで代替）
 
-現行の補助APIはすべて**S2/OpenAlexで代替可能**であり、削除を推奨する。後方互換性は不要。
+現行の補助APIはすべて**S2/OpenAlexで代替可能**であり、削除を推奨する。互換維持は不要。
 
 | API | 現在の役割 | S2での代替 | OpenAlexでの代替 | 判定 |
 |-----|-----------|-----------|-----------------|:----:|
@@ -2145,9 +2145,9 @@ def calculate_claim_confidence_bayesian(claim_id: str) -> dict:
 | 数学的に厳密 | ✓ 再現性・検証可能 |
 | 解釈が直感的 | ✓ 「50%で高uncertainty」=「分からない」 |
 
-#### 6.5 後方互換性（不要）
+#### 6.5 互換維持（不要）
 
-現段階では単独運用（このリポジトリを自分だけが使う段階）であり、後方互換性は明確に不要（むしろ禁止）。
+現段階では単独運用（このリポジトリを自分だけが使う段階）であり、互換維持は明確に不要（むしろ禁止）。
 そのため `calculate_claim_confidence()` の出力は、必要に応じて破壊的に変更してよい
 （テストとMCPスキーマを同時に更新して整合性を保つ）。
 
@@ -2728,7 +2728,7 @@ class CitationDetector:
 
 **目的**: 数学的に厳密な信頼度計算を導入し、不確実性と論争度を明示化
 
-**方針（重要）**: **後方互換性は維持しない**。旧来のヒューリスティックな信頼度計算は廃止し、`calculate_claim_confidence()` はベイズ実装に置換する。
+**方針（重要）**: **互換維持はしない**。旧来のヒューリスティックな信頼度計算は廃止し、`calculate_claim_confidence()` はベイズ実装に置換する。
 
 > **重要設計決定**: ベイズモデルは **NLI confidence のみ** を使用する。
 > - ドメイン分類（DomainCategory）は**使用しない**（§決定3、§決定7参照）
@@ -2917,51 +2917,54 @@ user_overrides:
 - `user_overrides` がDomainPolicyに反映されること（完全一致）
 - `feedback(domain_unblock)` により `dangerous_pattern` を含むブロックが解除できること（決定20）
 
-**5.6 棄却率パラメータ分離**
+**5.6 棄却率パラメータ分離** ✅ DONE
 
-現在の `rejected_claims` / `rejection_rate` は自動棄却（L2/L4検出）と手動棄却（`feedback` による `claim_reject`）を区別していない。これを明確に分離し、ブロック判定には合算を使用する。
+`rejected_claims` / `rejection_rate` を完全削除し、自動棄却（L2/L4検出）と手動棄却（`feedback` による `claim_reject`）を明確に分離。ブロック判定には合算棄却率を使用。
 
-**パラメータ名変更**:
+**パラメータ変更**:
 
-| 現状 | 変更後 | 意味 |
-|------|--------|------|
-| `rejected_claims` | **分離** | ↓ |
-| - | `security_rejected_claims` | L2/L4検出による自動棄却 |
+| 削除 | 追加 | 意味 |
+|------|------|------|
+| ~~`rejected_claims`~~ | `security_rejected_claims` | L2/L4検出による自動棄却 |
 | - | `manual_rejected_claims` | `feedback(claim_reject)` による手動棄却 |
-| `rejection_rate` | **分離** | ↓ |
-| - | `domain_claim_security_rejection_rate` | ドメイン単位の自動棄却率（claimベース） |
+| ~~`rejection_rate`~~ | `domain_claim_security_rejection_rate` | ドメイン単位の自動棄却率（claimベース） |
 | - | `domain_claim_manual_rejection_rate` | ドメイン単位の手動棄却率（claimベース） |
-| - | `domain_claim_combined_rejection_rate` | **合算棄却率**（ブロック判定に使用） |
+| - | `domain_claim_combined_rejection_rate` | **合算棄却率**（ブロック判定に使用、重複排除） |
 
 **計算式**:
 
 ```python
 class DomainVerificationState:
-    security_rejected_claims: set[str]  # L2/L4検出
-    manual_rejected_claims: set[str]    # 人による棄却
+    security_rejected_claims: list[str]  # L2/L4検出
+    manual_rejected_claims: list[str]    # feedback(claim_reject)
 
     @property
-    def all_claims(self) -> set[str]:
-        """ユニークなclaim ID集合（分母）"""
-        return (
-            self.verified_claims |
-            self.pending_claims |
-            self.security_rejected_claims |
-            self.manual_rejected_claims
-        )
+    def total_claims(self) -> int:
+        """全claim数（分母、重複排除）"""
+        combined_rejected = set(self.security_rejected_claims) | set(self.manual_rejected_claims)
+        return len(self.verified_claims) + len(combined_rejected) + len(self.pending_claims)
 
     @property
-    def all_rejected_claims(self) -> set[str]:
-        """棄却されたclaim ID集合（分子、重複排除）"""
-        return self.security_rejected_claims | self.manual_rejected_claims
+    def domain_claim_security_rejection_rate(self) -> float:
+        """自動棄却率 = security_rejected_claims数 / total_claims"""
+        if self.total_claims == 0:
+            return 0.0
+        return len(self.security_rejected_claims) / self.total_claims
+
+    @property
+    def domain_claim_manual_rejection_rate(self) -> float:
+        """手動棄却率 = manual_rejected_claims数 / total_claims"""
+        if self.total_claims == 0:
+            return 0.0
+        return len(self.manual_rejected_claims) / self.total_claims
 
     @property
     def domain_claim_combined_rejection_rate(self) -> float:
-        """合算棄却率（ドメイン単位） = 棄却されたclaim数 / 全claim数"""
-        total = len(self.all_claims)
-        if total == 0:
+        """合算棄却率（ブロック判定用、重複排除）"""
+        if self.total_claims == 0:
             return 0.0
-        return len(self.all_rejected_claims) / total
+        combined = set(self.security_rejected_claims) | set(self.manual_rejected_claims)
+        return len(combined) / self.total_claims
 ```
 
 **重複排除の理由**: 同じclaimがL2/L4検出（security）と人の判断（manual）の両方で棄却される可能性がある。合算時はユニーク数で計算する。

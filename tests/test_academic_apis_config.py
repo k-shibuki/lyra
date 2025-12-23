@@ -1,7 +1,7 @@
 """
 Tests for academic APIs configuration loading.
 
-Tests configuration file loading and backward compatibility.
+Tests configuration file loading and legacy behavior.
 
 ## Test Perspectives Table
 
@@ -11,7 +11,7 @@ Tests configuration file loading and backward compatibility.
 | TC-CFG-N-02 | Config file with partial APIs | Equivalence – normal | Config loaded with available APIs only | - |
 | TC-CFG-N-03 | Environment variable override for email | Equivalence – normal | Email overridden by env var | - |
 | TC-CFG-B-01 | Empty config file | Boundary – empty | Empty config returned, no exception | - |
-| TC-CFG-B-02 | Config file missing | Boundary – NULL | Empty config returned, no exception | 後方互換性 |
+| TC-CFG-B-02 | Config file missing | Boundary – NULL | Empty config returned, no exception | Legacy behavior |
 | TC-CFG-B-03 | Empty apis section | Boundary – empty | Config with empty apis dict | - |
 | TC-CFG-B-04 | Empty defaults section | Boundary – empty | Config with default defaults | - |
 | TC-CFG-A-01 | Invalid YAML syntax | Abnormal – invalid input | YAML parse error handled gracefully | - |
@@ -19,8 +19,8 @@ Tests configuration file loading and backward compatibility.
 | TC-CFG-A-03 | Invalid type (timeout_seconds as string) | Abnormal – invalid type | Validation error or type coercion | - |
 | TC-CFG-A-04 | File read permission error | Abnormal – permission | Exception handled gracefully | - |
 | TC-CFG-A-05 | Invalid environment variable format | Abnormal – invalid input | Ignored or handled gracefully | - |
-| TC-BC-N-01 | API clients initialized without config file | Equivalence – normal | Clients use default values | 後方互換性 |
-| TC-BC-B-01 | Config file missing, all clients | Boundary – NULL | All clients initialize with defaults | 後方互換性 |
+| TC-BC-N-01 | API clients initialized without config file | Equivalence – normal | Clients use default values | Legacy behavior |
+| TC-BC-B-01 | Config file missing, all clients | Boundary – NULL | All clients initialize with defaults | Legacy behavior |
 """
 
 import os
