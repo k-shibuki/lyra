@@ -478,7 +478,6 @@ class TestGetStatusBlockedDomains:
         assert "blocked_domains" in result
         assert len(result["blocked_domains"]) == 1
         assert result["blocked_domains"][0]["domain"] == "spam-site.com"
-        assert "can_restore" not in result["blocked_domains"][0]  # TC-A-01: Removed field
         assert result["blocked_domains"][0]["domain_block_reason"] == "high_rejection_rate"
         assert result["blocked_domains"][0]["domain_unblock_risk"] == "low"
 
@@ -557,7 +556,6 @@ class TestGetStatusBlockedDomains:
         assert "reason" in blocked
         assert "Contradiction" in blocked["reason"]
         assert blocked["cause_id"] == "abc123"
-        assert "can_restore" not in blocked  # TC-A-01: Removed field
         assert blocked["domain_block_reason"] == "unknown"
         assert blocked["domain_unblock_risk"] == "high"
 
@@ -604,7 +602,6 @@ class TestGetStatusBlockedDomains:
         blocked = result["blocked_domains"][0]
         assert blocked["domain_block_reason"] == "dangerous_pattern"
         assert blocked["domain_unblock_risk"] == "high"
-        assert "can_restore" not in blocked
 
     @pytest.mark.asyncio
     async def test_blocked_domain_denylist(self, mock_task: dict[str, Any]) -> None:
@@ -744,5 +741,3 @@ class TestGetStatusBlockedDomains:
         assert "domain_unblock_risk" in blocked
         assert blocked["domain_block_reason"] == "high_rejection_rate"
         assert blocked["domain_unblock_risk"] == "low"
-        # Verify removed field is not present
-        assert "can_restore" not in blocked

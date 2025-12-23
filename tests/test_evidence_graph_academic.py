@@ -3,7 +3,6 @@ Tests for academic citation integration in evidence graph.
 
 Tests the add_academic_page_with_citations() function and
 citation_source, citation_context edge attributes.
-Note: is_influential was removed per decision 12 (Phase 2).
 
 ## Test Perspectives Table
 
