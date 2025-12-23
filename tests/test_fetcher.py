@@ -4,7 +4,7 @@ Tests for URL fetcher module.
 Covers:
 - WARC file creation and validation (ADR-0006)
 - Challenge page detection (ADR-0006)
-- FetchResult cache fields for 304 support (ADR-0006, ADR-0006)
+- FetchResult cache fields for 304 support (ADR-0006)
 - URL normalization for cache keys (ADR-0008)
 - Human-like behavior simulation (ADR-0006)
 - Tor controller (ADR-0006)

@@ -4,7 +4,7 @@ Report materials collection for Lyra.
 Provides unified API for collecting report materials including claims,
 fragments, and evidence graph.
 
-See relevant ADR ADR-0003.
+See ADR-0003.
 """
 
 from typing import Any

@@ -1,7 +1,7 @@
 """
-Tests for calibration_metrics MCP tool .
+Tests for calibration_metrics MCP tool.
 
-Renamed from calibrate in . add_sample action was removed.
+Renamed from calibrate. add_sample action was removed.
 Use feedback(edge_correct) for ground-truth collection.
 
 Test Perspectives Table (Equivalence Partitioning / Boundary Value Analysis)
@@ -433,7 +433,7 @@ class TestCalibrationMetricsHandler:
     @pytest.mark.asyncio
     async def test_add_sample_removed(self) -> None:
         """
-        TC-CM-08: add_sample action was removed in .
+        TC-CM-08: add_sample action was removed.
 
         // Given: Trying to use the removed add_sample action
         // When: Calling calibration_metrics with action="add_sample"

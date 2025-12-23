@@ -4,7 +4,7 @@ Research context provider for Lyra.
 Provides design support information to Cursor AI for subquery design.
 Does NOT generate subquery candidates - that is Cursor AI's responsibility.
 
-See relevant ADR ADR-0002 and ADR-0010.
+See ADR-0002 and ADR-0010.
 
 Includes pivot exploration support per ADR-0010:
 - Organization → subsidiaries, officers, location, domain

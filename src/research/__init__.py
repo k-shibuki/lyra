@@ -5,8 +5,8 @@ This module implements the exploration control engine where:
 - Cursor AI designs all search queries (strategic decisions)
 - Lyra provides design support information and executes queries (operational work)
 
-See relevant ADR ADR-0002 for the responsibility matrix.
-See relevant ADR ADR-0010 for UCB1-based budget allocation and pivot exploration.
+See ADR-0002 for the responsibility matrix.
+See ADR-0010 for UCB1-based budget allocation and pivot exploration.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """

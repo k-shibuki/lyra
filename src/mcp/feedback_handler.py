@@ -1,5 +1,5 @@
 """
-Feedback handler for .
+Feedback handler for human-in-the-loop corrections.
 
 Implements 6 actions across 3 levels:
 - Domain: domain_block, domain_unblock, domain_clear_override
