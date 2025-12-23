@@ -637,14 +637,16 @@ lyra/
 | [Q_ASYNC_ARCHITECTURE.md](docs/Q_ASYNC_ARCHITECTURE.md) | Async architecture design (planned) |
 | [R_LORA.md](docs/R_LORA.md) | LoRA fine-tuning design (planned) |
 
-### Archived Documents
+### Directory Structure
 
-Historical development snapshots (no longer maintained):
-
-| Document | Description |
-|----------|-------------|
-| [REQUIREMENTS.md](docs/archive/REQUIREMENTS.md) | Original specification (archived 2025-12-23) |
-| [IMPLEMENTATION_PLAN.md](docs/archive/IMPLEMENTATION_PLAN.md) | Implementation history (archived 2025-12-23) |
+```
+docs/
+├── adr/           # Architecture Decision Records (12 ADRs)
+├── archive/       # Historical snapshots (not maintained)
+├── P_EVIDENCE_SYSTEM.md
+├── Q_ASYNC_ARCHITECTURE.md
+└── R_LORA.md
+```
 
 ---
 
