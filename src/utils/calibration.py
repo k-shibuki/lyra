@@ -1624,7 +1624,7 @@ class CalibrationEvaluation:
 
 
 class CalibrationEvaluator:
-    """Manages calibration evaluation persistence .
+    """Manages calibration evaluation persistence.
 
     Responsibilities (Lyra Worker):
     - Execute evaluation calculations

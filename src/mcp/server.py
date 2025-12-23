@@ -316,11 +316,11 @@ TOOLS = [
         },
     ),
     # ============================================================
-    # 7. Feedback (1 tool - )
+    # 7. Feedback (1 tool - ADR-0012)
     # ============================================================
     Tool(
         name="feedback",
-        description="Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge). .",
+        description="Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -451,7 +451,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "stop_task": _handle_stop_task,
         # Materials
         "get_materials": _handle_get_materials,
-        # Calibration (: renamed from calibrate/calibrate_rollback)
+        # Calibration (ADR-0012: renamed from calibrate/calibrate_rollback)
         "calibration_metrics": _handle_calibration_metrics,
         "calibration_rollback": _handle_calibration_rollback,
         # Authentication Queue
@@ -1128,7 +1128,7 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
 
 async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle calibration_metrics tool call .
+    Handle calibration_metrics tool call.
 
     Implements calibration metrics operations (4 actions).
     Actions: get_stats, evaluate, get_evaluations, get_diagram_data.
@@ -1154,7 +1154,7 @@ async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
 
 async def _handle_calibration_rollback(args: dict[str, Any]) -> dict[str, Any]:
     """
-    Handle calibration_rollback tool call .
+    Handle calibration_rollback tool call.
 
     Implements ADR-0003: Rollback calibration parameters (destructive operation).
     Separate tool to prevent accidental invocation.
@@ -1655,7 +1655,7 @@ async def _handle_feedback(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle feedback tool call.
 
-    Implements : Human-in-the-loop feedback for domain/claim/edge management.
+    Implements ADR-0012: Human-in-the-loop feedback for domain/claim/edge management.
     Provides 6 actions across 3 levels:
     - Domain: domain_block, domain_unblock, domain_clear_override
     - Claim: claim_reject, claim_restore
