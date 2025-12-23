@@ -316,6 +316,52 @@ TOOLS = [
             "required": ["prompt"],
         },
     ),
+    # ============================================================
+    # 7. Feedback (1 tool - Phase 6.2)
+    # ============================================================
+    Tool(
+        name="feedback",
+        description="Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge). Phase 6.2.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "domain_block",
+                        "domain_unblock",
+                        "domain_clear_override",
+                        "claim_reject",
+                        "claim_restore",
+                        "edge_correct",
+                    ],
+                    "description": "Action to perform",
+                },
+                "domain_pattern": {
+                    "type": "string",
+                    "description": "For domain_* actions. Glob pattern (e.g., 'example.com', '*.example.com')",
+                },
+                "claim_id": {
+                    "type": "string",
+                    "description": "For claim_reject/claim_restore",
+                },
+                "edge_id": {
+                    "type": "string",
+                    "description": "For edge_correct",
+                },
+                "correct_relation": {
+                    "type": "string",
+                    "enum": ["supports", "refutes", "neutral"],
+                    "description": "For edge_correct: the correct NLI relation",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Required for domain_block, domain_unblock, domain_clear_override, claim_reject. Optional for edge_correct.",
+                },
+            },
+            "required": ["action"],
+        },
+    ),
 ]
 
 
@@ -415,6 +461,8 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Notification
         "notify_user": _handle_notify_user,
         "wait_for_user": _handle_wait_for_user,
+        # Feedback (Phase 6.2)
+        "feedback": _handle_feedback,
     }
 
     handler = handlers.get(name)
@@ -1541,6 +1589,37 @@ async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
         "timeout_seconds": timeout_seconds,
         "message": "Notification sent. Poll get_status or get_auth_queue for completion.",
     }
+
+
+# ============================================================
+# Feedback Handler (Phase 6.2)
+# ============================================================
+
+
+async def _handle_feedback(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle feedback tool call.
+
+    Implements Phase 6.2: Human-in-the-loop feedback for domain/claim/edge management.
+    Provides 6 actions across 3 levels:
+    - Domain: domain_block, domain_unblock, domain_clear_override
+    - Claim: claim_reject, claim_restore
+    - Edge: edge_correct
+    """
+    from src.mcp.errors import InvalidParamsError
+    from src.mcp.feedback_handler import handle_feedback_action
+
+    action = args.get("action")
+
+    if not action:
+        raise InvalidParamsError(
+            "action is required",
+            param_name="action",
+            expected="one of: domain_block, domain_unblock, domain_clear_override, claim_reject, claim_restore, edge_correct",
+        )
+
+    # Delegate to feedback handler
+    return await handle_feedback_action(action, args)
 
 
 # ============================================================

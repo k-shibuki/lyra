@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lyra:mcp:feedback",
+  "title": "feedback Response",
+  "description": "Response schema for feedback tool (6 actions). Phase 6.2.",
+  "oneOf": [
+    {
+      "title": "domain_block Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "domain_block" },
+        "domain_pattern": { "type": "string" },
+        "rule_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "domain_pattern", "rule_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "domain_unblock Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "domain_unblock" },
+        "domain_pattern": { "type": "string" },
+        "rule_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "domain_pattern", "rule_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "domain_clear_override Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "domain_clear_override" },
+        "domain_pattern": { "type": "string" },
+        "cleared_rules": { "type": "integer" }
+      },
+      "required": ["ok", "action", "domain_pattern", "cleared_rules"],
+      "additionalProperties": false
+    },
+    {
+      "title": "claim_reject Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "claim_reject" },
+        "claim_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "claim_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "claim_restore Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "claim_restore" },
+        "claim_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "claim_id"],
+      "additionalProperties": false
+    },
+    {
+      "title": "edge_correct Response",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" },
+        "action": { "type": "string", "const": "edge_correct" },
+        "edge_id": { "type": "string" },
+        "previous_relation": { "type": "string" },
+        "new_relation": { "type": "string" },
+        "sample_id": { "type": "string" }
+      },
+      "required": ["ok", "action", "edge_id", "previous_relation", "new_relation", "sample_id"],
+      "additionalProperties": false
+    }
+  ]
+}
+
