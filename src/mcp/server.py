@@ -2,7 +2,7 @@
 MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
-Phase M: Refactored to 11 tools per relevant ADR ADR-0003.
+Phase M: Refactored to 11 tools per ADR-0003.
 """
 
 import asyncio
@@ -168,7 +168,7 @@ TOOLS = [
     # ============================================================
     Tool(
         name="calibration_metrics",
-        description="Calibration metrics operations . Actions: get_stats, evaluate, get_evaluations, get_diagram_data. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback.",
+        description="Calibration metrics operations. Actions: get_stats, evaluate, get_evaluations, get_diagram_data. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -192,7 +192,7 @@ TOOLS = [
     ),
     Tool(
         name="calibration_rollback",
-        description="Rollback calibration parameters to a previous version (destructive operation). Per ADR-0003: Separate tool because rollback is destructive and irreversible. Renamed from calibrate_rollback in .",
+        description="Rollback calibration parameters to a previous version (destructive operation). Per ADR-0003: Separate tool because rollback is destructive and irreversible.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -1132,7 +1132,7 @@ async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
     Implements calibration metrics operations (4 actions).
     Actions: get_stats, evaluate, get_evaluations, get_diagram_data.
 
-    Note: add_sample was removed in . Use feedback(edge_correct) for ground-truth collection.
+    Note: add_sample was removed. Use feedback(edge_correct) for ground-truth collection.
     For rollback (destructive operation), use calibration_rollback tool.
     """
     from src.mcp.errors import InvalidParamsError

@@ -74,7 +74,7 @@ class TestMinHashDeduplicator:
         """Test adding fragments and querying.
 
         Requirements: - MinHash/SimHash for duplicate detection
-        Threshold 0.5 is the production default per relevant ADR
+        Threshold 0.5 is the production default per ADR-0005
         """
         from src.filter.deduplication import MinHashDeduplicator
 

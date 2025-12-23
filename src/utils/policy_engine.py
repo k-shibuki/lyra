@@ -851,7 +851,7 @@ class PolicyEngine:
     ) -> tuple[float, float]:
         """Calculate dynamic weight based on engine health metrics.
 
-        Per ADR-0010, ADR-0006, : Calculates engine weight adjustment based on
+        Per ADR-0010, ADR-0006: Calculates engine weight adjustment based on
         past accuracy, failure rate, and block rate. Uses time decay to
         handle stale metrics from infrequently used engines.
 

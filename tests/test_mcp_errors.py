@@ -9,7 +9,7 @@ Implements test perspectives for src/mcp/errors.py per test-strategy.mdc.
 |---------|---------------------|---------------------------------------|-----------------|-------|
 | TC-N-14 | Default constructor | Equivalence - normal | CHROME_NOT_READY code, startup instructions | Default msg |
 | TC-N-16 | Custom message | Equivalence - normal | Uses custom message | Override |
-| TC-N-17 | Format check | Equivalence - normal | Format matches relevant ADR ADR-0003 | Spec compliance |
+| TC-N-17 | Format check | Equivalence - normal | Format matches ADR-0003 | Spec compliance |
 | TC-B-02 | message="" (empty) | Boundary - empty | Empty string accepted | Edge case |
 """
 
@@ -435,7 +435,7 @@ class TestChromeNotReadyError:
 
         // Given: ChromeNotReadyError
         // When: Converting to dict
-        // Then: Format matches relevant ADR ADR-0003 CHROME_NOT_READY spec
+        // Then: Format matches ADR-0003 CHROME_NOT_READY spec
         """
         error = ChromeNotReadyError()
         result = error.to_dict()

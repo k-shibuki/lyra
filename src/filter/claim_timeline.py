@@ -32,7 +32,7 @@ FRESHNESS_THRESHOLD_DAYS = 365
 
 
 class TimelineEventType(str, Enum):
-    """Types of timeline events (ADR-0005, ADR-0005)."""
+    """Types of timeline events (ADR-0005)."""
 
     FIRST_APPEARED = "first_appeared"  # Initial discovery
     UPDATED = "updated"  # Content modified

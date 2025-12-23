@@ -4,7 +4,7 @@ Search execution engine for Lyra.
 Executes Cursor AI-designed search queries through the search/fetch/extract pipeline.
 Handles mechanical expansions (synonyms, mirror queries, operators) only.
 
-See relevant ADR ADR-0002 and ADR-0010.
+See ADR-0002 and ADR-0010.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """

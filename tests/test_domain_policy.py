@@ -1873,7 +1873,7 @@ cloudflare_sites:
 
 
 class TestSearchEnginePolicySchema:
-    """Tests for SearchEnginePolicySchema (ADR-0006, ADR-0006)."""
+    """Tests for SearchEnginePolicySchema (ADR-0006)."""
 
     def test_default_values(self) -> None:
         """Verify default values are correctly set."""

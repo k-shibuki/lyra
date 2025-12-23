@@ -5,7 +5,7 @@ Executes refutation searches using mechanical patterns only.
 Cursor AI designs which claims/subqueries to refute;
 Lyra applies mechanical suffix patterns.
 
-See relevant ADR ADR-0002 and ADR-0010.
+See ADR-0002 and ADR-0010.
 """
 
 from dataclasses import dataclass, field

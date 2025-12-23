@@ -2091,7 +2091,7 @@ async def calibration_metrics_action(
             data: {source: str, evaluation_id?: str}
 
     Note:
-        add_sample was removed in . Use feedback(edge_correct) for
+        add_sample was removed. Use feedback(edge_correct) for
         ground-truth collection which accumulates samples in nli_corrections table.
 
     Raises:

@@ -4,7 +4,7 @@ Exploration state management for Lyra.
 Manages task and search states, calculates satisfaction and novelty scores.
 Reports state to Cursor AI for decision making.
 
-See relevant ADR ADR-0010, ADR-0010, ADR-0010.
+See ADR-0010.
 
 Note: "search" replaces the former "subquery" terminology per Phase M.3-3.
 """
@@ -55,7 +55,7 @@ class TaskStatus(Enum):
 class SearchState(BaseModel):
     """State of a single search query.
 
-    Per ADR-0010, ADR-0010: Tracks source count, satisfaction score,
+    Per ADR-0010: Tracks source count, satisfaction score,
     and novelty metrics for Cursor AI decision making.
 
     Migrated from dataclass to Pydantic BaseModel for type safety

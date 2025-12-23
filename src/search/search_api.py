@@ -97,7 +97,7 @@ class SerpSearchError(SearchError):
 
 
 # ============================================================================
-# Query Operator Processing (ADR-0010, ADR-0006 in relevant ADR)
+# Query Operator Processing (ADR-0010, ADR-0006)
 # ============================================================================
 
 

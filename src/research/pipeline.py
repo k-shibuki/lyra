@@ -4,7 +4,7 @@ Search pipeline for Lyra.
 Unified pipeline that combines search execution with optional refutation mode.
 Replaces execute_subquery and execute_refutation MCPtools with a single `search` interface.
 
-See relevant ADR ADR-0002, ADR-0003.
+See ADR-0002, ADR-0003.
 """
 
 import asyncio

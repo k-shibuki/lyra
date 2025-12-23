@@ -44,7 +44,7 @@ logger = get_logger(__name__)
 
 
 class DomainCategory(str, Enum):
-    """Domain category for ranking adjustment (ADR-0005 Trust Scoring, ADR-0005 L6).
+    """Domain category for ranking adjustment (ADR-0005).
 
     Categories (for ranking weight adjustment only, NOT for confidence calculation):
     - PRIMARY: Public institutions, standards bodies (iso.org, ietf.org)
@@ -79,7 +79,7 @@ class SkipReason(str, Enum):
     PERSISTENT_CAPTCHA = "persistent_captcha"
 
 
-# Category weights for ranking adjustment (ADR-0005 Trust Scoring, ADR-0005 L6)
+# Category weights for ranking adjustment (ADR-0005)
 # Used ONLY for ranking score adjustment, NOT for confidence calculation
 CATEGORY_WEIGHTS: dict[DomainCategory, float] = {
     DomainCategory.PRIMARY: 1.0,
@@ -253,7 +253,7 @@ class LearningStateDomainSchema(BaseModel):
 
 
 class SearchEnginePolicySchema(BaseModel):
-    """Schema for search engine policy settings (ADR-0006, ADR-0006)."""
+    """Schema for search engine policy settings (ADR-0006)."""
 
     default_qps: float = Field(
         default=0.25, ge=0.05, le=1.0, description="Default QPS for search engines"
@@ -950,7 +950,7 @@ class DomainPolicyManager:
             }
 
     # =========================================================================
-    # Search Engine Policy Access (ADR-0006, ADR-0006)
+    # Search Engine Policy Access (ADR-0006)
     # =========================================================================
 
     def get_search_engine_policy(self) -> SearchEnginePolicySchema:
