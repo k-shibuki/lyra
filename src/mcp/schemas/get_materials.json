@@ -22,6 +22,14 @@
           "id": {"type": "string"},
           "text": {"type": "string"},
           "confidence": {"type": "number"},
+          "uncertainty": {
+            "type": "number",
+            "description": "Bayesian uncertainty (stddev of Beta distribution)."
+          },
+          "controversy": {
+            "type": "number",
+            "description": "Bayesian controversy (degree of conflict between supports/refutes)."
+          },
           "evidence_count": {"type": "integer"},
           "has_refutation": {"type": "boolean"},
           "sources": {
@@ -37,6 +45,33 @@
               },
               "additionalProperties": false
             }
+          },
+          "evidence": {
+            "type": "array",
+            "description": "Evidence items with temporal metadata (ADR-0003 / Phase 4b).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "relation": {"type": "string"},
+                "source_id": {"type": ["string", "null"]},
+                "source_type": {"type": ["string", "null"]},
+                "year": {"type": ["integer", "string", "null"]},
+                "nli_confidence": {"type": ["number", "null"]},
+                "source_domain_category": {"type": ["string", "null"]},
+                "doi": {"type": ["string", "null"]},
+                "venue": {"type": ["string", "null"]}
+              },
+              "additionalProperties": false
+            }
+          },
+          "evidence_years": {
+            "type": "object",
+            "description": "Summary of evidence years (oldest/newest).",
+            "properties": {
+              "oldest": {"type": ["integer", "null"]},
+              "newest": {"type": ["integer", "null"]}
+            },
+            "additionalProperties": false
           },
           "claim_adoption_status": {
             "type": "string",

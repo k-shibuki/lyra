@@ -98,4 +98,16 @@ alwaysApply: true
 
 ---
 
+## 8. DB隔離の使い分け
+
+| 状況 | 使う仕組み | 備考 |
+|------|-----------|------|
+| pytest でテスト | `test_database` fixture（`tests/conftest.py`） | テスト関数ごとに自動でセットアップ/クリーンアップ |
+| スクリプトで手動検証/デバッグ | `isolated_database_path()`（`src/storage/isolation.py`） | `async with` ブロック終了時に自動削除 |
+
+- pytest 内では fixture を引数に書くだけでDBが隔離される。`isolated_database_path` を直接使う必要はない。
+- 手動検証スクリプトでは `async with isolated_database_path()` で囲み、`data/lyra.db` を汚染しないようにする。
+
+---
+
 このルールを遵守し、欠落観点がないか常に自己チェックしたうえでテストを設計・実装すること。

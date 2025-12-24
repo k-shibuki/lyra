@@ -21,6 +21,7 @@ Design and implement tests for the implemented change.
 - Include **at least as many negative tests as positive tests**.
 - Unit tests must **not** depend on external resources (network, remote services, model downloads).
   - Mock integration points (e.g., `nli_judge`, LLM/HTTP clients, browser/fetchers) so tests are deterministic and non-hanging.
+- **DB isolation is handled by pytest fixtures** (`test_database` in `tests/conftest.py`). Do not use `isolated_database_path` inside pytest tests.
 
 ## Steps
 
