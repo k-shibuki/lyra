@@ -675,7 +675,7 @@ await call_tool("queue_searches", {
 | **ブロッキング** | あり（数十秒〜数分） | なし（即座に応答） |
 | **複数検索** | シーケンシャル呼び出し必要 | 1回の呼び出しで複数投入 |
 | **ポーリング** | タイミングが難しい | sleep_secondsで制御可能 |
-| **ツール数** | 11個 | **9個（削減）** |
+| **ツール数** | 12個 | **10個** |
 | **複雑さ** | 中程度 | **シンプル** |
 
 ### 5.2 サーバ内部視点
@@ -712,53 +712,78 @@ status = await call_tool("get_status", {
 
 ## 6. 実装ロードマップ
 
-### Phase 1: コア機能実装（1週間）
+> **DBフェーズ**: 開発フェーズ（DB作り直しOK、migration不要）
 
-1. **データベーススキーマ**
-   - `search_queue`テーブル作成
-   - マイグレーションスクリプト
+### Phase 1: コア機能実装
 
-2. **バックグラウンドワーカー**
-   - `SearchQueueWorker`実装
-   - エラーハンドリング
+**前提作業:**
+- [ ] Cursor Rules/Commands の `search` ツール呼び出し箇所を特定（移行計画立案）
+- [ ] `rm data/lyra.db` でDB削除（テストは `test_database` フィクスチャで隔離されるため影響なし）
 
-3. **新しいツール**
-   - `queue_searches`実装
-   - バリデーション
+**1.1 データベーススキーマ**
+- [ ] `search_queue`テーブルを `src/storage/schema.sql` に追加
+- [ ] アプリ起動でテーブル自動作成を確認
+- [ ] **テスト**: スキーマ作成の単体テスト
 
-4. **既存ツールの変更**
-   - `get_status`にsleep_seconds追加
-   - キュー状態の統合
+**1.2 バックグラウンドワーカー**
+- [ ] `SearchQueueWorker`実装（`src/scheduler/search_worker.py` 新規作成）
+- [ ] エラーハンドリング、グローバルタスク管理（`_search_worker_task`）
+- [ ] **テスト**: ワーカーの単体テスト（モック使用）
 
-### Phase 2: 既存ツールの削除（3日）
+**1.3 新しいツール: queue_searches**
+- [ ] ツール定義（`src/mcp/server.py`）
+- [ ] `_handle_queue_searches`ハンドラ実装
+- [ ] レスポンススキーマ（`src/mcp/schemas/queue_searches.json`）
+- [ ] **テスト**: ツールハンドラの単体テスト
 
-1. **`search`ツールの削除**
-   - MCPツール定義から削除
-   - `_handle_search`を内部関数化（または完全削除）
-   - `search_action`は維持（ワーカーが使用）
+**1.4 既存ツールの変更: get_status**
+- [ ] `sleep_seconds`パラメータ追加（`src/mcp/server.py`）
+- [ ] `queue`フィールド追加、スキーマ更新（`src/mcp/schemas/get_status.json`）
+- [ ] `ExplorationState.get_status()`の拡張（`src/research/state.py`）
+- [ ] **テスト**: get_status拡張の単体テスト
 
-2. **`notify_user`と`wait_for_user`の削除**
-   - MCPツール定義から削除
-   - ハンドラ削除
+**1.5 統合テスト**
+- [ ] キュー投入 → ワーカー処理 → ステータス確認のE2Eフロー
+- [ ] エラーケース（タスク不在、バジェット超過など）
+- [ ] **ゲート**: Phase 1完了条件 = 全テストパス + queue_searchesが動作
 
-3. **ドキュメント更新**
-   - `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
-   - `docs/CURSOR_RULES_COMMANDS.md` 更新
-   - **注**: `docs/REQUIREMENTS.md` は 2025-12-23 にアーカイブ済み（`docs/archive/`）
+### Phase 2: ツール削除とクライアント移行
 
-### Phase 3: テストと最適化（3日）
+> **依存**: Phase 1完了後に開始（queue_searchesが動作することが前提）
 
-1. **統合テスト**
-   - キュー投入 → ワーカー処理 → ステータス確認のフロー
-   - 複数タスクの並行処理
-   - エラーケース（タスク不在、バジェット超過など）
+**2.1 MCPクライアント側更新**
+- [ ] Cursor Rules: `search` → `queue_searches` + `get_status(sleep_seconds=N)` パターンへ移行
+- [ ] `docs/CURSOR_RULES_COMMANDS.md` の使用例を更新
+- [ ] テスト用プロンプトで動作確認
 
-2. **パフォーマンステスト**
-   - 大量キュー（100+検索）
-   - ワーカーの安定性
+**2.2 ツール削除**
+- [ ] `search`ツール: MCPツール定義から削除、`search_action`は維持（ワーカーが使用）
+- [ ] `notify_user`, `wait_for_user`: MCPツール定義から削除、ハンドラ削除
+- [ ] 依存コードの確認・修正
 
-3. **Cursor AI統合テスト**
-   - 実際のワークフローで動作確認
+**2.3 ドキュメント更新**
+- [ ] `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
+- [ ] `docs/CURSOR_RULES_COMMANDS.md` 更新
+- [ ] **テスト**: 削除後の回帰テスト（既存テストがパスすることを確認）
+
+### Phase 3: 最終検証
+
+**3.1 パフォーマンステスト**
+- [ ] 大量キュー（10+検索）
+- [ ] ワーカーの安定性
+
+**3.2 Cursor AI統合テスト**
+- [ ] 実際のワークフローで動作確認
+
+**3.3 完了チェックリスト**
+- [ ] `search_queue`テーブルが作成されている
+- [ ] `queue_searches`ツールが動作する
+- [ ] `get_status`の`sleep_seconds`が動作する
+- [ ] `search`, `notify_user`, `wait_for_user`がMCPツール一覧から削除されている
+- [ ] Cursor Rules/Commandsが更新されている
+- [ ] README.mdが最新（10ツール）
+- [ ] 全テストがパスする
+- [ ] ADR-0010のImplementation Statusを「実装完了」に更新
 
 ---
 
@@ -808,7 +833,7 @@ async for event in subscribe_search_progress(task_id):
 ### 8.2 ツール数の変化
 
 ```
-12ツール → 10ツール（17%削減）
+12ツール → 10ツール
 
 削除: 3個（search, notify_user, wait_for_user）
 追加: 1個（queue_searches）
@@ -1048,12 +1073,12 @@ await resolve_auth(
 
 ---
 
-**文書バージョン:** 2.1
+**文書バージョン:** 2.2
 **作成日:** 2025-12-21
-**最終更新:** 2025-12-21（認証キュー統合判断追加）
-**著者:** Claude (Sonnet 4.5)
+**最終更新:** 2025-12-24（実装ロードマップ更新: DB作り直し方式、MCPクライアント更新を明記）
+**著者:** Claude (Sonnet 4.5 / Opus 4.5)
 **レビュー状態:** 設計確定 - 実装準備完了
 
 **関連ドキュメント:**
-- `docs/AUTH_QUEUE_INTEGRATION_ANALYSIS.md` - 認証キュー統合の詳細分析
-- `docs/ASYNC_ARCHITECTURE_ANALYSIS.md` - 現状の非同期アーキテクチャ分析
+- `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR
+- `README.md` - MCPツール一覧（現在12ツール、移行後10ツール）
