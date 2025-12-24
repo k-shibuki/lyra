@@ -12,6 +12,8 @@ Tests the full data flow between MCP tools:
 | TC-I-03 | Task with no exploration data | Boundary – empty | get_status returns empty searches | Minimal case |
 | TC-I-04 | Task with 0 claims/fragments | Boundary – empty | get_materials returns empty lists | Zero data |
 | TC-I-05 | Task with include_graph=True | Equivalence – graph | get_materials includes evidence_graph | Graph feature |
+| TC-L7-01 | get_materials via call_tool (L7) | Equivalence – normal | L7 output preserves Bayesian fields | Contract wiring |
+| TC-L7-02 | L7 strips unknown claim fields | Equivalence – negative | Unknown fields removed, allowed remain | Allowlist guard |
 """
 
 import json
@@ -436,6 +438,110 @@ class TestGetMaterialsIntegration:
             f"Expected controversy > 0 for claim with both SUPPORTS and REFUTES edges, "
             f"got {claim_with_evidence['controversy']}"
         )
+
+    @pytest.mark.asyncio
+    async def test_get_materials_call_tool_preserves_bayesian_fields(
+        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+    ) -> None:
+        """
+        TC-L7-01: get_materials via MCP call_tool preserves Bayesian fields after L7.
+
+        // Given: Task with claims exists in DB (memory_database) and schema allowlists Bayesian fields
+        // When:  Calling src.mcp.server.call_tool("get_materials", ...) (L7 sanitize applied)
+        // Then:  Claims still include uncertainty/controversy/evidence/evidence_years
+        """
+        from src.filter import evidence_graph as eg_module
+        from src.mcp.server import call_tool
+
+        # Clear module-level EvidenceGraph cache for reproducibility
+        eg_module._graph = None
+
+        data = setup_task_with_claims
+        task_id = data["task_id"]
+
+        with (
+            patch("src.mcp.server.get_database", new=AsyncMock(return_value=memory_database)),
+            patch("src.research.materials.get_database", new=AsyncMock(return_value=memory_database)),
+            patch("src.filter.evidence_graph.get_database", new=AsyncMock(return_value=memory_database)),
+        ):
+            content_list = await call_tool(
+                "get_materials",
+                {"task_id": task_id, "options": {"include_graph": False}},
+            )
+
+        assert len(content_list) == 1
+        payload = json.loads(content_list[0].text)
+
+        assert payload["ok"] is True
+        assert payload["task_id"] == task_id
+        assert isinstance(payload.get("claims"), list)
+        assert len(payload["claims"]) >= 1
+
+        claim = payload["claims"][0]
+        # Wiring test: these fields must survive L7 allowlist filtering
+        assert "uncertainty" in claim
+        assert "controversy" in claim
+        assert "evidence" in claim
+        assert "evidence_years" in claim
+
+        # Boundary assertions: evidence_years values can be null
+        assert isinstance(claim["evidence"], list)
+        assert isinstance(claim["evidence_years"], dict)
+        assert "oldest" in claim["evidence_years"]
+        assert "newest" in claim["evidence_years"]
+
+    @pytest.mark.asyncio
+    async def test_get_materials_l7_strips_unknown_claim_fields_but_keeps_allowed(self) -> None:
+        """
+        TC-L7-02: L7 allowlist strips unknown claim fields but keeps allowed ones.
+
+        // Given: A get_materials-like response containing both allowed and unknown claim fields
+        // When:  Sanitizing via ResponseSanitizer with tool schema "get_materials"
+        // Then:  Unknown fields are removed, allowed Bayesian fields remain
+        """
+        from src.mcp.response_sanitizer import ResponseSanitizer
+
+        raw = {
+            "ok": True,
+            "task_id": "task_dummy",
+            "query": "dummy",
+            "claims": [
+                {
+                    "id": "c_dummy",
+                    "text": "dummy claim",
+                    "confidence": 0.5,
+                    "uncertainty": 0.1,
+                    "controversy": 0.2,
+                    "evidence_count": 0,
+                    "has_refutation": False,
+                    "sources": [],
+                    "evidence": [],
+                    "evidence_years": {"oldest": None, "newest": None},
+                    "claim_adoption_status": "adopted",
+                    "claim_rejection_reason": None,
+                    "unknown_debug": "SHOULD_BE_STRIPPED",
+                }
+            ],
+            "fragments": [],
+            "summary": {
+                "total_claims": 1,
+                "verified_claims": 0,
+                "refuted_claims": 0,
+                "primary_source_ratio": 0.0,
+            },
+        }
+
+        sanitized = ResponseSanitizer().sanitize_response(raw, "get_materials").sanitized_response
+        assert sanitized["ok"] is True
+        assert isinstance(sanitized.get("claims"), list)
+        assert len(sanitized["claims"]) == 1
+
+        claim = sanitized["claims"][0]
+        assert "unknown_debug" not in claim
+        assert "uncertainty" in claim
+        assert "controversy" in claim
+        assert "evidence" in claim
+        assert "evidence_years" in claim
 
     @pytest.mark.asyncio
     async def test_get_materials_includes_claim_adoption_status_default(

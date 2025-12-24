@@ -501,6 +501,31 @@ pytest tests/ -m 'not e2e' --tb=short -q  # Unit + integration
 pytest tests/ -m 'e2e'                    # E2E (requires Chrome CDP + containers)
 ```
 
+#### DB Isolation: Tests vs Scripts
+
+| Scenario | Mechanism | Notes |
+|----------|-----------|-------|
+| pytest tests | `test_database` fixture (`tests/conftest.py`) | Auto setup/teardown per test |
+| Debug scripts / manual verification | `isolated_database_path()` (`src/storage/isolation.py`) | Auto cleanup on block exit |
+
+For standalone scripts that need a fresh, reproducible DB without touching `data/lyra.db`, use the async context manager:
+
+```python
+import asyncio
+
+from src.storage.database import get_database
+from src.storage.isolation import isolated_database_path
+
+
+async def main() -> None:
+    async with isolated_database_path() as _db_path:
+        db = await get_database()
+        _ = await db.fetch_one("SELECT 1")
+
+
+asyncio.run(main())
+```
+
 ### Test Markers
 
 | Marker | Description | CI/Cloud | Local | Full |

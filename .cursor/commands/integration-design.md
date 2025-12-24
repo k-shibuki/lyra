@@ -32,6 +32,8 @@ This command focuses on the concrete deliverables and how to produce them.
 2. Define shared data contracts as Pydantic models in `src/{module}/schemas.py`.
 3. If introducing new parameters/fields, create a **propagation map** (where the value is accepted, transformed, forwarded, and where it has effect).
 4. Add a debug script at `tests/scripts/debug_{feature}_flow.py` that validates the end-to-end flow (including the propagation map checkpoints).
+   - Prefer using an **isolated DB** so scripts do not mutate `data/lyra.db` and do not leave artifacts.
+   - Utility: `src/storage/isolation.py` (`isolated_database_path`)
 5. Run/verify the flow and update the sequence diagram to match reality.
 
 ## Output (response format)
@@ -42,7 +44,35 @@ This command focuses on the concrete deliverables and how to produce them.
 - **Debug script**: runnable script + how to run it
 - **Verification**: what was checked and results
 
+## Notes
+
+### Execution environment
+
+- Use `scripts/test.sh` (venv or container) for running tests and debug scripts.
+- Do **not** use system Python directly; the project uses `.venv` or Podman container.
+- See `@.cursor/commands/scripts-help.md` for script usage details.
+
+### DB management
+
+| Phase | Policy |
+|-------|--------|
+| Development (solo) | Recreate DB OK (`rm data/lyra.db` + reinitialize) |
+| Post-release | Use migration (`scripts/migrate.py`) |
+
+- Debug scripts should use `isolated_database_path()` to avoid touching `data/lyra.db`.
+- pytest tests use fixtures (`test_database`) for automatic isolation.
+
+**⚠️ Before modifying `data/lyra.db` or recreating the DB, ask the user:**
+
+> 「現在のフェーズを確認させてください。DB作り直しOK（開発フェーズ）ですか、それとも migration 必須（リリース後）ですか？」
+
+Do **not** assume the phase; always confirm to prevent data loss.
+
 ## Related rules
 
 - `@.cursor/rules/integration-design.mdc`
 - `@.cursor/rules/code-execution.mdc`
+
+## Related commands
+
+- `@.cursor/commands/scripts-help.md` — script runner reference (`test.sh`, `dev.sh`)
