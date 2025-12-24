@@ -1327,23 +1327,27 @@ async def stop_task_action(
     task_id: str,
     state: ExplorationState,
     reason: str = "completed",
+    mode: str = "graceful",
 ) -> dict[str, Any]:
     """
     Unified API for stop_task action.
 
     Finalizes exploration and returns summary. MCP handler delegates to this
-    function (see ADR-0003).
+    function (see ADR-0003, ADR-0010).
 
     Args:
         task_id: The task ID.
         state: The exploration state manager.
         reason: Stop reason ("completed", "budget_exhausted", "user_cancelled").
+        mode: Stop mode ("graceful" or "immediate"). Controls how running
+              search queue jobs are handled. The MCP handler cancels jobs
+              in DB before calling this function.
 
     Returns:
         Finalization result dict (summary, metrics, final status).
     """
     with LogContext(task_id=task_id):
-        logger.info("Stopping task", reason=reason)
+        logger.info("Stopping task", reason=reason, mode=mode)
 
         # Finalize exploration
         finalize_result = await state.finalize()

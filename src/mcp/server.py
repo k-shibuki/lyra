@@ -132,7 +132,7 @@ TOOLS = [
     # Use queue_searches + get_status(wait=N) instead.
     Tool(
         name="stop_task",
-        description="Stop/finalize a research task. Returns summary with completion stats.",
+        description="Stop/finalize a research task. Returns summary with completion stats. Mode controls how running searches are handled (ADR-0010).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -142,6 +142,12 @@ TOOLS = [
                     "description": "Stop reason",
                     "enum": ["completed", "budget_exhausted", "user_cancelled"],
                     "default": "completed",
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Stop mode: graceful (wait for running searches) or immediate (cancel all)",
+                    "enum": ["graceful", "immediate"],
+                    "default": "graceful",
                 },
             },
             "required": ["task_id"],
@@ -1117,18 +1123,31 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
     Handle stop_task tool call.
 
     Implements ADR-0003: Finalizes task and returns summary.
+    Implements ADR-0010: Stop modes (graceful/immediate).
+
+    Mode semantics:
+    - graceful: Cancel queued jobs, wait for running jobs to complete.
+    - immediate: Cancel all queued and running jobs immediately.
     """
     from src.mcp.errors import InvalidParamsError, TaskNotFoundError
     from src.research.pipeline import stop_task_action
 
     task_id = args.get("task_id")
     reason = args.get("reason", "completed")
+    mode = args.get("mode", "graceful")
 
     if not task_id:
         raise InvalidParamsError(
             "task_id is required",
             param_name="task_id",
             expected="non-empty string",
+        )
+
+    if mode not in ("graceful", "immediate"):
+        raise InvalidParamsError(
+            "mode must be 'graceful' or 'immediate'",
+            param_name="mode",
+            expected="'graceful' or 'immediate'",
         )
 
     with LogContext(task_id=task_id):
@@ -1148,11 +1167,15 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
         # Record activity for ADR-0002 idle timeout tracking
         state.record_activity()
 
+        # Handle search queue jobs based on mode (ADR-0010)
+        await _cancel_search_queue_jobs(task_id, mode, db)
+
         # Execute stop through unified API
         result = await stop_task_action(
             task_id=task_id,
             state=state,
             reason=reason,
+            mode=mode,
         )
 
         # Clear cached state
@@ -1164,7 +1187,69 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
             (result.get("final_status", "completed"), task_id),
         )
 
+        # Include mode in response for transparency
+        result["mode"] = mode
+
         return result
+
+
+async def _cancel_search_queue_jobs(
+    task_id: str,
+    mode: str,
+    db: Any,
+) -> dict[str, int]:
+    """
+    Cancel search queue jobs for a task based on stop mode.
+
+    Args:
+        task_id: The task ID.
+        mode: Stop mode ('graceful' or 'immediate').
+        db: Database connection.
+
+    Returns:
+        Dict with counts of cancelled jobs by previous state.
+
+    Mode semantics (ADR-0010):
+    - graceful: Only cancel 'queued' jobs. Running jobs complete normally.
+    - immediate: Cancel both 'queued' and 'running' jobs.
+    """
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).isoformat()
+    counts = {"queued_cancelled": 0, "running_cancelled": 0}
+
+    # Always cancel queued jobs
+    cursor = await db.execute(
+        """
+        UPDATE jobs
+        SET state = 'cancelled', finished_at = ?
+        WHERE task_id = ? AND kind = 'search_queue' AND state = 'queued'
+        """,
+        (now, task_id),
+    )
+    counts["queued_cancelled"] = getattr(cursor, "rowcount", 0)
+
+    if mode == "immediate":
+        # Also cancel running jobs
+        cursor = await db.execute(
+            """
+            UPDATE jobs
+            SET state = 'cancelled', finished_at = ?
+            WHERE task_id = ? AND kind = 'search_queue' AND state = 'running'
+            """,
+            (now, task_id),
+        )
+        counts["running_cancelled"] = getattr(cursor, "rowcount", 0)
+
+    logger.info(
+        "Search queue jobs cancelled",
+        task_id=task_id,
+        mode=mode,
+        queued_cancelled=counts["queued_cancelled"],
+        running_cancelled=counts["running_cancelled"],
+    )
+
+    return counts
 
 
 # ============================================================

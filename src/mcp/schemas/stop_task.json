@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:stop_task",
   "title": "stop_task Response",
-  "description": "Response schema for stop_task tool",
+  "description": "Response schema for stop_task tool (ADR-0003, ADR-0010)",
   "type": "object",
   "properties": {
     "ok": {
@@ -17,13 +17,20 @@
     "reason": {
       "type": "string"
     },
+    "mode": {
+      "type": "string",
+      "enum": ["graceful", "immediate"],
+      "description": "Stop mode used (ADR-0010)"
+    },
     "summary": {
       "type": "object",
       "properties": {
         "total_searches": {"type": "integer"},
+        "satisfied_searches": {"type": "integer"},
         "total_pages": {"type": "integer"},
         "total_fragments": {"type": "integer"},
         "total_claims": {"type": "integer"},
+        "primary_source_ratio": {"type": "number"},
         "elapsed_seconds": {"type": "number"}
       },
       "additionalProperties": false
