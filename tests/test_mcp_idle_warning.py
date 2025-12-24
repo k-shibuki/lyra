@@ -3,15 +3,16 @@ Tests for MCP handlers idle warning (ADR-0002).
 
 Tests verify that MCP handlers record activity and get_status includes idle_seconds.
 
+NOTE: _handle_search tests removed in Phase 2 (ADR-0010).
+      Use queue_searches + get_status(wait=N) instead.
+
 Test Perspectives Table:
 | Case ID | Input / Precondition | Perspective | Expected Result |
 |---------|---------------------|-------------|-----------------|
-| MH-N-01 | valid task_id | Equivalence – normal | record_activity called |
+| MH-N-01 | valid task_id (stop_task) | Equivalence – normal | record_activity called |
 | MH-N-02 | get_status | Equivalence – normal | idle_seconds in response |
 | MH-A-01 | task_id = None | Boundary – null | InvalidParamsError |
 | MH-A-02 | task_id = "" | Boundary – empty | InvalidParamsError |
-| MH-A-03 | query = None (search) | Boundary – null | InvalidParamsError |
-| MH-A-04 | query = "" (search) | Boundary – empty | InvalidParamsError |
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -98,47 +99,8 @@ class TestMCPIdleWarning:
             assert result["idle_seconds"] == 100
             mock_state.record_activity.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_search_records_activity(self, mock_db: AsyncMock, mock_state: MagicMock) -> None:
-        """
-        MH-N-01: Test that search handler records activity.
-
-        // Given: Valid task and query
-        // When: _handle_search() is called
-        // Then: record_activity() is called on state
-        """
-        mock_search_result: dict[str, object] = {
-            "ok": True,
-            "search_id": "s_test",
-            "query": "test query",
-            "status": "satisfied",
-            "pages_fetched": 5,
-            "useful_fragments": 3,
-            "harvest_rate": 0.6,
-            "claims_found": [],
-            "satisfaction_score": 0.8,
-            "novelty_score": 0.5,
-            "budget_remaining": {"pages": 115, "percent": 95},
-        }
-
-        async def get_state(task_id: str) -> MagicMock:
-            return mock_state
-
-        with (
-            patch("src.mcp.server.get_database", return_value=mock_db),
-            patch("src.mcp.server._get_exploration_state", side_effect=get_state),
-            patch("src.mcp.server._ensure_chrome_ready", new_callable=AsyncMock),
-            patch(
-                "src.research.pipeline.search_action",
-                new_callable=AsyncMock,
-                return_value=mock_search_result,
-            ),
-        ):
-            from src.mcp.server import _handle_search
-
-            await _handle_search({"task_id": "test_task", "query": "test query"})
-
-            mock_state.record_activity.assert_called_once()
+    # NOTE: test_search_records_activity removed in Phase 2 (ADR-0010).
+    # _handle_search was removed; use queue_searches + get_status(wait=N) instead.
 
     @pytest.mark.asyncio
     async def test_stop_task_records_activity(
@@ -279,75 +241,6 @@ class TestMCPIdleWarning:
 
             assert "task_id" in str(exc_info.value).lower()
 
-    @pytest.mark.asyncio
-    async def test_search_query_none_raises_error(
-        self, mock_db: AsyncMock, mock_state: MagicMock
-    ) -> None:
-        """
-        MH-A-03: Test that query=None raises InvalidParamsError.
-
-        // Given: query is None
-        // When: _handle_search() is called
-        // Then: InvalidParamsError is raised with message about query
-        """
-        from src.mcp.errors import InvalidParamsError
-
-        async def get_state(task_id: str) -> MagicMock:
-            return mock_state
-
-        with (
-            patch("src.mcp.server.get_database", return_value=mock_db),
-            patch("src.mcp.server._get_exploration_state", side_effect=get_state),
-        ):
-            from src.mcp.server import _handle_search
-
-            with pytest.raises(InvalidParamsError) as exc_info:
-                await _handle_search({"task_id": "test_task", "query": None})
-
-            assert "query" in str(exc_info.value).lower()
-
-    @pytest.mark.asyncio
-    async def test_search_query_empty_raises_error(
-        self, mock_db: AsyncMock, mock_state: MagicMock
-    ) -> None:
-        """
-        MH-A-04: Test that query="" raises InvalidParamsError.
-
-        // Given: query is empty string
-        // When: _handle_search() is called
-        // Then: InvalidParamsError is raised
-        """
-        from src.mcp.errors import InvalidParamsError
-
-        async def get_state(task_id: str) -> MagicMock:
-            return mock_state
-
-        with (
-            patch("src.mcp.server.get_database", return_value=mock_db),
-            patch("src.mcp.server._get_exploration_state", side_effect=get_state),
-        ):
-            from src.mcp.server import _handle_search
-
-            with pytest.raises(InvalidParamsError) as exc_info:
-                await _handle_search({"task_id": "test_task", "query": ""})
-
-            assert "query" in str(exc_info.value).lower()
-
-    @pytest.mark.asyncio
-    async def test_search_task_id_none_raises_error(self, mock_db: AsyncMock) -> None:
-        """
-        MH-A-01: Test that task_id=None in search raises InvalidParamsError.
-
-        // Given: task_id is None
-        // When: _handle_search() is called
-        // Then: InvalidParamsError is raised
-        """
-        from src.mcp.errors import InvalidParamsError
-
-        with patch("src.mcp.server.get_database", return_value=mock_db):
-            from src.mcp.server import _handle_search
-
-            with pytest.raises(InvalidParamsError) as exc_info:
-                await _handle_search({"task_id": None, "query": "test"})
-
-            assert "task_id" in str(exc_info.value).lower()
+    # NOTE: test_search_query_none_raises_error, test_search_query_empty_raises_error,
+    # and test_search_task_id_none_raises_error removed in Phase 2 (ADR-0010).
+    # _handle_search was removed; use queue_searches + get_status(wait=N) instead.

@@ -487,30 +487,52 @@ class TestL7BugFix:
         // Given: A response with LLM text fields in nested arrays
         // When: Sanitizing the response
         // Then: Each field is processed exactly once (no double counting)
+
+        NOTE: Updated in Phase 2 (ADR-0010) to use get_materials instead of search.
         """
         from src.mcp.response_sanitizer import ResponseSanitizer
 
         sanitizer = ResponseSanitizer()
 
-        # Use schema-valid response structure for 'search' tool
-        # 'claims_found' contains objects with 'text' (LLM content field)
+        # Use schema-valid response structure for 'get_materials' tool
+        # 'claims' contains objects with 'text' (LLM content field)
         response = {
             "ok": True,
-            "search_id": "search_123",
+            "task_id": "task_123",
             "query": "test query",
-            "status": "satisfied",
-            "claims_found": [
-                {"id": "1", "text": "Nested claim text 1", "confidence": 0.9, "source_count": 2},
-                {"id": "2", "text": "Nested claim text 2", "confidence": 0.8, "source_count": 1},
+            "claims": [
+                {
+                    "id": "1",
+                    "text": "Nested claim text 1",
+                    "confidence": 0.9,
+                    "evidence_count": 2,
+                    "has_refutation": False,
+                    "sources": [],
+                },
+                {
+                    "id": "2",
+                    "text": "Nested claim text 2",
+                    "confidence": 0.8,
+                    "evidence_count": 1,
+                    "has_refutation": False,
+                    "sources": [],
+                },
             ],
+            "fragments": [],
+            "summary": {
+                "total_claims": 2,
+                "verified_claims": 2,
+                "refuted_claims": 0,
+                "primary_source_ratio": 0.0,
+            },
         }
 
-        result = sanitizer.sanitize_response(response, "search")
+        result = sanitizer.sanitize_response(response, "get_materials")
 
         # Each LLM content field should be processed exactly once:
         # - "query" at top level = 1
-        # - "text" in claims_found[0] = 1
-        # - "text" in claims_found[1] = 1
+        # - "text" in claims[0] = 1
+        # - "text" in claims[1] = 1
         # Total = 3 (not 6 which would indicate double counting from before the fix)
         assert result.stats.llm_fields_processed == 3
 

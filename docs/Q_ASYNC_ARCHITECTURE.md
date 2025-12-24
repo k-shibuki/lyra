@@ -1,6 +1,6 @@
 # 非同期アーキテクチャ改善
 
-> **Status**: DESIGN PROPOSAL（未実装）
+> **Status**: PARTIALLY IMPLEMENTED（Phase 1-2 ✅ DONE / Phase 3 pending）
 
 > **Scope / Assumptions (Dev Phase)**:
 > - **Breaking changes are allowed** (no backward compatibility required at this phase).
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-**問題の本質:** 現在の`search`ツールは同期的にパイプライン全体を実行するため、MCPクライアント（Cursor AI）がブロックされる。これでは複数検索の並列実行が不可能。
+**問題の本質（旧 / Phase 0）:** `search`ツールは同期的にパイプライン全体を実行するため、MCPクライアント（Cursor AI）がブロックされる。これでは複数検索の並列実行が不可能。※ Phase 2 で `search` は MCP ツールから削除済み。
 
 **解決策:** ツールを増やすのではなく、**非同期セマンティクスに変更する**
 - `search`ツールを内部化（MCPツールから削除）
@@ -16,21 +16,21 @@
 - **バックグラウンドワーカー（2 workers）**がキューから**優先度順（同一優先度はFIFO）**に取り出し、並列に処理
 - `get_status`に**wait（long polling）**を追加（MCPクライアントに時間感覚がないため）
 
-**結果:** ツール数 12個 → **10個に削減**、クライアントはノンブロッキング、シンプルで効率的
+**結果:** ツール数 13個 → **10個に削減**、クライアントはノンブロッキング、シンプルで効率的
 
 ---
 
 ## 1. 現状の問題点
 
-### 1.1 同期的なsearchツール
+### 1.1 （旧 / Phase 0）同期的なsearchツール
 
 **現在のフロー:**
 ```
 MCPクライアント
   ↓
-  call_tool("search", {task_id, query})
+  call_tool("search", {task_id, query})  # 旧（Phase 2で削除済み）
   ↓ (ブロック - 数十秒〜数分待機)
-MCPサーバ: _handle_search
+MCPサーバ: _handle_search  # 旧（Phase 2で削除済み）
   ↓ await search_action
   ↓ SearchPipeline.execute
   ↓   SERP検索 → フェッチ → 抽出 → LLM → エビデンス
@@ -45,7 +45,7 @@ MCPクライアント (ようやく次の操作が可能)
 
 ### 1.2 具体例：3つの検索を実行したい場合
 
-**現在（非効率）:**
+**現在（非効率 / 旧・参考）:**
 ```python
 # 各searchは数十秒かかる
 result1 = await call_tool("search", {task_id, query: "Q1"})  # 30秒
@@ -77,7 +77,7 @@ status = await call_tool("get_status", {
 
 ## 2. 新しいアーキテクチャ
 
-### 2.1 ツール構成（12個 → 10個に削減）
+### 2.1 ツール構成（13個 → 10個に削減）
 
 #### **削除するツール:**
 1. ~~`search`~~ → 内部関数化（`search_action`は残す）
@@ -900,25 +900,27 @@ status = await call_tool("get_status", {
 - [x] エラーケース（タスク不在、バジェット超過など）
 - [x] **ゲート**: Phase 1完了条件 = 全テストパス + queue_searchesが動作
 
-### Phase 2: ツール削除とクライアント移行
+### Phase 2: ツール削除とクライアント移行 ✅ DONE
 
 > **依存**: Phase 1完了後に開始（queue_searchesが動作することが前提）
 
 **2.1 MCPクライアント側更新**
-- [ ] Cursor Rules (`.cursor/rules/`): `search` → `queue_searches` + `get_status(wait=N)` パターンへ移行
-- [ ] Cursor Commands (`.cursor/commands/`): 使用例を更新
-- [ ] テスト用プロンプトで動作確認
+- [x] Cursor Rules (`.cursor/rules/`): Lyra の `search` ツール参照なし（変更不要）
+- [x] Cursor Commands (`.cursor/commands/`): Lyra の `search` ツール参照なし（変更不要）
+- [x] テスト用プロンプトで動作確認
 
 **2.2 ツール削除**
-- [ ] `search`ツール: MCPツール定義から削除、`search_action`は維持（ワーカーが使用）
-- [ ] `notify_user`, `wait_for_user`: MCPツール定義から削除、ハンドラ削除
-- [ ] 依存コードの確認・修正
+- [x] `search`ツール: MCPツール定義から削除、`search_action`は維持（ワーカーが使用）
+- [x] `notify_user`, `wait_for_user`: MCPツール定義から削除、ハンドラ削除
+- [x] 依存コードの確認・修正
+- [x] スキーマファイル削除: `search.json`, `notify_user.json`, `wait_for_user.json`
+- [x] テストファイル削除: `test_mcp_search.py`, `test_mcp_notification.py`
 
 **2.3 ドキュメント更新**
-- [ ] `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
-- [ ] Cursor Rules/Commands (`.cursor/rules/`, `.cursor/commands/`) 内の使用例を更新
-- [ ] §3.6 エラーハンドリングとリトライポリシーの設計判断を明記（本ドキュメント）
-- [ ] **テスト**: 削除後の回帰テスト（既存テストがパスすることを確認）
+- [x] `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
+- [x] Cursor Rules/Commands (`.cursor/rules/`, `.cursor/commands/`) 内の使用例を更新（変更不要）
+- [x] §3.6 エラーハンドリングとリトライポリシーの設計判断を明記（本ドキュメント）
+- [x] **テスト**: 削除後の回帰テスト（既存テストがパスすることを確認）
 
 ### Phase 3: 最終検証
 
@@ -1196,11 +1198,11 @@ await resolve_auth(
 
 ---
 
-**文書バージョン:** 2.2
+**文書バージョン:** 1.2
 **作成日:** 2025-12-21
-**最終更新:** 2025-12-24（実装ロードマップ更新: DB作り直し方式、MCPクライアント更新を明記）
+**最終更新:** 2025-12-24（Phase 2 完了: ツール削除とドキュメント更新）
 **著者:** Claude (Sonnet 4.5 / Opus 4.5)
-**レビュー状態:** 設計確定 - 実装準備完了
+**レビュー状態:** Phase 2 完了 - Phase 3 準備可能
 
 **関連ドキュメント:**
 - `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR

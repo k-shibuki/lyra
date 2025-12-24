@@ -28,6 +28,7 @@ class JobKind(str, Enum):
 
     Note:
         Per ADR-0004: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
+        Per ADR-0010: SEARCH_QUEUE added for async search queue architecture.
     """
 
     SERP = "serp"
@@ -37,6 +38,7 @@ class JobKind(str, Enum):
     RERANK = "rerank"
     LLM = "llm"  # Single LLM job type (per ADR-0004)
     NLI = "nli"
+    SEARCH_QUEUE = "search_queue"  # Async search queue (per ADR-0010)
 
 
 class Slot(str, Enum):
@@ -68,6 +70,7 @@ KIND_TO_SLOT = {
     JobKind.RERANK: Slot.GPU,
     JobKind.LLM: Slot.GPU,  # Single LLM slot (per ADR-0004)
     JobKind.NLI: Slot.CPU_NLP,
+    JobKind.SEARCH_QUEUE: Slot.NETWORK_CLIENT,  # Async search queue (per ADR-0010)
 }
 
 # Priority order (lower = higher priority)
@@ -79,6 +82,7 @@ KIND_PRIORITY = {
     JobKind.RERANK: 50,
     JobKind.LLM: 60,  # Single LLM priority (per ADR-0004)
     JobKind.NLI: 35,
+    JobKind.SEARCH_QUEUE: 25,  # Between FETCH and EXTRACT (per ADR-0010)
 }
 
 # Slot concurrency limits

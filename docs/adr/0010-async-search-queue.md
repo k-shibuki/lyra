@@ -213,21 +213,18 @@ class StatusResult:
 
 ## Implementation Status
 
-**Note**: 本ADRで記載されたアーキテクチャは**計画段階**である。
+**Note**: Phase 1 および Phase 2 が完了。詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
 
 ### 現状（実装済み）
-- `search`ツールが同期的にパイプラインを実行（クライアントはブロックされる）
-- `get_status`でタスク進捗を確認可能
+- Phase 1 (2025-12-24): `queue_searches` ツール追加、`get_status` に `wait` パラメータ追加
+- Phase 2 (2025-12-24): `search`, `notify_user`, `wait_for_user` ツール削除
 
-### 計画（未実装）
-詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
-
-| 変更 | 内容 |
+| 変更 | 状態 |
 |------|------|
-| 削除予定 | `search`, `notify_user`, `wait_for_user` |
-| 追加予定 | `queue_searches`（複数クエリをキューに投入） |
-| 変更予定 | `get_status`に`wait`（long polling）パラメータ追加 |
-| 結果 | 12ツール → 10ツール（17%削減） |
+| `search`, `notify_user`, `wait_for_user` 削除 | ✅ 完了 |
+| `queue_searches` 追加 | ✅ 完了 |
+| `get_status` に `wait` パラメータ追加 | ✅ 完了 |
+| 結果 | 13ツール → 10ツール（23%削減） |
 
 ### Storage Policy (Auditability)
 

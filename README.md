@@ -183,7 +183,7 @@ The MCP client (Cursor AI, Claude Desktop) provides frontier reasoning for strat
 
 | Module | Location | Responsibility |
 |--------|----------|----------------|
-| **MCP Server** | `src/mcp/` | 12 tools for MCP client integration (10 planned after async migration) |
+| **MCP Server** | `src/mcp/` | 10 tools for MCP client integration (per ADR-0010 async architecture) |
 | **Search Providers** | `src/search/` | Multi-engine search, academic APIs |
 | **Citation Filter** | `src/search/citation_filter.py` | 2-stage relevance filtering (embedding + LLM) for citation tracking |
 | **Crawler** | `src/crawler/` | Browser automation, HTTP fetching, session management |
@@ -368,28 +368,25 @@ Lyra works with any MCP-compatible client. Example configurations:
 
 ## Usage
 
-### MCP Tools (12 Tools)
+### MCP Tools (10 Tools)
 
 Lyra exposes the following tools to MCP clients:
-
-> **Note**: After async migration (see `docs/Q_ASYNC_ARCHITECTURE.md`), tool count will be reduced to 10.
-> - `search` → replaced by `queue_searches` (non-blocking)
-> - `notify_user`, `wait_for_user` → removed (replaced by `get_status(wait=...)` long polling)
 
 | Category | Tool | Description |
 |----------|------|-------------|
 | **Task Management** | `create_task` | Create a new research task |
-| | `get_status` | Get unified task status, metrics, and budget |
-| **Research** | `search` | Execute search→fetch→extract→evaluate pipeline |
+| | `get_status` | Get unified task status, metrics, and budget (supports long polling with `wait` parameter) |
+| **Research** | `queue_searches` | Queue multiple search queries for background execution (non-blocking) |
 | | `stop_task` | Finalize a task |
 | **Materials** | `get_materials` | Retrieve claims, fragments, and evidence graph |
 | **Calibration** | `calibration_metrics` | Get statistics, evaluate calibration performance |
 | | `calibration_rollback` | Rollback calibration parameters |
 | **Auth Queue** | `get_auth_queue` | Get pending authentication requests |
 | | `resolve_auth` | Report authentication completion |
-| **Notification** | `notify_user` | Send user notification |
-| | `wait_for_user` | Wait for user input |
 | **Feedback** | `feedback` | Human-in-the-loop feedback (domain/claim/edge management) |
+
+> **Note**: Per ADR-0010, `search`, `notify_user`, `wait_for_user` were removed.
+> Use `queue_searches` + `get_status(wait=N)` for non-blocking search execution.
 
 ### Example Research Workflow
 
@@ -398,31 +395,33 @@ Lyra exposes the following tools to MCP clients:
 create_task(query="Liraglutide cardiovascular safety profile")
 # Returns: {"task_id": "task_abc123", "budget": {"max_pages": 120}}
 
-# 2. Execute search queries (designed by MCP client)
-search(task_id="task_abc123", query="liraglutide FDA cardiovascular warning")
-# Returns: {"claims_found": [...], "harvest_rate": 0.53, "satisfaction_score": 0.85}
+# 2. Queue multiple search queries (non-blocking, immediate response)
+queue_searches(
+    task_id="task_abc123",
+    queries=[
+        "liraglutide FDA cardiovascular warning",
+        "liraglutide LEADER trial results",
+        "liraglutide cardiovascular risk"
+    ],
+    options={"priority": "high"}
+)
+# Returns: {"ok": true, "queued_count": 3, "search_ids": ["s_1", "s_2", "s_3"]}
 
-search(task_id="task_abc123", query="liraglutide LEADER trial results")
-# Returns: {"claims_found": [...], "harvest_rate": 0.61}
-
-# 3. Execute refutation search
-search(task_id="task_abc123", query="liraglutide cardiovascular risk", refute=True)
-# Returns: {"claims_found": [...], "refutations_found": 2, "harvest_rate": 0.45}
-
-# 4. Check progress (includes blocked domains and timing info)
-get_status(task_id="task_abc123")
+# 3. Monitor progress with long polling (server waits up to N seconds before responding)
+get_status(task_id="task_abc123", wait=10)
 # Returns: {
 #   "searches": [...],
+#   "queue": {"depth": 1, "running": 1, "items": [...]},
 #   "budget": {"remaining_percent": 45},
-#   "blocked_domains": [{"domain": "example.com", "reason": "...", "cause_id": "..."}],
+#   "blocked_domains": [...],
 #   "idle_seconds": 12.5
 # }
 
-# 5. Retrieve materials for report composition
+# 4. Retrieve materials for report composition
 get_materials(task_id="task_abc123", include_graph=True)
 # Returns: {"claims": [...], "fragments": [...], "evidence_graph": {...}}
 
-# 6. Finalize task
+# 5. Finalize task
 stop_task(task_id="task_abc123", reason="completed")
 ```
 

@@ -5,14 +5,12 @@ MCP Server Tools E2E Verification
 Verification target: H.3 - MCP server tool invocations
 
 Verification items:
-1. search_serp tool handler - correct result structure
+1. queue_searches tool handler - correct result structure (Phase 1 / ADR-0010)
 2. Tool dispatch mechanism - routing to correct handler
-3. Error handling - proper error response format
+3. Error handling - proper error response format (L7 sanitized error)
 
 Prerequisites:
-- Chrome running with remote debugging on Windows
-- config/settings.yaml browser.chrome_host configured correctly
-- Development container running
+- Development environment with DB available
 
 Usage:
     python tests/scripts/verify_mcp_tools.py
@@ -55,29 +53,10 @@ class MCPToolsVerifier:
 
     def __init__(self) -> None:
         self.results: list[VerificationResult] = []
-        self.browser_available = False
 
     async def check_prerequisites(self) -> bool:
         """Check environment prerequisites."""
         print("\n[Prerequisites] Checking environment...")
-
-        # Check browser connectivity via BrowserSearchProvider
-        try:
-            from src.search.browser_search_provider import BrowserSearchProvider
-
-            provider = BrowserSearchProvider()
-            await provider._ensure_browser()
-            if provider._browser and provider._browser.is_connected():
-                self.browser_available = True
-                print("  ✓ Browser connected via CDP")
-            else:
-                print("  ✗ Browser not connected")
-                print("    Run: ./scripts/chrome.sh start")
-                return False
-        except Exception as e:
-            print(f"  ✗ Browser check failed: {e}")
-            print("    Run: ./scripts/chrome.sh start")
-            return False
 
         # Check database
         try:
@@ -89,131 +68,115 @@ class MCPToolsVerifier:
             print(f"  ✗ Database unavailable: {e}")
             return False
 
+        # Check MCP server import
+        try:
+            from src.mcp.server import TOOLS
+
+            print(f"  ✓ MCP server module loaded ({len(TOOLS)} tools)")
+        except Exception as e:
+            print(f"  ✗ MCP server import failed: {e}")
+            return False
+
         return True
 
-    async def verify_search_serp_handler(self) -> VerificationResult:
+    async def verify_queue_searches_handler(self) -> VerificationResult:
         """
-        Verify search_serp MCP tool handler.
+        Verify queue_searches MCP tool handler.
 
         Tests:
         - Handler returns expected structure
-        - Results contain required fields
         - Error handling works correctly
         """
-        print("\n[1] Verifying search_serp handler...")
+        print("\n[1] Verifying queue_searches handler...")
 
         try:
-            from src.mcp.server import _handle_search
+            from src.mcp.server import _dispatch_tool
+
+            task = await _dispatch_tool(
+                "create_task",
+                {"query": "E2E: verify queue_searches tool handler"},
+            )
+            task_id = task.get("task_id")
+            if not task_id:
+                return VerificationResult(
+                    name="queue_searches handler",
+                    spec_ref="ADR-0010",
+                    passed=False,
+                    error="create_task did not return task_id",
+                )
 
             # Test with valid arguments
             args: dict[str, Any] = {
-                "task_id": "test_task_serp",
-                "query": "Python programming",
-                "options": {
-                    "engines": ["mojeek"],  # Block-resistant engine
-                    "limit": 3,
-                    "time_range": "all",
-                },
+                "task_id": task_id,
+                "queries": ["Python programming"],
+                "options": {"priority": "low"},
             }
 
-            print(f"    Query: {args['query']}")
-            print(f"    Engines: {args['options']['engines']}")
-
-            result = await _handle_search(args)
+            result = await _dispatch_tool("queue_searches", args)
 
             # Verify result structure
             if not isinstance(result, dict):
                 return VerificationResult(
-                    name="search_serp handler",
-                    spec_ref="H.3",
+                    name="queue_searches handler",
+                    spec_ref="ADR-0010",
                     passed=False,
                     error=f"Expected dict, got {type(result)}",
                 )
 
             # Check required fields
-            required_fields = ["ok", "query", "result_count", "results"]
+            required_fields = ["ok", "queued_count", "search_ids"]
             missing_fields = [f for f in required_fields if f not in result]
             if missing_fields:
                 return VerificationResult(
-                    name="search_serp handler",
-                    spec_ref="H.3",
+                    name="queue_searches handler",
+                    spec_ref="ADR-0010",
                     passed=False,
                     error=f"Missing fields: {missing_fields}",
                     details={"result_keys": list(result.keys())},
                 )
 
-            # Check if search succeeded
             if not result["ok"]:
-                # May be CAPTCHA or connection error
-                error_msg = result.get("error", "Unknown error")
-                if "CAPTCHA" in str(error_msg):
-                    return VerificationResult(
-                        name="search_serp handler",
-                        spec_ref="H.3",
-                        passed=True,  # CAPTCHA detection is expected behavior
-                        details={
-                            "captcha_detected": True,
-                            "error": error_msg,
-                        },
-                    )
                 return VerificationResult(
-                    name="search_serp handler",
-                    spec_ref="H.3",
+                    name="queue_searches handler",
+                    spec_ref="ADR-0010",
                     passed=False,
-                    error=error_msg,
+                    error=str(result.get("error", "Unknown error")),
                 )
 
-            # Verify results
-            results = result["results"]
-            if not isinstance(results, list):
+            queued_count = result.get("queued_count")
+            search_ids = result.get("search_ids")
+            if not isinstance(queued_count, int) or queued_count < 1:
                 return VerificationResult(
-                    name="search_serp handler",
-                    spec_ref="H.3",
+                    name="queue_searches handler",
+                    spec_ref="ADR-0010",
                     passed=False,
-                    error=f"Expected results list, got {type(results)}",
+                    error=f"Invalid queued_count: {queued_count}",
+                )
+            if not isinstance(search_ids, list) or len(search_ids) != queued_count:
+                return VerificationResult(
+                    name="queue_searches handler",
+                    spec_ref="ADR-0010",
+                    passed=False,
+                    error=f"Invalid search_ids length: {search_ids}",
                 )
 
-            if len(results) == 0:
-                return VerificationResult(
-                    name="search_serp handler",
-                    spec_ref="H.3",
-                    passed=False,
-                    error="No search results returned",
-                )
-
-            # Verify result item structure
-            first_result = results[0]
-            result_required_fields = ["title", "url", "snippet", "engine", "rank"]
-            missing_result_fields = [f for f in result_required_fields if f not in first_result]
-
-            if missing_result_fields:
-                return VerificationResult(
-                    name="search_serp handler",
-                    spec_ref="H.3",
-                    passed=False,
-                    error=f"Result missing fields: {missing_result_fields}",
-                    details={"first_result_keys": list(first_result.keys())},
-                )
-
-            print(f"    ✓ Got {len(results)} results")
-            print(f"    ✓ First result: {first_result['title'][:50]}...")
+            print(f"    ✓ Queued {queued_count} searches")
 
             return VerificationResult(
-                name="search_serp handler",
-                spec_ref="H.3",
+                name="queue_searches handler",
+                spec_ref="ADR-0010",
                 passed=True,
                 details={
-                    "result_count": len(results),
-                    "first_result_title": first_result["title"][:50],
-                    "first_result_url": first_result["url"],
+                    "queued_count": queued_count,
+                    "search_id_sample": search_ids[0],
                 },
             )
 
         except Exception as e:
-            logger.exception("search_serp handler verification failed")
+            logger.exception("queue_searches handler verification failed")
             return VerificationResult(
-                name="search_serp handler",
-                spec_ref="H.3",
+                name="queue_searches handler",
+                spec_ref="ADR-0010",
                 passed=False,
                 error=str(e),
             )
@@ -256,14 +219,16 @@ class MCPToolsVerifier:
 
             tool_names = [tool.name for tool in TOOLS]
             expected_tools = [
-                "search_serp",
-                "fetch_url",
-                "extract_content",
-                "rank_candidates",
-                "llm_extract",
-                "nli_judge",
-                "get_report_materials",
-                "get_evidence_graph",
+                "create_task",
+                "get_status",
+                "queue_searches",
+                "stop_task",
+                "get_materials",
+                "calibration_metrics",
+                "calibration_rollback",
+                "get_auth_queue",
+                "resolve_auth",
+                "feedback",
             ]
 
             missing_tools = [t for t in expected_tools if t not in tool_names]
@@ -313,7 +278,7 @@ class MCPToolsVerifier:
             from src.mcp.server import call_tool
 
             # Call with invalid arguments to trigger error
-            response = await call_tool("search_serp", {"invalid_param": "test"})
+            response = await call_tool("get_status", {"invalid_param": "test"})
 
             # Response should be list of TextContent
             if not isinstance(response, list):
@@ -493,7 +458,7 @@ class MCPToolsVerifier:
             await self.verify_mcp_server_startup(),
             await self.verify_tool_dispatch(),
             await self.verify_error_response_format(),
-            await self.verify_search_serp_handler(),
+            await self.verify_queue_searches_handler(),
         ]
 
         return self.results

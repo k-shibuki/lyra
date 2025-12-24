@@ -41,7 +41,8 @@ async def _get_exploration_state(task_id: str) -> "ExplorationState":
     """
     from src.mcp.server import _get_exploration_state as get_state
 
-    return await get_state(task_id)
+    state: ExplorationState = await get_state(task_id)
+    return state
 
 
 async def _search_queue_worker(worker_id: int) -> None:
