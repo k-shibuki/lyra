@@ -124,7 +124,8 @@ class ResponseSanitizer:
 
     Example:
         sanitizer = ResponseSanitizer()
-        result = sanitizer.sanitize_response(response, "search")
+        # Example tool name (Phase 2 removed the MCP "search" tool; use a current tool)
+        result = sanitizer.sanitize_response(response, "get_materials")
         return result.sanitized_response
     """
 

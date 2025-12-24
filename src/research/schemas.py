@@ -58,12 +58,17 @@ class MaterialsClaim(BaseModel):
     sources: list[MaterialsSource] = Field(default_factory=list, description="Source list")
 
     evidence: list[EvidenceItem] = Field(default_factory=list, description="Evidence items")
-    evidence_years: EvidenceYears = Field(default_factory=EvidenceYears, description="Evidence year summary")
+    evidence_years: EvidenceYears = Field(
+        default_factory=lambda: EvidenceYears(oldest=None, newest=None),
+        description="Evidence year summary",
+    )
 
     claim_adoption_status: Literal["adopted", "pending", "not_adopted"] = Field(
         "adopted", description="Adoption status for filtering"
     )
-    claim_rejection_reason: str | None = Field(None, description="Reason for rejection if not adopted")
+    claim_rejection_reason: str | None = Field(
+        None, description="Reason for rejection if not adopted"
+    )
 
 
 class MaterialsFragment(BaseModel):
@@ -82,14 +87,20 @@ class MaterialsSummary(BaseModel):
     total_claims: int = Field(0, ge=0, description="Total number of claims")
     verified_claims: int = Field(0, ge=0, description="Number of verified claims")
     refuted_claims: int = Field(0, ge=0, description="Number of refuted claims")
-    primary_source_ratio: float = Field(0.0, ge=0.0, description="Primary source ratio among fragments")
+    primary_source_ratio: float = Field(
+        0.0, ge=0.0, description="Primary source ratio among fragments"
+    )
 
 
 class EvidenceGraphPayload(BaseModel):
     """Evidence graph payload returned by get_materials when include_graph=True."""
 
-    nodes: list[dict[str, Any]] = Field(default_factory=list, description="Graph nodes (opaque objects)")
-    edges: list[dict[str, Any]] = Field(default_factory=list, description="Graph edges (opaque objects)")
+    nodes: list[dict[str, Any]] = Field(
+        default_factory=list, description="Graph nodes (opaque objects)"
+    )
+    edges: list[dict[str, Any]] = Field(
+        default_factory=list, description="Graph edges (opaque objects)"
+    )
 
 
 class GetMaterialsResponse(BaseModel):
@@ -103,5 +114,3 @@ class GetMaterialsResponse(BaseModel):
     summary: MaterialsSummary = Field(..., description="Summary")
     evidence_graph: EvidenceGraphPayload | None = Field(None, description="Evidence graph payload")
     format: Literal["structured", "narrative"] | None = Field(None, description="Output format")
-
-

@@ -253,7 +253,8 @@ runtime_tail() {
 runtime_last_summary_line() {
     local runtime="$1"
     local path="$2"
-    local re="([=]{3,}.*)?[0-9]+ (passed|failed|skipped|deselected)"
+    # Must include "in X.XXs" to avoid matching collection line
+    local re="[0-9]+ (passed|failed).* in [0-9]+(\.[0-9]+)?s"
     if [[ "$runtime" == "container" ]]; then
         container_exec_sh "grep -E \"$re\" \"$path\" 2>/dev/null | tail -n 1" 2>/dev/null || true
     else
@@ -624,25 +625,15 @@ cmd_check() {
         result_content=$(runtime_tail "$runtime" 50 "$result_file" | filter_node_errors || echo "")
         last_line=$(runtime_tail "$runtime" 1 "$result_file" | filter_node_errors || echo "waiting...")
 
-        # If pytest is still running, never claim DONE.
-        # This prevents "DONE" while pytest is still in teardown/cleanup.
-        if [[ "$pid_alive" == "true" ]]; then
-            local now_ts
-            now_ts=$(date +%s)
-            if [[ "$last_line" != "$last_printed_line" ]] || (( now_ts - last_print_ts >= 10 )); then
-                echo "RUNNING | $last_line"
-                last_printed_line="$last_line"
-                last_print_ts=$now_ts
-            fi
-            sleep "$CHECK_INTERVAL_SECONDS"
-            continue
-        fi
-
         # DONE condition 1: pytest summary line exists
+        # Check this BEFORE pid_alive to handle cases where pytest outputs summary
+        # but is still in teardown/cleanup (process alive but test results are final)
         # Examples:
         #   "========== 10 passed, 1 skipped in 1.23s =========="
         #   "1 passed in 0.39s"  (quiet runs)
-        if echo "$result_content" | grep -qE "([=]{3,}.*)?[0-9]+ (passed|failed|skipped|deselected)"; then
+        # Note: Must include "in X.XXs" to avoid matching collection line like:
+        #   "collected 3377 items / 23 deselected / 3354 selected"
+        if echo "$result_content" | grep -qE "[0-9]+ (passed|failed).* in [0-9]+(\.[0-9]+)?s"; then
             echo "DONE"
             echo "=== Summary ==="
             runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true

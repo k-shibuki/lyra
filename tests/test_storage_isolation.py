@@ -111,5 +111,3 @@ class TestIsolatedDatabasePath:
             assert os.environ.get("LYRA_STORAGE__DATABASE_PATH") == str(target)
 
         assert not target.exists()
-
-

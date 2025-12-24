@@ -99,5 +99,3 @@ async def isolated_database_path(
                 tmpdir_obj.cleanup()
             except Exception:
                 pass
-
-

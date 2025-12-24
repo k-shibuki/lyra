@@ -2,7 +2,10 @@
 MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
-Provides 13 MCP tools (11 per ADR-0003 + queue_searches per ADR-0010 + feedback per ADR-0012).
+Provides 10 MCP tools per ADR-0010 async architecture:
+- Removed: search (replaced by queue_searches), notify_user, wait_for_user
+- Added: queue_searches (Phase 1)
+- Modified: get_status (long polling with wait parameter)
 """
 
 import asyncio
@@ -26,7 +29,7 @@ app = Server("lyra")
 
 
 # ============================================================
-# Tool Definitions (13 tools: ADR-0003 + ADR-0010 + ADR-0012)
+# Tool Definitions (10 tools per ADR-0010 async architecture)
 # ============================================================
 
 TOOLS = [
@@ -85,7 +88,7 @@ TOOLS = [
         },
     ),
     # ============================================================
-    # 2. Research Execution (3 tools)
+    # 2. Research Execution (2 tools)
     # ============================================================
     Tool(
         name="queue_searches",
@@ -125,43 +128,8 @@ TOOLS = [
             "required": ["task_id", "queries"],
         },
     ),
-    Tool(
-        name="search",
-        description="Execute a search query designed by Cursor AI. Runs the full search→fetch→extract→evaluate pipeline. Use refute:true for refutation mode.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {"type": "string", "description": "Task ID"},
-                "query": {"type": "string", "description": "Search query (designed by Cursor AI)"},
-                "options": {
-                    "type": "object",
-                    "description": "Search options",
-                    "properties": {
-                        "engines": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Specific engines to use (optional)",
-                        },
-                        "max_pages": {
-                            "type": "integer",
-                            "description": "Maximum pages for this search",
-                        },
-                        "seek_primary": {
-                            "type": "boolean",
-                            "description": "Prioritize primary sources",
-                            "default": False,
-                        },
-                        "refute": {
-                            "type": "boolean",
-                            "description": "Enable refutation mode (applies mechanical suffix patterns)",
-                            "default": False,
-                        },
-                    },
-                },
-            },
-            "required": ["task_id", "query"],
-        },
-    ),
+    # NOTE: search tool removed in Phase 2 (ADR-0010).
+    # Use queue_searches + get_status(wait=N) instead.
     Tool(
         name="stop_task",
         description="Stop/finalize a research task. Returns summary with completion stats.",
@@ -311,58 +279,10 @@ TOOLS = [
         },
     ),
     # ============================================================
-    # 6. Notification (2 tools)
+    # 6. Feedback (1 tool - ADR-0012)
     # ============================================================
-    Tool(
-        name="notify_user",
-        description="Send notification to user. Per ADR-0003: Event types for auth, progress, and errors.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "event": {
-                    "type": "string",
-                    "enum": ["auth_required", "task_progress", "task_complete", "error", "info"],
-                    "description": "Notification event type",
-                },
-                "payload": {
-                    "type": "object",
-                    "description": "Event-specific payload",
-                    "properties": {
-                        "url": {"type": "string"},
-                        "domain": {"type": "string"},
-                        "message": {"type": "string"},
-                        "task_id": {"type": "string"},
-                        "progress_percent": {"type": "number"},
-                    },
-                },
-            },
-            "required": ["event", "payload"],
-        },
-    ),
-    Tool(
-        name="wait_for_user",
-        description="Wait for user input/acknowledgment. Per ADR-0003: Blocks until user responds or timeout.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "prompt": {"type": "string", "description": "Message to show user"},
-                "timeout_seconds": {
-                    "type": "integer",
-                    "description": "Timeout in seconds (default: 300)",
-                    "default": 300,
-                },
-                "options": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional choices for user",
-                },
-            },
-            "required": ["prompt"],
-        },
-    ),
-    # ============================================================
-    # 7. Feedback (1 tool - ADR-0012)
-    # ============================================================
+    # NOTE: notify_user and wait_for_user removed in Phase 2 (ADR-0010).
+    # Use get_status(wait=N) for long polling instead.
     Tool(
         name="feedback",
         description="Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge).",
@@ -491,9 +411,8 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Task Management
         "create_task": _handle_create_task,
         "get_status": _handle_get_status,
-        # Research Execution
+        # Research Execution (search removed in Phase 2, use queue_searches)
         "queue_searches": _handle_queue_searches,
-        "search": _handle_search,
         "stop_task": _handle_stop_task,
         # Materials
         "get_materials": _handle_get_materials,
@@ -503,10 +422,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Authentication Queue
         "get_auth_queue": _handle_get_auth_queue,
         "resolve_auth": _handle_resolve_auth,
-        # Notification
-        "notify_user": _handle_notify_user,
-        "wait_for_user": _handle_wait_for_user,
-        # Feedback
+        # Feedback (notify_user, wait_for_user removed in Phase 2)
         "feedback": _handle_feedback,
     }
 
@@ -1191,106 +1107,9 @@ async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5
     )
 
 
-async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle search tool call.
-
-    Implements ADR-0003: Executes Cursor AI-designed query through
-    the search→fetch→extract→evaluate pipeline.
-
-    Supports refute:true for refutation mode.
-
-    Auto-starts Chrome if not connected (UX-first approach).
-
-    Raises:
-        ChromeNotReadyError: If Chrome CDP is not connected after auto-start attempt.
-    """
-    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
-    from src.research.pipeline import search_action
-
-    task_id = args.get("task_id")
-    query = args.get("query")
-    options = args.get("options", {})
-
-    if not task_id:
-        raise InvalidParamsError(
-            "task_id is required",
-            param_name="task_id",
-            expected="non-empty string",
-        )
-
-    if not query or not query.strip():
-        raise InvalidParamsError(
-            "query is required",
-            param_name="query",
-            expected="non-empty string",
-        )
-
-    # Pre-check: Ensure Chrome CDP is available, auto-starting if needed
-    # UX-first approach: auto-start Chrome rather than returning error immediately
-    await _ensure_chrome_ready()
-
-    with LogContext(task_id=task_id):
-        # Verify task exists
-        db = await get_database()
-        task = await db.fetch_one(
-            "SELECT id FROM tasks WHERE id = ?",
-            (task_id,),
-        )
-
-        if task is None:
-            raise TaskNotFoundError(task_id)
-
-        # Get exploration state
-        state = await _get_exploration_state(task_id)
-
-        # Record activity for ADR-0002 idle timeout tracking
-        state.record_activity()
-
-        # Execute search through unified API
-        result = await search_action(
-            task_id=task_id,
-            query=query,
-            state=state,
-            options=options,
-        )
-
-        # Check for error codes in result and convert to MCPError
-        if result.get("error_code"):
-            from src.mcp.errors import (
-                AllFetchesFailedError,
-                ParserNotAvailableError,
-                PipelineError,
-                SerpSearchFailedError,
-            )
-
-            error_code = result["error_code"]
-            error_details = result.get("error_details", {})
-
-            if error_code == "PARSER_NOT_AVAILABLE":
-                raise ParserNotAvailableError(
-                    engine=error_details.get("engine", "unknown"),
-                    available_engines=error_details.get("available_engines"),
-                )
-            elif error_code == "SERP_SEARCH_FAILED":
-                raise SerpSearchFailedError(
-                    message=f"SERP search failed: {error_details.get('provider_error', 'unknown error')}",
-                    query=error_details.get("query"),
-                    error_details=error_details.get("provider_error"),
-                )
-            elif error_code == "ALL_FETCHES_FAILED":
-                raise AllFetchesFailedError(
-                    total_urls=error_details.get("total_urls", 0),
-                    auth_blocked_count=error_details.get("auth_blocked_count", 0),
-                )
-            else:
-                # Generic pipeline error for unknown error codes
-                raise PipelineError(
-                    message=f"Search failed: {error_code}",
-                    stage="search",
-                )
-
-        return result
+# NOTE: _handle_search removed in Phase 2 (ADR-0010).
+# Use queue_searches + get_status(wait=N) instead.
+# search_action is still used internally by SearchQueueWorker.
 
 
 async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
@@ -1795,128 +1614,10 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# Notification Handlers (ADR-0003)
+# NOTE: Notification Handlers removed in Phase 2 (ADR-0010)
+# _handle_notify_user and _handle_wait_for_user were removed.
+# Use get_status(wait=N) for long polling instead.
 # ============================================================
-
-
-async def _handle_notify_user(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle notify_user tool call.
-
-    Implements ADR-0003: Send notification to user.
-    Per ADR-0007: No DOM operations during auth sessions.
-    """
-    from src.mcp.errors import InvalidParamsError
-    from src.utils.notification import notify_user as send_notification
-
-    event = args.get("event")
-    payload = args.get("payload")
-
-    # Validate required params
-    if not event:
-        raise InvalidParamsError(
-            "event is required",
-            param_name="event",
-            expected="one of: auth_required, task_progress, task_complete, error, info",
-        )
-
-    valid_events = {"auth_required", "task_progress", "task_complete", "error", "info"}
-    if event not in valid_events:
-        raise InvalidParamsError(
-            f"Invalid event type: {event}",
-            param_name="event",
-            expected="one of: auth_required, task_progress, task_complete, error, info",
-        )
-
-    if payload is None:
-        raise InvalidParamsError(
-            "payload is required",
-            param_name="payload",
-            expected="object",
-        )
-
-    # Allow empty payload dict (TC-B-04)
-    if not isinstance(payload, dict):
-        payload = {}
-
-    # Map event types to notification
-    title_map = {
-        "auth_required": "認証が必要です",
-        "task_progress": "タスク進捗",
-        "task_complete": "タスク完了",
-        "error": "エラー",
-        "info": "お知らせ",
-    }
-
-    title_map.get(event, "Lyra通知")
-    payload.get("message", "")
-
-    if event == "auth_required":
-        payload.get("url", "")
-        payload.get("domain", "")
-
-    await send_notification(
-        event=event,
-        payload=payload,
-    )
-
-    return {
-        "ok": True,
-        "event": event,
-        "notified": True,
-    }
-
-
-async def _handle_wait_for_user(args: dict[str, Any]) -> dict[str, Any]:
-    """
-    Handle wait_for_user tool call.
-
-    Implements ADR-0003: Wait for user input/acknowledgment.
-
-    Note: This is a simplified implementation that sends a notification
-    and returns immediately with a "waiting" status. The actual wait
-    is handled by Cursor AI polling get_status or get_auth_queue.
-
-    For blocking waits with timeout, the MCP protocol doesn't support
-    true blocking operations - Cursor AI should poll for completion.
-    """
-    from src.mcp.errors import InvalidParamsError
-    from src.utils.notification import notify_user
-
-    prompt = args.get("prompt")
-    timeout_seconds = args.get("timeout_seconds", 300)
-    options = args.get("options", [])
-
-    # Validate required params
-    if not prompt or not prompt.strip():
-        raise InvalidParamsError(
-            "prompt is required",
-            param_name="prompt",
-            expected="non-empty string",
-        )
-
-    # Send notification with prompt
-    await notify_user(
-        event="info",
-        payload={"message": prompt},
-    )
-
-    logger.info(
-        "User input requested",
-        prompt=prompt[:100],
-        timeout_seconds=timeout_seconds,
-        options=options,
-    )
-
-    # Return immediately - MCP doesn't support true blocking
-    # Cursor AI should poll get_status or get_auth_queue for completion
-    return {
-        "ok": True,
-        "status": "notification_sent",
-        "prompt": prompt,
-        "timeout_seconds": timeout_seconds,
-        "message": "Notification sent. Poll get_status or get_auth_queue for completion.",
-    }
 
 
 # ============================================================
@@ -1957,7 +1658,7 @@ async def _handle_feedback(args: dict[str, Any]) -> dict[str, Any]:
 
 async def run_server() -> None:
     """Run the MCP server."""
-    logger.info("Starting Lyra MCP server (13 tools)")
+    logger.info("Starting Lyra MCP server (10 tools)")
 
     # Initialize database
     await get_database()

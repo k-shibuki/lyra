@@ -20,14 +20,10 @@ Tests the async search queue tool per ADR-0010.
 | TC-QS-05 | get_status wait=61 | Boundary – invalid | InvalidParamsError | Validation |
 """
 
-import asyncio
 import json
 from datetime import UTC, datetime
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 
 class TestQueueSearchesValidation:
