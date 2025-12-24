@@ -612,7 +612,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="calibrate",
                         tool="calibrate",
-                        spec_ref="",
+                        spec_ref="ADR-0011",
                         passed=False,
                         error=f"get_stats failed: {stats_result.get('error')}",
                     )
@@ -639,7 +639,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibration_metrics",
                 tool="calibration_metrics",
-                spec_ref="",
+                spec_ref="ADR-0011",
                 passed=True,
                 details={
                     "actions_tested": ["get_stats", "get_evaluations"],
@@ -651,7 +651,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibration_metrics",
                 tool="calibration_metrics",
-                spec_ref="",
+                spec_ref="ADR-0011",
                 passed=False,
                 error=str(e),
             )
@@ -684,7 +684,7 @@ class MCPIntegrationVerifier:
                     return VerificationResult(
                         name="calibrate_rollback",
                         tool="calibrate_rollback",
-                        spec_ref="",
+                        spec_ref="ADR-0011",
                         passed=False,
                         error="Expected failure for non-existent source, got ok=True",
                     )
@@ -700,7 +700,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibration_rollback",
                 tool="calibration_rollback",
-                spec_ref="",
+                spec_ref="ADR-0011",
                 passed=True,
                 details={
                     "error_handling": "correct",
@@ -712,7 +712,7 @@ class MCPIntegrationVerifier:
             return VerificationResult(
                 name="calibration_rollback",
                 tool="calibration_rollback",
-                spec_ref="",
+                spec_ref="ADR-0011",
                 passed=False,
                 error=str(e),
             )
