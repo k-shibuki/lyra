@@ -25,6 +25,62 @@
 
 **Claimをルートとしたエビデンスグラフ構造を採用し、ベイズ的な信頼度計算を行う。**
 
+### Data Ownership & Scope（グローバル / タスク固有の境界）
+
+本ADRで扱う「Evidence Graph」は、永続化されたデータがすべて `task_id` 列を持つわけではない。
+Lyraでは、**タスク固有（task-scoped）**と**グローバル（global / reuseable）**が混在し、**task_idで“切り出す”**ことでタスク単位の材料を構成する。
+
+#### スコープの基本原則
+
+- **Task-scoped（タスク固有）**
+  - `claims` は `task_id` を持ち、タスクの成果物（主張ノード）である。
+  - タスクの Evidence Graph は、原則として **この task の claims を起点**に切り出される。
+- **Global / Reusable（タスク横断で再利用され得る）**
+  - `pages` は `url UNIQUE` で `task_id` を持たず、同一URLはタスク横断で共有され得る（キャッシュ/再利用の設計）。
+  - `fragments` も `task_id` を持たず `page_id → pages.id` にぶら下がるため、タスク固有の所有権が弱い。
+  - `edges` も `task_id` を持たず、**claimを起点にフィルタ**してタスクの部分グラフを構成する。
+
+#### 実装上のスコーピング（重要）
+
+- Evidence Graph のロードは `task_id` を指定すると **claims(task_id=...) に接続する edges** のみを読み込む。
+  - これにより、`edges/pages/fragments` がグローバルに存在しても、タスクの材料は `task_id` で切り出せる。
+
+### Cleanup Policy（soft / hard）
+
+本ADRのスコープ設計により、停止/削除時のクリーンアップは次の2段階に分けるのが安全である。
+
+#### Soft cleanup（安全・デフォルト）
+
+目的: **他タスクへ影響し得るデータ（pages/fragments等）を触らず**、該当タスクの材料を論理的に不可視化する。
+
+- **Task-scopedを対象**に削除/無効化する（例: `tasks`, `claims`, `queries`, `serp_items`, `task_metrics`, `decisions`, `jobs`, `event_log`, `intervention_queue` など）。
+- Evidence Graph観点では、少なくとも次を対象にする:
+  - **claims**: `claims.task_id = ?`
+  - **edges**: source/target がこの task の claim を参照するもの
+    - `edges` は FK で守られていないため、claims削除後に「claim参照edge」が残るとDBが汚れる。
+    - ただし claim ID はタスク固有であるため、該当 edges の削除は他タスクへ波及しにくい。
+
+Soft cleanup後の状態:
+- `pages/fragments/edges(非claim参照)` はDB上に残り得るが、`task_id` を起点とする材料収集では辿れない（論理的不可視化）。
+
+#### Hard cleanup（慎重）
+
+目的: ストレージ回収のために、**共有され得るデータ**も「安全条件を満たす場合に限り」削除する。
+
+Hard cleanupは **必ず task_id から辿れる集合を計算し、かつ“他タスクから参照されていない”ことを確認**してから削除する。
+
+推奨: hard cleanup は次の仕様とする。
+
+- **hard(orphans_only)**
+  - Soft cleanupを実施後に、追加で以下の “孤児（orphan）” を削除する。
+    - **orphan edges**: source_id/target_id が存在しない（または削除済み）ノードを参照する edges
+    - **orphan fragments**: どの edges にも参照されない fragments
+    - **orphan pages**: どの fragments にも参照されず、かつ edges でも参照されない pages
+  - `pages` にはファイルパス列（html/warc/screenshot等）があるため、ページ削除時に対応するファイル削除も行う（best-effort）。
+
+Note:
+- “中途半端な状態をゼロにする（強い原子性）”は、非同期I/O＋増分永続化の特性上、現実的でない。
+
 ### グラフ構造
 
 ```
