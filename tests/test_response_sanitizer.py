@@ -10,7 +10,7 @@ Test Perspectives Table:
 | TC-N-02 | Valid get_status response | Equivalence – normal | Schema-compliant fields only | - |
 | TC-N-03 | Valid search response with claims | Equivalence – normal | Claims text passes L4 | - |
 | TC-N-04 | Valid error response | Equivalence – normal | Error format returned | - |
-| TC-N-05 | oneOf schema (calibrate) | Equivalence – normal | Matches correct variant | - |
+| TC-N-05 | oneOf schema (calibration_metrics) | Equivalence – normal | Matches correct variant | - |
 | TC-A-01 | Unknown field in response | Boundary – unknown field | Field removed | - |
 | TC-A-02 | LLM field with URL | Boundary – suspicious content | URL detected, warning logged | - |
 | TC-A-03 | LLM field with prompt fragment | Boundary – leakage | Masked with [REDACTED] | - |
@@ -208,26 +208,32 @@ class TestNormalCases:
         assert result.sanitized_response["ok"] is False
         assert result.sanitized_response["error_code"] == "TASK_NOT_FOUND"
 
-    def test_calibrate_one_of_schema_matching(self, sanitizer: ResponseSanitizer) -> None:
+    def test_calibration_metrics_one_of_schema_matching(
+        self, sanitizer: ResponseSanitizer
+    ) -> None:
         """
-        TC-N-05: oneOf schema (calibrate) matches correct variant
+        TC-N-05: oneOf schema (calibration_metrics) matches correct variant
 
-        // Given: A calibrate response with action="add_sample"
+        // Given: A calibration_metrics response with action="get_stats"
         // When: Sanitizing the response
-        // Then: Matches the add_sample variant schema
+        // Then: Matches the get_stats variant schema
+
+        NOTE: Updated in Phase 6 (ADR-0011): calibrate -> calibration_metrics,
+        add_sample removed (use feedback(edge_correct) instead).
         """
         response = {
             "ok": True,
-            "action": "add_sample",
-            "sample_id": "sample_123",
-            "source": "llm_extract",
-            "pending_count": 5,
+            "action": "get_stats",
+            "stats": {
+                "llm_extract": {"sample_count": 100, "brier_score": 0.15, "version": 1},
+                "nli_judge": {"sample_count": 50, "brier_score": 0.12, "version": 1},
+            },
         }
 
-        result = sanitizer.sanitize_response(response, "calibrate")
+        result = sanitizer.sanitize_response(response, "calibration_metrics")
 
-        assert result.sanitized_response["action"] == "add_sample"
-        assert result.sanitized_response["sample_id"] == "sample_123"
+        assert result.sanitized_response["action"] == "get_stats"
+        assert "llm_extract" in result.sanitized_response["stats"]
         assert result.stats.fields_removed == 0
 
 
