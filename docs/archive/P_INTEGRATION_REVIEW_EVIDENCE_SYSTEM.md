@@ -282,3 +282,4 @@ for category in evidence.values():
 **P_EVIDENCE_SYSTEM.md の実装は完了**していますが、**ISSUE-001（起動時の domain_override 復元漏れ）** を修正してから次Phaseに進むことを推奨します。
 
 > 修正完了済み
+> 
