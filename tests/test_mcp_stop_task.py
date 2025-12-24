@@ -15,6 +15,8 @@ Tests the stop_task tool's graceful/immediate mode per ADR-0010.
 | TC-ST-07 | mode=graceful, running jobs | Equivalence – normal | running NOT cancelled | graceful waits |
 | TC-ST-08 | missing task_id | Boundary – NULL | InvalidParamsError | validation |
 | TC-ST-09 | nonexistent task_id | Equivalence – error | TaskNotFoundError | validation |
+| TC-ST-10 | immediate + running worker | Equivalence – cancel | Worker task cancelled | real cancellation |
+| TC-ST-11 | cancel then complete race | Equivalence – race | completed not overwritten | race prevention |
 """
 
 import json
@@ -81,10 +83,12 @@ class TestStopTaskModeValidation:
         )
 
         with pytest.raises(InvalidParamsError) as exc_info:
-            await _handle_stop_task({
-                "task_id": "task_st05",
-                "mode": "invalid_mode",
-            })
+            await _handle_stop_task(
+                {
+                    "task_id": "task_st05",
+                    "mode": "invalid_mode",
+                }
+            )
 
         assert exc_info.value.details.get("param_name") == "mode"
 
@@ -131,10 +135,12 @@ class TestStopTaskGracefulMode:
                 ),
             )
 
-        result = await _handle_stop_task({
-            "task_id": "task_st01",
-            "mode": "graceful",
-        })
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st01",
+                "mode": "graceful",
+            }
+        )
 
         assert result["ok"] is True
         assert result["mode"] == "graceful"
@@ -186,10 +192,12 @@ class TestStopTaskGracefulMode:
             ),
         )
 
-        await _handle_stop_task({
-            "task_id": "task_st07",
-            "mode": "graceful",
-        })
+        await _handle_stop_task(
+            {
+                "task_id": "task_st07",
+                "mode": "graceful",
+            }
+        )
 
         # Verify running job is NOT cancelled
         row = await db.fetch_one(
@@ -253,10 +261,12 @@ class TestStopTaskGracefulMode:
             ),
         )
 
-        result = await _handle_stop_task({
-            "task_id": "task_st04",
-            # mode not specified
-        })
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st04",
+                # mode not specified
+            }
+        )
 
         assert result["mode"] == "graceful"
 
@@ -317,10 +327,12 @@ class TestStopTaskImmediateMode:
                 ),
             )
 
-        result = await _handle_stop_task({
-            "task_id": "task_st02",
-            "mode": "immediate",
-        })
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st02",
+                "mode": "immediate",
+            }
+        )
 
         assert result["ok"] is True
         assert result["mode"] == "immediate"
@@ -372,10 +384,12 @@ class TestStopTaskImmediateMode:
             ),
         )
 
-        result = await _handle_stop_task({
-            "task_id": "task_st03",
-            "mode": "immediate",
-        })
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st03",
+                "mode": "immediate",
+            }
+        )
 
         assert result["ok"] is True
         assert result["mode"] == "immediate"
@@ -411,10 +425,12 @@ class TestStopTaskEmptyQueue:
             ("task_st06", "Test task", "exploring"),
         )
 
-        result = await _handle_stop_task({
-            "task_id": "task_st06",
-            "mode": "immediate",
-        })
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st06",
+                "mode": "immediate",
+            }
+        )
 
         assert result["ok"] is True
         assert result["task_id"] == "task_st06"
@@ -441,3 +457,273 @@ class TestStopTaskToolDefinition:
         ]
         assert stop_task_tool.inputSchema["properties"]["mode"]["default"] == "graceful"
 
+
+class TestStopTaskRealCancellation:
+    """Tests for stop_task with real worker task cancellation.
+
+    These tests verify that mode=immediate actually cancels running asyncio tasks,
+    not just updating DB state.
+    """
+
+    @pytest.mark.asyncio
+    async def test_immediate_cancels_running_search_task(self, test_database) -> None:
+        """
+        TC-ST-10: mode=immediate cancels running search_action task.
+
+        // Given: Task with a registered search_action task in SearchQueueWorkerManager
+        // When: stop_task(mode=immediate)
+        // Then: The search_action asyncio.Task is cancelled (worker survives)
+        """
+        import asyncio
+
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st10", "Test task", "exploring"),
+        )
+
+        # Create manager
+        manager = SearchQueueWorkerManager()
+        cancel_flag = {"cancelled": False}
+        search_id = "s_st10_running"
+
+        # Create a mock search_action task (not the worker itself)
+        # The worker wraps search_action in create_task() and registers that task
+        async def mock_search_action():
+            try:
+                await asyncio.sleep(60)  # Long sleep
+            except asyncio.CancelledError:
+                cancel_flag["cancelled"] = True
+                raise
+            finally:
+                # Mimic real worker's finally block
+                manager.unregister_job(search_id)
+
+        search_task = asyncio.create_task(mock_search_action())
+        manager.register_job(search_id, "task_st10", search_task)
+
+        # Verify job is registered
+        assert manager.running_job_count == 1
+
+        # Cancel jobs for task
+        cancelled_count = await manager.cancel_jobs_for_task("task_st10")
+
+        # Verify cancellation (wiring check)
+        assert cancelled_count == 1
+        assert cancel_flag["cancelled"] is True
+        assert search_task.cancelled() or search_task.done()
+        # Verify unregistration (effect check: worker's finally block calls unregister_job)
+        assert manager.running_job_count == 0
+
+    @pytest.mark.asyncio
+    async def test_cancel_does_not_affect_other_tasks(self, test_database) -> None:
+        """
+        TC-ST-10b: Cancellation only affects the specified task's search_action tasks.
+
+        // Given: Multiple tasks with running search_action tasks
+        // When: stop_task(mode=immediate) for one task
+        // Then: Only that task's search_action tasks are cancelled
+        """
+        import asyncio
+
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        db = test_database
+
+        # Create tasks
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st10_a", "Test task A", "exploring"),
+        )
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st10_b", "Test task B", "exploring"),
+        )
+
+        # Create manager with search_action tasks for both research tasks
+        manager = SearchQueueWorkerManager()
+
+        search_a_cancelled = {"cancelled": False}
+        search_b_cancelled = {"cancelled": False}
+        search_id_a = "s_task_a"
+        search_id_b = "s_task_b"
+
+        # Mock search_action tasks (worker wraps these in create_task)
+        async def search_action_a():
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                search_a_cancelled["cancelled"] = True
+                raise
+            finally:
+                manager.unregister_job(search_id_a)
+
+        async def search_action_b():
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                search_b_cancelled["cancelled"] = True
+                raise
+            finally:
+                manager.unregister_job(search_id_b)
+
+        search_task_a = asyncio.create_task(search_action_a())
+        search_task_b = asyncio.create_task(search_action_b())
+
+        manager.register_job(search_id_a, "task_st10_a", search_task_a)
+        manager.register_job(search_id_b, "task_st10_b", search_task_b)
+
+        assert manager.running_job_count == 2
+
+        # Cancel only task A's search
+        cancelled_count = await manager.cancel_jobs_for_task("task_st10_a")
+
+        # Verify only task A's search was cancelled (wiring check)
+        assert cancelled_count == 1
+        assert search_a_cancelled["cancelled"] is True
+        assert search_b_cancelled["cancelled"] is False
+        assert not search_task_b.done()
+        # Verify only task A was unregistered (effect check)
+        assert manager.running_job_count == 1
+
+        # Cleanup task B
+        search_task_b.cancel()
+        try:
+            await search_task_b
+        except asyncio.CancelledError:
+            pass
+        assert manager.running_job_count == 0
+
+
+class TestStopTaskRaceCondition:
+    """Tests for stop_task race condition prevention.
+
+    These tests verify that concurrent cancel and complete operations
+    don't overwrite each other incorrectly.
+    """
+
+    @pytest.mark.asyncio
+    async def test_completed_not_overwritten_after_cancel(self, test_database) -> None:
+        """
+        TC-ST-11: Completed state is not written if job was already cancelled.
+
+        // Given: Job is in 'cancelled' state (simulating race)
+        // When: Worker tries to write 'completed'
+        // Then: The state remains 'cancelled' (conditional UPDATE prevents overwrite)
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st11", "Test task", "exploring"),
+        )
+
+        # Create a job that is already cancelled (simulating race condition)
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at, finished_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_st11_cancelled",
+                "task_st11",
+                "search_queue",
+                50,
+                "network_client",
+                "cancelled",  # Already cancelled
+                json.dumps({"query": "test", "options": {}}),
+                now,
+                now,
+            ),
+        )
+
+        # Simulate worker trying to complete the job (conditional UPDATE)
+        cursor = await db.execute(
+            """
+            UPDATE jobs
+            SET state = 'completed', finished_at = ?, output_json = ?
+            WHERE id = ? AND state = 'running'
+            """,
+            (
+                datetime.now(UTC).isoformat(),
+                json.dumps({"ok": True}),
+                "s_st11_cancelled",
+            ),
+        )
+
+        # Verify: rowcount should be 0 (no rows updated)
+        assert getattr(cursor, "rowcount", 0) == 0
+
+        # Verify state is still 'cancelled'
+        row = await db.fetch_one(
+            "SELECT state FROM jobs WHERE id = ?",
+            ("s_st11_cancelled",),
+        )
+        assert row["state"] == "cancelled"
+
+    @pytest.mark.asyncio
+    async def test_failed_not_overwritten_after_cancel(self, test_database) -> None:
+        """
+        TC-ST-11b: Failed state is not written if job was already cancelled.
+
+        // Given: Job is in 'cancelled' state
+        // When: Worker tries to write 'failed'
+        // Then: The state remains 'cancelled'
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st11b", "Test task", "exploring"),
+        )
+
+        # Create a job that is already cancelled
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at, finished_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_st11b_cancelled",
+                "task_st11b",
+                "search_queue",
+                50,
+                "network_client",
+                "cancelled",
+                json.dumps({"query": "test", "options": {}}),
+                now,
+                now,
+            ),
+        )
+
+        # Simulate worker trying to mark as failed (conditional UPDATE)
+        cursor = await db.execute(
+            """
+            UPDATE jobs
+            SET state = 'failed', finished_at = ?, error_message = ?
+            WHERE id = ? AND state = 'running'
+            """,
+            (
+                datetime.now(UTC).isoformat(),
+                "Simulated error",
+                "s_st11b_cancelled",
+            ),
+        )
+
+        # Verify: rowcount should be 0
+        assert getattr(cursor, "rowcount", 0) == 0
+
+        # Verify state is still 'cancelled'
+        row = await db.fetch_one(
+            "SELECT state FROM jobs WHERE id = ?",
+            ("s_st11b_cancelled",),
+        )
+        assert row["state"] == "cancelled"

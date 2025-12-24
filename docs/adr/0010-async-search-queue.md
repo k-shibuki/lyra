@@ -256,6 +256,8 @@ class StatusResult:
 - **mode=immediate**:
   - queued → cancelled.
   - running → cancelled via `asyncio.Task.cancel()`. Result JSON is not persisted.
+  - **Batch cancellation**: All running jobs for the task are cancelled at once (`SearchQueueWorkerManager.cancel_jobs_for_task()`).
+  - **Worker continuity**: Workers survive individual job cancellations and continue processing other tasks. The worker catches `CancelledError` from the `search_action` task and continues its loop.
 
 **Logical consistency guarantee**: With async I/O and incremental persistence, "immediate" may still leave partial DB artifacts (pages/fragments) written before cancellation. However, **the job's `state = 'cancelled'` in the `jobs` table provides the authoritative record** that the search was cancelled. Downstream consumers can filter out data associated with cancelled jobs.
 

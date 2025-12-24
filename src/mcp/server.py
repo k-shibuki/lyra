@@ -992,127 +992,6 @@ async def _check_chrome_cdp_ready() -> bool:
         return False
 
 
-async def _auto_start_chrome() -> bool:
-    """
-    Auto-start Chrome using chrome.sh script.
-
-    Executes ./scripts/chrome.sh start and returns success status.
-    UX-first approach: Lyra auto-starts Chrome when needed rather than
-    returning an error immediately.
-
-    Uses asyncio.create_subprocess_exec() for non-blocking execution.
-
-    Returns:
-        True if chrome.sh start succeeded, False otherwise.
-    """
-    import asyncio
-    from pathlib import Path
-
-    # Find chrome.sh script relative to this file
-    # src/mcp/server.py -> scripts/chrome.sh
-    script_path = Path(__file__).parent.parent.parent / "scripts" / "chrome.sh"
-
-    if not script_path.exists():
-        logger.warning("chrome.sh not found", path=str(script_path))
-        return False
-
-    try:
-        logger.info("Auto-starting Chrome", script=str(script_path))
-        process = await asyncio.create_subprocess_exec(
-            str(script_path),
-            "start",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        # Wait for process completion with timeout
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=30.0,  # 30 second timeout for script execution
-            )
-        except TimeoutError:
-            logger.error("Chrome auto-start timed out")
-            process.kill()
-            await process.wait()
-            return False
-
-        stdout_text = stdout.decode() if stdout else ""
-        stderr_text = stderr.decode() if stderr else ""
-
-        if process.returncode == 0:
-            logger.info(
-                "Chrome auto-start script completed",
-                stdout=stdout_text[:200] if stdout_text else "",
-            )
-            return True
-        else:
-            logger.warning(
-                "Chrome auto-start script failed",
-                returncode=process.returncode,
-                stderr=stderr_text[:200] if stderr_text else "",
-            )
-            return False
-    except Exception as e:
-        logger.error("Chrome auto-start error", error=str(e))
-        return False
-
-
-async def _ensure_chrome_ready(timeout: float = 15.0, poll_interval: float = 0.5) -> bool:
-    """
-    Ensure Chrome CDP is ready, auto-starting if needed.
-
-    Workflow:
-    1. Check if CDP is already connected
-    2. If not, auto-start Chrome using chrome.sh
-    3. Wait up to timeout seconds for CDP connection
-    4. Return True if connected, raise ChromeNotReadyError if failed
-
-    Args:
-        timeout: Maximum seconds to wait for CDP connection after auto-start.
-        poll_interval: Seconds between CDP connection checks.
-
-    Returns:
-        True if Chrome CDP is ready.
-
-    Raises:
-        ChromeNotReadyError: If Chrome could not be started or connected.
-    """
-    import time
-
-    from src.mcp.errors import ChromeNotReadyError
-
-    # 1. Check if already connected
-    if await _check_chrome_cdp_ready():
-        logger.debug("Chrome CDP already ready")
-        return True
-
-    # 2. Auto-start Chrome
-    logger.info("Chrome CDP not ready, attempting auto-start")
-    auto_start_success = await _auto_start_chrome()
-
-    if not auto_start_success:
-        logger.warning("Chrome auto-start script failed")
-        # Continue to wait anyway - script might have partially succeeded
-
-    # 3. Wait for CDP connection with polling
-    start_time = time.monotonic()
-    while time.monotonic() - start_time < timeout:
-        if await _check_chrome_cdp_ready():
-            elapsed = time.monotonic() - start_time
-            logger.info("Chrome CDP ready after auto-start", elapsed_seconds=round(elapsed, 1))
-            return True
-        await asyncio.sleep(poll_interval)
-
-    # 4. Failed - raise error
-    logger.error("Chrome CDP not ready after auto-start", timeout=timeout)
-
-    raise ChromeNotReadyError(
-        "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh start",
-        auto_start_attempted=True,
-    )
-
-
 # NOTE: _handle_search removed in Phase 2 (ADR-0010).
 # Use queue_searches + get_status(wait=N) instead.
 # search_action is still used internally by SearchQueueWorker.
@@ -1211,14 +1090,17 @@ async def _cancel_search_queue_jobs(
 
     Mode semantics (ADR-0010):
     - graceful: Only cancel 'queued' jobs. Running jobs complete normally.
-    - immediate: Cancel both 'queued' and 'running' jobs.
+    - immediate: Cancel both 'queued' and 'running' jobs, including in-flight
+                 search_action executions via asyncio.Task.cancel().
     """
     from datetime import UTC, datetime
 
-    now = datetime.now(UTC).isoformat()
-    counts = {"queued_cancelled": 0, "running_cancelled": 0}
+    from src.scheduler.search_worker import get_worker_manager
 
-    # Always cancel queued jobs
+    now = datetime.now(UTC).isoformat()
+    counts = {"queued_cancelled": 0, "running_cancelled": 0, "tasks_cancelled": 0}
+
+    # Always cancel queued jobs (DB state only)
     cursor = await db.execute(
         """
         UPDATE jobs
@@ -1230,7 +1112,14 @@ async def _cancel_search_queue_jobs(
     counts["queued_cancelled"] = getattr(cursor, "rowcount", 0)
 
     if mode == "immediate":
-        # Also cancel running jobs
+        # Cancel running jobs: both DB state and actual asyncio.Task
+        # Step 1: Cancel running worker tasks (this triggers CancelledError)
+        manager = get_worker_manager()
+        tasks_cancelled = await manager.cancel_jobs_for_task(task_id)
+        counts["tasks_cancelled"] = tasks_cancelled
+
+        # Step 2: Update DB state for any running jobs that weren't tracked
+        # (defensive: handles edge cases where job wasn't registered)
         cursor = await db.execute(
             """
             UPDATE jobs
@@ -1247,6 +1136,7 @@ async def _cancel_search_queue_jobs(
         mode=mode,
         queued_cancelled=counts["queued_cancelled"],
         running_cancelled=counts["running_cancelled"],
+        tasks_cancelled=counts.get("tasks_cancelled", 0),
     )
 
     return counts

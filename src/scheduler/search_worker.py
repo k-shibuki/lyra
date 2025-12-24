@@ -13,7 +13,7 @@ Worker lifecycle:
 import asyncio
 import json
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from src.storage.database import get_database
 from src.utils.logging import LogContext, get_logger
@@ -58,6 +58,10 @@ async def _search_queue_worker(worker_id: int) -> None:
     Claim semantics:
     - Uses compare-and-swap (CAS) to atomically claim jobs
     - Prevents two workers from processing the same job
+
+    Cancellation support (ADR-0010 mode=immediate):
+    - Registers running jobs with SearchQueueWorkerManager for cancellation tracking
+    - Uses conditional UPDATE (WHERE state='running') to prevent overwriting cancelled state
 
     Args:
         worker_id: Unique identifier for this worker (0 to NUM_WORKERS-1).
@@ -156,21 +160,31 @@ async def _search_queue_worker(worker_id: int) -> None:
                     )
                     continue
 
-                # Execute search
-                try:
-                    result = await search_action(
+                # Execute search with job tracking for cancellation support
+                # Wrap search_action in a separate task so we can cancel it
+                # without killing the worker itself (ADR-0010 mode=immediate)
+                manager = get_worker_manager()
+                search_task = asyncio.create_task(
+                    search_action(
                         task_id=task_id,
                         query=query,
                         state=state,
                         options=options,
-                    )
+                    ),
+                    name=f"search_action_{search_id}",
+                )
+                manager.register_job(search_id, task_id, search_task)
 
-                    # Success - update state to 'completed'
-                    await db.execute(
+                try:
+                    result = await search_task
+
+                    # Success - update state to 'completed' with race condition protection
+                    # Only update if state is still 'running' (prevents overwriting 'cancelled')
+                    cursor = await db.execute(
                         """
                         UPDATE jobs
                         SET state = 'completed', finished_at = ?, output_json = ?
-                        WHERE id = ?
+                        WHERE id = ? AND state = 'running'
                         """,
                         (
                             datetime.now(UTC).isoformat(),
@@ -179,35 +193,49 @@ async def _search_queue_worker(worker_id: int) -> None:
                         ),
                     )
 
-                    # Notify long polling clients
-                    state.notify_status_change()
+                    if getattr(cursor, "rowcount", 0) == 0:
+                        # Job was cancelled while we were processing - don't log as completed
+                        logger.info(
+                            "Search completion skipped (job already cancelled)",
+                            search_id=search_id,
+                            task_id=task_id,
+                        )
+                    else:
+                        # Notify long polling clients
+                        state.notify_status_change()
 
-                    logger.info(
-                        "Search completed from queue",
-                        search_id=search_id,
-                        task_id=task_id,
-                        status=result.get("status"),
-                        pages_fetched=result.get("pages_fetched"),
-                    )
+                        logger.info(
+                            "Search completed from queue",
+                            search_id=search_id,
+                            task_id=task_id,
+                            status=result.get("status"),
+                            pages_fetched=result.get("pages_fetched"),
+                        )
 
                 except asyncio.CancelledError:
-                    # Worker shutdown or stop_task(mode=immediate)
-                    # Mark as cancelled and re-raise
+                    # stop_task(mode=immediate) cancelled this search_task
+                    # The worker itself continues running (does NOT break)
                     await db.execute(
                         """
                         UPDATE jobs
                         SET state = 'cancelled', finished_at = ?
-                        WHERE id = ?
+                        WHERE id = ? AND state = 'running'
                         """,
                         (datetime.now(UTC).isoformat(), search_id),
                     )
+
+                    # Notify long polling clients
+                    try:
+                        state.notify_status_change()
+                    except Exception:
+                        pass  # Ignore notification errors during cancellation
 
                     logger.info(
                         "Search cancelled from queue",
                         search_id=search_id,
                         task_id=task_id,
                     )
-                    raise  # Re-raise to propagate cancellation
+                    # Do NOT re-raise: worker continues to next job
 
                 except Exception as e:
                     # Search failed - update state to 'failed'
@@ -215,7 +243,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                         """
                         UPDATE jobs
                         SET state = 'failed', finished_at = ?, error_message = ?
-                        WHERE id = ?
+                        WHERE id = ? AND state = 'running'
                         """,
                         (
                             datetime.now(UTC).isoformat(),
@@ -234,6 +262,10 @@ async def _search_queue_worker(worker_id: int) -> None:
                         error=str(e),
                         exc_info=True,
                     )
+
+                finally:
+                    # Always unregister job when done (success, failure, or cancel)
+                    manager.unregister_job(search_id)
 
         except asyncio.CancelledError:
             # Worker shutdown
@@ -257,11 +289,103 @@ class SearchQueueWorkerManager:
     """Manages lifecycle of search queue workers.
 
     Provides start/stop methods for integration with run_server().
+    Also tracks running jobs for cancellation support (ADR-0010 mode=immediate).
     """
 
     def __init__(self) -> None:
         self._workers: list[asyncio.Task[None]] = []
         self._started = False
+        # Running job tracking: search_id -> (task_id, asyncio.Task)
+        # Used by cancel_jobs_for_task() for mode=immediate cancellation
+        self._running_jobs: dict[str, tuple[str, asyncio.Task[Any]]] = {}
+
+    def register_job(self, search_id: str, task_id: str, job_task: asyncio.Task[Any]) -> None:
+        """Register a running search job for cancellation tracking.
+
+        Called by worker when it starts processing a search.
+
+        Args:
+            search_id: The search job ID (jobs.id).
+            task_id: The research task ID (tasks.id).
+            job_task: The asyncio.Task running the search_action.
+        """
+        self._running_jobs[search_id] = (task_id, job_task)
+        logger.debug(
+            "Registered running job",
+            search_id=search_id,
+            task_id=task_id,
+            total_running=len(self._running_jobs),
+        )
+
+    def unregister_job(self, search_id: str) -> None:
+        """Unregister a completed/failed/cancelled search job.
+
+        Called by worker when search processing finishes (any outcome).
+
+        Args:
+            search_id: The search job ID to unregister.
+        """
+        if search_id in self._running_jobs:
+            del self._running_jobs[search_id]
+            logger.debug(
+                "Unregistered job",
+                search_id=search_id,
+                total_running=len(self._running_jobs),
+            )
+
+    async def cancel_jobs_for_task(self, task_id: str) -> int:
+        """Cancel all running search jobs for a specific task.
+
+        Used by stop_task(mode=immediate) to cancel in-flight searches.
+
+        Args:
+            task_id: The research task ID whose jobs should be cancelled.
+
+        Returns:
+            Number of jobs that were cancelled.
+        """
+        cancelled_count = 0
+        jobs_to_cancel: list[tuple[str, asyncio.Task[Any]]] = []
+
+        # Find all jobs for this task
+        for search_id, (job_task_id, job_task) in list(self._running_jobs.items()):
+            if job_task_id == task_id and not job_task.done():
+                jobs_to_cancel.append((search_id, job_task))
+
+        if not jobs_to_cancel:
+            return 0
+
+        # Yield to let tasks start running (necessary for proper cancellation)
+        await asyncio.sleep(0)
+
+        # Cancel each job
+        for search_id, job_task in jobs_to_cancel:
+            if not job_task.done():
+                job_task.cancel()
+                cancelled_count += 1
+                logger.info(
+                    "Cancelled running search job",
+                    search_id=search_id,
+                    task_id=task_id,
+                )
+
+        # Wait for cancellations to propagate (with timeout)
+        if cancelled_count > 0:
+            tasks_to_wait = [job_task for _, job_task in jobs_to_cancel if not job_task.done()]
+            if tasks_to_wait:
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*tasks_to_wait, return_exceptions=True),
+                        timeout=5.0,
+                    )
+                except TimeoutError:
+                    logger.warning(
+                        "Timeout waiting for job cancellations",
+                        task_id=task_id,
+                        pending_count=len(tasks_to_wait),
+                    )
+
+        return cancelled_count
 
     async def start(self) -> None:
         """Start all search queue workers."""
@@ -270,6 +394,7 @@ class SearchQueueWorkerManager:
 
         self._started = True
         self._workers = []
+        self._running_jobs = {}
 
         for i in range(NUM_WORKERS):
             task = asyncio.create_task(
@@ -302,12 +427,18 @@ class SearchQueueWorkerManager:
                 pass
 
         self._workers = []
+        self._running_jobs = {}
         logger.info("Search queue workers stopped")
 
     @property
     def is_running(self) -> bool:
         """Check if workers are running."""
         return self._started
+
+    @property
+    def running_job_count(self) -> int:
+        """Get count of currently running jobs."""
+        return len(self._running_jobs)
 
 
 # Global manager instance

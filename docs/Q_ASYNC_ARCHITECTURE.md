@@ -652,6 +652,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 - **mode=immediate**:
   - queued → cancelled（`jobs.state = 'cancelled'`）
   - running → `asyncio.Task.cancel()` でキャンセルし、`jobs.state = 'cancelled'` に更新（result JSONは保存しない）
+  - **一括キャンセル**: そのタスクに紐づく**全ての running jobs が一括でキャンセル**される（`SearchQueueWorkerManager.cancel_jobs_for_task()`）
+  - **ワーカー継続**: `search_action` タスクがキャンセルされても、**ワーカー自体は継続**して次のジョブを処理できる（ワーカーは `CancelledError` を捕捉して `continue` する）
   - **soft cleanup を実施**し、タスク固有データ（claims/queries/serp_items 等）と、当該taskのclaimsに接続するedgesを削除して不可視化する
   - ただしキャンセル時点までにDBへ書かれた pages/fragments 等の"痕跡"は残り得る（強い原子性は保証しない）
   - `pages.url UNIQUE` のため pages/fragments はタスク横断で再利用され得る（詳細は ADR-0005 の Data Ownership & Scope を参照）

@@ -119,32 +119,6 @@ class PlaywrightProvider(BaseBrowserProvider):
         self._current_page: Page | None = None
         self._human_sim = HumanBehaviorSimulator()
 
-    def _get_chrome_executable_path(self) -> str | None:
-        """Get system Chrome executable path.
-
-        Returns:
-            Chrome executable path if found, None otherwise.
-        """
-        import os
-        import shutil
-
-        # Try to find Chrome/Chromium in PATH
-        chrome_names = ["google-chrome", "chromium-browser", "chromium", "chrome"]
-        for name in chrome_names:
-            chrome_path = shutil.which(name)
-            if chrome_path:
-                return chrome_path
-
-        # WSL: Try Windows Chrome path (but won't work directly from WSL)
-        # Note: WSL should use CDP connection instead of direct launch
-        if os.name == "nt" or os.environ.get("WSL_DISTRO_NAME"):
-            # Windows Chrome path (for reference, but CDP is preferred)
-            windows_chrome = "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
-            if os.path.exists(windows_chrome):
-                return windows_chrome
-
-        return None
-
     async def _ensure_playwright(self) -> None:
         """Ensure Playwright is initialized."""
         if self._playwright is None:
