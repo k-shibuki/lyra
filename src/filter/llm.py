@@ -44,7 +44,7 @@ class OllamaClient:
     """
     Thin facade for OllamaProvider.
 
-    Per , LLM processes should be released after task completion.
+    Per ADR-0004, LLM processes should be released after task completion.
     Prefer LLMProvider directly for new code.
     """
 

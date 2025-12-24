@@ -1,5 +1,7 @@
 # LoRA ファインチューニング設計書
 
+> **Status**: DESIGN PROPOSAL（未実装）
+
 ## 1. ドキュメントの位置づけ
 
 本ドキュメントは、NLIモデルのLoRA（Low-Rank Adaptation）ファインチューニング機能の設計書である。
