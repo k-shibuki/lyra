@@ -923,7 +923,7 @@ status = await call_tool("get_status", {
 - [x] §3.6 エラーハンドリングとリトライポリシーの設計判断を明記（本ドキュメント）
 - [x] **テスト**: 削除後の回帰テスト（既存テストがパスすることを確認）
 
-### Phase 3: 最終検証 ✅ DONE
+### Phase 3: 一次検証 ✅ DONE
 
 **3.1 パフォーマンステスト**
 - [x] 大量キュー（10+検索）: `tests/test_search_queue_worker.py::TestSearchQueuePerformance`
@@ -947,6 +947,50 @@ status = await call_tool("get_status", {
 - [x] README.mdが最新（10ツール）
 - [x] 全テストがパスする
 - [x] ADR-0010のImplementation Statusを「実装完了」に更新
+
+### Phase 4: リソース競合制御 🆕 PLANNED
+
+> **依存**: Phase 3完了後に開始
+> **ADR**: [ADR-0013: Worker Resource Contention Control](../adr/0013-worker-resource-contention.md)
+
+**4.1 問題の特定**
+
+2ワーカー並列実行時に、以下のリソース競合リスクが存在する：
+
+| リソース | 現状の制御 | リスク |
+|----------|-----------|--------|
+| ブラウザSERP | `BrowserSearchProvider`シングルトン + `Semaphore(1)` | ✅ 保護済み |
+| 学術API (Semantic Scholar) | インスタンス毎に独立 | ❌ **グローバルQPS制限なし** |
+| 学術API (OpenAlex) | インスタンス毎に独立 | ❌ **グローバルQPS制限なし** |
+| HTTPフェッチ | `RateLimiter`（ドメイン別） | ✅ ドメイン単位で保護 |
+
+**問題シナリオ:**
+```
+Worker-0: search_action → AcademicSearchProvider() → SemanticScholarClient()
+Worker-1: search_action → AcademicSearchProvider() → SemanticScholarClient()
+                          ↑ 各ワーカーで別インスタンス → QPS制限なし
+```
+
+**4.2 解決策**
+
+- [ ] 学術APIクライアントにグローバルレートリミッター追加
+- [ ] `src/search/apis/rate_limiter.py` 新規作成
+- [ ] プロバイダー別（semantic_scholar, openalex）のQPS制限
+- [ ] 設定は `config/academic_apis.yaml` から読み込み
+
+**4.3 テスト**
+
+- [ ] 2ワーカー同時学術API呼び出しでQPS遵守確認
+- [ ] 異なるAPI（S2 + OA）は並列OK確認
+- [ ] 高負荷（5+ワーカー）でのレート制限動作確認
+
+**4.4 完了チェックリスト**
+
+- [ ] ADR-0013作成・レビュー完了
+- [ ] グローバルレートリミッター実装
+- [ ] テスト追加（`tests/test_academic_api_rate_limiter.py`）
+- [ ] シーケンス図更新 (`docs/sequences/search_queue_worker_concurrency.md`)
+- [ ] 全テストパス
 
 ---
 

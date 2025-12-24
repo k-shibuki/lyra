@@ -213,14 +213,20 @@ class StatusResult:
 
 ## Implementation Status
 
-**Status**: ✅ **全フェーズ実装完了**
+**Status**: Phase 1-3 ✅ 完了 / Phase 4 🔜 計画中
 
 詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
 
-### 実装済みフェーズ
-- Phase 1 (2025-12-24): `queue_searches` ツール追加、`get_status` に `wait` パラメータ追加
-- Phase 2 (2025-12-24): `search`, `notify_user`, `wait_for_user` ツール削除
-- Phase 3 (2025-12-24): 最終検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加
+### フェーズ一覧
+
+| Phase | 内容 | 状態 |
+|-------|------|------|
+| Phase 1 | `queue_searches` ツール追加、`get_status` に `wait` パラメータ追加 | ✅ 完了 (2025-12-24) |
+| Phase 2 | `search`, `notify_user`, `wait_for_user` ツール削除 | ✅ 完了 (2025-12-24) |
+| Phase 3 | 一次検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加 | ✅ 完了 (2025-12-24) |
+| Phase 4 | リソース競合制御（学術APIグローバルレート制限） | 🔜 計画中 ([ADR-0013](0013-worker-resource-contention.md)) |
+
+### Phase 1-3 実装サマリー
 
 | 変更 | 状態 |
 |------|------|
@@ -272,13 +278,19 @@ Cleanup note: For hard cleanup, follow ADR-0005 (Evidence Graph Structure) and u
 
 When running multiple queue workers, external rate limits must still be respected globally:
 
- - **Browser (SERP) concurrency**: fixed to **1** to avoid CDP/profile contention.
-- **Academic APIs (e.g., S2/OpenAlex)**: enforce global QPS + per-provider QPS, and route between providers based on availability/limits.
-- **HTTP fetch**: enforce global concurrency/QPS and honor per-domain policies.
+| Resource | Control | Status |
+|----------|---------|--------|
+| **Browser (SERP)** | `BrowserSearchProvider` singleton + `Semaphore(1)` | ✅ Implemented |
+| **Academic APIs** | Global rate limiter per provider | 🔜 Phase 4 ([ADR-0013](0013-worker-resource-contention.md)) |
+| **HTTP fetch** | `RateLimiter` per domain | ✅ Implemented |
+
+**Note**: Academic API rate limiting is tracked as **Phase 4** in [Q_ASYNC_ARCHITECTURE.md](../Q_ASYNC_ARCHITECTURE.md). See [ADR-0013](0013-worker-resource-contention.md) for design details.
 
 ## References
 - `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計
-- `src/mcp/server.py` - MCPツール定義（現状：search, get_status）
+- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4 リソース競合制御
+- `src/mcp/server.py` - MCPツール定義
 - `src/research/executor.py` - 検索実行
 - `src/research/pipeline.py` - パイプラインオーケストレーション
 - `src/scheduler/jobs.py` - ジョブスケジューラ
+- `src/scheduler/search_worker.py` - SearchQueueWorker実装
