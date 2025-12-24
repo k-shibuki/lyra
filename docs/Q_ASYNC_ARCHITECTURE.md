@@ -16,7 +16,7 @@
 - **バックグラウンドワーカー（2 workers）**がキューから**優先度順（同一優先度はFIFO）**に取り出し、並列に処理
 - `get_status`に**wait（long polling）**を追加（MCPクライアントに時間感覚がないため）
 
-**結果:** ツール数 13個 → **10個に削減**、クライアントはノンブロッキング、シンプルで効率的
+**結果:** （導入前）12ツール → （最終）**10ツール**（※ Phase 1で `queue_searches` を追加して一時的に13ツールになり、Phase 2で3ツール削除して10ツールへ）
 
 ---
 
@@ -77,7 +77,7 @@ status = await call_tool("get_status", {
 
 ## 2. 新しいアーキテクチャ
 
-### 2.1 ツール構成（13個 → 10個に削減）
+### 2.1 ツール構成（最終: 10ツール / Phase 1で一時的に13ツール）
 
 #### **削除するツール:**
 1. ~~`search`~~ → 内部関数化（`search_action`は残す）
@@ -917,7 +917,7 @@ status = await call_tool("get_status", {
 - [x] テストファイル削除: `test_mcp_search.py`, `test_mcp_notification.py`
 
 **2.3 ドキュメント更新**
-- [x] `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
+- [x] `README.md` のMCPツール一覧を更新（最終: 10ツール）
 - [x] Cursor Rules/Commands (`.cursor/rules/`, `.cursor/commands/`) 内の使用例を更新（変更不要）
 - [x] §3.6 エラーハンドリングとリトライポリシーの設計判断を明記（本ドキュメント）
 - [x] **テスト**: 削除後の回帰テスト（既存テストがパスすることを確認）
@@ -958,7 +958,9 @@ status = await call_tool("get_status", {
 ### 7.2 ツール数の変化
 
 ```
-12ツール → 10ツール
+（導入前）12ツール
+Phase 1: +queue_searches → 13ツール
+Phase 2: -3ツール（search, notify_user, wait_for_user）→ 10ツール
 
 削除: 3個（search, notify_user, wait_for_user）
 追加: 1個（queue_searches）
@@ -1129,7 +1131,7 @@ await resolve_auth(
    - 複数タスク並行実行時に重要な機能
 
 4. **ツール数の妥当性**
-   - 10ツールは十分少ない（12ツールから17%削減）
+   - 10ツールは十分少ない（導入前12ツールから約17%削減 / Phase 1後13ツールから約23%削減）
    - 機能的に必要なツールを無理に削減する必要はない
    - シンプルさと機能性のバランスが重要
 
@@ -1158,7 +1160,7 @@ await resolve_auth(
 - `notify_user` - 不要（get_statusのwarningsで代替）
 - `wait_for_user` - 不要（ポーリングで代替）
 
-**ツール削減率:** 12ツール → 10ツール（**17%削減**）
+**ツール削減率:** 導入前12ツール → 10ツール（約**17%削減**） / Phase 1後13ツール → 10ツール（約**23%削減**）
 
 ---
 
@@ -1206,4 +1208,4 @@ await resolve_auth(
 
 **関連ドキュメント:**
 - `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR
-- `README.md` - MCPツール一覧（現在12ツール、移行後10ツール）
+- `README.md` - MCPツール一覧（現在10ツール）
