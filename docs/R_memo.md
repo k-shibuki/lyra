@@ -1,86 +1,56 @@
-# R_LORA.md レビューメモ
+# R_LORA.md 設計メモ
 
 > **作成日**: 2025-12-24
-> **目的**: `docs/R_LORA.md` の技術レビュー結果と改善提案
+> **結論**: 方向性は正しい。ADR-0011の誤記修正と、ML実験設計の詳細化が必要。
 
 ---
 
-## 1. Executive Summary
+## 1. ADR-0011の誤記（要修正）
 
-R_LORA.md は LoRA ファインチューニングの設計書として**方向性は正しい**。ただし、ML実験の基本要素（バリデーション、ハイパラ選択、品質管理等）の詳細が不足しており、このまま実装すると再現性・信頼性に問題が生じる可能性がある。
+ADR-0011に「NLIモデル（Qwen2.5-3B）」と記載があるが、**実装はDeBERTa**。
 
-また、**ADR-0011 との不整合**が複数存在し、設計の正（Source of Truth）が曖昧になっている。
+```python
+# src/ml_server/model_paths.py:167, 180
+"cross-encoder/nli-deberta-v3-xsmall"  # fast
+"cross-encoder/nli-deberta-v3-small"   # slow
 
----
+# src/utils/config.py:227-228
+fast_model: str = "cross-encoder/nli-deberta-v3-xsmall"
+slow_model: str = "cross-encoder/nli-deberta-v3-small"
+```
 
-## 2. ADR-0011 との不整合
-
-| 項目 | ADR-0011 | R_LORA.md | 問題 |
-|------|----------|-----------|------|
-| **ベースモデル** | Qwen2.5-3B | DeBERTa-v3-xsmall | **重大な不整合** |
-| **rank (r)** | 8 | 8 | 一致 |
-| **alpha** | 16 | 32 | 不整合（alpha/r比が異なる） |
-| **target_modules** | `q_proj, v_proj` | `query, value` | 名称不整合（確認必要） |
-| **学習トリガー閾値** | 50件 | 100件 | 不整合 |
-| **dropout** | 0.05 | 0.1 | 不整合 |
-
-### 2.1 ベースモデルの不整合について
-
-**最も深刻な問題**。ADR-0011では「Qwen2.5-3B」、R_LORA.mdでは「DeBERTa-v3-xsmall」と記載。
-
-**推測される背景**:
-- ADR-0011は「汎用NLI」としてLLM（Qwen）を想定
-- R_LORA.mdは「軽量NLI」としてEncoder（DeBERTa）を想定
-- 両者は異なるユースケース・アーキテクチャ
-
-**要決定事項**: Phase R で対象とするモデルはどちらか？
-
-| 選択肢 | 用途 | メリット | デメリット |
-|--------|------|----------|------------|
-| DeBERTa-v3 | 軽量NLI（現行） | 高速、低リソース、CPU可 | 表現力に限界 |
-| Qwen2.5-3B | 高精度NLI | 高精度、コンテキスト長 | GPU必須、低速 |
-
-→ **ADR追加候補**: どちらのモデルを対象とするか（または両方）の設計判断
+**R_LORA.mdが正しい。ADR-0011を修正すべき。**
 
 ---
 
-## 3. ML実験設計の不足点と改善提案
+## 2. ハイパラの不整合（要統一）
 
-### 3.1 訂正サンプル品質管理
+| パラメータ | ADR-0011 | R_LORA.md | 要決定 |
+|-----------|----------|-----------|:------:|
+| alpha | 16 | 32 | ○ |
+| dropout | 0.05 | 0.1 | ○ |
+| 学習トリガー閾値 | 50件 | 100件 | ○ |
 
-**現状の問題**: 「100件溜まったら学習開始」という量的閾値のみで、質的フィルタがない。
+→ 実験で決定し、ADR-0011とR_LORA.mdを統一する。
 
-**リスク**: ノイジーな訂正（ユーザーの誤解、曖昧なケース）がそのまま教師データになる。
+---
 
-**改善提案（軽量）**:
+## 3. R_LORA.mdに追記すべき内容
+
+### 3.1 訂正サンプルの品質フィルタ
+
 ```sql
--- 信頼度フィルタ: モデルが高確信で誤った明確なケースのみ
+-- 高確信度で誤った明確なケースのみ使用
 SELECT * FROM nli_corrections
 WHERE original_confidence > 0.8
   AND original_label != correct_label
 ```
 
-**追加検討（中長期）**:
-- 同一ペアへの複数訂正があれば一致したもののみ採用
-- 訂正理由のテキスト記録（将来の分析用）
+### 3.2 バリデーション分割
 
-→ **ADR追加候補**: 訂正サンプルの品質基準（フィルタリングポリシー）
-
----
-
-### 3.2 バリデーション戦略
-
-**現状の問題**: 「ホールドアウトサンプルでの精度≥0.85」の記載のみで、分割方法の詳細がない。
-
-**リスク**:
-- 単純ランダム分割でクラス不均衡が発生
-- 同一ページからの訂正が訓練/検証に分かれると情報リーク
-
-**改善提案**:
 ```python
 from sklearn.model_selection import train_test_split
 
-# 層化分割（ラベル比率維持）
 train, val = train_test_split(
     corrections,
     test_size=0.2,
@@ -89,223 +59,48 @@ train, val = train_test_split(
 )
 ```
 
-**設計書に追記すべき内容**:
 - 分割比率: 80/20
 - 層化: ラベル別
 - リーク防止: 同一 `page_id` は同一セットに
 
-→ **ADR追加候補**: 不要（設計書レベルの詳細化で対応可能）
+### 3.3 target_modulesの確認
 
----
+R_LORA.mdでは `["query", "value"]` と記載。DeBERTa-v3の実際のモジュール名を確認し記載する。
 
-### 3.3 ハイパーパラメータ選択
-
-**現状の問題**: `r=8`, `alpha=32`, `dropout=0.1` の選択根拠が不明。ADR-0011とも不整合。
-
-**リスク**: 最適でない設定のまま運用、問題発生時の原因特定が困難。
-
-**改善提案**:
-```python
-# 最低3パターンを検証セットで比較
-configs = [
-    {"r": 4,  "alpha": 8,  "dropout": 0.05},  # 軽量
-    {"r": 8,  "alpha": 16, "dropout": 0.05},  # ADR-0011準拠
-    {"r": 8,  "alpha": 32, "dropout": 0.1},   # R_LORA.md案
-    {"r": 16, "alpha": 32, "dropout": 0.1},   # 重め
-]
-
-# 各設定で学習 → 検証精度を比較 → 最良を採用
-```
-
-**設計書に追記すべき内容**:
-- 試行するパターン一覧
-- 選択基準（検証精度、過学習度合い）
-- 選択結果の記録方法
-
-→ **ADR追加候補**: ハイパラ選択は実験的に決定する方針を明記（ADR-0011の更新）
-
----
-
-### 3.4 target_modules の確認
-
-**現状の問題**: R_LORA.mdでは `["query", "value"]` と記載されているが、DeBERTaの実際のモジュール名と一致するか未確認。
-
-**確認方法**:
 ```python
 from transformers import AutoModel
-
 model = AutoModel.from_pretrained("cross-encoder/nli-deberta-v3-xsmall")
-linear_modules = [
-    name for name, module in model.named_modules()
-    if "Linear" in str(type(module))
-]
-print(linear_modules)
+print([n for n, _ in model.named_modules() if "Linear" in str(type(_))])
 ```
 
-**設計書に追記すべき内容**:
-- 確認結果の実際のモジュール名
-- 選択理由（なぜ Q,V だけか、K,O を含めない理由）
+### 3.4 継続学習方針
 
-→ **ADR追加候補**: 不要（実装時の確認事項として設計書に記載）
+**v1方針**: 毎回、全訂正履歴で学習し直す。
 
----
+データ量が少ないうちは計算コストも小さいため、複雑な継続学習手法は不要。
 
-### 3.5 継続学習戦略
+### 3.5 シャドー推論（事前検証）
 
-**現状の問題**: v2, v3 とアダプタを更新する際の戦略が未定義。
-
-**リスク**: 新データで学習すると過去の改善が失われる（Catastrophic Forgetting）
-
-**改善提案（v1は単純に）**:
-```
-方針: 毎回、全訂正履歴で学習し直す
-
-理由:
-- データ量が少ないうちは計算コストも小さい
-- 複雑な継続学習手法（EWC等）は過剰
-
-将来（データ1万件超）:
-- インクリメンタル学習の検討
-- リプレイバッファ戦略
-```
-
-**設計書に追記すべき内容**:
-- v1方針: 全履歴で毎回学習
-- 将来の検討トリガー: データ量 > 10,000件
-
-→ **ADR追加候補**: 継続学習ポリシー（ADR-0011の更新 or 新規ADR）
-
----
-
-### 3.6 A/Bテスト（事前検証）
-
-**現状の問題**: 「精度が悪化したらロールバック」という事後対応のみで、事前検証がない。
-
-**リスク**: 本番投入後に初めて問題発覚、ロールバックまでに誤判定が蓄積。
-
-**改善提案**:
 ```python
-def shadow_evaluation(val_set, old_adapter_path, new_adapter_path):
-    """本番切り替え前のオフライン比較"""
-    old_preds = predict_with_adapter(val_set, old_adapter_path)
-    new_preds = predict_with_adapter(val_set, new_adapter_path)
-
-    old_acc = accuracy(old_preds, [s["label"] for s in val_set])
-    new_acc = accuracy(new_preds, [s["label"] for s in val_set])
-
-    # 差分レポート
-    changes = []
-    for i, (o, n) in enumerate(zip(old_preds, new_preds)):
-        if o != n:
-            changes.append({
-                "index": i,
-                "old": o,
-                "new": n,
-                "gold": val_set[i]["label"]
-            })
-
+def shadow_evaluation(val_set, old_adapter, new_adapter):
+    old_acc = accuracy(predict(val_set, old_adapter), val_set)
+    new_acc = accuracy(predict(val_set, new_adapter), val_set)
     return {
         "old_accuracy": old_acc,
         "new_accuracy": new_acc,
-        "changes": changes,
-        "recommend_deploy": new_acc >= old_acc - 0.02  # 2%以上の劣化は不可
+        "recommend_deploy": new_acc >= old_acc - 0.02
     }
 ```
 
-**設計書に追記すべき内容**:
-- シャドー推論による事前検証フロー
-- デプロイ判定基準（精度劣化許容範囲）
-- 検証結果の記録・監査
-
-→ **ADR追加候補**: モデル更新のデプロイポリシー（新規ADR推奨）
+本番投入前にオフラインで新旧比較。2%以上の劣化は不可。
 
 ---
 
-## 4. 新規ADR追加の提案
+## 4. 次セッションでのアクション
 
-### 4.1 必須（設計判断が必要）
-
-| ADR番号候補 | タイトル | 決定すべき内容 |
-|-------------|----------|---------------|
-| **ADR-0013** | NLI Model Selection | DeBERTa vs Qwen の選択、または両方の使い分け基準 |
-| **ADR-0014** | ML Model Update Policy | 事前検証（シャドー推論）、デプロイ判定基準、ロールバック条件 |
-
-### 4.2 推奨（ADR-0011の更新で対応可能）
-
-| 項目 | 対応方法 |
-|------|----------|
-| ハイパラ選択方針 | ADR-0011 に「実験的に決定」と追記 |
-| 継続学習ポリシー | ADR-0011 に「v1は全履歴再学習」と追記 |
-| 訂正品質基準 | ADR-0011 に「高確信度フィルタ」と追記 |
-
-### 4.3 不要（設計書レベルで対応）
-
-| 項目 | 対応方法 |
-|------|----------|
-| バリデーション分割 | R_LORA.md に詳細追記 |
-| target_modules確認 | R_LORA.md に確認結果追記 |
-
----
-
-## 5. 優先順位付きアクションリスト
-
-### Phase 1: 不整合解消（最優先）
-
-1. **ADR-0011 と R_LORA.md のベースモデル不整合を解消**
-   - DeBERTa-v3 と Qwen2.5-3B のどちらを対象とするか決定
-   - 決定結果を ADR-0013 として文書化
-
-2. **ハイパラの不整合を解消**
-   - alpha: 16 vs 32
-   - dropout: 0.05 vs 0.1
-   - 決定結果を ADR-0011 に反映
-
-### Phase 2: ML実験設計の詳細化
-
-3. **R_LORA.md に以下を追記**
-   - 訂正サンプルのフィルタリング条件
-   - バリデーション分割の具体的方法（80/20、層化）
-   - 試行するハイパラパターン（最低3つ）
-   - target_modules の実際のモジュール名（要確認）
-   - 継続学習方針（v1: 全履歴再学習）
-
-4. **シャドー推論スクリプトの設計**
-   - `scripts/shadow_eval.py` の仕様を R_LORA.md に追記
-   - デプロイ判定基準を明文化
-
-### Phase 3: ADR追加
-
-5. **ADR-0014: ML Model Update Policy**
-   - 事前検証フロー
-   - デプロイ判定基準
-   - ロールバック条件
-   - 監査ログ要件
-
----
-
-## 6. 結論
-
-R_LORA.md は LoRA を採用するという方向性は正しく、Lyra のリソース制約下で最適なアプローチである。
-
-ただし、以下の対応が必要：
-
-1. **ADR-0011との不整合解消**（特にベースモデル）
-2. **ML実験の基本要素の詳細化**（バリデーション、ハイパラ、品質管理）
-3. **事前検証フローの追加**（シャドー推論）
-
-これらの対応により、**再現性があり、信頼性の高いLoRA学習パイプライン**が構築できる。
-
----
-
-## 7. 参考: 落とし所のまとめ
-
-| 課題 | 現実的対応 | 工数 |
-|------|-----------|:----:|
-| 品質管理 | 高確信度訂正のみ使用 | 小 |
-| バリデーション | 層化80/20分割 | 小 |
-| ハイパラ | 3パターン比較 | 小 |
-| target_modules | モデル構造を1回確認 | 極小 |
-| 継続学習 | 毎回全履歴で学習 | なし |
-| A/Bテスト | シャドー推論スクリプト | 中 |
-
-**総工数: 1-2日の追加設計・実装**で対処可能。LoRA自体は適切なアプローチであり、これらの詳細を詰めることで実装可能な設計となる。
+| 優先度 | タスク |
+|:------:|--------|
+| 高 | ADR-0011の「Qwen2.5-3B」→「DeBERTa-v3」に修正 |
+| 高 | ハイパラ（alpha, dropout, 閾値）を統一 |
+| 中 | R_LORA.mdに§3の内容を追記 |
+| 低 | target_modulesの実際の名前を確認 |
