@@ -271,6 +271,81 @@ runtime_line_count() {
     fi
 }
 
+runtime_cat() {
+    local runtime="$1"
+    local path="$2"
+    if [[ "$runtime" == "container" ]]; then
+        container_exec cat "$path" 2>/dev/null
+    else
+        cat "$path" 2>/dev/null
+    fi
+}
+
+# Function: is_pytest_process_alive
+# Description: Check if the given PID is a running pytest/python process
+# This prevents false positives from PID reuse or zombie processes
+# Arguments:
+#   $1: runtime ("container" or "venv")
+#   $2: PID to check
+# Returns:
+#   0: Process is alive and is pytest/python
+#   1: Process is dead, or is not pytest/python (PID reused)
+is_pytest_process_alive() {
+    local runtime="$1"
+    local pid="$2"
+    
+    if [[ -z "$pid" ]]; then
+        return 1
+    fi
+    
+    local proc_comm=""
+    local proc_state=""
+    
+    if [[ "$runtime" == "container" ]]; then
+        # Get process command name and state
+        # ps -p PID -o comm=,stat= returns: "python3 S" or empty if not exists
+        proc_comm=$(container_exec_sh "ps -p $pid -o comm= 2>/dev/null || true" 2>/dev/null || echo "")
+        proc_state=$(container_exec_sh "ps -p $pid -o stat= 2>/dev/null || true" 2>/dev/null || echo "")
+    else
+        proc_comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "")
+        proc_state=$(ps -p "$pid" -o stat= 2>/dev/null || echo "")
+    fi
+    
+    # Trim whitespace
+    proc_comm="${proc_comm// /}"
+    proc_state="${proc_state// /}"
+    
+    # Debug output
+    if [[ "${DEBUG:-}" == "1" ]]; then
+        log_info "[DEBUG] PID=$pid, comm='$proc_comm', stat='$proc_state'" >&2
+    fi
+    
+    # Check if process exists
+    if [[ -z "$proc_comm" ]]; then
+        return 1
+    fi
+    
+    # Check if process is zombie (state starts with Z)
+    if [[ "$proc_state" == Z* ]]; then
+        if [[ "${DEBUG:-}" == "1" ]]; then
+            log_info "[DEBUG] Process $pid is zombie, treating as dead" >&2
+        fi
+        return 1
+    fi
+    
+    # Check if process name matches pytest/python
+    # pytest is typically run as python or python3
+    if [[ "$proc_comm" =~ ^(python|python3|pytest|py\.test)$ ]]; then
+        return 0
+    fi
+    
+    # PID exists but is not pytest/python - likely PID reuse
+    if [[ "${DEBUG:-}" == "1" ]]; then
+        log_info "[DEBUG] PID $pid is '$proc_comm', not pytest/python - PID reused" >&2
+    fi
+    return 1
+}
+
 # =============================================================================
 # VENV MANAGEMENT
 # =============================================================================
@@ -531,19 +606,15 @@ cmd_check() {
         fi
 
         # Determine whether pytest is still running (if pid file is present).
+        # Use is_pytest_process_alive() for robust detection:
+        # - Checks PID exists AND is a python/pytest process (not PID reuse)
+        # - Detects zombie processes (treats as dead)
         local pid=""
         local pid_alive=false
         if runtime_file_exists "$runtime" "$pid_file"; then
-            if [[ "$runtime" == "container" ]]; then
-                pid="$(container_exec cat "$pid_file" 2>/dev/null || echo "")"
-                if [[ -n "$pid" ]] && container_exec ps -p "$pid" >/dev/null 2>&1; then
-                    pid_alive=true
-                fi
-            else
-                pid="$(cat "$pid_file" 2>/dev/null || echo "")"
-                if [[ -n "$pid" ]] && ps -p "$pid" >/dev/null 2>&1; then
-                    pid_alive=true
-                fi
+            pid="$(runtime_cat "$runtime" "$pid_file" | tr -d '[:space:]')"
+            if is_pytest_process_alive "$runtime" "$pid"; then
+                pid_alive=true
             fi
         fi
 
@@ -623,7 +694,24 @@ cmd_check() {
         local now
         now=$(date +%s)
         if (( now - start_ts > CHECK_TIMEOUT_SECONDS )); then
-            echo "TIMEOUT"
+            echo "TIMEOUT (after ${CHECK_TIMEOUT_SECONDS}s)"
+            echo ""
+            echo "=== Debug Info ==="
+            echo "PID: ${pid:-<none>}"
+            echo "PID alive: ${pid_alive}"
+            if [[ -n "$pid" ]]; then
+                local proc_comm proc_state
+                if [[ "$runtime" == "container" ]]; then
+                    proc_comm=$(container_exec_sh "ps -p $pid -o comm= 2>/dev/null || true" 2>/dev/null || echo "")
+                    proc_state=$(container_exec_sh "ps -p $pid -o stat= 2>/dev/null || true" 2>/dev/null || echo "")
+                else
+                    proc_comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "")
+                    proc_state=$(ps -p "$pid" -o stat= 2>/dev/null || echo "")
+                fi
+                echo "Process comm: '${proc_comm:-<empty>}'"
+                echo "Process state: '${proc_state:-<empty>}'"
+            fi
+            echo ""
             echo "=== Result ==="
             runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
             return 1
@@ -685,27 +773,29 @@ cmd_kill() {
         run_id="${LYRA_TEST__RUN_ID:-}"
     fi
 
-    if [[ "$runtime" == "container" ]]; then
-        if is_container_running_selected && container_exec test -f "$pid_file" >/dev/null 2>&1; then
-            local pid
-            pid="$(container_exec cat "$pid_file" 2>/dev/null || echo "")"
-            if [[ -n "$pid" ]] && container_exec ps -p "$pid" >/dev/null 2>&1; then
+    # Kill process if PID file exists and process is running
+    if runtime_file_exists "$runtime" "$pid_file"; then
+        local pid
+        pid="$(runtime_cat "$runtime" "$pid_file" | tr -d '[:space:]')"
+        if [[ -n "$pid" ]] && is_pytest_process_alive "$runtime" "$pid"; then
+            if [[ "$runtime" == "container" ]]; then
                 container_exec_sh "kill -TERM $pid 2>/dev/null || true"
                 sleep 1
                 container_exec_sh "kill -KILL $pid 2>/dev/null || true"
-            fi
-            container_exec_sh "rm -f \"$pid_file\" \"$result_file\" 2>/dev/null || true"
-        fi
-    else
-        if [[ -f "$pid_file" ]]; then
-            local pid
-            pid="$(cat "$pid_file" 2>/dev/null || echo "")"
-            if [[ -n "$pid" ]] && ps -p "$pid" >/dev/null 2>&1; then
+            else
                 kill -TERM "$pid" 2>/dev/null || true
                 sleep 1
                 kill -KILL "$pid" 2>/dev/null || true
             fi
         fi
+    fi
+    
+    # Clean up files
+    if [[ "$runtime" == "container" ]]; then
+        if is_container_running_selected; then
+            container_exec_sh "rm -f \"$pid_file\" \"$result_file\" 2>/dev/null || true"
+        fi
+    else
         rm -f "$pid_file" "$result_file" 2>/dev/null || true
     fi
 
@@ -717,15 +807,136 @@ cmd_kill() {
     echo "Done"
 }
 
+# Function: cmd_debug
+# Description: Show detailed debug information about current test run
+# Arguments:
+#   $1: run_id (optional, uses state file if not provided)
+# Returns:
+#   0: Success
+cmd_debug() {
+    local run_id="${1:-}"
+    local runtime=""
+    local result_file=""
+    local pid_file=""
+
+    echo "=== Test Debug Information ==="
+    echo ""
+
+    if [[ -n "$run_id" ]]; then
+        if load_test_state && [[ "${LYRA_TEST__RUN_ID:-}" == "$run_id" ]]; then
+            runtime="${LYRA_TEST__RUNTIME}"
+            result_file="${LYRA_TEST__RESULT_FILE}"
+            pid_file="${LYRA_TEST__PID_FILE}"
+        else
+            runtime="venv"
+            result_file=$(get_result_file "$run_id")
+            pid_file=$(get_pid_file "$run_id")
+        fi
+    else
+        if ! load_test_state; then
+            echo "No test state found."
+            echo "Run './scripts/test.sh run' first, or provide a run_id."
+            return 1
+        fi
+        runtime="${LYRA_TEST__RUNTIME}"
+        result_file="${LYRA_TEST__RESULT_FILE}"
+        pid_file="${LYRA_TEST__PID_FILE}"
+        run_id="${LYRA_TEST__RUN_ID:-}"
+    fi
+
+    echo "Run ID: ${run_id:-<none>}"
+    echo "Runtime: $runtime"
+    echo "Result File: $result_file"
+    echo "PID File: $pid_file"
+    echo ""
+
+    # Check file existence
+    echo "=== File Status ==="
+    if runtime_file_exists "$runtime" "$result_file"; then
+        local result_lines
+        result_lines=$(runtime_line_count "$runtime" "$result_file")
+        echo "Result file: EXISTS ($result_lines lines)"
+    else
+        echo "Result file: NOT FOUND"
+    fi
+
+    if runtime_file_exists "$runtime" "$pid_file"; then
+        echo "PID file: EXISTS"
+    else
+        echo "PID file: NOT FOUND"
+    fi
+    echo ""
+
+    # Check PID status
+    echo "=== Process Status ==="
+    if runtime_file_exists "$runtime" "$pid_file"; then
+        local pid
+        pid="$(runtime_cat "$runtime" "$pid_file" | tr -d '[:space:]')"
+        echo "PID from file: $pid"
+        
+        if [[ -n "$pid" ]]; then
+            local proc_comm=""
+            local proc_state=""
+            local proc_exists="false"
+            
+            if [[ "$runtime" == "container" ]]; then
+                proc_comm=$(container_exec_sh "ps -p $pid -o comm= 2>/dev/null || true" 2>/dev/null || echo "")
+                proc_state=$(container_exec_sh "ps -p $pid -o stat= 2>/dev/null || true" 2>/dev/null || echo "")
+                if container_exec ps -p "$pid" >/dev/null 2>&1; then
+                    proc_exists="true"
+                fi
+            else
+                proc_comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "")
+                proc_state=$(ps -p "$pid" -o stat= 2>/dev/null || echo "")
+                if ps -p "$pid" >/dev/null 2>&1; then
+                    proc_exists="true"
+                fi
+            fi
+            
+            echo "Process exists (ps -p): $proc_exists"
+            echo "Process command: '${proc_comm:-<empty>}'"
+            echo "Process state: '${proc_state:-<empty>}'"
+            
+            if is_pytest_process_alive "$runtime" "$pid"; then
+                echo "is_pytest_process_alive: TRUE (pytest is running)"
+            else
+                echo "is_pytest_process_alive: FALSE (not pytest or dead)"
+            fi
+        fi
+    else
+        echo "No PID file found"
+    fi
+    echo ""
+
+    # Check pytest summary
+    echo "=== Pytest Summary Detection ==="
+    if runtime_file_exists "$runtime" "$result_file"; then
+        local summary_line
+        summary_line=$(runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true)
+        if [[ -n "$summary_line" ]]; then
+            echo "Summary line found: $summary_line"
+        else
+            echo "Summary line: NOT FOUND (pytest may still be running)"
+        fi
+        
+        echo ""
+        echo "=== Last 10 lines of result ==="
+        runtime_tail "$runtime" 10 "$result_file" | filter_node_errors || echo "No output"
+    else
+        echo "Result file not found"
+    fi
+}
+
 show_help() {
     echo "Lyra Test Runner (Cloud Agent Compatible)"
     echo ""
-    echo "Usage: $0 {run|check|kill|env|help} [options] [args...]"
+    echo "Usage: $0 {run|check|kill|debug|env|help} [options] [args...]"
     echo ""
     echo "Commands:"
     echo "  run [pytest_args...]    Start test execution (default: tests/)"
     echo "  check [run_id]          Wait until tests are done and print result tail"
     echo "  kill [run_id|--all]     Force stop pytest process (or emergency kill/cleanup)"
+    echo "  debug [run_id]          Show detailed debug info about test run"
     echo "  env                     Show environment detection info"
     echo ""
     echo "Pattern:"
@@ -801,6 +1012,12 @@ case "$ACTION" in
         parse_common_flags "$@"
         # First remaining arg (if any) is run_id
         cmd_kill "${PYTEST_ARGS[0]:-}"
+        ;;
+    
+    debug)
+        parse_common_flags "$@"
+        # First remaining arg (if any) is run_id
+        cmd_debug "${PYTEST_ARGS[0]:-}"
         ;;
     
     env)
