@@ -174,7 +174,7 @@ class ViewportJitterConfig:
 
     base_width: int = 1920
     base_height: int = 1080
-    max_width_jitter: int = 20 # Narrow jitter per ADR-0006
+    max_width_jitter: int = 20  # Narrow jitter per ADR-0006
     max_height_jitter: int = 15
     hysteresis_seconds: float = 300.0  # 5 minutes minimum between changes
     enabled: bool = True

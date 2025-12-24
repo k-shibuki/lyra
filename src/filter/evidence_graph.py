@@ -903,7 +903,7 @@ class EvidenceGraph:
             "secondary_count": secondary_count,
             "total_pages": total,
             "primary_ratio": round(primary_ratio, 3),
-            "meets_threshold": primary_ratio >= 0.6, # requirement
+            "meets_threshold": primary_ratio >= 0.6,  # requirement
         }
 
     def get_stats(self) -> dict[str, Any]:

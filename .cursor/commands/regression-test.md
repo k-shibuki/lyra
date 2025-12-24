@@ -7,6 +7,8 @@ Run tests in two stages to detect regressions efficiently:
 1. Run tests for files changed in this session (fast, scoped)
 2. Run the full test suite (final gate)
 
+**Both stages are required.** Stage 1 alone is not sufficient—always run Stage 2 as the final gate.
+
 ## When to use
 
 - After quality checks pass (typically after `quality-check`)
@@ -19,6 +21,8 @@ Run tests in two stages to detect regressions efficiently:
 ## How to run (recommended)
 
 Use `scripts/test.sh` (async + polling).
+
+> **Note:** `test.sh check` has built-in polling. Do NOT combine it with `sleep` commands.
 
 ### Stage 1: session-scoped tests (recommended)
 

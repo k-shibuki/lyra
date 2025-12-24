@@ -717,9 +717,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 },
                 "auth_queue": exploration_status.get("authentication_queue"),
                 "warnings": exploration_status.get("warnings", []),
-                "idle_seconds": exploration_status.get("idle_seconds", 0), # ADR-0002
+                "idle_seconds": exploration_status.get("idle_seconds", 0),  # ADR-0002
                 "blocked_domains": blocked_domains,  # Added for transparency
-                "domain_overrides": domain_overrides, #
+                "domain_overrides": domain_overrides,  #
             }
             return attach_meta(response, create_minimal_meta())
         else:
@@ -756,9 +756,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 },
                 "auth_queue": None,
                 "warnings": [],
-                "idle_seconds": 0, # ADR-0002 (no exploration state)
+                "idle_seconds": 0,  # ADR-0002 (no exploration state)
                 "blocked_domains": blocked_domains,  # Added for transparency
-                "domain_overrides": domain_overrides, #
+                "domain_overrides": domain_overrides,  #
             }
             return attach_meta(response, create_minimal_meta())
 

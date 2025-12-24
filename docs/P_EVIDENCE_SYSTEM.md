@@ -118,7 +118,7 @@
 | Phase 6 / Task 6.2 | `feedback` MCPツール新設（6アクション） | DONE | `src/mcp/server.py`, `src/mcp/feedback_handler.py`, `src/mcp/schemas/feedback.json`, `src/mcp/errors.py` | 決定17/20参照。Domain/Claim/Edge 3レベル。DB直接操作で実装 |
 | Phase 6 / Task 6.3 | `feedback` ⇔ SourceVerifier 連携（domain_block/unblock 即時反映） | DONE | `src/filter/source_verification.py`, `src/mcp/feedback_handler.py`, `tests/test_feedback_integration.py` | TC-DU-03対応。`dangerous_pattern` 解除を `SourceVerifier._blocked_domains` へ即時反映。`get_status`に`domain_overrides`追加。 |
 | Phase 6 / Task 6.3 | `calibrate` → `calibration_metrics` リネーム + `add_sample` 削除 | DONE | `src/mcp/server.py`, `src/mcp/schemas/calibration_metrics.json`, `src/utils/calibration.py` | feedbackで蓄積されたDBを使用。破壊操作は `calibration_rollback` に分離維持 |
-| Phase 6 / Task 6.4 | `get_materials` に `claim_adoption_status` 露出 | PLANNED | `src/research/materials.py`, `src/mcp/schemas/get_materials.json` | 不採用claimのフィルタリングを高推論AIに委ねる |
+| Phase 6 / Task 6.4 | `get_materials` に `claim_adoption_status` 露出 | DONE | `src/research/materials.py`, `src/mcp/schemas/get_materials.json`, `tests/test_mcp_integration.py` | 不採用claimのフィルタリングを高推論AIに委ねる。`claim_rejection_reason` も追加 |
 | Phase 6 / Task 6.5 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | Phase 6完了反映 |
 
 ---

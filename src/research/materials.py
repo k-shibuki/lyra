@@ -115,6 +115,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
             """
             SELECT c.id, c.claim_text, c.claim_confidence, c.verification_notes,
                    c.source_fragment_ids,
+                   c.claim_adoption_status, c.claim_rejection_reason,
                    COUNT(DISTINCT e.id) as evidence_count,
                    MAX(CASE WHEN e.relation = 'refutes' THEN 1 ELSE 0 END) as has_refutation
             FROM claims c
@@ -221,9 +222,12 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                     "evidence_count": row.get("evidence_count", 0),
                     "has_refutation": bool(row.get("has_refutation", 0)),
                     "sources": parsed_sources,
-                    # b: Evidence details with time metadata
+                    # Evidence details with time metadata
                     "evidence": confidence_info.get("evidence", []),
                     "evidence_years": confidence_info.get("evidence_years", {}),
+                    # Adoption status for high-reasoning AI to filter
+                    "claim_adoption_status": row.get("claim_adoption_status", "adopted"),
+                    "claim_rejection_reason": row.get("claim_rejection_reason"),
                 }
             )
 

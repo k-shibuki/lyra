@@ -437,6 +437,209 @@ class TestGetMaterialsIntegration:
             f"got {claim_with_evidence['controversy']}"
         )
 
+    @pytest.mark.asyncio
+    async def test_get_materials_includes_claim_adoption_status_default(
+        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+    ) -> None:
+        """
+        TC-N-01 / TC-W-01: get_materials includes claim_adoption_status with default value.
+
+        // Given: Task with claims that have default adoption status (adopted)
+        // When: Calling get_materials_action
+        // Then: Claims include claim_adoption_status="adopted" and claim_rejection_reason=None
+        """
+        from src.research.materials import get_materials_action
+
+        data = setup_task_with_claims
+        task_id = data["task_id"]
+
+        with patch(
+            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+        ):
+            result = await get_materials_action(task_id)
+
+        assert result["ok"] is True
+        assert len(result["claims"]) >= 1
+
+        # Wiring test: All claims have claim_adoption_status field
+        for claim in result["claims"]:
+            assert "claim_adoption_status" in claim, "claim_adoption_status field must be present"
+            assert "claim_rejection_reason" in claim, "claim_rejection_reason field must be present"
+            # Default value check
+            assert claim["claim_adoption_status"] == "adopted"
+            assert claim["claim_rejection_reason"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_materials_not_adopted_claim_with_reason(
+        self, memory_database: "Database"
+    ) -> None:
+        """
+        TC-N-02 / TC-E-01: get_materials returns not_adopted claim with rejection reason.
+
+        // Given: Task with a claim marked as not_adopted with rejection reason
+        // When: Calling get_materials_action
+        // Then: Claim has claim_adoption_status="not_adopted" and claim_rejection_reason set
+        """
+        from src.research.materials import get_materials_action
+
+        db = memory_database
+        task_id = f"task_reject_{uuid.uuid4().hex[:8]}"
+        claim_id = f"c_{uuid.uuid4().hex[:8]}"
+        rejection_reason = "Low confidence source"
+
+        # Create task
+        await db.execute(
+            """INSERT INTO tasks (id, query, status, created_at)
+               VALUES (?, ?, ?, ?)""",
+            (task_id, "rejection test query", "exploring", datetime.now(UTC).isoformat()),
+        )
+
+        # Create claim with not_adopted status and rejection reason
+        await db.execute(
+            """INSERT INTO claims (id, task_id, claim_text, claim_type,
+               claim_confidence, claim_adoption_status, claim_rejection_reason, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (
+                claim_id,
+                task_id,
+                "Rejected claim text",
+                "fact",
+                0.5,
+                "not_adopted",
+                rejection_reason,
+            ),
+        )
+
+        with patch(
+            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+        ):
+            result = await get_materials_action(task_id)
+
+        assert result["ok"] is True
+        assert len(result["claims"]) == 1
+
+        claim = result["claims"][0]
+        # Effect test: Status and reason are correctly propagated
+        assert claim["claim_adoption_status"] == "not_adopted"
+        assert claim["claim_rejection_reason"] == rejection_reason
+
+    @pytest.mark.asyncio
+    async def test_get_materials_claim_rejection_reason_null(
+        self, memory_database: "Database"
+    ) -> None:
+        """
+        TC-B-02: Claim with NULL rejection_reason returns None.
+
+        // Given: Task with a claim that has claim_adoption_status but no rejection reason
+        // When: Calling get_materials_action
+        // Then: claim_rejection_reason is None (not missing)
+        """
+        from src.research.materials import get_materials_action
+
+        db = memory_database
+        task_id = f"task_null_{uuid.uuid4().hex[:8]}"
+        claim_id = f"c_{uuid.uuid4().hex[:8]}"
+
+        # Create task
+        await db.execute(
+            """INSERT INTO tasks (id, query, status, created_at)
+               VALUES (?, ?, ?, ?)""",
+            (task_id, "null reason test query", "exploring", datetime.now(UTC).isoformat()),
+        )
+
+        # Create claim with adopted status and no rejection reason (NULL)
+        await db.execute(
+            """INSERT INTO claims (id, task_id, claim_text, claim_type,
+               claim_confidence, claim_adoption_status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (
+                claim_id,
+                task_id,
+                "Claim with null reason",
+                "fact",
+                0.8,
+                "adopted",
+            ),
+        )
+
+        with patch(
+            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+        ):
+            result = await get_materials_action(task_id)
+
+        assert result["ok"] is True
+        assert len(result["claims"]) == 1
+
+        claim = result["claims"][0]
+        assert claim["claim_adoption_status"] == "adopted"
+        # Boundary test: NULL in DB returns None (not omitted)
+        assert "claim_rejection_reason" in claim
+        assert claim["claim_rejection_reason"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_materials_mixed_adoption_statuses(self, memory_database: "Database") -> None:
+        """
+        TC-E-01 variant: get_materials correctly returns mixed adoption statuses.
+
+        // Given: Task with multiple claims having different adoption statuses
+        // When: Calling get_materials_action
+        // Then: Each claim reflects its individual adoption status
+        """
+        from src.research.materials import get_materials_action
+
+        db = memory_database
+        task_id = f"task_mixed_{uuid.uuid4().hex[:8]}"
+
+        # Create task
+        await db.execute(
+            """INSERT INTO tasks (id, query, status, created_at)
+               VALUES (?, ?, ?, ?)""",
+            (task_id, "mixed status test query", "exploring", datetime.now(UTC).isoformat()),
+        )
+
+        # Create claims with different statuses
+        test_cases = [
+            ("c_adopted", "adopted", None),
+            ("c_not_adopted", "not_adopted", "Manual rejection by user"),
+            ("c_pending", "pending", None),
+        ]
+
+        for claim_suffix, status, reason in test_cases:
+            claim_id = f"{claim_suffix}_{uuid.uuid4().hex[:8]}"
+            await db.execute(
+                """INSERT INTO claims (id, task_id, claim_text, claim_type,
+                   claim_confidence, claim_adoption_status, claim_rejection_reason, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                (
+                    claim_id,
+                    task_id,
+                    f"Claim with status {status}",
+                    "fact",
+                    0.7,
+                    status,
+                    reason,
+                ),
+            )
+
+        with patch(
+            "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+        ):
+            result = await get_materials_action(task_id)
+
+        assert result["ok"] is True
+        assert len(result["claims"]) == 3
+
+        # Verify each status is preserved
+        statuses_found = {c["claim_adoption_status"] for c in result["claims"]}
+        assert statuses_found == {"adopted", "not_adopted", "pending"}
+
+        # Verify rejection reason is only set for not_adopted
+        for claim in result["claims"]:
+            if claim["claim_adoption_status"] == "not_adopted":
+                assert claim["claim_rejection_reason"] == "Manual rejection by user"
+            else:
+                assert claim["claim_rejection_reason"] is None
+
 
 @pytest.mark.integration
 class TestMCPToolDataConsistency:

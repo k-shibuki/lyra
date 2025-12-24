@@ -787,7 +787,7 @@ class ClaimTimelineManager:
             "average_events_per_claim": total_events / claims_with_timeline
             if claims_with_timeline > 0
             else 0.0,
-            "meets_target": coverage_rate >= 0.9, # : ≥90%
+            "meets_target": coverage_rate >= 0.9,  # : ≥90%
         }
 
     def clear_cache(self) -> None:

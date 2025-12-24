@@ -336,7 +336,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9, # : nli_confidence required for Bayesian update
+                nli_confidence=0.9,  # : nli_confidence required for Bayesian update
             )
 
         # When: Calculating confidence for the claim
@@ -363,7 +363,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9, # : nli_confidence required
+                nli_confidence=0.9,  # : nli_confidence required
             )
 
         graph.add_edge(
@@ -373,7 +373,7 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.REFUTES,
             confidence=0.8,
-            nli_confidence=0.8, # : nli_confidence required
+            nli_confidence=0.8,  # : nli_confidence required
         )
 
         # When: Calculating confidence for the contested claim
@@ -807,8 +807,8 @@ class TestCitationLoopDetection:
     def test_detect_simple_citation_loop(self) -> None:
         """Test detecting a simple citation loop (A -> B -> C -> A).
 
-         requirement: detect circular citations
-         requirement: citation loop detection rate ≥80%
+        requirement: detect circular citations
+        requirement: citation loop detection rate ≥80%
         """
         graph = EvidenceGraph()
 

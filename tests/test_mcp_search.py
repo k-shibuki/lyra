@@ -275,7 +275,7 @@ class TestSearchBoundaryValues:
         mock_state = AsyncMock()
         mock_state.record_activity = MagicMock()
 
-        long_query = "a" * 4000 # Max input length per ADR-0005
+        long_query = "a" * 4000  # Max input length per ADR-0005
 
         with patch("src.mcp.server._check_chrome_cdp_ready", new=AsyncMock(return_value=True)):
             with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):

@@ -880,7 +880,7 @@ class SearchExecutor:
                     "fact",
                     confidence,
                     json.dumps([source_fragment_id]),  # JSON array
-                    "adopted", # Default changed from 'pending'
+                    "adopted",  # Default changed from 'pending'
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )

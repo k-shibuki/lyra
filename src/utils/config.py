@@ -21,7 +21,7 @@ class TaskLimitsConfig(BaseModel):
     llm_time_ratio_max: float = 0.30
     max_manual_interventions: int = 3
     max_manual_intervention_time_minutes: int = 5
-    cursor_idle_timeout_seconds: int = 60 # ADR-0002: Cursor AI idle timeout
+    cursor_idle_timeout_seconds: int = 60  # ADR-0002: Cursor AI idle timeout
 
 
 class WebCitationDetectionConfig(BaseModel):
@@ -198,7 +198,7 @@ class LLMConfig(BaseModel):
     model_context: int = 4096
     temperature: float = 0.3
     gpu_layers: int = -1
-    unload_on_task_complete: bool = True # Release model context after task
+    unload_on_task_complete: bool = True  # Release model context after task
 
 
 class EmbeddingConfig(BaseModel):

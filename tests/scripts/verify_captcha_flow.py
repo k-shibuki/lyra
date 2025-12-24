@@ -456,7 +456,7 @@ class CAPTCHAFlowVerifier:
                 await asyncio.sleep(0.5)
 
             success_rate = success_count / notification_count
-            threshold = 0.99 # : ≥99%
+            threshold = 0.99  # : ≥99%
 
             print(
                 f"    Notification success rate: {success_rate:.1%} ({success_count}/{notification_count})"
@@ -537,7 +537,7 @@ class CAPTCHAFlowVerifier:
             #     await asyncio.sleep(1.0)
 
             success_rate = success_count / foreground_count
-            threshold = 0.95 # : ≥95%
+            threshold = 0.95  # : ≥95%
 
             print(
                 f"    Foreground success rate: {success_rate:.1%} ({success_count}/{foreground_count})"

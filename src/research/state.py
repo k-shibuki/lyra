@@ -769,7 +769,7 @@ class ExplorationState:
             "ucb_scores": ucb_scores,
             "authentication_queue": authentication_queue,
             "warnings": warnings,
-            "idle_seconds": int(idle_seconds), # ADR-0002: Cursor AI idle timeout tracking
+            "idle_seconds": int(idle_seconds),  # ADR-0002: Cursor AI idle timeout tracking
         }
 
     async def _get_authentication_queue_summary(self) -> dict[str, Any] | None:
