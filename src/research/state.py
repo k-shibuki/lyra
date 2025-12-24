@@ -9,6 +9,7 @@ See ADR-0010.
 Note: This module uses "search" terminology (not "subquery").
 """
 
+import asyncio
 import time
 from collections import deque
 from enum import Enum
@@ -278,6 +279,10 @@ class ExplorationState:
         # Activity tracking for ADR-0002 Cursor AI idle timeout
         self._last_activity_at: float = time.time()
 
+        # Long polling support (ADR-0010)
+        # Event is set when status changes (search complete/failed/cancelled)
+        self._status_changed: asyncio.Event = asyncio.Event()
+
     def _init_ucb_allocator(self) -> None:
         """Initialize the UCB allocator."""
         from src.research.ucb_allocator import UCBAllocator
@@ -306,6 +311,36 @@ class ExplorationState:
             Seconds elapsed since last activity (search, status check, etc.).
         """
         return time.time() - self._last_activity_at
+
+    def notify_status_change(self) -> None:
+        """Notify waiting clients that status has changed.
+
+        Called by SearchQueueWorker when a search completes, fails, or is cancelled.
+        Wakes up any get_status(wait=N) calls waiting on this task.
+
+        Per ADR-0010: Long polling implementation using asyncio.Event.
+        """
+        self._status_changed.set()
+
+    async def wait_for_change(self, timeout: float) -> bool:
+        """Wait for status change or timeout.
+
+        Used by get_status(wait=N) for long polling.
+
+        Args:
+            timeout: Maximum seconds to wait for a status change.
+
+        Returns:
+            True if a change occurred, False if timeout expired.
+
+        Per ADR-0010: Long polling implementation.
+        """
+        try:
+            await asyncio.wait_for(self._status_changed.wait(), timeout)
+            self._status_changed.clear()
+            return True
+        except TimeoutError:
+            return False
 
     async def _ensure_db(self) -> None:
         """Ensure database connection is available."""

@@ -845,39 +845,39 @@ status = await call_tool("get_status", {
 
 > **DBフェーズ**: 開発フェーズ（DB作り直しOK、migration不要）
 
-### Phase 1: コア機能実装
+### Phase 1: コア機能実装 ✅ DONE
 
 **前提作業:**
 - [ ] Cursor Rules/Commands の `search` ツール呼び出し箇所を特定（移行計画立案）
-- [ ] `rm data/lyra.db` でDB削除（テストは `test_database` フィクスチャで隔離されるため影響なし）
+- [x] `rm data/lyra.db` でDB削除（テストは `test_database` フィクスチャで隔離されるため影響なし）
 
 **1.1 JobKind 拡張（スキーマ変更不要）**
-- [ ] `src/scheduler/jobs.py` の `JobKind` に `SEARCH_QUEUE = "search_queue"` を追加
-- [ ] `KIND_TO_SLOT` / `KIND_PRIORITY` に対応エントリを追加
-- [ ] **テスト**: JobKind.SEARCH_QUEUE を使ったジョブ投入の単体テスト
+- [x] `src/scheduler/jobs.py` の `JobKind` に `SEARCH_QUEUE = "search_queue"` を追加
+- [x] `KIND_TO_SLOT` / `KIND_PRIORITY` に対応エントリを追加
+- [x] **テスト**: JobKind.SEARCH_QUEUE を使ったジョブ投入の単体テスト
 
 **1.2 バックグラウンドワーカー**
-- [ ] `_search_queue_worker()` 実装（`src/mcp/server.py` または `src/scheduler/search_worker.py`）
-- [ ] `run_server()` で起動/停止を管理（2 workers）
-- [ ] `asyncio.CancelledError` でのキャンセル処理（`jobs.state = 'cancelled'` に更新）
-- [ ] **テスト**: ワーカーの単体テスト（モック使用）
+- [x] `_search_queue_worker()` 実装（`src/scheduler/search_worker.py`）
+- [x] `run_server()` で起動/停止を管理（2 workers）
+- [x] `asyncio.CancelledError` でのキャンセル処理（`jobs.state = 'cancelled'` に更新）
+- [x] **テスト**: ワーカーの単体テスト（モック使用）
 
 **1.3 新しいツール: queue_searches**
-- [ ] ツール定義（`src/mcp/server.py`）
-- [ ] `_handle_queue_searches`ハンドラ実装
-- [ ] レスポンススキーマ（`src/mcp/schemas/queue_searches.json`）
-- [ ] **テスト**: ツールハンドラの単体テスト
+- [x] ツール定義（`src/mcp/server.py`）
+- [x] `_handle_queue_searches`ハンドラ実装
+- [x] レスポンススキーマ（`src/mcp/schemas/queue_searches.json`）
+- [x] **テスト**: ツールハンドラの単体テスト
 
 **1.4 既存ツールの変更: get_status**
-- [ ] `wait`パラメータ追加（`src/mcp/server.py`）
-- [ ] `queue`フィールド追加、スキーマ更新（`src/mcp/schemas/get_status.json`）
-- [ ] `ExplorationState.get_status()`の拡張（`src/research/state.py`）
-- [ ] **テスト**: get_status拡張の単体テスト
+- [x] `wait`パラメータ追加（`src/mcp/server.py`）
+- [x] `queue`フィールド追加、スキーマ更新（`src/mcp/schemas/get_status.json`）
+- [x] `ExplorationState` に `asyncio.Event` 追加（`src/research/state.py`）
+- [x] **テスト**: get_status拡張の単体テスト
 
 **1.5 統合テスト**
-- [ ] キュー投入 → ワーカー処理 → ステータス確認のE2Eフロー
-- [ ] エラーケース（タスク不在、バジェット超過など）
-- [ ] **ゲート**: Phase 1完了条件 = 全テストパス + queue_searchesが動作
+- [x] キュー投入 → ワーカー処理 → ステータス確認のE2Eフロー
+- [x] エラーケース（タスク不在、バジェット超過など）
+- [x] **ゲート**: Phase 1完了条件 = 全テストパス + queue_searchesが動作
 
 ### Phase 2: ツール削除とクライアント移行
 

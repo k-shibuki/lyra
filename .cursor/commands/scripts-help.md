@@ -30,9 +30,10 @@ Notes:
 
 ```bash
 ./scripts/test.sh run [--container|--venv|--auto] [--name NAME] [--] [pytest_args...]  # Start tests (default: tests/)
-./scripts/test.sh check         # Wait until DONE and print result tail
-./scripts/test.sh kill          # Kill pytest
-./scripts/test.sh env           # Show environment info (venv/container/cloud-agent detection)
+./scripts/test.sh check [run_id]  # Wait until DONE and print result (use run_id from run output)
+./scripts/test.sh kill [run_id]   # Kill pytest for specific run
+./scripts/test.sh kill --all      # Kill all pytest + clean up all result files
+./scripts/test.sh env             # Show environment info (venv/container/cloud-agent detection)
 ```
 
 Notes:
@@ -48,19 +49,21 @@ Notes:
   - `--container`: require container (fails if not running)
   - `--venv`: force local venv
   - `--name NAME`: override container name
-- `check/get/kill` target the **same runtime as the last `run`** (state file: `/tmp/lyra_test_state.env` by default).
+- Each `run` generates a unique `run_id` and displays it. Use this `run_id` with `check`/`kill`.
+- Result files are stored in `/tmp/lyra_test/` with unique filenames per run.
 
 Polling pattern:
 
 ```bash
 ./scripts/test.sh run tests/
-./scripts/test.sh check
+# Output: "Started. To check results: ./scripts/test.sh check 20251224_123456_12345"
+./scripts/test.sh check 20251224_123456_12345
 ```
 
 Completion logic:
 
-- `check` returns `DONE` when output contains `passed`/`failed`/`skipped`/`deselected`
-- Otherwise it uses file modification time (no updates for 5s => `DONE`)
+- `check` returns `DONE` when pytest summary line exists AND pytest process has exited
+- `check` shows summary first, then tail of output with line count info
 
 ## `chrome.sh` (Chrome management)
 

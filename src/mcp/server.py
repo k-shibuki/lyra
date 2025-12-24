@@ -2,12 +2,12 @@
 MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
-Provides 12 MCP tools (11 per ADR-0003 + feedback per ADR-0012).
+Provides 13 MCP tools (11 per ADR-0003 + queue_searches per ADR-0010 + feedback per ADR-0012).
 """
 
 import asyncio
 import json
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from mcp.server.stdio import stdio_server
@@ -26,7 +26,7 @@ app = Server("lyra")
 
 
 # ============================================================
-# Tool Definitions (12 tools: ADR-0003 + ADR-0012)
+# Tool Definitions (13 tools: ADR-0003 + ADR-0010 + ADR-0012)
 # ============================================================
 
 TOOLS = [
@@ -68,18 +68,63 @@ TOOLS = [
     ),
     Tool(
         name="get_status",
-        description="Get unified task and exploration status. Returns task info, search states, metrics, budget, and auth queue. Cursor AI uses this to decide next actions. Per ADR-0003: No recommendations - data only.",
+        description="Get unified task and exploration status. Returns task info, search states (including queued), metrics, budget, and auth queue. Supports wait (long polling). Per ADR-0003, ADR-0010.",
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "description": "Task ID to get status for"}
+                "task_id": {"type": "string", "description": "Task ID to get status for"},
+                "wait": {
+                    "type": "integer",
+                    "description": "Max seconds to wait for progress before returning (long polling). Default: 0 (immediate).",
+                    "default": 0,
+                    "minimum": 0,
+                    "maximum": 60,
+                },
             },
             "required": ["task_id"],
         },
     ),
     # ============================================================
-    # 2. Research Execution (2 tools)
+    # 2. Research Execution (3 tools)
     # ============================================================
+    Tool(
+        name="queue_searches",
+        description="Queue multiple search queries for background execution. Returns immediately. Use get_status(wait=N) to monitor progress. Per ADR-0010: Async search queue.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task ID"},
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Search queries to execute in background",
+                    "minItems": 1,
+                },
+                "options": {
+                    "type": "object",
+                    "description": "Optional search options applied to all queries",
+                    "properties": {
+                        "engines": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Specific engines to use (optional)",
+                        },
+                        "max_pages": {
+                            "type": "integer",
+                            "description": "Maximum pages per search",
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                            "default": "medium",
+                            "description": "Scheduling priority. high=10, medium=50, low=90.",
+                        },
+                    },
+                },
+            },
+            "required": ["task_id", "queries"],
+        },
+    ),
     Tool(
         name="search",
         description="Execute a search query designed by Cursor AI. Runs the full search→fetch→extract→evaluate pipeline. Use refute:true for refutation mode.",
@@ -447,6 +492,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "create_task": _handle_create_task,
         "get_status": _handle_get_status,
         # Research Execution
+        "queue_searches": _handle_queue_searches,
         "search": _handle_search,
         "stop_task": _handle_stop_task,
         # Materials
@@ -500,6 +546,94 @@ def _clear_exploration_state(task_id: str) -> None:
 # ============================================================
 # Task Management Handlers
 # ============================================================
+
+
+async def _get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
+    """Get search queue status for a task.
+
+    Returns queue depth, running count, and item details.
+    Per ADR-0010: Search queue status in get_status response.
+
+    Args:
+        db: Database connection.
+        task_id: Task ID.
+
+    Returns:
+        Queue status dict with depth, running, and items.
+    """
+    try:
+        cursor = await db.execute(
+            """
+            SELECT id, input_json, state, priority, queued_at, started_at, finished_at
+            FROM jobs
+            WHERE task_id = ? AND kind = 'search_queue'
+            ORDER BY priority ASC, queued_at ASC
+            """,
+            (task_id,),
+        )
+        rows = await cursor.fetchall()
+
+        items = []
+        queued_count = 0
+        running_count = 0
+
+        for row in rows:
+            if isinstance(row, dict):
+                item_id = row["id"]
+                input_json = row["input_json"]
+                state = row["state"]
+                priority = row["priority"]
+                queued_at = row["queued_at"]
+                started_at = row["started_at"]
+                finished_at = row["finished_at"]
+            else:
+                item_id = row[0]
+                input_json = row[1]
+                state = row[2]
+                priority = row[3]
+                queued_at = row[4]
+                started_at = row[5]
+                finished_at = row[6]
+
+            # Parse input to get query
+            query = ""
+            if input_json:
+                try:
+                    input_data = json.loads(input_json)
+                    query = input_data.get("query", "")
+                except json.JSONDecodeError:
+                    pass
+
+            # Count by state
+            if state == "queued":
+                queued_count += 1
+            elif state == "running":
+                running_count += 1
+
+            items.append(
+                {
+                    "id": item_id,
+                    "query": query,
+                    "status": state,
+                    "priority": priority,
+                    "created_at": queued_at,
+                    "started_at": started_at,
+                    "completed_at": finished_at,
+                }
+            )
+
+        return {
+            "depth": queued_count,
+            "running": running_count,
+            "items": items,
+        }
+    except Exception as e:
+        logger.warning("Failed to get search queue status", error=str(e))
+        return {
+            "depth": 0,
+            "running": 0,
+            "items": [],
+        }
 
 
 async def _get_domain_overrides() -> list[dict[str, Any]]:
@@ -603,13 +737,16 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
     Handle get_status tool call.
 
     Implements ADR-0003: Unified task and exploration status.
-    Returns task info, search states, metrics, budget, auth queue.
+    Implements ADR-0010: Long polling with wait parameter.
+
+    Returns task info, search states, queue status, metrics, budget, auth queue.
 
     Note: Returns data only, no recommendations. Cursor AI decides next actions.
     """
     from src.mcp.errors import InvalidParamsError, TaskNotFoundError
 
     task_id = args.get("task_id")
+    wait = args.get("wait", 0)
 
     if not task_id:
         raise InvalidParamsError(
@@ -618,7 +755,33 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             expected="non-empty string",
         )
 
+    # Validate wait parameter
+    if wait < 0 or wait > 60:
+        raise InvalidParamsError(
+            "wait must be between 0 and 60",
+            param_name="wait",
+            expected="integer 0-60",
+        )
+
     with LogContext(task_id=task_id):
+        # Get exploration state first for long polling
+        state = None
+        try:
+            state = await _get_exploration_state(task_id)
+            # Record activity for ADR-0002 idle timeout tracking
+            state.record_activity()
+        except Exception as e:
+            logger.debug(
+                "No exploration state available",
+                task_id=task_id,
+                error=str(e),
+            )
+
+        # Long polling: wait for status change (ADR-0010)
+        if wait > 0 and state is not None:
+            logger.debug(f"Long polling wait={wait}s", task_id=task_id)
+            await state.wait_for_change(timeout=float(wait))
+
         # Get task info from DB
         db = await get_database()
         task = await db.fetch_one(
@@ -633,19 +796,17 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
         db_status = task["status"] if isinstance(task, dict) else task[2]
         task_query = task["query"] if isinstance(task, dict) else task[1]
 
-        # Get exploration state if exists
+        # Get exploration state status
         exploration_status = None
-        try:
-            state = await _get_exploration_state(task_id)
-            # Record activity for ADR-0002 idle timeout tracking
-            state.record_activity()
-            exploration_status = await state.get_status()
-        except Exception as e:
-            logger.debug(
-                "No exploration state available",
-                task_id=task_id,
-                error=str(e),
-            )
+        if state is not None:
+            try:
+                exploration_status = await state.get_status()
+            except Exception as e:
+                logger.debug(
+                    "Failed to get exploration status",
+                    task_id=task_id,
+                    error=str(e),
+                )
 
         # Build unified response per ADR-0003
         if exploration_status:
@@ -694,12 +855,16 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get domain overrides from DB
             domain_overrides = await _get_domain_overrides()
 
+            # Get search queue status (ADR-0010)
+            queue_info = await _get_search_queue_status(db, task_id)
+
             response = {
                 "ok": True,
                 "task_id": task_id,
                 "status": status,
                 "query": task_query,
                 "searches": searches,
+                "queue": queue_info,  # ADR-0010: Search queue status
                 "metrics": {
                     "total_searches": len(searches),
                     "satisfied_count": metrics.get("satisfied_count", 0),
@@ -733,12 +898,16 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get domain overrides from DB
             domain_overrides = await _get_domain_overrides()
 
+            # Get search queue status (ADR-0010)
+            queue_info = await _get_search_queue_status(db, task_id)
+
             response = {
                 "ok": True,
                 "task_id": task_id,
                 "status": db_status or "created",
                 "query": task_query,
                 "searches": [],
+                "queue": queue_info,  # ADR-0010: Search queue status
                 "metrics": {
                     "total_searches": 0,
                     "satisfied_count": 0,
@@ -766,6 +935,110 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 # ============================================================
 # Research Execution Handlers
 # ============================================================
+
+
+async def _handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handle queue_searches tool call.
+
+    Queues multiple search queries for background execution.
+    Returns immediately with queued count and search IDs.
+
+    Per ADR-0010: Async search queue architecture.
+
+    Args:
+        task_id: Task ID
+        queries: List of search queries
+        options: Optional search options (applied to all queries)
+
+    Returns:
+        {ok: true, queued_count: N, search_ids: [...]}
+    """
+    import uuid
+
+    from src.mcp.errors import InvalidParamsError, TaskNotFoundError
+
+    task_id = args.get("task_id")
+    queries = args.get("queries", [])
+    options = args.get("options", {})
+
+    # Validation
+    if not task_id:
+        raise InvalidParamsError(
+            "task_id is required",
+            param_name="task_id",
+            expected="non-empty string",
+        )
+
+    if not queries or len(queries) == 0:
+        raise InvalidParamsError(
+            "queries must not be empty",
+            param_name="queries",
+            expected="non-empty array of strings",
+        )
+
+    with LogContext(task_id=task_id):
+        # Verify task exists
+        db = await get_database()
+        task = await db.fetch_one(
+            "SELECT id FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+
+        if task is None:
+            raise TaskNotFoundError(task_id)
+
+        # Determine priority value from string
+        priority_str = options.get("priority", "medium")
+        priority_map = {"high": 10, "medium": 50, "low": 90}
+        priority_value = priority_map.get(priority_str, 50)
+
+        # Queue each search
+        search_ids = []
+        now = datetime.now(UTC).isoformat()
+
+        for query in queries:
+            search_id = f"s_{uuid.uuid4().hex[:12]}"
+
+            # Prepare input JSON
+            input_data = {
+                "query": query,
+                "options": {k: v for k, v in options.items() if k != "priority"},
+            }
+
+            # Insert into jobs table (kind='search_queue')
+            await db.execute(
+                """
+                INSERT INTO jobs
+                    (id, task_id, kind, priority, slot, state, input_json, queued_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    search_id,
+                    task_id,
+                    "search_queue",
+                    priority_value,
+                    "network_client",
+                    "queued",
+                    json.dumps(input_data, ensure_ascii=False),
+                    now,
+                ),
+            )
+            search_ids.append(search_id)
+
+        logger.info(
+            "Searches queued",
+            task_id=task_id,
+            count=len(search_ids),
+            priority=priority_str,
+        )
+
+        return {
+            "ok": True,
+            "queued_count": len(search_ids),
+            "search_ids": search_ids,
+            "message": f"{len(search_ids)} searches queued. Use get_status(wait=N) to monitor progress.",
+        }
 
 
 async def _check_chrome_cdp_ready() -> bool:
@@ -1684,7 +1957,7 @@ async def _handle_feedback(args: dict[str, Any]) -> dict[str, Any]:
 
 async def run_server() -> None:
     """Run the MCP server."""
-    logger.info("Starting Lyra MCP server (12 tools)")
+    logger.info("Starting Lyra MCP server (13 tools)")
 
     # Initialize database
     await get_database()
@@ -1694,6 +1967,12 @@ async def run_server() -> None:
 
     await load_domain_overrides_from_db()
 
+    # Start search queue workers (ADR-0010)
+    from src.scheduler.search_worker import get_worker_manager
+
+    worker_manager = get_worker_manager()
+    await worker_manager.start()
+
     try:
         async with stdio_server() as (read_stream, write_stream):
             await app.run(
@@ -1702,6 +1981,8 @@ async def run_server() -> None:
                 app.create_initialization_options(),
             )
     finally:
+        # Stop search queue workers
+        await worker_manager.stop()
         await close_database()
         logger.info("Lyra MCP server stopped")
 

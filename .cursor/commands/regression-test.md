@@ -61,21 +61,23 @@ Run the full test suite to catch regressions outside your local change surface:
 
 ```bash
 ./scripts/test.sh run tests/
-./scripts/test.sh check
-./scripts/test.sh kill  # only if you need to abort
+# Output shows: ./scripts/test.sh check <run_id>
+./scripts/test.sh check <run_id>
+./scripts/test.sh kill <run_id>  # only if you need to abort
 ```
 
 Polling example:
 
 ```bash
-./scripts/test.sh run tests/  # or pass a smaller target in Stage 1
-./scripts/test.sh check
+./scripts/test.sh run tests/
+# Output: "Started. To check results: ./scripts/test.sh check 20251224_123456_12345"
+./scripts/test.sh check 20251224_123456_12345
 ```
 
 Completion logic:
 
-- `check` returns `DONE` when test output contains `passed`/`failed`/`skipped`/`deselected`
-- Otherwise it uses file modification time (no updates for 5s => `DONE`)
+- `check` returns `DONE` when pytest summary line exists AND pytest process has exited
+- Each `run` generates a unique `run_id`; use it with `check`/`kill` to avoid result confusion
 
 ## Output (response format)
 
