@@ -653,18 +653,39 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
   - queued → cancelled（`jobs.state = 'cancelled'`）
   - running → `asyncio.Task.cancel()` でキャンセルし、`jobs.state = 'cancelled'` に更新（result JSONは保存しない）
   - **soft cleanup を実施**し、タスク固有データ（claims/queries/serp_items 等）と、当該taskのclaimsに接続するedgesを削除して不可視化する
-  - ただしキャンセル時点までにDBへ書かれた pages/fragments 等の"痕跡"は残り得る（強い原子性はv1では保証しない）
+  - ただしキャンセル時点までにDBへ書かれた pages/fragments 等の"痕跡"は残り得る（強い原子性は保証しない）
   - `pages.url UNIQUE` のため pages/fragments はタスク横断で再利用され得る（詳細は ADR-0005 の Data Ownership & Scope を参照）
 
 **論理的一貫性の保証**:
 - `jobs.state = 'cancelled'` が設定されることで、「このジョブはキャンセルされた」ことが明示的に記録される
 - 下流の処理（レポート生成、get_materials 等）は `state = 'cancelled'` のジョブに紐づくデータを論理的に除外できる
-- 技術的に「途中痕跡ゼロ」を保証するのは難しいため、v1は **論理的一貫性（jobs.state で整合）** と **クリーンに復帰できる運用** を優先する
+- 技術的に「途中痕跡ゼロ」を保証するのは難しいため、**論理的一貫性（jobs.state で整合）** と **クリーンに復帰できる運用** を優先する
 
 #### Hard cleanup（orphans_only）
 
 soft cleanup の後、ストレージ回収が必要な場合に限り **hard(orphans_only)** を実行し、孤児データのみを削除する。
 仕様の正は `docs/adr/0005-evidence-graph-structure.md`（Cleanup Policy）とする。
+
+### 3.6 エラーハンドリングとリトライポリシー
+
+**現在の設計:**
+- 失敗したジョブは `state='failed'` で終了し、**自動リトライなし**
+- リトライ判断は**MCPクライアント責任**（`get_status` で失敗を検知 → 必要に応じて再キュー）
+
+**設計判断の理由:**
+1. **シンプルさ優先**: 複雑なリトライロジック（指数バックオフ、リトライ上限等）を避ける
+2. **クライアント制御**: MCPクライアント（Cursor AI）が失敗原因を判断し、適切な対応を選択できる
+3. **透明性**: 失敗状態が明示的に記録され、監査可能
+
+**将来の拡張オプション:**
+
+| 選択肢 | 説明 | 適用場面 |
+|--------|------|---------|
+| 自動リトライ | ワーカーが指数バックオフでリトライ | 一時的エラー（ネットワーク障害等） |
+| Dead Letter Queue | N回失敗後に別キューへ移動 | 恒久的エラーの分離 |
+| 現状維持 | MCPクライアント責任 | 運用データ不足の段階 |
+
+**推奨**: 運用データを収集してから判断。現時点では現状維持で問題なし。
 
 ## 4. 使用例
 
@@ -896,6 +917,7 @@ status = await call_tool("get_status", {
 **2.3 ドキュメント更新**
 - [ ] `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
 - [ ] Cursor Rules/Commands (`.cursor/rules/`, `.cursor/commands/`) 内の使用例を更新
+- [ ] §3.6 エラーハンドリングとリトライポリシーの設計判断を明記（本ドキュメント）
 - [ ] **テスト**: 削除後の回帰テスト（既存テストがパスすることを確認）
 
 ### Phase 3: 最終検証
@@ -920,41 +942,9 @@ status = await call_tool("get_status", {
 
 ---
 
-## 7. 将来の拡張性
+## 7. まとめ
 
-### 7.1 並列ワーカー（v1で2 workers）
-
-v1では **2 workers** で並列実行する:
-
-```python
-# 複数ワーカーを起動（キュー全体で並列）
-for i in range(2):
-    asyncio.create_task(_search_queue_worker(worker_id=i))
-```
-
-**注意:** 同一タスク内の検索も並列になり得る（完了順は非決定）。必要なら後で「タスク内シーケンシャル」を復活させる。
-
-### 7.2 検索キューの優先度制御
-
-- ユーザ指定の優先度（high/medium/low）
-- 動的優先度調整（バジェット残量に応じて）
-- デッドライン指定（特定時刻までに完了）
-
-### 7.3 検索結果のストリーミング
-
-SSE転送を使用した場合、検索進捗をリアルタイムで通知:
-
-```python
-# 将来の可能性（SSE使用）
-async for event in subscribe_search_progress(task_id):
-    print(event)  # {type: "page_fetched", page_num: 5, ...}
-```
-
----
-
-## 8. まとめ
-
-### 8.1 主要な変更点
+### 7.1 主要な変更点
 
 | 変更 | 内容 |
 |------|------|
@@ -963,7 +953,7 @@ async for event in subscribe_search_progress(task_id):
 | **変更** | `get_status` (wait追加、キュー状態統合) |
 | **内部** | `SearchQueueWorker` (バックグラウンド処理) |
 
-### 8.2 ツール数の変化
+### 7.2 ツール数の変化
 
 ```
 12ツール → 10ツール
@@ -974,14 +964,14 @@ async for event in subscribe_search_progress(task_id):
 維持: 8個（create_task, stop_task, get_materials, calibration_metrics, calibration_rollback, get_auth_queue, resolve_auth, feedback）
 ```
 
-### 8.3 効果
+### 7.3 効果
 
 1. **シンプル化** - ツール数削減、概念的にも明快
 2. **非同期化** - クライアントがブロックされない
 3. **効率化** - wait（long polling）で無駄なポーリングを削減
 4. **拡張性** - 将来の並列化やストリーミングに対応可能
 
-### 8.4 移行の容易さ
+### 7.4 移行の容易さ
 
 - **既存コードへの影響最小限**
   - `search_action`は維持（内部で使用）
@@ -995,9 +985,9 @@ async for event in subscribe_search_progress(task_id):
 
 ---
 
-## 9. 認証キュー統合の設計判断
+## 8. 認証キュー統合の設計判断
 
-### 9.1 検討課題
+### 8.1 検討課題
 
 10ツール構成において、`get_auth_queue`と`resolve_auth`を維持すべきか、それとも`get_status`に統合すべきかを検討した。
 
@@ -1006,7 +996,7 @@ async for event in subscribe_search_progress(task_id):
 - `get_auth_queue`はより詳細な認証キュー情報を提供
 - 部分的な機能重複が存在
 
-### 9.2 詳細分析
+### 8.2 詳細分析
 
 #### A. 現在の実装の特徴
 
@@ -1085,7 +1075,7 @@ await resolve_auth(
 - **関心の分離**: ダッシュボード（get_status）vs 認証ワークフロー（get_auth_queue + resolve_auth）
 - **パフォーマンス**: get_statusは軽量（グループ化処理なし）
 
-### 9.3 統合オプションの評価
+### 8.3 統合オプションの評価
 
 #### Option A: 統合しない（現状維持）
 
@@ -1118,7 +1108,7 @@ await resolve_auth(
 - ❌ **全タスク取得不可**: get_statusはtask_id必須
 - ❌ **責務の混在**: ダッシュボードと認証解決ワークフローが混ざる
 
-### 9.4 設計判断
+### 8.4 設計判断
 
 **決定: Option A（統合しない・現状維持）**
 
@@ -1144,7 +1134,7 @@ await resolve_auth(
 **結論:**
 `get_auth_queue`と`resolve_auth`は独立したツールとして維持する。これにより、MCPクライアントのUX、パフォーマンス、柔軟性のバランスが最適化される。
 
-### 9.5 最終ツール構成の確定
+### 8.5 最終ツール構成の確定
 
 **10ツール（確定版）:**
 
@@ -1170,7 +1160,7 @@ await resolve_auth(
 
 ---
 
-## 10. 結論
+## 9. 結論
 
 **現在の`search`ツールは同期的でクライアントをブロックする**という本質的な問題を、**ツールを増やすのではなく非同期セマンティクスに変更する**ことで解決します。
 
