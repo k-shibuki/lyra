@@ -1295,10 +1295,10 @@ async def search_action(
     options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Unified API for search action (Phase M architecture).
+    Unified API for search action.
 
-    This function serves as the action-based entry point for the search MCP tool,
-    following the unified architecture pattern where MCP handlers are thin wrappers.
+    Entry point for the search MCP tool. MCP handler delegates to this function
+    (see ADR-0003 for the thin-wrapper architecture).
 
     Args:
         task_id: The task ID.
@@ -1307,7 +1307,7 @@ async def search_action(
         options: Optional search options dict.
 
     Returns:
-        Search result conforming to ADR-0003 schema.
+        Search result dict (pages found, claims extracted, metrics).
     """
     # Convert options dict to SearchOptions
     search_options = SearchOptions()
@@ -1329,9 +1329,10 @@ async def stop_task_action(
     reason: str = "completed",
 ) -> dict[str, Any]:
     """
-    Unified API for stop_task action (Phase M architecture).
+    Unified API for stop_task action.
 
-    Finalizes exploration and returns summary.
+    Finalizes exploration and returns summary. MCP handler delegates to this
+    function (see ADR-0003).
 
     Args:
         task_id: The task ID.
@@ -1339,7 +1340,7 @@ async def stop_task_action(
         reason: Stop reason ("completed", "budget_exhausted", "user_cancelled").
 
     Returns:
-        Finalization result conforming to ADR-0003 schema.
+        Finalization result dict (summary, metrics, final status).
     """
     with LogContext(task_id=task_id):
         logger.info("Stopping task", reason=reason)

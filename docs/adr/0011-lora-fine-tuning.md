@@ -159,7 +159,7 @@ LoRA学習を開始するには、以下が必要：
 
 ## References
 - `docs/R_LORA.md` - LoRAファインチューニング詳細設計
-- `docs/P_EVIDENCE_SYSTEM.md` - Phase 6: NLI訂正サンプル蓄積
+- `docs/archive/P_EVIDENCE_SYSTEM.md` - Phase 6: NLI訂正サンプル蓄積（アーカイブ）
 - `src/utils/calibration.py` - 確率キャリブレーション実装
 - `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations`テーブル
 - `src/mcp/server.py` - `calibration_metrics`, `calibration_rollback` MCPツール

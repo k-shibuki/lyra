@@ -86,8 +86,8 @@ async def is_browser_search_available() -> bool:
 async def is_ollama_available() -> bool:
     """Check if Ollama is available.
 
-    Per Phase O: In hybrid mode, Ollama is accessed via proxy server.
-    Uses the same connection method as OllamaProvider (proxy_url/ollama).
+    In hybrid mode, Ollama is accessed via proxy server (http://localhost:8080/ollama).
+    Uses the same connection method as OllamaProvider.
     """
     try:
         import aiohttp
@@ -1059,7 +1059,7 @@ class TestLLMIntegration:
         """
         Verify Ollama is running and has required models.
 
-        Per Phase O: Uses proxy URL for Ollama access (same as OllamaProvider).
+        Uses proxy URL for Ollama access (http://localhost:8080/ollama, same as OllamaProvider).
         """
         import aiohttp
 

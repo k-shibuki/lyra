@@ -1,7 +1,7 @@
 """
-Tests for feedback MCP tool .
+Tests for feedback MCP tool (ADR-0012).
 
-Test matrix based on P_EVIDENCE_SYSTEM.md テスト観点表（ feedback）:
+Test matrix based on ADR-0012 (feedback tool design):
 
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
 |---------|---------------------|-------------|-----------------|-------|

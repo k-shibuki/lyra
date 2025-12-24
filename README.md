@@ -633,9 +633,9 @@ lyra/
 | Document | Description |
 |----------|-------------|
 | [ADRs](docs/adr/) | Architecture Decision Records |
-| [P_EVIDENCE_SYSTEM.md](docs/P_EVIDENCE_SYSTEM.md) | Evidence system design (in progress) |
 | [Q_ASYNC_ARCHITECTURE.md](docs/Q_ASYNC_ARCHITECTURE.md) | Async architecture design (planned) |
 | [R_LORA.md](docs/R_LORA.md) | LoRA fine-tuning design (planned) |
+| [archive/](docs/archive/) | Historical snapshots (not maintained) |
 
 ### Directory Structure
 
@@ -643,7 +643,6 @@ lyra/
 docs/
 ├── adr/           # Architecture Decision Records (12 ADRs)
 ├── archive/       # Historical snapshots (not maintained)
-├── P_EVIDENCE_SYSTEM.md
 ├── Q_ASYNC_ARCHITECTURE.md
 └── R_LORA.md
 ```

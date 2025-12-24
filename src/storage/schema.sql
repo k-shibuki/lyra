@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS edges (
     --   "semantic_scholar" | "openalex" | "extraction"
     citation_source TEXT,
     citation_context TEXT,
-    -- Domain category information for ranking adjustment and high-reasoning AI (Phase P.2)
+    -- Domain category for ranking adjustment (see DomainCategory enum in domain_policy.py)
     source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
     target_domain_category TEXT,
     -- Human correction metadata ( / )
@@ -681,7 +681,7 @@ CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_evaluated_at ON calibrati
 -- Feedback & Override Tables ( / , 20)
 -- ============================================================
 
--- NLI correction samples for ground-truth collection ( / Phase R LoRA)
+-- NLI correction samples for ground-truth collection (ADR-0011: LoRA fine-tuning, ADR-0012: feedback)
 CREATE TABLE IF NOT EXISTS nli_corrections (
     id TEXT PRIMARY KEY,
     edge_id TEXT NOT NULL,

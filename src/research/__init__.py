@@ -87,7 +87,7 @@ __all__ = [
     "EntityType",
     "detect_entity_type",
     "get_pivot_expander",
-    # Pipeline (Phase M)
+    # Pipeline (ADR-0003)
     "SearchPipeline",
     "SearchResult",
     "SearchOptions",

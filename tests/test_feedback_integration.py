@@ -1,7 +1,7 @@
 """
-Tests for feedback ⇔ SourceVerifier integration .
+Tests for feedback ⇔ SourceVerifier integration (ADR-0012).
 
-Test matrix based on P_EVIDENCE_SYSTEM.md テスト観点表（）:
+Test matrix based on ADR-0012 (feedback ⇔ SourceVerifier integration):
 
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
 |---------|---------------------|-------------|-----------------|-------|

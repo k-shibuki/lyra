@@ -504,7 +504,7 @@ class TestOldToolsRemoved:
         """
         Test that deprecated tools are removed from TOOLS.
 
-        // Given: TOOLS list after Phase M refactoring
+        // Given: TOOLS list (ADR-0003 architecture)
         // When: Searching for deprecated tool names
         // Then: None found
         """
@@ -541,11 +541,11 @@ class TestOldToolsRemoved:
 
     def test_new_tools_count(self) -> None:
         """
-        Test that exactly 11 tools are defined per ADR-0003.
+        Test that exactly 12 tools are defined (ADR-0003 + ADR-0012).
 
-        // Given: TOOLS list after Phase M refactoring
+        // Given: TOOLS list (12 tools: 11 per ADR-0003 + feedback per ADR-0012)
         // When: Counting tools
-        // Then: Exactly 11 tools
+        // Then: Exactly 12 tools
         """
         from src.mcp.server import TOOLS
 
