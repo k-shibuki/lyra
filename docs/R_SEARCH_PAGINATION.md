@@ -1,72 +1,74 @@
-# 検索ページネーション機能 調査メモ
+# 検索ページネーション機能
 
-> 作成日: 2025-12-24
->
-> 目的: WEB検索で到達できないページの問題を調査し、ページネーション実装の可否を検討
+> **Status**: 🔜 PLANNED（実装待ち）
+
+> **Scope / Assumptions**:
+> - Q_ASYNC_ARCHITECTURE.md 完了後に着手
+> - ADR-0010 への追記で対応（新規ADR不要）
+> - 既存コード資産の拡張で実装可能
+
+## Executive Summary
+
+**問題の本質:** 現在の検索機能は結果の1ページ目のみ取得可能。2ページ目以降の結果には到達できない。
+
+**解決策:** ページネーション機能を追加し、複数ページの結果を取得可能にする
+- `SearchOptions.page` パラメータを実際に使用
+- 各エンジンのページネーションURL構築対応
+- 自動停止判断ロジック（飽和検知・収穫率ベース）
+
+**工数見積:** 約9時間（1.5日）
 
 ---
 
-## 1. 現状の制限: 到達できないページ
+## 1. 現状の問題点
 
-### 1.1 ページネーション未実装（最重要）
+### 1.1 到達できないページ
 
-現在の実装では検索結果の**1ページ目のみ**取得可能。
+| カテゴリ | 問題 | 影響度 |
+|---------|------|--------|
+| ページネーション未実装 | 検索結果の2ページ目以降に到達不可 | **高** |
+| 未実装エンジン | Wikipedia, Arxiv等にパーサーなし | 中 |
+| 日次制限 | Google/Bing: 10回/日 | 中 |
+| CAPTCHA | bot検出でブロック | 低（介入キューで対応） |
 
+### 1.2 ページネーション未実装の詳細
+
+**現在のコード:**
 ```python
 # src/search/browser_search_provider.py:948
 results = [r.to_search_result(engine) for r in parse_result.results[: options.limit]]
 ```
 
-- `SearchOptions.page` パラメータは定義されているが**未使用**
-- 次ページボタンのクリック: 未実装
-- URLパラメータでのページ指定 (`&start=10` 等): 未実装
+- `SearchOptions.page` パラメータは定義済みだが**未使用**
 - 最大取得件数: 1ページあたり10〜100件
+- 次ページ取得手段なし
 
-### 1.2 未実装エンジン（パーサーなし）
-
-以下のエンジンは `engines.yaml` に定義されているが、パーサーが存在しない:
+### 1.3 未実装エンジン（パーサーなし）
 
 | エンジン | 状態 | 備考 |
 |---------|------|------|
 | Wikipedia | パーサーなし | ナレッジソース |
 | Wikidata | パーサーなし | 構造化データ |
 | Marginalia | パーサーなし | インディーWeb検索 |
-| Arxiv | パーサーなし | 学術論文（APIは別途実装あり） |
-| PubMed | パーサーなし | 医学論文（APIは別途実装あり） |
+| Arxiv | パーサーなし | APIは別途実装あり |
+| PubMed | パーサーなし | APIは別途実装あり |
 | Qwant | パーサーなし | プライバシー重視検索 |
 
-指定すると `No parser available for engine: {engine}` エラー。
+### 1.4 日次制限（ADR-0010）
 
-### 1.3 日次制限
-
-ラストマイルエンジンには厳格な日次制限がある（ADR-0010）:
-
-| エンジン | 日次制限 | QPS |
-|---------|---------|-----|
-| Google | 10回/日 | 0.05 |
-| Bing | 10回/日 | 0.05 |
-| Brave | 50回/日 | 0.1 |
-| Mojeek | 制限なし | 0.25 |
-| DuckDuckGo | 制限なし | 0.2 |
-
-### 1.4 その他の到達不可パターン
-
-| パターン | 原因 | 対応 |
-|---------|------|------|
-| CAPTCHA | bot検出 | 手動介入キュー (ADR-0007) |
-| サーキットブレーカー | 2回連続失敗 | 30〜120分クールダウン |
-| タイムアウト | 30秒超過 | リトライなし |
-| セレクタ破損 | HTML構造変更 | YAML修正で対応可 |
+| エンジン | 日次制限 | QPS | 備考 |
+|---------|---------|-----|------|
+| Google | 10回/日 | 0.05 | ラストマイル |
+| Bing | 10回/日 | 0.05 | ラストマイル |
+| Brave | 50回/日 | 0.1 | ラストマイル |
+| Mojeek | 制限なし | 0.25 | デフォルト |
+| DuckDuckGo | 制限なし | 0.2 | デフォルト |
 
 ---
 
-## 2. ページネーション実装の可能性
+## 2. 解決策
 
-### 2.1 結論: 実装は現実的
-
-既存コード資産の拡張で対応可能。モジュール新設は不要。
-
-### 2.2 既に揃っている要素
+### 2.1 既存資産の活用
 
 | 要素 | 場所 | 状態 |
 |------|------|------|
@@ -75,7 +77,7 @@ results = [r.to_search_result(engine) for r in parse_result.results[: options.li
 | 結果パーサー | `search_parsers.py` | 7エンジン対応済み |
 | 設定外部化 | `config/search_parsers.yaml` | 実装済み |
 
-### 2.3 各エンジンのページネーションパラメータ
+### 2.2 各エンジンのページネーションパラメータ
 
 | エンジン | パラメータ形式 | 例（2ページ目） | 結果数/ページ |
 |---------|---------------|-----------------|---------------|
@@ -134,11 +136,11 @@ class PaginationStrategy:
 | タスク種別 | `_detect_category()` | 深度プリセット |
 | エンジン状態 | `engine_health` | 取得可能性判定 |
 
-**LLM判断は不要**: 機械的ルール + 既存メトリクスで十分。
+**結論**: LLM判断は不要。機械的ルール + 既存メトリクスで十分。
 
 ---
 
-## 4. 必要な変更
+## 4. 実装計画
 
 ### 4.1 設定ファイル変更
 
@@ -155,11 +157,6 @@ mojeek:
   search_url: "https://www.mojeek.com/search?q={query}&t={time_range}&s={offset}"
   results_per_page: 10
   pagination_type: "offset"
-
-google:
-  search_url: "https://www.google.com/search?q={query}&hl={language}&tbs={time_range}&start={offset}"
-  results_per_page: 10
-  pagination_type: "offset"
 ```
 
 ### 4.2 コード変更
@@ -171,19 +168,9 @@ google:
 | `src/search/browser_search_provider.py` | `search()` でpage活用 | +20行 |
 | `src/search/provider.py` | `SearchResponse` にpage情報追加（任意） | +5行 |
 
-### 4.3 DB変更（任意）
+### 4.3 新規ファイル
 
-```sql
--- serp_items に追加（推奨）
-ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
-
--- cache_serp のキー計算にpage含める
--- (コード側の変更のみ、スキーマ変更なし)
-```
-
-### 4.4 停止判断ロジック追加
-
-**新規ファイル**: `src/search/pagination_strategy.py`
+**ファイル**: `src/search/pagination_strategy.py`
 
 ```python
 @dataclass
@@ -197,6 +184,13 @@ class PaginationStrategy:
     def __init__(self, config: PaginationConfig): ...
     def should_fetch_next(self, context: PaginationContext) -> bool: ...
     def calculate_novelty_rate(self, new_urls: list[str], seen_urls: set[str]) -> float: ...
+```
+
+### 4.4 DB変更（任意）
+
+```sql
+-- serp_items に追加（推奨）
+ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
 ```
 
 ---
@@ -219,7 +213,7 @@ class PaginationStrategy:
 
 ### 結論: 新規ADR不要、ADR-0010への追記で対応
 
-**理由**:
+**理由:**
 - ページネーション実装は既存アーキテクチャの拡張
 - `queue_searches` の仕様拡張として自然に収まる
 - 重大なトレードオフ決定は含まれない
@@ -241,12 +235,6 @@ class PaginationStrategy:
 - 収穫率 < 5%
 - max_pages到達
 ```
-
-### 新規ADRが必要になるケース
-
-- 停止判断にLLMを使う決定
-- マルチエンジン並列ページネーション導入
-- 優先度付きページ取得
 
 ---
 
@@ -280,7 +268,7 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|page={page}"
 
 ---
 
-## 8. 実装タスク一覧
+## 8. 実装タスク
 
 ### Phase 1: 基盤整備
 - [ ] `config/search_parsers.yaml` にページネーションパラメータ追加
