@@ -10,13 +10,13 @@
 
 ### 結論（レビュー判断）
 
-`docs/archive/P_EVIDENCE_SYSTEM.md` の内容は、**"内部実装が存在する"という意味では多くが実装済み**に見える一方で、  
-**"MCP経由で外部に露出し、仕様どおりに成立する"という意味では未完了の箇所がある**ため、現状は **「完全に完了した」とは言えない**。
+`docs/archive/P_EVIDENCE_SYSTEM.md` の内容は、**内部実装・MCP契約の両面で実装済み**と判断できる。  
+当初「未完了」と判断した 2 点（L7 サニタイズ不整合、独立ソース数計算不整合）は **2025-12-24 に解消済み**。
 
-当初 未完了と判断した主因は次の2点:
+当初「未完了」と判断した主因は次の 2 点（いずれも解消済み）:
 
 - ~~**L7サニタイズ（スキーマallowlist）と `get_materials` の実返却の不整合**~~ → ✅ 解消済み（2025-12-24）
-- **EvidenceGraph の統計（独立ソース数・時間メタデータ）が実運用パスで成立していない疑い** → 未着手
+- ~~**EvidenceGraph の統計（独立ソース数・時間メタデータ）が実運用パスで成立していない疑い**~~ → ✅ 解消済み（2025-12-24）
 
 ---
 
@@ -53,22 +53,26 @@
 
 ---
 
-### 未完了/不整合（重要）
+### 解消済み（不整合2）
 
-#### 2) EvidenceGraph の「独立ソース数/時間メタデータ」が実運用で成立しない疑い
+#### 2) EvidenceGraph の「独立ソース数/時間メタデータ」が実運用で成立しない疑い → ✅ 解消（2025-12-24）
 
-**現象（疑い）**:
-`EvidenceGraph.calculate_claim_confidence()` の `independent_sources` は **PAGEノード**を根拠に数えるが、  
-通常の検索実行パスは **FRAGMENT→CLAIM** の NLI エッジを作るため、PAGEノードが十分に関与しない場合、
-`independent_sources` が 0 のままになり得る。
+**原因**:
+`EvidenceGraph.calculate_claim_confidence()` の `independent_sources` が **PAGEノードのみ**を数えていたが、
+実運用パスは **FRAGMENT→CLAIM** のエッジしか作らないため、`independent_sources` が常に 0 になっていた。
 
-**根拠**:
-- NLIエッジ永続化の実運用: `src/research/executor.py` が `add_claim_evidence()`（FRAGMENT→CLAIM）を実行
-- 独立ソース数の計算が PAGE ノード依存: `src/filter/evidence_graph.py:calculate_claim_confidence`
+**修正内容**:
+- `src/filter/evidence_graph.py:EvidenceGraph.load_from_db()` で DB から fragment→page_id と pages.paper_metadata を復元
+- `calculate_claim_confidence()` が fragment evidence の場合 **page_id** を独立ソースとしてカウント
+- `add_claim_evidence()` で reload 無しでも page/academic 属性をノードに付与
+- 契約モデル追加: `src/filter/schemas.py`（`ClaimConfidenceAssessment`, `EvidenceYears`, `EvidenceItem`）
+- シーケンス図追加: `docs/sequences/evidencegraph_independent_sources_debug.md`
+- デバッグスクリプト追加: `tests/scripts/debug_evidencegraph_independent_sources_flow.py`（isolated DB）
 
-**影響**:
-`SourceVerifier` は `independent_sources >= 2` を VERIFIED（昇格含む）の条件に使うため、
-実運用で `independent_sources` が期待どおりに増えない場合、検証フローが想定どおり動かない可能性がある。
+**検証結果**（実行時ログ）:
+- `independent_sources` が 0 → 2 に改善
+- `evidence_years` が null → {oldest:2020, newest:2021} に改善
+- `verification_status` が pending → verified に改善
 
 ---
 
@@ -89,9 +93,9 @@
   - ~~`src/mcp/schemas/get_materials.json` と `src/research/materials.py` の整合~~
   - ~~L7サニタイズ後に `uncertainty/controversy/evidence/evidence_years` が残ることのE2E確認~~
 
-- **独立ソース数の定義と wiring**（未着手）
-  - FRAGMENT→CLAIM を前提に「independent_sources をどう数えるか」を決める
-  - `EvidenceGraph.calculate_claim_confidence()` の実運用データから値が増えることを確認
+- ~~**独立ソース数の定義と wiring**~~ → ✅ 解消済み（2025-12-24）
+  - ~~FRAGMENT→CLAIM を前提に「independent_sources をどう数えるか」を決める~~
+  - ~~`EvidenceGraph.calculate_claim_confidence()` の実運用データから値が増えることを確認~~
 
 ---
 
@@ -106,6 +110,9 @@
 - `src/filter/source_verification.py`
 - `src/storage/schema.sql`
 - `docs/sequences/get_materials_l7_contract.md`（2025-12-24 追加: L7契約のシーケンス図/伝播マップ）
+- `docs/sequences/evidencegraph_independent_sources_debug.md`（2025-12-24 追加: 不整合2のデバッグノート）
+- `src/filter/schemas.py`（2025-12-24 追加: EvidenceGraph契約のPydanticモデル）
 - `tests/test_mcp_integration.py`（L7後のフィールド保持テスト）
+- `tests/scripts/debug_evidencegraph_independent_sources_flow.py`（2025-12-24 追加: 不整合2のデバッグスクリプト）
 
 

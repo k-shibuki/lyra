@@ -377,6 +377,17 @@ class EvidenceGraph:
             for e in category:
                 if e.get("node_type") == NodeType.PAGE.value:
                     unique_sources.add(e.get("obj_id"))
+                elif e.get("node_type") == NodeType.FRAGMENT.value:
+                    # Production edges are typically FRAGMENT->CLAIM.
+                    # Treat the fragment's originating page as the "independent source" when available.
+                    page_id = e.get("page_id")
+                    if page_id:
+                        unique_sources.add(page_id)
+                    else:
+                        # Fallback: count fragment IDs to avoid returning 0 in legacy graphs.
+                        frag_id = e.get("obj_id")
+                        if frag_id:
+                            unique_sources.add(frag_id)
 
         # Bayesian updating: start with uninformative prior Beta(1, 1)
         alpha = 1.0
@@ -1032,6 +1043,116 @@ class EvidenceGraph:
                 target_domain_category=edge.get("target_domain_category"),
             )
 
+        # Enrich node metadata from DB for correct integration behavior:
+        # - independent_sources should work for FRAGMENT->CLAIM evidence edges (needs fragment.page_id)
+        # - evidence_years should work for academic sources (needs pages.paper_metadata.year)
+        try:
+            import json
+
+            fragment_ids: list[str] = []
+            page_ids: list[str] = []
+
+            for node_id in self._graph.nodes():
+                node_type = self._graph.nodes[node_id].get("node_type")
+                if node_type == NodeType.FRAGMENT.value:
+                    _, obj_id = self._parse_node_id(node_id)
+                    fragment_ids.append(obj_id)
+                elif node_type == NodeType.PAGE.value:
+                    _, obj_id = self._parse_node_id(node_id)
+                    page_ids.append(obj_id)
+
+            frag_to_page: dict[str, str] = {}
+            if fragment_ids:
+                placeholders = ",".join(["?"] * len(fragment_ids))
+                rows = await db.fetch_all(
+                    f"SELECT id, page_id FROM fragments WHERE id IN ({placeholders})",
+                    tuple(fragment_ids),
+                )
+                for r in rows:
+                    fid = r.get("id")
+                    pid = r.get("page_id")
+                    if fid and pid:
+                        frag_to_page[str(fid)] = str(pid)
+
+            all_page_ids = set(page_ids) | set(frag_to_page.values())
+            page_meta: dict[str, dict[str, Any]] = {}
+            if all_page_ids:
+                placeholders = ",".join(["?"] * len(all_page_ids))
+                rows = await db.fetch_all(
+                    f"SELECT id, domain, paper_metadata FROM pages WHERE id IN ({placeholders})",
+                    tuple(all_page_ids),
+                )
+                for r in rows:
+                    pid = r.get("id")
+                    if pid:
+                        page_meta[str(pid)] = r
+
+            def _extract_academic_fields(paper_metadata: Any) -> dict[str, Any]:
+                if not paper_metadata:
+                    return {}
+                try:
+                    pm = paper_metadata
+                    if isinstance(pm, str):
+                        pm = json.loads(pm)
+                    if not isinstance(pm, dict):
+                        return {}
+                    out: dict[str, Any] = {}
+                    if (y := pm.get("year")) is not None:
+                        out["year"] = y
+                    if doi := pm.get("doi"):
+                        out["doi"] = doi
+                    if venue := pm.get("venue"):
+                        out["venue"] = venue
+                    if api := pm.get("source_api"):
+                        out["source_api"] = api
+                    if pm.get("doi") or pm.get("venue") or pm.get("year") is not None:
+                        out["is_academic"] = True
+                    return out
+                except Exception:
+                    return {}
+
+            # Apply metadata to PAGE nodes
+            for node_id in list(self._graph.nodes()):
+                node_type = self._graph.nodes[node_id].get("node_type")
+                if node_type != NodeType.PAGE.value:
+                    continue
+                _, pid = self._parse_node_id(node_id)
+                meta = page_meta.get(str(pid))
+                if not meta:
+                    continue
+                domain = meta.get("domain") or ""
+                if domain:
+                    self._graph.nodes[node_id]["domain"] = str(domain).lower()
+                self._graph.nodes[node_id].update(
+                    _extract_academic_fields(meta.get("paper_metadata"))
+                )
+
+            # Apply metadata to FRAGMENT nodes (page_id + academic fields from its page)
+            for node_id in list(self._graph.nodes()):
+                node_type = self._graph.nodes[node_id].get("node_type")
+                if node_type != NodeType.FRAGMENT.value:
+                    continue
+                _, fid = self._parse_node_id(node_id)
+                pid = frag_to_page.get(str(fid))
+                if not pid:
+                    continue
+                self._graph.nodes[node_id]["page_id"] = pid
+                meta = page_meta.get(str(pid))
+                if not meta:
+                    continue
+                domain = meta.get("domain") or ""
+                if domain:
+                    self._graph.nodes[node_id]["domain"] = str(domain).lower()
+                self._graph.nodes[node_id].update(
+                    _extract_academic_fields(meta.get("paper_metadata"))
+                )
+        except Exception as e:
+            logger.debug(
+                "Failed to enrich evidence graph node metadata from DB",
+                task_id=task_id,
+                error=str(e),
+            )
+
         logger.info(
             "Evidence graph loaded",
             edge_count=len(edges),
@@ -1151,6 +1272,50 @@ async def add_claim_evidence(
         },
         or_replace=True,
     )
+
+    # Best-effort: enrich fragment node with page metadata so independent_sources/time metadata
+    # can be computed correctly without requiring a reload.
+    try:
+        import json
+
+        frag_row = await db.fetch_one(
+            "SELECT page_id FROM fragments WHERE id = ?",
+            (fragment_id,),
+        )
+        page_id = str(frag_row["page_id"]) if frag_row and frag_row.get("page_id") else None
+        if page_id:
+            fragment_node = graph._make_node_id(NodeType.FRAGMENT, fragment_id)
+            if fragment_node in graph._graph.nodes:
+                graph._graph.nodes[fragment_node]["page_id"] = page_id
+
+                page_row = await db.fetch_one(
+                    "SELECT domain, paper_metadata FROM pages WHERE id = ?",
+                    (page_id,),
+                )
+                if page_row:
+                    domain = page_row.get("domain") or ""
+                    if domain:
+                        graph._graph.nodes[fragment_node]["domain"] = str(domain).lower()
+
+                    pm = page_row.get("paper_metadata")
+                    try:
+                        if isinstance(pm, str) and pm:
+                            pm = json.loads(pm)
+                        if isinstance(pm, dict):
+                            if (y := pm.get("year")) is not None:
+                                graph._graph.nodes[fragment_node]["year"] = y
+                            if doi := pm.get("doi"):
+                                graph._graph.nodes[fragment_node]["doi"] = doi
+                            if venue := pm.get("venue"):
+                                graph._graph.nodes[fragment_node]["venue"] = venue
+                            if api := pm.get("source_api"):
+                                graph._graph.nodes[fragment_node]["source_api"] = api
+                            if pm.get("doi") or pm.get("venue") or pm.get("year") is not None:
+                                graph._graph.nodes[fragment_node]["is_academic"] = True
+                    except Exception:
+                        pass
+    except Exception:
+        pass
 
     logger.debug(
         "Claim evidence added",

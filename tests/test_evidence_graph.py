@@ -46,6 +46,14 @@ Tests for src/filter/evidence_graph.py
 | TC-SEV-N-01 | Severity calc | Equivalence – normal | By loop length | critical/high/medium/low |
 | TC-DB-I-01 | Save and load | Integration | Persisted to DB | DB integration |
 | TC-DB-I-02 | Add evidence | Integration | Edge persisted | DB integration |
+| TC-IS-N-01 | 2 frags from 2 pages | Equivalence – normal | independent_sources = 2 | FRAGMENT→CLAIM |
+| TC-IS-N-02 | 2 frags from same page | Equivalence – normal | independent_sources = 1 | Dedup by page_id |
+| TC-IS-B-01 | No evidence | Boundary – empty | independent_sources = 0 | Empty graph |
+| TC-IS-B-02 | 1 frag with page_id | Boundary – single | independent_sources = 1 | Minimum positive |
+| TC-IS-B-03 | Frag without page_id | Boundary – fallback | Fallback to frag_id | Legacy compat |
+| TC-IS-N-03 | Mixed frags | Equivalence – normal | Correct count | Mix page_id/none |
+| TC-EY-N-01 | Frags with page years | Equivalence – normal | evidence_years extracted | Year from node |
+| TC-EY-B-01 | Frag no year | Boundary – empty | evidence_years = null | No year attr |
 """
 
 from typing import TYPE_CHECKING
@@ -622,6 +630,263 @@ class TestClaimConfidence:
 
         # Then: evidence_years has null values
         assert "evidence_years" in result
+        assert result["evidence_years"]["oldest"] is None
+        assert result["evidence_years"]["newest"] is None
+
+
+class TestIndependentSourcesFromFragments:
+    """Tests for independent_sources calculation from FRAGMENT→CLAIM edges.
+
+    These tests ensure the fix for EVIDENCE_SYSTEM_CURRENT_STATUS.md inconsistency #2:
+    independent_sources should count unique pages when evidence comes from fragments.
+
+    Test matrix:
+    | Case ID     | Input                                | Expected                      |
+    |-------------|--------------------------------------|-------------------------------|
+    | TC-IS-N-01  | 2 fragments from 2 different pages   | independent_sources = 2       |
+    | TC-IS-N-02  | 2 fragments from same page           | independent_sources = 1       |
+    | TC-IS-B-01  | No evidence                          | independent_sources = 0       |
+    | TC-IS-B-02  | 1 fragment with page_id              | independent_sources = 1       |
+    | TC-IS-B-03  | Fragment without page_id (fallback)  | independent_sources = 1       |
+    | TC-IS-N-03  | Mixed: some with page_id, some without | Correct count               |
+    | TC-EY-N-01  | Fragments with page years            | evidence_years extracted      |
+    | TC-EY-B-01  | Fragment with no year                | evidence_years = null         |
+    """
+
+    def test_two_fragments_from_different_pages_counts_two_sources(self) -> None:
+        """TC-IS-N-01: Two fragments from different pages → independent_sources = 2."""
+        # Given: A graph with 2 FRAGMENT→CLAIM edges, each fragment from a different page
+        graph = EvidenceGraph()
+
+        frag1_node = graph._make_node_id(NodeType.FRAGMENT, "frag-1")
+        frag2_node = graph._make_node_id(NodeType.FRAGMENT, "frag-2")
+        graph._graph.add_node(frag1_node, node_type=NodeType.FRAGMENT.value, page_id="page-A")
+        graph._graph.add_node(frag2_node, node_type=NodeType.FRAGMENT.value, page_id="page-B")
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-2",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.85,
+            nli_confidence=0.85,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: independent_sources = 2 (page-A and page-B)
+        assert result["independent_sources"] == 2, (
+            f"Expected 2 independent sources (2 different pages), got {result['independent_sources']}"
+        )
+
+    def test_two_fragments_from_same_page_counts_one_source(self) -> None:
+        """TC-IS-N-02: Two fragments from same page → independent_sources = 1."""
+        # Given: A graph with 2 FRAGMENT→CLAIM edges, both fragments from same page
+        graph = EvidenceGraph()
+
+        frag1_node = graph._make_node_id(NodeType.FRAGMENT, "frag-1")
+        frag2_node = graph._make_node_id(NodeType.FRAGMENT, "frag-2")
+        graph._graph.add_node(frag1_node, node_type=NodeType.FRAGMENT.value, page_id="page-same")
+        graph._graph.add_node(frag2_node, node_type=NodeType.FRAGMENT.value, page_id="page-same")
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-2",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.85,
+            nli_confidence=0.85,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: independent_sources = 1 (deduplicated by page_id)
+        assert result["independent_sources"] == 1, (
+            f"Expected 1 independent source (same page), got {result['independent_sources']}"
+        )
+
+    def test_no_evidence_returns_zero_sources(self) -> None:
+        """TC-IS-B-01: No evidence → independent_sources = 0."""
+        # Given: An empty graph with just a claim node
+        graph = EvidenceGraph()
+        graph.add_node(NodeType.CLAIM, "claim-1")
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: independent_sources = 0
+        assert result["independent_sources"] == 0
+
+    def test_single_fragment_with_page_id_counts_one_source(self) -> None:
+        """TC-IS-B-02: Single fragment with page_id → independent_sources = 1."""
+        # Given: A graph with 1 FRAGMENT→CLAIM edge with page_id
+        graph = EvidenceGraph()
+
+        frag_node = graph._make_node_id(NodeType.FRAGMENT, "frag-1")
+        graph._graph.add_node(frag_node, node_type=NodeType.FRAGMENT.value, page_id="page-1")
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: independent_sources = 1
+        assert result["independent_sources"] == 1
+
+    def test_fragment_without_page_id_falls_back_to_fragment_id(self) -> None:
+        """TC-IS-B-03: Fragment without page_id → fallback to fragment_id counting."""
+        # Given: A graph with FRAGMENT→CLAIM edge, fragment has no page_id
+        graph = EvidenceGraph()
+
+        frag_node = graph._make_node_id(NodeType.FRAGMENT, "frag-no-page")
+        graph._graph.add_node(frag_node, node_type=NodeType.FRAGMENT.value)
+        # Note: no page_id attribute
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-no-page",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: independent_sources = 1 (fallback to fragment_id)
+        assert result["independent_sources"] == 1, (
+            "Fallback to fragment_id should count as 1 source"
+        )
+
+    def test_mixed_fragments_with_and_without_page_id(self) -> None:
+        """TC-IS-N-03: Mixed fragments → correct count."""
+        # Given: 3 fragments:
+        #   - frag-1: page_id = page-A
+        #   - frag-2: page_id = page-B
+        #   - frag-3: no page_id (fallback to fragment_id)
+        graph = EvidenceGraph()
+
+        frag1_node = graph._make_node_id(NodeType.FRAGMENT, "frag-1")
+        frag2_node = graph._make_node_id(NodeType.FRAGMENT, "frag-2")
+        frag3_node = graph._make_node_id(NodeType.FRAGMENT, "frag-3")
+        graph._graph.add_node(frag1_node, node_type=NodeType.FRAGMENT.value, page_id="page-A")
+        graph._graph.add_node(frag2_node, node_type=NodeType.FRAGMENT.value, page_id="page-B")
+        graph._graph.add_node(frag3_node, node_type=NodeType.FRAGMENT.value)  # no page_id
+
+        for frag_id in ["frag-1", "frag-2", "frag-3"]:
+            graph.add_edge(
+                source_type=NodeType.FRAGMENT,
+                source_id=frag_id,
+                target_type=NodeType.CLAIM,
+                target_id="claim-1",
+                relation=RelationType.SUPPORTS,
+                confidence=0.9,
+                nli_confidence=0.9,
+            )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: independent_sources = 3 (page-A, page-B, frag-3 fallback)
+        assert result["independent_sources"] == 3, (
+            f"Expected 3 sources (2 pages + 1 fallback), got {result['independent_sources']}"
+        )
+
+    def test_fragment_with_page_year_extracts_evidence_years(self) -> None:
+        """TC-EY-N-01: Fragments with page years → evidence_years extracted."""
+        # Given: Fragments with year metadata on their nodes
+        graph = EvidenceGraph()
+
+        frag1_node = graph._make_node_id(NodeType.FRAGMENT, "frag-1")
+        frag2_node = graph._make_node_id(NodeType.FRAGMENT, "frag-2")
+        graph._graph.add_node(
+            frag1_node, node_type=NodeType.FRAGMENT.value, page_id="page-A", year=2020
+        )
+        graph._graph.add_node(
+            frag2_node, node_type=NodeType.FRAGMENT.value, page_id="page-B", year=2023
+        )
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-2",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.85,
+            nli_confidence=0.85,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: evidence_years is extracted
+        assert result["evidence_years"]["oldest"] == 2020
+        assert result["evidence_years"]["newest"] == 2023
+
+    def test_fragment_without_year_returns_null_evidence_years(self) -> None:
+        """TC-EY-B-01: Fragment with no year → evidence_years = null."""
+        # Given: Fragment with page_id but no year attribute
+        graph = EvidenceGraph()
+
+        frag_node = graph._make_node_id(NodeType.FRAGMENT, "frag-1")
+        graph._graph.add_node(frag_node, node_type=NodeType.FRAGMENT.value, page_id="page-1")
+        # Note: no 'year' attribute
+
+        graph.add_edge(
+            source_type=NodeType.FRAGMENT,
+            source_id="frag-1",
+            target_type=NodeType.CLAIM,
+            target_id="claim-1",
+            relation=RelationType.SUPPORTS,
+            confidence=0.9,
+            nli_confidence=0.9,
+        )
+
+        # When: Calculating confidence
+        result = graph.calculate_claim_confidence("claim-1")
+
+        # Then: evidence_years has null values
         assert result["evidence_years"]["oldest"] is None
         assert result["evidence_years"]["newest"] is None
 
