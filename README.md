@@ -374,7 +374,7 @@ Lyra exposes the following tools to MCP clients:
 
 > **Note**: After async migration (see `docs/Q_ASYNC_ARCHITECTURE.md`), tool count will be reduced to 10.
 > - `search` → replaced by `queue_searches` (non-blocking)
-> - `notify_user`, `wait_for_user` → removed (replaced by `get_status` polling)
+> - `notify_user`, `wait_for_user` → removed (replaced by `get_status(wait=...)` long polling)
 
 | Category | Tool | Description |
 |----------|------|-------------|

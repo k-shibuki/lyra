@@ -23,6 +23,19 @@ Web検索・クローリングは時間がかかる操作である：
 
 **検索リクエストをキューに投入し、非同期で処理する。ポーリングでステータスを確認する。**
 
+### Scheduling Policy (Ordering / Concurrency)
+
+- **Ordering**: The worker processes jobs by **priority ASC**, then **created_at ASC** (FIFO within the same priority).
+- **No cross-task fairness**: There is no round-robin or fairness logic across tasks beyond the ordering rule above.
+- **No per-task sequential guarantee**: A task may have multiple searches running in parallel.
+- **Priority vocabulary**: If priority is exposed, use `high | medium | low` (align with existing Lyra terminology).
+
+### Worker Lifecycle
+
+- The queue worker is started when the MCP server starts (`run_server()` startup).
+- The queue worker is stopped (cancelled) when the MCP server shuts down (`run_server()` shutdown).
+- Start **2 worker tasks** for parallel execution.
+
 ### アーキテクチャ
 
 ```
@@ -75,6 +88,7 @@ async def queue_searches(
 ```
 
 #### get_status（sleep対応）
+#### get_status（wait / long polling）
 
 ```python
 @server.tool()
@@ -127,6 +141,10 @@ Long Polling:
 class SearchWorker:
     async def process_queue(self):
         while True:
+            # IMPORTANT: dequeue must be atomic when multiple workers run.
+            # Use "claim" semantics (queued -> running) in a single DB operation
+            # (e.g., UPDATE ... RETURNING) or a transaction (BEGIN IMMEDIATE)
+            # to avoid two workers picking the same queued item.
             job = await self.queue.dequeue()
             if job is None:
                 await asyncio.sleep(0.1)
@@ -208,8 +226,52 @@ class StatusResult:
 |------|------|
 | 削除予定 | `search`, `notify_user`, `wait_for_user` |
 | 追加予定 | `queue_searches`（複数クエリをキューに投入） |
-| 変更予定 | `get_status`に`sleep_seconds`パラメータ追加 |
+| 変更予定 | `get_status`に`wait`（long polling）パラメータ追加 |
 | 結果 | 12ツール → 10ツール（17%削減） |
+
+### Storage Policy (Auditability)
+
+- Queue items are persisted in the existing `jobs` table with `kind = 'search_queue'`.
+  - **Rationale**: The `jobs` table already has priority, state transitions, slot management, and budget tracking. Adding a new table would duplicate schema and audit log management.
+  - `input_json` stores the query and search options.
+  - `output_json` stores the full result JSON produced by the pipeline execution.
+- For **auditability**, completed items store the **full result JSON** (`jobs.output_json`).
+
+### stop_task Semantics (Two Modes)
+
+`stop_task` supports two stop modes:
+
+- **mode=graceful**:
+  - Do not start new queued items for the task (queued → cancelled).
+  - Wait for running items to complete so their full result JSON can be persisted.
+- **mode=immediate**:
+  - queued → cancelled.
+  - running → cancelled via `asyncio.Task.cancel()`. Result JSON is not persisted.
+
+**Logical consistency guarantee**: With async I/O and incremental persistence, "immediate" may still leave partial DB artifacts (pages/fragments) written before cancellation. However, **the job's `state = 'cancelled'` in the `jobs` table provides the authoritative record** that the search was cancelled. Downstream consumers can filter out data associated with cancelled jobs.
+
+Cleanup note: For hard cleanup, follow ADR-0005 (Evidence Graph Structure) and use **hard(orphans_only)** after soft cleanup if storage reclamation is required.
+
+### Long Polling Implementation
+
+- Long polling is implemented using **`asyncio.Event`** in `ExplorationState`, not DB polling.
+- **Rationale**: `ExplorationState` is already in-memory per task. DB polling adds unnecessary I/O and latency.
+- When a search completes, fails, or queue depth changes, the worker calls `state.notify_status_change()` which sets the event.
+- `get_status(wait=N)` uses `asyncio.wait_for(state.wait_for_change(), timeout=N)`.
+- If timeout expires with no change, the current status is returned (same as `wait=0`).
+
+### Migration Strategy
+
+- Phase 1 completes with `queue_searches` working. **Old tools (`search`, `notify_user`, `wait_for_user`) remain available** during Phase 1.
+- Phase 2 removes old tools after confirming `queue_searches` + `get_status(wait)` pattern works in Cursor Rules/Commands.
+
+### Global Rate Limits / Resource Control
+
+When running multiple queue workers, external rate limits must still be respected globally:
+
+ - **Browser (SERP) concurrency**: fixed to **1** to avoid CDP/profile contention.
+- **Academic APIs (e.g., S2/OpenAlex)**: enforce global QPS + per-provider QPS, and route between providers based on availability/limits.
+- **HTTP fetch**: enforce global concurrency/QPS and honor per-domain policies.
 
 ## References
 - `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計
