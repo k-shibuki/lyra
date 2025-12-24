@@ -1,3 +1,10 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2025-12-24
+
 # Evidence System Design
 
 このドキュメントでは、Lyraのエビデンスシステム（検索・評価・信頼度計算）の設計、現状、課題、および改善提案を記述する。
@@ -17,7 +24,7 @@
 
 ## 作業状況トラッカー（Progress）
 
-**最終更新**: 2025-12-23（Phase 6 Task 6.2 完了: `feedback` MCPツール新設（6アクション）、`ResourceNotFoundError` 追加）
+**最終更新**: 2025-12-24（Phase 6 完了: Task 6.5 ドキュメント更新）
 
 このセクションは、`docs/P_EVIDENCE_SYSTEM.md` の設計内容に対して「どこまで実装が進んでいるか」を追跡する。
 更新ルール:
@@ -119,7 +126,7 @@
 | Phase 6 / Task 6.3 | `feedback` ⇔ SourceVerifier 連携（domain_block/unblock 即時反映） | DONE | `src/filter/source_verification.py`, `src/mcp/feedback_handler.py`, `tests/test_feedback_integration.py` | TC-DU-03対応。`dangerous_pattern` 解除を `SourceVerifier._blocked_domains` へ即時反映。`get_status`に`domain_overrides`追加。 |
 | Phase 6 / Task 6.3 | `calibrate` → `calibration_metrics` リネーム + `add_sample` 削除 | DONE | `src/mcp/server.py`, `src/mcp/schemas/calibration_metrics.json`, `src/utils/calibration.py` | feedbackで蓄積されたDBを使用。破壊操作は `calibration_rollback` に分離維持 |
 | Phase 6 / Task 6.4 | `get_materials` に `claim_adoption_status` 露出 | DONE | `src/research/materials.py`, `src/mcp/schemas/get_materials.json`, `tests/test_mcp_integration.py` | 不採用claimのフィルタリングを高推論AIに委ねる。`claim_rejection_reason` も追加 |
-| Phase 6 / Task 6.5 | ドキュメント更新 | PLANNED | `docs/P_EVIDENCE_SYSTEM.md`, `docs/REQUIREMENTS.md` | Phase 6完了反映 |
+| Phase 6 / Task 6.5 | ドキュメント更新 | DONE | `docs/P_EVIDENCE_SYSTEM.md` | Phase 6完了反映。`docs/REQUIREMENTS.md`はアーカイブ済み（`docs/archive/`）。コード内の実装メモ参照（Phase X等）を自己完結的コメントまたはADR参照に修正 |
 
 ---
 

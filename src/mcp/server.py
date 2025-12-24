@@ -2,7 +2,7 @@
 MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
-Phase M: Refactored to 11 tools per ADR-0003.
+Provides 12 MCP tools (11 per ADR-0003 + feedback per ADR-0012).
 """
 
 import asyncio
@@ -26,7 +26,7 @@ app = Server("lyra")
 
 
 # ============================================================
-# Tool Definitions (Phase M - ADR-0003: 11 Tools)
+# Tool Definitions (12 tools: ADR-0003 + ADR-0012)
 # ============================================================
 
 TOOLS = [
@@ -1684,7 +1684,7 @@ async def _handle_feedback(args: dict[str, Any]) -> dict[str, Any]:
 
 async def run_server() -> None:
     """Run the MCP server."""
-    logger.info("Starting Lyra MCP server (Phase M - 11 tools)")
+    logger.info("Starting Lyra MCP server (12 tools)")
 
     # Initialize database
     await get_database()

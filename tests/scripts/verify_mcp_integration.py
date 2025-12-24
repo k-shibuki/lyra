@@ -18,7 +18,6 @@ Prerequisites:
 - Podman containers running: ./scripts/dev.sh up
 - Chrome running with remote debugging: ./scripts/chrome.sh start (for search tests)
 - Database initialized
-- See: Phase N
 
 Usage:
     # Full verification (requires Chrome CDP)
@@ -63,9 +62,9 @@ class VerificationResult:
 
 class MCPIntegrationVerifier:
     """
-    Verifier for MCP tool integration verification MCP Tool Integration.
+    Verifier for MCP tool integration.
 
-    Tests all 11 MCP tools defined in Phase M.
+    Tests all 12 MCP tools (11 per ADR-0003 + feedback per ADR-0012).
     """
 
     def __init__(self, basic_mode: bool = False) -> None:
@@ -1145,8 +1144,8 @@ class MCPIntegrationVerifier:
             2: Critical failure
         """
         print("\n" + "=" * 70)
-        print("MCP Tool Integration Verification (MCP tool integration verification)")
-        print("検証対象: Phase M MCPツール（11個）の疎通確認")
+        print("MCP Tool Integration Verification")
+        print("検証対象: MCPツール（12個）の疎通確認")
         print("=" * 70)
 
         if self.basic_mode:

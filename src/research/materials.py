@@ -21,10 +21,10 @@ async def get_materials_action(
     format: str = "structured",
 ) -> dict[str, Any]:
     """
-    Unified API for get_materials action (Phase M architecture).
+    Unified API for get_materials action.
 
     Collects report materials including claims, fragments, and optionally
-    the evidence graph.
+    the evidence graph. MCP handler delegates to this function (see ADR-0003).
 
     Args:
         task_id: The task ID.
@@ -32,7 +32,7 @@ async def get_materials_action(
         format: Output format - "structured" or "narrative" (default: "structured").
 
     Returns:
-        Materials conforming to ADR-0003 schema.
+        Materials dict (claims, fragments, optional graph).
     """
     db = await get_database()
 
