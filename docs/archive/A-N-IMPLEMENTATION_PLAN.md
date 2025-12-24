@@ -2331,7 +2331,7 @@ python scripts/migrate.py create NAME  # 新規作成
 
 **目的**: 蓄積されたNLI訂正サンプルを使用して、NLIモデル（DeBERTa-v3）をLoRA（Low-Rank Adaptation）でファインチューニングし、ドメイン固有の精度を向上させる。
 
-**詳細ドキュメント/実装ロードマップ**: `docs/R_LORA.md`
+**詳細ドキュメント/実装ロードマップ**: `docs/S_LORA.md`
 
 **前提条件**: Phase 6（P_EVIDENCE_SYSTEM.md）のTask 6.5-6.6完了（`feedback`ツール、`nli_corrections`テーブル）
 

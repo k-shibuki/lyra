@@ -9,7 +9,7 @@
 | ドキュメント | 役割 | 参照 |
 |-------------|------|------|
 | `docs/archive/P_EVIDENCE_SYSTEM.md` | エビデンス評価システム設計（アーカイブ） | Phase 6（決定17）で `edge_correct`→`nli_corrections` 蓄積、計測は `calibration_metrics` |
-| **`docs/R_LORA.md`**（本文書） | **LoRAファインチューニング設計** | Phase R |
+| **`docs/S_LORA.md`**（本文書） | **LoRAファインチューニング設計** | Phase S |
 | `docs/archive/IMPLEMENTATION_PLAN.md` | 実装計画書（アーカイブ） | Phase R概要 |
 
 ---
@@ -281,9 +281,9 @@ def main():
     lora_config = LoraConfig(
         task_type=TaskType.SEQ_CLS,
         r=8,                    # ランク（小さいほど軽量）
-        lora_alpha=32,
-        lora_dropout=0.1,
-        target_modules=["query", "value"],  # 適用する層
+        lora_alpha=16,          # r の2倍が標準
+        lora_dropout=0.1,       # 小モデルでは高めの正則化が有効
+        target_modules=["query", "value"],  # DeBERTa-v3 の Attention レイヤー
     )
     
     # ベースモデルにLoRAを適用

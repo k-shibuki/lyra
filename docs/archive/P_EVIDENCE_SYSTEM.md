@@ -670,7 +670,7 @@ task_id = "task-123"
 **3クラス対応**:
 - `correct_relation` は `"supports"` / `"refutes"` / `"neutral"` の3値
 - `edge_correct` は **NLIのground-truth入力**として扱い、訂正の有無に関わらずサンプルを蓄積する（`correct_relation` が現状と同じでもサンプルは保存する）
-- 訂正サンプルは `nli_corrections` としてDBに蓄積（LoRA学習の入力。詳細は `docs/R_LORA.md`）
+- 訂正サンプルは `nli_corrections` としてDBに蓄積（LoRA学習の入力。詳細は `docs/S_LORA.md`）
 - 校正（確率のズレ補正）は **計測→適用の順**で進め、推論への適用はサンプルが十分蓄積されてから（Phase R）
 
 **実装タイミング**: Phase 6
