@@ -768,7 +768,7 @@ await call_tool("queue_searches", {
         "id": "s_2",
         "query": "量子エラー訂正 実用化",
         "status": "running",
-        "priority": 10,
+        "priority": "high",
         "created_at": "2025-12-21T10:00:00Z",
         "started_at": "2025-12-21T10:05:00Z"
       },
@@ -776,7 +776,7 @@ await call_tool("queue_searches", {
         "id": "s_3",
         "query": "量子アルゴリズム 機械学習応用",
         "status": "queued",
-        "priority": 10,
+        "priority": "medium",
         "created_at": "2025-12-21T10:00:01Z"
       }
     ]
@@ -884,8 +884,8 @@ status = await call_tool("get_status", {
 > **依存**: Phase 1完了後に開始（queue_searchesが動作することが前提）
 
 **2.1 MCPクライアント側更新**
-- [ ] Cursor Rules: `search` → `queue_searches` + `get_status(wait=N)` パターンへ移行
-- [ ] `docs/CURSOR_RULES_COMMANDS.md` の使用例を更新
+- [ ] Cursor Rules (`.cursor/rules/`): `search` → `queue_searches` + `get_status(wait=N)` パターンへ移行
+- [ ] Cursor Commands (`.cursor/commands/`): 使用例を更新
 - [ ] テスト用プロンプトで動作確認
 
 **2.2 ツール削除**
@@ -895,7 +895,7 @@ status = await call_tool("get_status", {
 
 **2.3 ドキュメント更新**
 - [ ] `README.md` のMCPツール一覧を更新（12ツール → 10ツール）
-- [ ] `docs/CURSOR_RULES_COMMANDS.md` 更新
+- [ ] Cursor Rules/Commands (`.cursor/rules/`, `.cursor/commands/`) 内の使用例を更新
 - [ ] **テスト**: 削除後の回帰テスト（既存テストがパスすることを確認）
 
 ### Phase 3: 最終検証
@@ -986,7 +986,7 @@ async for event in subscribe_search_progress(task_id):
 - **既存コードへの影響最小限**
   - `search_action`は維持（内部で使用）
   - ジョブスケジューラとの統合は既存の仕組みを利用
-  - ExplorationStateは変更不要
+  - ExplorationStateは最小限の変更（`asyncio.Event` 追加のみ、§3.3参照）
 
 - **段階的移行**
   - Phase 1でキュー機能を追加
@@ -1032,7 +1032,7 @@ async for event in subscribe_search_progress(task_id):
   "groups": {
     "arxiv.org": [
       {
-        "id": "iq_abc123",
+        "queue_id": "iq_abc123",
         "url": "https://arxiv.org/pdf/...",
         "auth_type": "cloudflare",
         "priority": "high"
