@@ -183,7 +183,7 @@ The MCP client (Cursor AI, Claude Desktop) provides frontier reasoning for strat
 
 | Module | Location | Responsibility |
 |--------|----------|----------------|
-| **MCP Server** | `src/mcp/` | 11 tools for MCP client integration |
+| **MCP Server** | `src/mcp/` | 12 tools for MCP client integration (10 planned after async migration) |
 | **Search Providers** | `src/search/` | Multi-engine search, academic APIs |
 | **Citation Filter** | `src/search/citation_filter.py` | 2-stage relevance filtering (embedding + LLM) for citation tracking |
 | **Crawler** | `src/crawler/` | Browser automation, HTTP fetching, session management |
@@ -368,9 +368,13 @@ Lyra works with any MCP-compatible client. Example configurations:
 
 ## Usage
 
-### MCP Tools (11 Tools)
+### MCP Tools (12 Tools)
 
 Lyra exposes the following tools to MCP clients:
+
+> **Note**: After async migration (see `docs/Q_ASYNC_ARCHITECTURE.md`), tool count will be reduced to 10.
+> - `search` → replaced by `queue_searches` (non-blocking)
+> - `notify_user`, `wait_for_user` → removed (replaced by `get_status` polling)
 
 | Category | Tool | Description |
 |----------|------|-------------|
@@ -379,12 +383,13 @@ Lyra exposes the following tools to MCP clients:
 | **Research** | `search` | Execute search→fetch→extract→evaluate pipeline |
 | | `stop_task` | Finalize a task |
 | **Materials** | `get_materials` | Retrieve claims, fragments, and evidence graph |
-| **Calibration** | `calibrate` | Add samples, get statistics, evaluate performance |
-| | `calibrate_rollback` | Rollback calibration parameters |
+| **Calibration** | `calibration_metrics` | Get statistics, evaluate calibration performance |
+| | `calibration_rollback` | Rollback calibration parameters |
 | **Auth Queue** | `get_auth_queue` | Get pending authentication requests |
 | | `resolve_auth` | Report authentication completion |
 | **Notification** | `notify_user` | Send user notification |
 | | `wait_for_user` | Wait for user input |
+| **Feedback** | `feedback` | Human-in-the-loop feedback (domain/claim/edge management) |
 
 ### Example Research Workflow
 
