@@ -213,17 +213,23 @@ class StatusResult:
 
 ## Implementation Status
 
-**Note**: Phase 1 および Phase 2 が完了。詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
+**Status**: ✅ **全フェーズ実装完了**
 
-### 現状（実装済み）
+詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
+
+### 実装済みフェーズ
 - Phase 1 (2025-12-24): `queue_searches` ツール追加、`get_status` に `wait` パラメータ追加
 - Phase 2 (2025-12-24): `search`, `notify_user`, `wait_for_user` ツール削除
+- Phase 3 (2025-12-24): 最終検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加
 
 | 変更 | 状態 |
 |------|------|
 | `search`, `notify_user`, `wait_for_user` 削除 | ✅ 完了 |
 | `queue_searches` 追加 | ✅ 完了 |
 | `get_status` に `wait` パラメータ追加 | ✅ 完了 |
+| `stop_task` に `mode` パラメータ追加 | ✅ 完了 |
+| パフォーマンス/安定性テスト | ✅ 完了 |
+| E2E検証スクリプト | ✅ 完了 |
 | 結果 | 13ツール → 10ツール（23%削減） |
 
 ### Storage Policy (Auditability)

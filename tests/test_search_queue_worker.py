@@ -473,3 +473,895 @@ class TestExplorationStateEvent:
         await notify_task
 
         assert result is True
+
+
+class TestSearchQueuePerformance:
+    """Performance tests for search queue (Phase 3).
+
+    Tests large queue processing, worker stability, priority ordering, and concurrency.
+
+    ## Test Perspectives Table (Performance)
+
+    | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
+    |---------|---------------------|---------------------------------------|-----------------|-------|
+    | TC-PF-01 | 15 queued jobs, 1 worker | Equivalence – performance | All processed | Large queue |
+    | TC-PF-02 | Error + success jobs | Equivalence – stability | Failed job doesn't block | Error recovery |
+    | TC-PF-03 | 10 jobs, 2 workers | Equivalence – concurrency | Parallel processing | Basic parallel |
+    | TC-PF-04 | 1 job, 2 workers | Boundary – concurrency | Exactly 1 processes | CAS exclusivity |
+    | TC-PF-05 | Mixed priority (high/med/low) | Equivalence – ordering | High first, then med, then low | Priority order |
+    | TC-PF-06 | Same priority, different times | Equivalence – ordering | FIFO within priority | FIFO order |
+    | TC-PF-07 | Variable processing times | Equivalence – scheduling | Faster jobs complete first | Time variation |
+    | TC-PF-08 | 2 workers, mixed priority | Equivalence – concurrency | Both respect priority | Priority + parallel |
+    | TC-PF-09 | 0 jobs in queue | Boundary – empty | Workers wait, no error | Empty queue |
+    | TC-PF-10 | 1 job, 2 workers | Boundary – minimum | Exactly 1 worker processes | Min jobs |
+    """
+
+    @pytest.mark.asyncio
+    async def test_large_queue_processing(self, test_database) -> None:
+        """
+        TC-PF-01: Large queue (10+ jobs) is processed correctly.
+
+        // Given: 15 queued search jobs
+        // When: Worker processes them (simulated)
+        // Then: All jobs transition to completed/failed
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf01", "Large queue test", "exploring"),
+        )
+
+        # Queue 15 jobs
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+        num_jobs = 15
+
+        for i in range(num_jobs):
+            await db.execute(
+                """
+                INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"s_pf01_{i:03d}",
+                    "task_pf01",
+                    "search_queue",
+                    50,
+                    "network_client",
+                    "queued",
+                    json.dumps({"query": f"query {i}", "options": {}}),
+                    now,
+                ),
+            )
+
+        # Verify all queued
+        count = await db.fetch_one(
+            "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'queued'",
+            ("task_pf01",),
+        )
+        assert count["cnt"] == num_jobs
+
+        # Simulate worker processing by updating states
+        # (In real scenario, worker would process via search_action)
+        from src.scheduler.search_worker import _search_queue_worker
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        mock_result = {
+            "ok": True,
+            "search_id": "test",
+            "status": "satisfied",
+            "pages_fetched": 3,
+        }
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                new=AsyncMock(return_value=mock_result),
+            ):
+                worker_task = asyncio.create_task(_search_queue_worker(0))
+
+                # Wait for jobs to be processed (with timeout)
+                for _ in range(50):  # Max 5 seconds
+                    await asyncio.sleep(0.1)
+                    remaining = await db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'queued'",
+                        ("task_pf01",),
+                    )
+                    if remaining["cnt"] == 0:
+                        break
+
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify all jobs processed
+        completed = await db.fetch_one(
+            "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'completed'",
+            ("task_pf01",),
+        )
+        assert completed["cnt"] == num_jobs
+
+    @pytest.mark.asyncio
+    async def test_worker_error_recovery(self, test_database) -> None:
+        """
+        TC-PF-02: Worker continues after handling error.
+
+        // Given: Job that causes search_action to fail
+        // When: Worker processes it
+        // Then: Job marked failed, worker continues
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf02", "Error recovery test", "exploring"),
+        )
+
+        # Queue jobs - one will fail, one will succeed
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_pf02_fail",
+                "task_pf02",
+                "search_queue",
+                10,  # Higher priority (processed first)
+                "network_client",
+                "queued",
+                json.dumps({"query": "failing query", "options": {}}),
+                now,
+            ),
+        )
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_pf02_ok",
+                "task_pf02",
+                "search_queue",
+                50,  # Lower priority (processed second)
+                "network_client",
+                "queued",
+                json.dumps({"query": "succeeding query", "options": {}}),
+                now,
+            ),
+        )
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        call_count = 0
+
+        async def mock_search_action(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ValueError("Simulated search failure")
+            return {"ok": True, "status": "satisfied", "pages_fetched": 2}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                worker_task = asyncio.create_task(_search_queue_worker(0))
+
+                # Wait for both jobs to be processed
+                for _ in range(30):  # Max 3 seconds
+                    await asyncio.sleep(0.1)
+                    remaining = await db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state IN ('queued', 'running')",
+                        ("task_pf02",),
+                    )
+                    if remaining["cnt"] == 0:
+                        break
+
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify: first job failed, second succeeded
+        fail_row = await db.fetch_one(
+            "SELECT state, error_message FROM jobs WHERE id = ?",
+            ("s_pf02_fail",),
+        )
+        assert fail_row["state"] == "failed"
+        assert "Simulated search failure" in fail_row["error_message"]
+
+        ok_row = await db.fetch_one(
+            "SELECT state FROM jobs WHERE id = ?",
+            ("s_pf02_ok",),
+        )
+        assert ok_row["state"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_two_workers_parallel_processing(self, test_database) -> None:
+        """
+        TC-PF-03: Two workers process queue in parallel.
+
+        // Given: 10 queued jobs, 2 workers
+        // When: Both workers run
+        // Then: Jobs are processed by both workers concurrently
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf03_parallel", "Parallel test", "exploring"),
+        )
+
+        # Queue 10 jobs
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+        num_jobs = 10
+
+        for i in range(num_jobs):
+            await db.execute(
+                """
+                INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"s_pf03_parallel_{i:03d}",
+                    "task_pf03_parallel",
+                    "search_queue",
+                    50,
+                    "network_client",
+                    "queued",
+                    json.dumps({"query": f"query {i}", "options": {}}),
+                    now,
+                ),
+            )
+
+        # Track which worker processed which job
+        worker_assignments: dict[str, int] = {}  # job_id -> worker_id
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action_with_delay(**kwargs):
+            # Simulate some work (allows interleaving)
+            await asyncio.sleep(0.05)
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        # Patch to track worker assignments
+        original_worker = None
+
+        async def patched_worker(worker_id: int):
+            nonlocal original_worker
+            from src.scheduler.search_worker import _search_queue_worker
+
+            # We need to intercept the processing to track assignments
+            # Instead, we'll track via DB updates
+            await _search_queue_worker(worker_id)
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action_with_delay,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                # Start TWO workers
+                worker0 = asyncio.create_task(_search_queue_worker(0))
+                worker1 = asyncio.create_task(_search_queue_worker(1))
+
+                # Wait for all jobs to be processed
+                for _ in range(100):  # Max 10 seconds
+                    await asyncio.sleep(0.1)
+                    remaining = await db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state IN ('queued', 'running')",
+                        ("task_pf03_parallel",),
+                    )
+                    if remaining["cnt"] == 0:
+                        break
+
+                # Cancel workers
+                worker0.cancel()
+                worker1.cancel()
+                try:
+                    await worker0
+                except asyncio.CancelledError:
+                    pass
+                try:
+                    await worker1
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify all jobs completed
+        completed = await db.fetch_one(
+            "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'completed'",
+            ("task_pf03_parallel",),
+        )
+        assert completed["cnt"] == num_jobs, f"Expected {num_jobs} completed, got {completed['cnt']}"
+
+        # Note: Due to the nature of async processing, we can't guarantee which worker
+        # processed which job, but we verify that all jobs were processed correctly.
+        # The CAS mechanism ensures no double-processing.
+
+    @pytest.mark.asyncio
+    async def test_concurrent_worker_claim_exclusivity(self, test_database) -> None:
+        """
+        TC-PF-04: Multiple workers don't process same job (CAS).
+
+        // Given: Single queued job, two workers
+        // When: Both workers try to claim
+        // Then: Only one succeeds (CAS semantics)
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf03", "Concurrency test", "exploring"),
+        )
+
+        # Queue single job
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_pf03",
+                "task_pf03",
+                "search_queue",
+                50,
+                "network_client",
+                "queued",
+                json.dumps({"query": "contested query", "options": {}}),
+                now,
+            ),
+        )
+
+        # Track how many times search_action is called
+        search_calls = []
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(**kwargs):
+            search_calls.append(kwargs.get("query"))
+            await asyncio.sleep(0.05)  # Simulate work
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                # Start two workers simultaneously
+                worker1 = asyncio.create_task(_search_queue_worker(0))
+                worker2 = asyncio.create_task(_search_queue_worker(1))
+
+                # Wait for job to be processed
+                for _ in range(20):
+                    await asyncio.sleep(0.1)
+                    row = await db.fetch_one(
+                        "SELECT state FROM jobs WHERE id = ?",
+                        ("s_pf03",),
+                    )
+                    if row["state"] == "completed":
+                        break
+
+                # Cancel workers
+                worker1.cancel()
+                worker2.cancel()
+                try:
+                    await worker1
+                except asyncio.CancelledError:
+                    pass
+                try:
+                    await worker2
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify job was processed exactly once (CAS prevents double-processing)
+        assert len(search_calls) == 1
+
+        # Verify job is completed
+        row = await db.fetch_one(
+            "SELECT state FROM jobs WHERE id = ?",
+            ("s_pf03",),
+        )
+        assert row["state"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_priority_ordering_high_medium_low(self, test_database) -> None:
+        """
+        TC-PF-05: Jobs are processed in priority order (high→medium→low).
+
+        // Given: Jobs with mixed priorities (high=10, medium=50, low=90)
+        // When: Single worker processes them
+        // Then: High priority jobs complete before medium, medium before low
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf05", "Priority order test", "exploring"),
+        )
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+
+        # Queue jobs with different priorities (insert in reverse order to test sorting)
+        jobs = [
+            ("s_pf05_low", 90, "low priority"),
+            ("s_pf05_med", 50, "medium priority"),
+            ("s_pf05_high", 10, "high priority"),
+        ]
+        for job_id, priority, query in jobs:
+            await db.execute(
+                """
+                INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (job_id, "task_pf05", "search_queue", priority, "network_client", "queued",
+                 json.dumps({"query": query, "options": {}}), now),
+            )
+
+        # Track processing order
+        processing_order: list[str] = []
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(**kwargs):
+            processing_order.append(kwargs.get("query", ""))
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                worker_task = asyncio.create_task(_search_queue_worker(0))
+
+                for _ in range(30):
+                    await asyncio.sleep(0.1)
+                    remaining = await db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state = 'queued'",
+                        ("task_pf05",),
+                    )
+                    if remaining["cnt"] == 0:
+                        break
+
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify processing order: high → medium → low
+        assert len(processing_order) == 3
+        assert processing_order[0] == "high priority", f"Expected high first, got {processing_order}"
+        assert processing_order[1] == "medium priority", f"Expected medium second, got {processing_order}"
+        assert processing_order[2] == "low priority", f"Expected low last, got {processing_order}"
+
+    @pytest.mark.asyncio
+    async def test_fifo_within_same_priority(self, test_database) -> None:
+        """
+        TC-PF-06: Jobs with same priority are processed FIFO (by queued_at).
+
+        // Given: 5 jobs with same priority, queued at different times
+        // When: Worker processes them
+        // Then: Processed in queued_at order (FIFO)
+        """
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf06", "FIFO test", "exploring"),
+        )
+
+        from datetime import UTC, datetime, timedelta
+
+        base_time = datetime.now(UTC)
+
+        # Queue 5 jobs with same priority but different queued_at
+        for i in range(5):
+            queued_at = (base_time + timedelta(seconds=i)).isoformat()
+            await db.execute(
+                """
+                INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (f"s_pf06_{i}", "task_pf06", "search_queue", 50, "network_client", "queued",
+                 json.dumps({"query": f"query_{i}", "options": {}}), queued_at),
+            )
+
+        processing_order: list[str] = []
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(**kwargs):
+            processing_order.append(kwargs.get("query", ""))
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                worker_task = asyncio.create_task(_search_queue_worker(0))
+
+                for _ in range(30):
+                    await asyncio.sleep(0.1)
+                    remaining = await db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state = 'queued'",
+                        ("task_pf06",),
+                    )
+                    if remaining["cnt"] == 0:
+                        break
+
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify FIFO order
+        assert processing_order == ["query_0", "query_1", "query_2", "query_3", "query_4"]
+
+    @pytest.mark.asyncio
+    async def test_variable_processing_times(self, test_database) -> None:
+        """
+        TC-PF-07: Jobs with variable processing times are handled correctly.
+
+        // Given: Jobs with different processing durations (fast, slow, fast)
+        // When: 2 workers process them
+        // Then: All complete, faster jobs finish first
+        """
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf07", "Variable time test", "exploring"),
+        )
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+
+        # Queue jobs: slow, fast, fast (all same priority)
+        jobs = [
+            ("s_pf07_slow", "slow_query"),
+            ("s_pf07_fast1", "fast_query_1"),
+            ("s_pf07_fast2", "fast_query_2"),
+        ]
+        for job_id, query in jobs:
+            await db.execute(
+                """
+                INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (job_id, "task_pf07", "search_queue", 50, "network_client", "queued",
+                 json.dumps({"query": query, "options": {}}), now),
+            )
+
+        completion_order: list[str] = []
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(**kwargs):
+            query = kwargs.get("query", "")
+            # Slow query takes longer
+            if "slow" in query:
+                await asyncio.sleep(0.2)
+            else:
+                await asyncio.sleep(0.02)
+            completion_order.append(query)
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                # Two workers: one gets slow, one gets fast jobs
+                worker0 = asyncio.create_task(_search_queue_worker(0))
+                worker1 = asyncio.create_task(_search_queue_worker(1))
+
+                for _ in range(50):
+                    await asyncio.sleep(0.1)
+                    remaining = await db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state IN ('queued', 'running')",
+                        ("task_pf07",),
+                    )
+                    if remaining["cnt"] == 0:
+                        break
+
+                worker0.cancel()
+                worker1.cancel()
+                try:
+                    await worker0
+                except asyncio.CancelledError:
+                    pass
+                try:
+                    await worker1
+                except asyncio.CancelledError:
+                    pass
+
+        # All 3 jobs completed
+        assert len(completion_order) == 3
+        # Fast jobs should complete before slow job
+        slow_idx = completion_order.index("slow_query")
+        assert slow_idx == 2, f"Slow job should finish last, but order was: {completion_order}"
+
+    @pytest.mark.asyncio
+    async def test_two_workers_respect_priority(self, test_database) -> None:
+        """
+        TC-PF-08: Two workers both respect priority ordering.
+
+        // Given: 6 jobs (2 high, 2 medium, 2 low), 2 workers
+        // When: Both workers process
+        // Then: High priority jobs claimed first, then medium, then low
+        """
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf08", "Two workers priority test", "exploring"),
+        )
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+
+        # Queue: 2 high, 2 medium, 2 low
+        jobs = [
+            ("s_pf08_low1", 90, "low_1"),
+            ("s_pf08_low2", 90, "low_2"),
+            ("s_pf08_med1", 50, "med_1"),
+            ("s_pf08_med2", 50, "med_2"),
+            ("s_pf08_high1", 10, "high_1"),
+            ("s_pf08_high2", 10, "high_2"),
+        ]
+        for job_id, priority, query in jobs:
+            await db.execute(
+                """
+                INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (job_id, "task_pf08", "search_queue", priority, "network_client", "queued",
+                 json.dumps({"query": query, "options": {}}), now),
+            )
+
+        processing_order: list[str] = []
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(**kwargs):
+            processing_order.append(kwargs.get("query", ""))
+            await asyncio.sleep(0.02)  # Small delay to allow interleaving
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                worker0 = asyncio.create_task(_search_queue_worker(0))
+                worker1 = asyncio.create_task(_search_queue_worker(1))
+
+                for _ in range(50):
+                    await asyncio.sleep(0.1)
+                    remaining = await db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state IN ('queued', 'running')",
+                        ("task_pf08",),
+                    )
+                    if remaining["cnt"] == 0:
+                        break
+
+                worker0.cancel()
+                worker1.cancel()
+                try:
+                    await worker0
+                except asyncio.CancelledError:
+                    pass
+                try:
+                    await worker1
+                except asyncio.CancelledError:
+                    pass
+
+        assert len(processing_order) == 6
+
+        # First 2 should be high priority
+        high_jobs = [q for q in processing_order[:2] if q.startswith("high_")]
+        assert len(high_jobs) == 2, f"First 2 should be high priority: {processing_order}"
+
+        # Next 2 should be medium
+        med_jobs = [q for q in processing_order[2:4] if q.startswith("med_")]
+        assert len(med_jobs) == 2, f"Jobs 3-4 should be medium priority: {processing_order}"
+
+        # Last 2 should be low
+        low_jobs = [q for q in processing_order[4:6] if q.startswith("low_")]
+        assert len(low_jobs) == 2, f"Last 2 should be low priority: {processing_order}"
+
+    @pytest.mark.asyncio
+    async def test_empty_queue_worker_waits(self, test_database) -> None:
+        """
+        TC-PF-09: Worker waits gracefully when queue is empty.
+
+        // Given: Empty queue
+        // When: Worker runs for short period
+        // Then: No errors, worker can be cancelled cleanly
+        """
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf09", "Empty queue test", "exploring"),
+        )
+
+        # No jobs queued
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            from src.scheduler.search_worker import _search_queue_worker
+
+            worker_task = asyncio.create_task(_search_queue_worker(0))
+
+            # Let worker run briefly (it should poll and wait)
+            await asyncio.sleep(0.3)
+
+            # Cancel cleanly
+            worker_task.cancel()
+            try:
+                await worker_task
+            except asyncio.CancelledError:
+                pass
+
+        # If we get here without exception, test passes
+        # Worker handled empty queue gracefully
+
+    @pytest.mark.asyncio
+    async def test_single_job_two_workers(self, test_database) -> None:
+        """
+        TC-PF-10: Single job with two workers - only one processes.
+
+        // Given: 1 job, 2 workers
+        // When: Both workers compete
+        // Then: Exactly 1 worker processes the job (no double processing)
+        """
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_pf10", "Single job two workers", "exploring"),
+        )
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("s_pf10", "task_pf10", "search_queue", 50, "network_client", "queued",
+             json.dumps({"query": "single job", "options": {}}), now),
+        )
+
+        call_count = 0
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.05)
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                worker0 = asyncio.create_task(_search_queue_worker(0))
+                worker1 = asyncio.create_task(_search_queue_worker(1))
+
+                for _ in range(20):
+                    await asyncio.sleep(0.1)
+                    row = await db.fetch_one(
+                        "SELECT state FROM jobs WHERE id = ?",
+                        ("s_pf10",),
+                    )
+                    if row["state"] == "completed":
+                        break
+
+                worker0.cancel()
+                worker1.cancel()
+                try:
+                    await worker0
+                except asyncio.CancelledError:
+                    pass
+                try:
+                    await worker1
+                except asyncio.CancelledError:
+                    pass
+
+        # Exactly 1 call (CAS ensures exclusivity)
+        assert call_count == 1, f"Expected exactly 1 call, got {call_count}"
+
+        row = await db.fetch_one(
+            "SELECT state FROM jobs WHERE id = ?",
+            ("s_pf10",),
+        )
+        assert row["state"] == "completed"
