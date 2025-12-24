@@ -589,7 +589,7 @@ class MCPIntegrationVerifier:
 
     async def verify_calibration_metrics(self) -> VerificationResult:
         """
-        Verify calibrate tool (5 actions).
+        Verify calibration_metrics tool (4 actions).
 
         Tests:
         - get_stats: Returns calibration statistics
@@ -610,8 +610,8 @@ class MCPIntegrationVerifier:
                     print("    ! No calibration data (expected for fresh DB)")
                 else:
                     return VerificationResult(
-                        name="calibrate",
-                        tool="calibrate",
+                        name="calibration_metrics",
+                        tool="calibration_metrics",
                         spec_ref="ADR-0011",
                         passed=False,
                         error=f"get_stats failed: {stats_result.get('error')}",
@@ -658,7 +658,7 @@ class MCPIntegrationVerifier:
 
     async def verify_calibration_rollback(self) -> VerificationResult:
         """
-        Verify calibrate_rollback tool.
+        Verify calibration_rollback tool.
 
         Tests:
         - Rollback fails gracefully when no version exists
@@ -682,8 +682,8 @@ class MCPIntegrationVerifier:
                 # Should fail because no version exists
                 if result.get("ok"):
                     return VerificationResult(
-                        name="calibrate_rollback",
-                        tool="calibrate_rollback",
+                        name="calibration_rollback",
+                        tool="calibration_rollback",
                         spec_ref="ADR-0011",
                         passed=False,
                         error="Expected failure for non-existent source, got ok=True",

@@ -914,6 +914,7 @@ status = await call_tool("get_status", {
 - [x] `notify_user`, `wait_for_user`: MCPツール定義から削除、ハンドラ削除
 - [x] 依存コードの確認・修正
 - [x] スキーマファイル削除: `search.json`, `notify_user.json`, `wait_for_user.json`
+- [x] レガシー参照の削除: `calibrate.json`（旧スキーマ）、E2Eスクリプト/テスト内の `calibrate` → `calibration_metrics` 修正
 - [x] テストファイル削除: `test_mcp_search.py`, `test_mcp_notification.py`
 
 **2.3 ドキュメント更新**
