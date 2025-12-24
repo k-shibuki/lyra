@@ -266,14 +266,13 @@ for category in evidence.values():
 ### 🟡 将来課題
 
 - [ ] ISSUE-002: マルチタスク対応時に EvidenceGraph のインスタンス管理を改善
+> 単一ユーザーのみを想定しており、対応不要
 
 ---
 
 ## 関連ドキュメント
 
 - `docs/archive/P_EVIDENCE_SYSTEM.md` - 設計ドキュメント（アーカイブ済み）
-- `docs/sequences/get_materials_l7_contract.md` - L7サニタイズシーケンス（削除済み）
-- `docs/sequences/evidencegraph_independent_sources_debug.md` - 不整合2デバッグノート（削除済み）
 - `docs/adr/0005-evidence-graph-structure.md` - ADR
 
 ---
@@ -282,5 +281,4 @@ for category in evidence.values():
 
 **P_EVIDENCE_SYSTEM.md の実装は完了**していますが、**ISSUE-001（起動時の domain_override 復元漏れ）** を修正してから次Phaseに進むことを推奨します。
 
-修正は軽微（1行追加 + テスト追加）であり、即時対応可能です。
-
+> 修正完了済み
