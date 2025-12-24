@@ -7,16 +7,16 @@ Verification target: MCP tool integration verification - MCPツール疎通確�
 Verification items:
 1. create_task - タスク作成、DB登録
 2. get_status - タスク状態取得
-3. search - 検索パイプライン（Chrome CDP依存）
+3. queue_searches - 検索キュー投入（即時応答）
 4. stop_task - タスク終了
 5. get_materials - レポート素材取得
-6. calibrate - 校正操作（5 actions）
-7. get_auth_queue / resolve_auth - 認証キュー
-8. notify_user / wait_for_user - 通知
+6. calibration_metrics - 校正メトリクス取得
+7. calibration_rollback - 校正ロールバック
+8. get_auth_queue / resolve_auth - 認証キュー
+9. feedback - Human-in-the-loop 操作（Domain/Claim/Edge）
 
 Prerequisites:
 - Podman containers running: ./scripts/dev.sh up
-- Chrome running with remote debugging: ./scripts/chrome.sh start (for search tests)
 - Database initialized
 
 Usage:
@@ -36,6 +36,7 @@ import asyncio
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -64,7 +65,7 @@ class MCPIntegrationVerifier:
     """
     Verifier for MCP tool integration.
 
-    Tests all 12 MCP tools (11 per ADR-0003 + feedback per ADR-0012).
+    Tests MCP tools (Phase 2 removed: search, notify_user, wait_for_user).
     """
 
     def __init__(self, basic_mode: bool = False) -> None:
@@ -77,7 +78,6 @@ class MCPIntegrationVerifier:
         self.results: list[VerificationResult] = []
         self.basic_mode = basic_mode
         self.test_task_id: str | None = None
-        self.chrome_available = False
 
     async def check_prerequisites(self) -> bool:
         """Check environment prerequisites."""
@@ -102,26 +102,6 @@ class MCPIntegrationVerifier:
             print(f"  ✗ MCP server import failed: {e}")
             return False
 
-        # Check Chrome CDP (optional in basic mode)
-        if not self.basic_mode:
-            try:
-                from src.search.browser_search_provider import BrowserSearchProvider
-
-                provider = BrowserSearchProvider()
-                await asyncio.wait_for(provider._ensure_browser(), timeout=10.0)
-                if provider._browser and provider._browser.is_connected():
-                    self.chrome_available = True
-                    print("  ✓ Chrome CDP connected")
-                else:
-                    print("  ! Chrome CDP not connected (search tests will be skipped)")
-                await provider.close()
-            except TimeoutError:
-                print("  ! Chrome CDP timeout (search tests will be skipped)")
-            except Exception as e:
-                print(f"  ! Chrome CDP check failed: {e} (search tests will be skipped)")
-        else:
-            print("  ⏭ Chrome CDP check skipped (basic mode)")
-
         return True
 
     # ========================================
@@ -137,7 +117,7 @@ class MCPIntegrationVerifier:
         - Task is stored in database
         - Response contains required fields
         """
-        print("\n[1/11] Verifying create_task...")
+        print("\n[1/10] Verifying create_task...")
 
         try:
             from src.mcp.server import _dispatch_tool
@@ -232,7 +212,7 @@ class MCPIntegrationVerifier:
         - Contains required fields (searches, metrics, budget)
         - Returns error for non-existent task
         """
-        print("\n[2/11] Verifying get_status...")
+        print("\n[2/10] Verifying get_status...")
 
         if not self.test_task_id:
             return VerificationResult(
@@ -316,136 +296,104 @@ class MCPIntegrationVerifier:
     # 2. Research Execution Tools
     # ========================================
 
-    async def verify_search(self) -> VerificationResult:
+    async def verify_queue_searches(self) -> VerificationResult:
         """
-        Verify search tool.
+        Verify queue_searches tool.
 
         Tests:
-        - Search pipeline executes
-        - Returns correct response structure
-        - Budget tracking works
-
-        Requires Chrome CDP connection.
+        - Queues searches and returns search_ids immediately
+        - Persists queued jobs to DB (kind='search_queue')
         """
-        print("\n[3/11] Verifying search...")
-
-        if not self.chrome_available and not self.basic_mode:
-            return VerificationResult(
-                name="search",
-                tool="search",
-                spec_ref="ADR-0003",
-                passed=False,
-                skipped=True,
-                skip_reason="Chrome CDP not available",
-            )
-
-        if self.basic_mode:
-            return VerificationResult(
-                name="search",
-                tool="search",
-                spec_ref="ADR-0003",
-                passed=False,
-                skipped=True,
-                skip_reason="Skipped in basic mode",
-            )
+        print("\n[3/10] Verifying queue_searches...")
 
         if not self.test_task_id:
             return VerificationResult(
-                name="search",
-                tool="search",
-                spec_ref="ADR-0003",
+                name="queue_searches",
+                tool="queue_searches",
+                spec_ref="ADR-0010",
                 passed=False,
                 skipped=True,
                 skip_reason="No task_id from create_task",
             )
 
         try:
-            from typing import Any
-
             from src.mcp.server import _dispatch_tool
 
             args: dict[str, Any] = {
                 "task_id": self.test_task_id,
-                "query": "Python programming best practices",
                 "options": {
-                    "engines": ["mojeek"],  # Less blocking-prone
+                    "engines": ["mojeek"],  # Less blocking-prone (optional)
                     "max_pages": 3,
                 },
+                "queries": ["Python programming best practices", "Python typing best practices"],
             }
 
-            print(f"    Executing search: {args['query'][:50]}...")
+            print(f"    Queuing {len(args['queries'])} searches...")
 
-            # Execute with timeout
-            result = await asyncio.wait_for(
-                _dispatch_tool("search", args),
-                timeout=60.0,
+            result = await _dispatch_tool("queue_searches", args)
+
+            if not result.get("ok"):
+                return VerificationResult(
+                    name="queue_searches",
+                    tool="queue_searches",
+                    spec_ref="ADR-0010",
+                    passed=False,
+                    error=str(result.get("error", "Unknown error")),
+                )
+
+            queued_count = result.get("queued_count")
+            search_ids = result.get("search_ids")
+            if not isinstance(queued_count, int) or queued_count < 1:
+                return VerificationResult(
+                    name="queue_searches",
+                    tool="queue_searches",
+                    spec_ref="ADR-0010",
+                    passed=False,
+                    error=f"Invalid queued_count: {queued_count}",
+                )
+            if not isinstance(search_ids, list) or len(search_ids) != queued_count:
+                return VerificationResult(
+                    name="queue_searches",
+                    tool="queue_searches",
+                    spec_ref="ADR-0010",
+                    passed=False,
+                    error=f"Invalid search_ids length: {search_ids}",
+                )
+
+            # Verify DB persistence (jobs.kind = 'search_queue')
+            from src.storage.database import get_database
+
+            db = await get_database()
+            rows = await db.fetch_all(
+                f"SELECT id, kind, state FROM jobs WHERE id IN ({','.join(['?'] * len(search_ids))})",
+                tuple(search_ids),
             )
-
-            # Check response structure
-            if "error" in result and not result.get("ok"):
-                # May be CAPTCHA or other expected error
-                error_msg = result.get("error", "")
-                if "CAPTCHA" in str(error_msg):
-                    return VerificationResult(
-                        name="search",
-                        tool="search",
-                        spec_ref="ADR-0003",
-                        passed=True,  # CAPTCHA detection is correct behavior
-                        details={"captcha_detected": True},
-                    )
-
+            if len(rows) != len(search_ids):
                 return VerificationResult(
-                    name="search",
-                    tool="search",
-                    spec_ref="ADR-0003",
+                    name="queue_searches",
+                    tool="queue_searches",
+                    spec_ref="ADR-0010",
                     passed=False,
-                    error=error_msg,
+                    error=f"Queued jobs not found in DB (expected={len(search_ids)} got={len(rows)})",
                 )
-
-            # Check required fields
-            required_fields = ["search_id", "query", "status", "pages_fetched"]
-            missing = [f for f in required_fields if f not in result]
-            if missing:
-                return VerificationResult(
-                    name="search",
-                    tool="search",
-                    spec_ref="ADR-0003",
-                    passed=False,
-                    error=f"Missing fields: {missing}",
-                    details={"result_keys": list(result.keys())},
-                )
-
-            print(f"    ✓ Search ID: {result.get('search_id')}")
-            print(f"    ✓ Status: {result.get('status')}")
-            print(f"    ✓ Pages fetched: {result.get('pages_fetched')}")
 
             return VerificationResult(
-                name="search",
-                tool="search",
-                spec_ref="ADR-0003",
+                name="queue_searches",
+                tool="queue_searches",
+                spec_ref="ADR-0010",
                 passed=True,
                 details={
-                    "search_id": result.get("search_id"),
-                    "status": result.get("status"),
-                    "pages_fetched": result.get("pages_fetched"),
-                    "claims_found": len(result.get("claims_found", [])),
+                    "queued_count": queued_count,
+                    "search_id_sample": search_ids[0],
                 },
             )
 
-        except TimeoutError:
-            return VerificationResult(
-                name="search",
-                tool="search",
-                spec_ref="ADR-0003",
-                passed=False,
-                error="Search timeout (60s)",
-            )
         except Exception as e:
-            logger.exception("search verification failed")
+            logger.exception("queue_searches verification failed")
             return VerificationResult(
-                name="search",
-                tool="search",
-                spec_ref="ADR-0003",
+                name="queue_searches",
+                tool="queue_searches",
+                spec_ref="ADR-0010",
                 passed=False,
                 error=str(e),
             )
@@ -459,7 +407,7 @@ class MCPIntegrationVerifier:
         - Summary is returned
         - DB status is updated
         """
-        print("\n[4/11] Verifying stop_task...")
+        print("\n[4/10] Verifying stop_task...")
 
         if not self.test_task_id:
             return VerificationResult(
@@ -550,7 +498,7 @@ class MCPIntegrationVerifier:
         - Evidence graph can be included
         - Summary is calculated
         """
-        print("\n[5/11] Verifying get_materials...")
+        print("\n[5/10] Verifying get_materials...")
 
         if not self.test_task_id:
             return VerificationResult(
@@ -639,7 +587,7 @@ class MCPIntegrationVerifier:
     # 4. Calibration Tools
     # ========================================
 
-    async def verify_calibrate(self) -> VerificationResult:
+    async def verify_calibration_metrics(self) -> VerificationResult:
         """
         Verify calibrate tool (5 actions).
 
@@ -648,13 +596,13 @@ class MCPIntegrationVerifier:
         - add_sample: Adds calibration sample
         - get_evaluations: Returns evaluation history
         """
-        print("\n[6/11] Verifying calibrate...")
+        print("\n[6/10] Verifying calibration_metrics...")
 
         try:
             from src.mcp.server import _dispatch_tool
 
             # Test get_stats action
-            stats_result = await _dispatch_tool("calibrate", {"action": "get_stats"})
+            stats_result = await _dispatch_tool("calibration_metrics", {"action": "get_stats"})
 
             if not stats_result.get("ok"):
                 # get_stats might fail if no calibration data exists, which is OK
@@ -671,30 +619,6 @@ class MCPIntegrationVerifier:
             else:
                 print(f"    ✓ get_stats: {stats_result.get('sources', [])}")
 
-            # Test add_sample action
-            sample_args = {
-                "action": "add_sample",
-                "data": {
-                    "source": "test_model",
-                    "prediction": 0.8,
-                    "actual": 1.0,
-                    "logit": 1.386,  # logit(0.8)
-                },
-            }
-
-            add_result = await _dispatch_tool("calibrate", sample_args)
-
-            if not add_result.get("ok"):
-                return VerificationResult(
-                    name="calibrate",
-                    tool="calibrate",
-                    spec_ref="",
-                    passed=False,
-                    error=f"add_sample failed: {add_result.get('error')}",
-                )
-
-            print("    ✓ add_sample: sample added")
-
             # Test get_evaluations action
             eval_args = {
                 "action": "get_evaluations",
@@ -704,7 +628,7 @@ class MCPIntegrationVerifier:
                 },
             }
 
-            eval_result = await _dispatch_tool("calibrate", eval_args)
+            eval_result = await _dispatch_tool("calibration_metrics", eval_args)
 
             if not eval_result.get("ok"):
                 # May fail if no evaluations exist
@@ -713,26 +637,26 @@ class MCPIntegrationVerifier:
                 print(f"    ✓ get_evaluations: {len(eval_result.get('evaluations', []))} records")
 
             return VerificationResult(
-                name="calibrate",
-                tool="calibrate",
+                name="calibration_metrics",
+                tool="calibration_metrics",
                 spec_ref="",
                 passed=True,
                 details={
-                    "actions_tested": ["get_stats", "add_sample", "get_evaluations"],
+                    "actions_tested": ["get_stats", "get_evaluations"],
                 },
             )
 
         except Exception as e:
-            logger.exception("calibrate verification failed")
+            logger.exception("calibration_metrics verification failed")
             return VerificationResult(
-                name="calibrate",
-                tool="calibrate",
+                name="calibration_metrics",
+                tool="calibration_metrics",
                 spec_ref="",
                 passed=False,
                 error=str(e),
             )
 
-    async def verify_calibrate_rollback(self) -> VerificationResult:
+    async def verify_calibration_rollback(self) -> VerificationResult:
         """
         Verify calibrate_rollback tool.
 
@@ -740,7 +664,7 @@ class MCPIntegrationVerifier:
         - Rollback fails gracefully when no version exists
         - Error messages are informative
         """
-        print("\n[7/11] Verifying calibrate_rollback...")
+        print("\n[7/10] Verifying calibration_rollback...")
 
         try:
             from src.mcp.errors import MCPError
@@ -753,7 +677,7 @@ class MCPIntegrationVerifier:
             }
 
             try:
-                result = await _dispatch_tool("calibrate_rollback", args)
+                result = await _dispatch_tool("calibration_rollback", args)
 
                 # Should fail because no version exists
                 if result.get("ok"):
@@ -774,8 +698,8 @@ class MCPIntegrationVerifier:
                 print(f"    ✓ Rollback correctly raised MCPError: {e.message[:50]}...")
 
             return VerificationResult(
-                name="calibrate_rollback",
-                tool="calibrate_rollback",
+                name="calibration_rollback",
+                tool="calibration_rollback",
                 spec_ref="",
                 passed=True,
                 details={
@@ -784,10 +708,10 @@ class MCPIntegrationVerifier:
             )
 
         except Exception as e:
-            logger.exception("calibrate_rollback verification failed")
+            logger.exception("calibration_rollback verification failed")
             return VerificationResult(
-                name="calibrate_rollback",
-                tool="calibrate_rollback",
+                name="calibration_rollback",
+                tool="calibration_rollback",
                 spec_ref="",
                 passed=False,
                 error=str(e),
@@ -805,7 +729,7 @@ class MCPIntegrationVerifier:
         - Returns empty queue when no pending items
         - Supports grouping options
         """
-        print("\n[8/11] Verifying get_auth_queue...")
+        print("\n[8/10] Verifying get_auth_queue...")
 
         try:
             from src.mcp.server import _dispatch_tool
@@ -867,7 +791,7 @@ class MCPIntegrationVerifier:
         - Handles non-existent queue_id gracefully
         - Validates required parameters
         """
-        print("\n[9/11] Verifying resolve_auth...")
+        print("\n[9/10] Verifying resolve_auth...")
 
         try:
             from src.mcp.server import _dispatch_tool
@@ -926,195 +850,113 @@ class MCPIntegrationVerifier:
                 error=str(e),
             )
 
-    # ========================================
-    # 6. Notification Tools
-    # ========================================
-
-    async def verify_notify_user(self) -> VerificationResult:
+    async def verify_feedback(self) -> VerificationResult:
         """
-        Verify notify_user tool.
+        Verify feedback tool (ADR-0012).
 
-        Tests:
-        - Notification is sent (or fails gracefully if no notification system)
-        - Event types are validated
+        // Given: Feedback tool is registered
+        // When: Calling a safe action (domain_clear_override) with a test pattern
+        // Then: Returns ok=True (cleared_rules may be 0)
         """
-        print("\n[10/11] Verifying notify_user...")
-
-        try:
-            from src.mcp.server import _dispatch_tool
-
-            # Test info notification
-            args = {
-                "event": "info",
-                "payload": {
-                    "message": "E2E test notification from verify_mcp_integration.py",
-                },
-            }
-
-            result = await _dispatch_tool("notify_user", args)
-
-            if not result.get("ok"):
-                # May fail if notification system unavailable
-                error_msg = result.get("error", "")
-                if "provider" in error_msg.lower() or "unavailable" in error_msg.lower():
-                    print("    ! Notification system unavailable (expected in container)")
-                    return VerificationResult(
-                        name="notify_user",
-                        tool="notify_user",
-                        spec_ref="ADR-0007",
-                        passed=True,  # Graceful failure is acceptable
-                        details={"notification_available": False},
-                    )
-
-                return VerificationResult(
-                    name="notify_user",
-                    tool="notify_user",
-                    spec_ref="ADR-0007",
-                    passed=False,
-                    error=result.get("error"),
-                )
-
-            print(f"    ✓ Notification sent: {result.get('notified')}")
-
-            # Test event validation
-            invalid_args = {
-                "event": "invalid_event_type",
-                "payload": {"message": "test"},
-            }
-
-            try:
-                invalid_result = await _dispatch_tool("notify_user", invalid_args)
-
-                if invalid_result.get("ok"):
-                    return VerificationResult(
-                        name="notify_user",
-                        tool="notify_user",
-                        spec_ref="ADR-0007",
-                        passed=False,
-                        error="Expected validation error for invalid event type",
-                    )
-                print("    ✓ Event type validation works (returned error)")
-            except Exception:
-                # Exception is also acceptable for validation error
-                print("    ✓ Event type validation works (raised exception)")
-
-            return VerificationResult(
-                name="notify_user",
-                tool="notify_user",
-                spec_ref="ADR-0007",
-                passed=True,
-                details={
-                    "notification_available": True,
-                    "validation": "working",
-                },
-            )
-
-        except Exception as e:
-            logger.exception("notify_user verification failed")
-            return VerificationResult(
-                name="notify_user",
-                tool="notify_user",
-                spec_ref="ADR-0007",
-                passed=False,
-                error=str(e),
-            )
-
-    async def verify_wait_for_user(self) -> VerificationResult:
-        """
-        Verify wait_for_user tool.
-
-        Tests:
-        - Returns immediately with notification_sent status
-        - Validates required parameters
-        """
-        print("\n[11/11] Verifying wait_for_user...")
+        print("\n[10/10] Verifying feedback...")
 
         try:
             from src.mcp.server import _dispatch_tool
 
             args = {
-                "prompt": "E2E test: Please acknowledge this message",
-                "timeout_seconds": 5,
-                "options": ["OK", "Cancel"],
+                "action": "domain_clear_override",
+                "domain_pattern": "example.com",
+                "reason": "E2E verification test (Phase 2 toolset)",
             }
-
-            result = await _dispatch_tool("wait_for_user", args)
+            result = await _dispatch_tool("feedback", args)
 
             if not result.get("ok"):
-                # May fail if notification system unavailable
-                error_msg = result.get("error", "")
-                if "provider" in error_msg.lower() or "unavailable" in error_msg.lower():
-                    print("    ! Notification system unavailable")
-                    return VerificationResult(
-                        name="wait_for_user",
-                        tool="wait_for_user",
-                        spec_ref="ADR-0007",
-                        passed=True,
-                        details={"notification_available": False},
-                    )
-
                 return VerificationResult(
-                    name="wait_for_user",
-                    tool="wait_for_user",
-                    spec_ref="ADR-0007",
+                    name="feedback",
+                    tool="feedback",
+                    spec_ref="ADR-0012",
                     passed=False,
-                    error=result.get("error"),
+                    error=str(result.get("error", "Unknown error")),
                 )
 
-            # Should return immediately with notification_sent status
-            if result.get("status") != "notification_sent":
-                return VerificationResult(
-                    name="wait_for_user",
-                    tool="wait_for_user",
-                    spec_ref="ADR-0007",
-                    passed=False,
-                    error=f"Expected status=notification_sent, got {result.get('status')}",
-                )
+            return VerificationResult(
+                name="feedback",
+                tool="feedback",
+                spec_ref="ADR-0012",
+                passed=True,
+                details={
+                    "action": result.get("action"),
+                    "cleared_rules": result.get("cleared_rules"),
+                },
+            )
+        except Exception as e:
+            logger.exception("feedback verification failed")
+            return VerificationResult(
+                name="feedback",
+                tool="feedback",
+                spec_ref="ADR-0012",
+                passed=False,
+                error=str(e),
+            )
 
-            print(f"    ✓ Status: {result.get('status')}")
-            print(f"    ✓ Prompt echoed: {result.get('prompt', '')[:30]}...")
+        try:
+            from src.mcp.server import _dispatch_tool
 
-            # Test validation (empty prompt)
+            # Test with non-existent queue_id (should fail gracefully)
+            args = {
+                "target": "item",
+                "queue_id": "nonexistent_queue_id",
+                "action": "complete",
+                "success": True,
+            }
+
+            result = await _dispatch_tool("resolve_auth", args)
+
+            # May succeed (no-op) or fail, both are acceptable
+            print(f"    ✓ resolve_auth response: ok={result.get('ok')}")
+
+            # Test parameter validation (missing action)
             invalid_args = {
-                "prompt": "",
+                "target": "item",
+                "queue_id": "test_id",
             }
 
             try:
-                invalid_result = await _dispatch_tool("wait_for_user", invalid_args)
-
+                invalid_result = await _dispatch_tool("resolve_auth", invalid_args)
+                # Should return error
                 if invalid_result.get("ok"):
                     return VerificationResult(
-                        name="wait_for_user",
-                        tool="wait_for_user",
+                        name="resolve_auth",
+                        tool="resolve_auth",
                         spec_ref="ADR-0007",
                         passed=False,
-                        error="Expected validation error for empty prompt",
+                        error="Expected validation error for missing action",
                     )
-                print("    ✓ Prompt validation works (returned error)")
+                print("    ✓ Parameter validation works")
             except Exception:
-                # Exception is also acceptable for validation error
-                print("    ✓ Prompt validation works (raised exception)")
+                print("    ✓ Parameter validation works (raised exception)")
 
             return VerificationResult(
-                name="wait_for_user",
-                tool="wait_for_user",
+                name="resolve_auth",
+                tool="resolve_auth",
                 spec_ref="ADR-0007",
                 passed=True,
                 details={
-                    "status": result.get("status"),
                     "validation": "working",
                 },
             )
 
         except Exception as e:
-            logger.exception("wait_for_user verification failed")
+            logger.exception("resolve_auth verification failed")
             return VerificationResult(
-                name="wait_for_user",
-                tool="wait_for_user",
+                name="resolve_auth",
+                tool="resolve_auth",
                 spec_ref="ADR-0007",
                 passed=False,
                 error=str(e),
             )
+
+    # NOTE: Phase 2 removed MCP tools: notify_user, wait_for_user.
 
     async def cleanup(self) -> None:
         """Clean up test data."""
@@ -1145,11 +987,11 @@ class MCPIntegrationVerifier:
         """
         print("\n" + "=" * 70)
         print("MCP Tool Integration Verification")
-        print("検証対象: MCPツール（12個）の疎通確認")
+        print("検証対象: MCPツール（10個）の疎通確認")
         print("=" * 70)
 
         if self.basic_mode:
-            print("\n⚠ Basic mode: Chrome CDP-dependent tests will be skipped")
+            print("\n⚠ Basic mode: Network-dependent verifications may be skipped/limited")
 
         # Check prerequisites
         if not await self.check_prerequisites():
@@ -1162,19 +1004,18 @@ class MCPIntegrationVerifier:
             self.verify_create_task,  # Creates test_task_id
             self.verify_get_status,
             # Research Execution
-            self.verify_search,
+            self.verify_queue_searches,
             self.verify_stop_task,
             # Materials
             self.verify_get_materials,
             # Calibration
-            self.verify_calibrate,
-            self.verify_calibrate_rollback,
+            self.verify_calibration_metrics,
+            self.verify_calibration_rollback,
             # Auth Queue
             self.verify_get_auth_queue,
             self.verify_resolve_auth,
-            # Notification
-            self.verify_notify_user,
-            self.verify_wait_for_user,
+            # Feedback
+            self.verify_feedback,
         ]
 
         critical_failure = False
