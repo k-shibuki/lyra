@@ -17,6 +17,12 @@ Tests the background worker that processes search queue jobs per ADR-0010.
 | TC-WK-06 | Empty queue | Boundary – empty | Worker waits, then rechecks | Empty queue |
 | TC-MGR-01 | Manager start | Equivalence – normal | 2 workers started | Manager lifecycle |
 | TC-MGR-02 | Manager stop | Equivalence – normal | Workers cancelled and cleaned up | Manager lifecycle |
+| TC-JT-01 | register_job | Equivalence – normal | Job tracked in _running_jobs | Job tracking |
+| TC-JT-02 | unregister_job | Equivalence – normal | Job removed from _running_jobs | Job tracking |
+| TC-JT-03 | cancel_jobs_for_task | Equivalence – normal | Only specified task's jobs cancelled | Selective cancel |
+| TC-JT-04 | cancel nonexistent task | Boundary – empty | Returns 0, no error | Empty result |
+| TC-WK-CANCEL-01 | search_task cancelled | Equivalence – cancel | Worker continues to next job | Worker survives |
+| TC-WK-CANCEL-02 | run_server() stops | Equivalence – shutdown | Worker exits loop | Worker shutdown |
 """
 
 import asyncio
@@ -384,6 +390,387 @@ class TestSearchQueueWorkerManager:
             await manager.stop()
 
 
+class TestJobTracking:
+    """Tests for SearchQueueWorkerManager job tracking for cancellation support."""
+
+    @pytest.mark.asyncio
+    async def test_register_job_adds_to_running_jobs(self) -> None:
+        """
+        TC-JT-01: register_job adds job to tracking dict.
+
+        // Given: Empty manager
+        // When: register_job called
+        // Then: Job is tracked with correct task_id
+        """
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        manager = SearchQueueWorkerManager()
+
+        async def dummy_task():
+            await asyncio.sleep(60)
+
+        task = asyncio.create_task(dummy_task())
+
+        try:
+            manager.register_job("search_001", "task_abc", task)
+
+            assert manager.running_job_count == 1
+            assert "search_001" in manager._running_jobs
+            task_id, tracked_task = manager._running_jobs["search_001"]
+            assert task_id == "task_abc"
+            assert tracked_task is task
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_unregister_job_removes_from_running_jobs(self) -> None:
+        """
+        TC-JT-02: unregister_job removes job from tracking dict.
+
+        // Given: Manager with registered job
+        // When: unregister_job called
+        // Then: Job is no longer tracked
+        """
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        manager = SearchQueueWorkerManager()
+
+        async def dummy_task():
+            await asyncio.sleep(60)
+
+        task = asyncio.create_task(dummy_task())
+
+        try:
+            manager.register_job("search_002", "task_xyz", task)
+            assert manager.running_job_count == 1
+
+            manager.unregister_job("search_002")
+
+            assert manager.running_job_count == 0
+            assert "search_002" not in manager._running_jobs
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_unregister_nonexistent_job_no_error(self) -> None:
+        """
+        TC-JT-02b: unregister_job with nonexistent ID is no-op.
+
+        // Given: Manager with no jobs
+        // When: unregister_job called with unknown ID
+        // Then: No error raised
+        """
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        manager = SearchQueueWorkerManager()
+
+        # Should not raise
+        manager.unregister_job("nonexistent_search")
+
+        assert manager.running_job_count == 0
+
+    @pytest.mark.asyncio
+    async def test_cancel_jobs_for_task_cancels_only_matching(self) -> None:
+        """
+        TC-JT-03: cancel_jobs_for_task cancels only specified task's search_action tasks.
+
+        // Given: Manager with search_action tasks for multiple research tasks
+        // When: cancel_jobs_for_task called for one research task
+        // Then: Only that task's search_action tasks are cancelled (worker survives)
+        """
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        manager = SearchQueueWorkerManager()
+
+        cancel_flags = {"task_a_1": False, "task_a_2": False, "task_b": False}
+
+        async def make_job(flag_key: str):
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                cancel_flags[flag_key] = True
+                raise
+
+        task_a_1 = asyncio.create_task(make_job("task_a_1"))
+        task_a_2 = asyncio.create_task(make_job("task_a_2"))
+        task_b = asyncio.create_task(make_job("task_b"))
+
+        try:
+            manager.register_job("search_a1", "task_a", task_a_1)
+            manager.register_job("search_a2", "task_a", task_a_2)
+            manager.register_job("search_b1", "task_b", task_b)
+
+            assert manager.running_job_count == 3
+
+            # Cancel only task_a
+            cancelled_count = await manager.cancel_jobs_for_task("task_a")
+
+            assert cancelled_count == 2
+            assert cancel_flags["task_a_1"] is True
+            assert cancel_flags["task_a_2"] is True
+            assert cancel_flags["task_b"] is False
+            assert not task_b.done()
+        finally:
+            # Cleanup remaining task
+            task_b.cancel()
+            try:
+                await task_b
+            except asyncio.CancelledError:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_cancel_jobs_for_nonexistent_task_returns_zero(self) -> None:
+        """
+        TC-JT-04: cancel_jobs_for_task with nonexistent task returns 0.
+
+        // Given: Manager with jobs for other tasks
+        // When: cancel_jobs_for_task called for unknown task
+        // Then: Returns 0, no jobs cancelled
+        """
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        manager = SearchQueueWorkerManager()
+
+        cancel_flag = {"cancelled": False}
+
+        async def make_job():
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                cancel_flag["cancelled"] = True
+                raise
+
+        task = asyncio.create_task(make_job())
+
+        try:
+            manager.register_job("search_x", "task_x", task)
+
+            # Cancel nonexistent task
+            cancelled_count = await manager.cancel_jobs_for_task("nonexistent_task")
+
+            assert cancelled_count == 0
+            assert cancel_flag["cancelled"] is False
+            assert not task.done()
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_running_job_count_property(self) -> None:
+        """
+        Test running_job_count property reflects current state.
+
+        // Given: Manager with varying number of registered jobs
+        // When: Jobs are registered/unregistered
+        // Then: running_job_count is accurate
+        """
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        manager = SearchQueueWorkerManager()
+
+        async def dummy_task():
+            await asyncio.sleep(60)
+
+        tasks = []
+        try:
+            assert manager.running_job_count == 0
+
+            for i in range(3):
+                task = asyncio.create_task(dummy_task())
+                tasks.append(task)
+                manager.register_job(f"search_{i}", f"task_{i}", task)
+
+            assert manager.running_job_count == 3
+
+            manager.unregister_job("search_1")
+            assert manager.running_job_count == 2
+
+            manager.unregister_job("search_0")
+            manager.unregister_job("search_2")
+            assert manager.running_job_count == 0
+        finally:
+            for task in tasks:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+
+class TestWorkerCancellationBehavior:
+    """Tests for worker behavior when search_action tasks are cancelled.
+
+    Verifies that cancelling a search_action task does NOT kill the worker,
+    which continues processing other jobs (ADR-0010 mode=immediate).
+    """
+
+    @pytest.mark.asyncio
+    async def test_worker_survives_search_task_cancellation(self, test_database) -> None:
+        """
+        TC-WK-CANCEL-01: Worker continues after search_action task is cancelled.
+
+        // Given: Worker processing a search job
+        // When: The search_action task is cancelled (mode=immediate)
+        // Then: Worker updates DB state and continues to next job
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_cancel_01", "Test task", "exploring"),
+        )
+
+        # Queue two jobs
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "search_first",
+                "task_cancel_01",
+                "search_queue",
+                50,
+                "network_client",
+                "queued",
+                json.dumps({"query": "first query", "options": {}}),
+                now,
+            ),
+        )
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "search_second",
+                "task_cancel_01",
+                "search_queue",
+                50,
+                "network_client",
+                "queued",
+                now,  # Will be processed after first
+                json.dumps({"query": "second query", "options": {}}),
+            ),
+        )
+
+        jobs_processed = {"first": False, "second": False}
+        first_job_started = asyncio.Event()
+
+        async def mock_search_action(task_id: str, query: str, state: Any, options: dict) -> dict:
+            """Mock search_action that signals when first job starts."""
+            if "first" in query:
+                first_job_started.set()
+                jobs_processed["first"] = True
+                # Wait for cancellation
+                await asyncio.sleep(60)
+            else:
+                jobs_processed["second"] = True
+            return {"status": "completed", "pages_fetched": 1}
+
+        from src.scheduler.search_worker import (
+            _search_queue_worker,
+            get_worker_manager,
+        )
+
+        # Start a worker
+        # Patch at use site: _search_queue_worker imports from src.research.pipeline
+        with patch("src.research.pipeline.search_action", mock_search_action):
+            worker_task = asyncio.create_task(_search_queue_worker(0))
+
+            try:
+                # Wait for first job to start
+                await asyncio.wait_for(first_job_started.wait(), timeout=5.0)
+
+                # Cancel the first job via manager
+                manager = get_worker_manager()
+                await manager.cancel_jobs_for_task("task_cancel_01")
+
+                # Give worker time to process the cancellation and pick up second job
+                await asyncio.sleep(0.5)
+
+                # Verify first job was marked cancelled
+                first_job = await db.fetch_one(
+                    "SELECT state FROM jobs WHERE id = ?",
+                    ("search_first",),
+                )
+                assert first_job["state"] == "cancelled"
+
+                # The worker should still be running (not broken by cancellation)
+                assert not worker_task.done()
+
+            finally:
+                # Stop the worker
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
+    @pytest.mark.asyncio
+    async def test_worker_exits_on_manager_stop(self) -> None:
+        """
+        TC-WK-CANCEL-02: Worker exits when manager.stop() is called.
+
+        // Given: Running worker
+        // When: SearchQueueWorkerManager.stop() is called (server shutdown)
+        // Then: Worker task completes and exits the loop
+        """
+        from src.scheduler.search_worker import SearchQueueWorkerManager
+
+        manager = SearchQueueWorkerManager()
+
+        # Create mock worker tasks directly
+        worker_cancelled = [False, False]
+
+        async def mock_worker_0():
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                worker_cancelled[0] = True
+                raise
+
+        async def mock_worker_1():
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                worker_cancelled[1] = True
+                raise
+
+        # Manually set up manager state to simulate started workers
+        manager._started = True
+        manager._workers = [
+            asyncio.create_task(mock_worker_0()),
+            asyncio.create_task(mock_worker_1()),
+        ]
+
+        # Let tasks start running
+        await asyncio.sleep(0)
+
+        assert manager.is_running is True
+        assert len(manager._workers) == 2
+
+        await manager.stop()
+
+        assert manager.is_running is False
+        assert len(manager._workers) == 0
+        assert worker_cancelled[0] is True
+        assert worker_cancelled[1] is True
+
+
 class TestExplorationStateEvent:
     """Tests for ExplorationState asyncio.Event for long polling."""
 
@@ -741,9 +1128,6 @@ class TestSearchQueuePerformance:
                 ),
             )
 
-        # Track which worker processed which job
-        worker_assignments: dict[str, int] = {}  # job_id -> worker_id
-
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
@@ -804,7 +1188,9 @@ class TestSearchQueuePerformance:
             "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'completed'",
             ("task_pf03_parallel",),
         )
-        assert completed["cnt"] == num_jobs, f"Expected {num_jobs} completed, got {completed['cnt']}"
+        assert completed["cnt"] == num_jobs, (
+            f"Expected {num_jobs} completed, got {completed['cnt']}"
+        )
 
         # Note: Due to the nature of async processing, we can't guarantee which worker
         # processed which job, but we verify that all jobs were processed correctly.
@@ -938,8 +1324,16 @@ class TestSearchQueuePerformance:
                 INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (job_id, "task_pf05", "search_queue", priority, "network_client", "queued",
-                 json.dumps({"query": query, "options": {}}), now),
+                (
+                    job_id,
+                    "task_pf05",
+                    "search_queue",
+                    priority,
+                    "network_client",
+                    "queued",
+                    json.dumps({"query": query, "options": {}}),
+                    now,
+                ),
             )
 
         # Track processing order
@@ -981,8 +1375,12 @@ class TestSearchQueuePerformance:
 
         # Verify processing order: high → medium → low
         assert len(processing_order) == 3
-        assert processing_order[0] == "high priority", f"Expected high first, got {processing_order}"
-        assert processing_order[1] == "medium priority", f"Expected medium second, got {processing_order}"
+        assert processing_order[0] == "high priority", (
+            f"Expected high first, got {processing_order}"
+        )
+        assert processing_order[1] == "medium priority", (
+            f"Expected medium second, got {processing_order}"
+        )
         assert processing_order[2] == "low priority", f"Expected low last, got {processing_order}"
 
     @pytest.mark.asyncio
@@ -1013,8 +1411,16 @@ class TestSearchQueuePerformance:
                 INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (f"s_pf06_{i}", "task_pf06", "search_queue", 50, "network_client", "queued",
-                 json.dumps({"query": f"query_{i}", "options": {}}), queued_at),
+                (
+                    f"s_pf06_{i}",
+                    "task_pf06",
+                    "search_queue",
+                    50,
+                    "network_client",
+                    "queued",
+                    json.dumps({"query": f"query_{i}", "options": {}}),
+                    queued_at,
+                ),
             )
 
         processing_order: list[str] = []
@@ -1088,8 +1494,16 @@ class TestSearchQueuePerformance:
                 INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (job_id, "task_pf07", "search_queue", 50, "network_client", "queued",
-                 json.dumps({"query": query, "options": {}}), now),
+                (
+                    job_id,
+                    "task_pf07",
+                    "search_queue",
+                    50,
+                    "network_client",
+                    "queued",
+                    json.dumps({"query": query, "options": {}}),
+                    now,
+                ),
             )
 
         completion_order: list[str] = []
@@ -1182,8 +1596,16 @@ class TestSearchQueuePerformance:
                 INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (job_id, "task_pf08", "search_queue", priority, "network_client", "queued",
-                 json.dumps({"query": query, "options": {}}), now),
+                (
+                    job_id,
+                    "task_pf08",
+                    "search_queue",
+                    priority,
+                    "network_client",
+                    "queued",
+                    json.dumps({"query": query, "options": {}}),
+                    now,
+                ),
             )
 
         processing_order: list[str] = []
@@ -1309,8 +1731,16 @@ class TestSearchQueuePerformance:
             INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("s_pf10", "task_pf10", "search_queue", 50, "network_client", "queued",
-             json.dumps({"query": "single job", "options": {}}), now),
+            (
+                "s_pf10",
+                "task_pf10",
+                "search_queue",
+                50,
+                "network_client",
+                "queued",
+                json.dumps({"query": "single job", "options": {}}),
+                now,
+            ),
         )
 
         call_count = 0

@@ -308,22 +308,7 @@ class TestInterventionManagerCore:
     """Core tests for InterventionManager.
 
     Tests configuration properties and basic functionality per ADR-0007.
-    Note: intervention_timeout test removed (timeout no longer used).
     """
-
-    def test_max_domain_failures_is_three_per_spec(
-        self, intervention_manager: InterventionManager
-    ) -> None:
-        """Test max domain failures is 3 per ADR-0010.
-
-        Per ADR-0010: Skip domain for the day after 3 failures.
-        """
-        expected_max = 3
-        actual_max = intervention_manager.max_domain_failures
-
-        assert actual_max == expected_max, (
-            f"max_domain_failures should be {expected_max} per ADR-0010, got {actual_max}"
-        )
 
     def test_cooldown_at_least_60_minutes_per_spec(
         self, intervention_manager: InterventionManager
@@ -338,45 +323,6 @@ class TestInterventionManagerCore:
         assert actual_cooldown >= min_cooldown, (
             f"cooldown_minutes should be >= {min_cooldown} per ADR-0006, got {actual_cooldown}"
         )
-
-    def test_domain_failure_tracking_initial_state(
-        self, intervention_manager: InterventionManager
-    ) -> None:
-        """Test domain failure counter starts at zero."""
-        domain = "example.com"
-        failures = intervention_manager.get_domain_failures(domain)
-
-        assert failures == 0, f"Initial failure count for '{domain}' should be 0, got {failures}"
-
-    def test_domain_failure_tracking_set_and_get(
-        self, intervention_manager: InterventionManager
-    ) -> None:
-        """Test setting and getting domain failure count."""
-        domain = "example.com"
-        expected_failures = 2
-
-        # When: Set failures
-        intervention_manager._domain_failures[domain] = expected_failures
-        actual_failures = intervention_manager.get_domain_failures(domain)
-
-        # Then
-        assert actual_failures == expected_failures, (
-            f"Failure count for '{domain}' should be {expected_failures}, got {actual_failures}"
-        )
-
-    def test_domain_failure_reset(self, intervention_manager: InterventionManager) -> None:
-        """Test resetting domain failure counter."""
-        domain = "example.com"
-
-        # Given: Set some failures
-        intervention_manager._domain_failures[domain] = 2
-
-        # When: Reset
-        intervention_manager.reset_domain_failures(domain)
-
-        # Then
-        failures = intervention_manager.get_domain_failures(domain)
-        assert failures == 0, f"Failure count after reset should be 0, got {failures}"
 
 
 # =============================================================================
@@ -448,84 +394,6 @@ class TestInterventionMessages:
 # =============================================================================
 # Domain Skip Logic Tests (ADR-0010)
 # =============================================================================
-
-
-@pytest.mark.unit
-class TestDomainSkipLogic:
-    """Tests for domain skip logic per ADR-0010.
-
-    Per ADR-0010: Skip domain for the day after 3 failures (after connection refresh, headful escalation, cooldown applied).
-    """
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "failure_count,should_skip",
-        [
-            (0, False),  # No failures - should not skip
-            (1, False),  # 1 failure - should not skip
-            (2, False),  # 2 failures - should not skip (boundary)
-            (3, True),  # 3 failures - should skip (threshold)
-            (4, True),  # 4 failures - should skip (above threshold)
-        ],
-    )
-    async def test_skip_domain_boundary_conditions(
-        self,
-        intervention_manager: InterventionManager,
-        mock_db: AsyncMock,
-        failure_count: int,
-        should_skip: bool,
-    ) -> None:
-        """Test domain skip at boundary conditions per ADR-0010.
-
-        Parametrized test verifying skip behavior at 0, 1, 2, 3, 4 failures.
-        Per .1.2.4: Boundary conditions should be tested.
-        """
-        domain = "test.com"
-
-        with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
-            # Given
-            intervention_manager._domain_failures[domain] = failure_count
-
-            # When
-            result = await intervention_manager._should_skip_domain(domain)
-
-            # Then
-            assert result is should_skip, (
-                f"With {failure_count} failures, should_skip should be {should_skip}, got {result}"
-            )
-
-    @pytest.mark.asyncio
-    async def test_skip_domain_with_active_cooldown(
-        self, intervention_manager: InterventionManager, mock_db: AsyncMock
-    ) -> None:
-        """Test domain is skipped when in active cooldown period."""
-        # Given: Future cooldown time
-        future_time = (datetime.now(UTC) + timedelta(minutes=30)).isoformat()
-        mock_db.fetch_one = AsyncMock(return_value={"cooldown_until": future_time})
-
-        with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
-            # When
-            result = await intervention_manager._should_skip_domain("test.com")
-
-            # Then
-            assert result is True, "Domain with future cooldown time should be skipped"
-
-    @pytest.mark.asyncio
-    async def test_no_skip_with_expired_cooldown(
-        self, intervention_manager: InterventionManager, mock_db: AsyncMock
-    ) -> None:
-        """Test domain is not skipped when cooldown has expired."""
-        # Given: Past cooldown time
-        past_time = (datetime.now(UTC) - timedelta(minutes=30)).isoformat()
-        mock_db.fetch_one = AsyncMock(return_value={"cooldown_until": past_time})
-
-        with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
-            # When
-            result = await intervention_manager._should_skip_domain("test.com")
-
-            # Then
-            assert result is False, "Domain with expired cooldown should not be skipped"
-
 
 # =============================================================================
 # Toast Notification Tests
@@ -697,31 +565,6 @@ class TestInterventionFlow:
     """
 
     @pytest.mark.asyncio
-    async def test_skips_domain_with_three_failures(
-        self, mock_settings: MagicMock, mock_db: AsyncMock
-    ) -> None:
-        """Test intervention is skipped for domains with 3 failures per ADR-0010."""
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
-                # Given
-                manager = InterventionManager()
-                domain = "blocked.com"
-                manager._domain_failures[domain] = 3
-
-                # When
-                result = await manager.request_intervention(
-                    intervention_type=InterventionType.CAPTCHA,
-                    url=f"https://{domain}/page",
-                    domain=domain,
-                )
-
-                # Then
-                assert result.status == InterventionStatus.SKIPPED, (
-                    f"Expected SKIPPED status, got {result.status}"
-                )
-                assert result.skip_domain_today is True, "skip_domain_today should be True"
-
-    @pytest.mark.asyncio
     async def test_returns_pending_immediately_per_spec(
         self, mock_settings: MagicMock, mock_db: AsyncMock, mock_page: AsyncMock
     ) -> None:
@@ -781,68 +624,6 @@ class TestInterventionFlow:
                     assert mock_db.execute.called, (
                         "Database execute should be called to log intervention"
                     )
-
-    @pytest.mark.asyncio
-    async def test_success_resets_failure_counter(
-        self, intervention_manager: InterventionManager, mock_db: AsyncMock
-    ) -> None:
-        """Test successful intervention resets failure counter to 0."""
-        # Given
-        domain = "example.com"
-        intervention_manager._domain_failures[domain] = 2
-
-        with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
-            result = InterventionResult(
-                intervention_id="test",
-                status=InterventionStatus.SUCCESS,
-            )
-
-            # When
-            await intervention_manager._handle_intervention_result(
-                result,
-                {
-                    "domain": domain,
-                    "type": InterventionType.CAPTCHA,
-                    "task_id": None,
-                },
-                mock_db,
-            )
-
-            # Then
-            failures = intervention_manager._domain_failures[domain]
-            assert failures == 0, f"Failure count after success should be 0, got {failures}"
-
-    @pytest.mark.asyncio
-    async def test_failure_increments_counter(
-        self, intervention_manager: InterventionManager, mock_db: AsyncMock
-    ) -> None:
-        """Test failed intervention increments failure counter."""
-        # Given
-        domain = "example.com"
-        initial_failures = 1
-        intervention_manager._domain_failures[domain] = initial_failures
-
-        with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
-            result = InterventionResult(
-                intervention_id="test",
-                status=InterventionStatus.FAILED,  # Changed from TIMEOUT
-            )
-
-            # When
-            await intervention_manager._handle_intervention_result(
-                result,
-                {
-                    "domain": domain,
-                    "type": InterventionType.CAPTCHA,
-                    "task_id": None,
-                },
-                mock_db,
-            )
-
-            # Then
-            failures = intervention_manager._domain_failures[domain]
-            expected = initial_failures + 1
-            assert failures == expected, f"Failure count should be {expected}, got {failures}"
 
 
 # =============================================================================
@@ -991,7 +772,6 @@ class TestInterventionIntegration:
                     "domain": domain,
                     "started_at": datetime.now(UTC),
                 }
-                manager._domain_failures[domain] = 2
 
                 # When: User completes intervention
                 await manager.complete_intervention(
@@ -1000,14 +780,13 @@ class TestInterventionIntegration:
                     notes="User resolved CAPTCHA",
                 )
 
-                # Then: Failure counter should be reset
-                failures = manager.get_domain_failures(domain)
-                assert failures == 0, f"Failure count after success should be 0, got {failures}"
-
                 # Then: Intervention removed from pending
                 assert intervention_id not in manager._pending_interventions, (
                     "Completed intervention should be removed from pending"
                 )
+
+                # Then: Database updated with success
+                assert mock_db.execute.called, "Database should be updated"
 
     @pytest.mark.asyncio
     async def test_check_status_shows_pending_without_timeout(

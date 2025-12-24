@@ -110,7 +110,6 @@ class InterventionManager:
     - No timeout enforcement (user-driven completion)
     - No polling or page content inspection
     - Toast notification for awareness
-    - Skip domain after 3 consecutive failures
 
     CDP Safety:
     - Allowed: Page.bringToFront
@@ -120,14 +119,8 @@ class InterventionManager:
     def __init__(self) -> None:
         self._settings = get_settings()
         self._pending_interventions: dict[str, dict] = {}
-        self._domain_failures: dict[str, int] = {}  # domain -> consecutive failure count
         self._browser_page = None  # Current browser page for intervention
         self._intervention_lock = asyncio.Lock()
-
-    @property
-    def max_domain_failures(self) -> int:
-        """Get max consecutive failures before skipping domain today."""
-        return 3  # Max consecutive failures before skipping domain today
 
     @property
     def cooldown_minutes(self) -> int:
@@ -172,20 +165,6 @@ class InterventionManager:
                 intervention_type = InterventionType(intervention_type)
             except ValueError:
                 intervention_type = InterventionType.CAPTCHA
-
-        # Check if domain should be skipped
-        if await self._should_skip_domain(domain):
-            logger.info(
-                "Domain skipped due to consecutive failures",
-                domain=domain,
-                failures=self._domain_failures.get(domain, 0),
-            )
-            return InterventionResult(
-                intervention_id=f"{domain}_skipped",
-                status=InterventionStatus.SKIPPED,
-                skip_domain_today=True,
-                notes="Domain skipped due to consecutive intervention failures",
-            )
 
         async with self._intervention_lock:
             intervention_id = f"{domain}_{datetime.now().strftime('%H%M%S%f')}"
@@ -371,140 +350,6 @@ class InterventionManager:
             except Exception as e:
                 logger.debug("PowerShell window activation failed", error=str(e))
 
-    # NOTE: _highlight_element, _wait_for_intervention, _has_challenge_indicators
-    # have been removed per Safe Operation Policy.
-    # DOM operations and polling are forbidden during authentication sessions.
-
-    async def _handle_intervention_result(
-        self,
-        result: InterventionResult,
-        intervention_state: dict[str, Any],
-        db: "Database",
-    ) -> None:
-        """Handle intervention result with cooldown and skip logic.
-
-        Args:
-            result: Intervention result.
-            intervention_state: Intervention state dict.
-            db: Database instance.
-        """
-        domain = intervention_state["domain"]
-        intervention_type = intervention_state["type"]
-        intervention_state.get("task_id")
-
-        # Update intervention log
-        await db.execute(
-            """
-            UPDATE intervention_log
-            SET completed_at = ?, result = ?, duration_seconds = ?, notes = ?
-            WHERE domain = ? AND intervention_type = ?
-            ORDER BY notification_sent_at DESC
-            LIMIT 1
-            """,
-            (
-                datetime.now(UTC).isoformat(),
-                result.status.value,
-                int(result.elapsed_seconds),
-                result.notes,
-                domain,
-                intervention_type.value,
-            ),
-        )
-
-        if result.status == InterventionStatus.SUCCESS:
-            # Reset failure counter
-            self._domain_failures[domain] = 0
-            logger.info(
-                "Intervention succeeded",
-                intervention_id=result.intervention_id,
-                domain=domain,
-                elapsed=result.elapsed_seconds,
-            )
-        else:
-            # Increment failure counter
-            failures = self._domain_failures.get(domain, 0) + 1
-            self._domain_failures[domain] = failures
-
-            logger.warning(
-                "Intervention failed",
-                intervention_id=result.intervention_id,
-                domain=domain,
-                status=result.status.value,
-                failures=failures,
-            )
-
-            # Check if should skip domain
-            if failures >= self.max_domain_failures:
-                result.skip_domain_today = True
-
-                # Mark domain for skip in database
-                await db.execute(
-                    """
-                    UPDATE domains
-                    SET cooldown_until = ?, skip_reason = ?
-                    WHERE domain = ?
-                    """,
-                    (
-                        (datetime.now(UTC) + timedelta(hours=24)).isoformat(),
-                        f"Skipped after {failures} consecutive intervention failures",
-                        domain,
-                    ),
-                )
-
-                logger.info(
-                    "Domain marked for skip today",
-                    domain=domain,
-                    failures=failures,
-                )
-            elif result.cooldown_until:
-                # Apply cooldown
-                await db.execute(
-                    """
-                    UPDATE domains
-                    SET cooldown_until = ?
-                    WHERE domain = ?
-                    """,
-                    (result.cooldown_until.isoformat(), domain),
-                )
-
-                logger.info(
-                    "Domain cooldown applied",
-                    domain=domain,
-                    cooldown_until=result.cooldown_until.isoformat(),
-                )
-
-    async def _should_skip_domain(self, domain: str) -> bool:
-        """Check if domain should be skipped due to consecutive failures.
-
-        Args:
-            domain: Domain name.
-
-        Returns:
-            True if domain should be skipped.
-        """
-        failures = self._domain_failures.get(domain, 0)
-        if failures >= self.max_domain_failures:
-            return True
-
-        # Also check database for cooldown
-        db = await get_database()
-        domain_info = await db.fetch_one(
-            "SELECT cooldown_until FROM domains WHERE domain = ?",
-            (domain,),
-        )
-
-        if domain_info and domain_info.get("cooldown_until"):
-            try:
-                cooldown_until = datetime.fromisoformat(
-                    domain_info["cooldown_until"].replace("Z", "+00:00")
-                )
-                if datetime.now(UTC) < cooldown_until:
-                    return True
-            except Exception:
-                pass
-
-        return False
-
     async def send_toast(
         self,
         title: str,
@@ -621,34 +466,12 @@ class InterventionManager:
             ),
         )
 
-        if success:
-            self._domain_failures[intervention["domain"]] = 0
-
         logger.info(
             "Intervention completed",
             intervention_id=intervention_id,
             success=success,
             duration=elapsed,
         )
-
-    def get_domain_failures(self, domain: str) -> int:
-        """Get consecutive failure count for domain.
-
-        Args:
-            domain: Domain name.
-
-        Returns:
-            Failure count.
-        """
-        return self._domain_failures.get(domain, 0)
-
-    def reset_domain_failures(self, domain: str) -> None:
-        """Reset failure count for domain.
-
-        Args:
-            domain: Domain name.
-        """
-        self._domain_failures[domain] = 0
 
 
 # Global manager instance
