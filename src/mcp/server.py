@@ -1689,6 +1689,11 @@ async def run_server() -> None:
     # Initialize database
     await get_database()
 
+    # Restore domain overrides from DB (ISSUE-001 fix)
+    from src.filter.source_verification import load_domain_overrides_from_db
+
+    await load_domain_overrides_from_db()
+
     try:
         async with stdio_server() as (read_stream, write_stream):
             await app.run(

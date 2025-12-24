@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
 
 
 @asynccontextmanager

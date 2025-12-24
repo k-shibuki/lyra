@@ -461,8 +461,13 @@ class TestGetMaterialsIntegration:
 
         with (
             patch("src.mcp.server.get_database", new=AsyncMock(return_value=memory_database)),
-            patch("src.research.materials.get_database", new=AsyncMock(return_value=memory_database)),
-            patch("src.filter.evidence_graph.get_database", new=AsyncMock(return_value=memory_database)),
+            patch(
+                "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
+            ),
+            patch(
+                "src.filter.evidence_graph.get_database",
+                new=AsyncMock(return_value=memory_database),
+            ),
         ):
             content_list = await call_tool(
                 "get_materials",
@@ -871,3 +876,218 @@ class TestMCPToolDataConsistency:
         assert len(materials_result["claims"]) == 1
         claim = materials_result["claims"][0]
         assert "Verified claim" in claim.get("claim_text", claim.get("text", ""))
+
+
+@pytest.mark.integration
+class TestDomainOverrideStartupRestore:
+    """Tests for domain override restoration on server startup (ISSUE-001).
+
+    Test matrix for load_domain_overrides_from_db() on startup:
+
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|---------------------|-------------|-----------------|-------|
+    | TC-SR-01 | DB has domain_block rule | Equivalence - normal | _blocked_domains reflects rule | wiring |
+    | TC-SR-02 | DB has domain_unblock rule | Equivalence - normal | _blocked_domains excludes domain | wiring |
+    | TC-SR-03 | DB has multiple rules (block + unblock) | Equivalence - normal | Both applied correctly | compound |
+    | TC-SR-04 | DB has no rules (empty) | Boundary - empty | _blocked_domains stays empty | boundary |
+    | TC-SR-05 | DB has is_active=0 rule | Boundary - inactive | Inactive rules ignored | boundary |
+    """
+
+    @pytest.fixture(autouse=True)
+    def reset_verifier_for_startup_tests(self) -> None:
+        """Reset SourceVerifier before each test."""
+        from src.filter.source_verification import reset_source_verifier
+
+        reset_source_verifier()
+
+    @pytest.mark.asyncio
+    async def test_startup_restores_blocked_domain(self, memory_database: "Database") -> None:
+        """
+        TC-SR-01: Server startup restores blocked domain from DB.
+
+        // Given: DB contains active domain_block rule
+        // When: load_domain_overrides_from_db() is called
+        // Then: Domain is in SourceVerifier._blocked_domains
+        """
+        from src.filter.source_verification import (
+            get_source_verifier,
+            load_domain_overrides_from_db,
+        )
+
+        db = memory_database
+        domain = "blocked-on-startup.com"
+
+        # Given: DB contains active domain_block rule
+        await db.execute(
+            """INSERT INTO domain_override_rules
+               (domain_pattern, decision, reason, is_active, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))""",
+            (domain, "block", "Manual block from previous session", 1),
+        )
+
+        # When: load_domain_overrides_from_db() is called
+        with patch(
+            "src.storage.database.get_database",
+            new=AsyncMock(return_value=memory_database),
+        ):
+            await load_domain_overrides_from_db()
+
+        # Then: Domain is in SourceVerifier._blocked_domains
+        verifier = get_source_verifier()
+        assert domain in verifier._blocked_domains, (
+            f"Expected '{domain}' in _blocked_domains after startup restore"
+        )
+
+    @pytest.mark.asyncio
+    async def test_startup_restores_unblocked_domain(self, memory_database: "Database") -> None:
+        """
+        TC-SR-02: Server startup restores unblocked domain from DB.
+
+        // Given: DB contains active domain_unblock rule
+        // When: load_domain_overrides_from_db() is called
+        // Then: Domain is removed from SourceVerifier._blocked_domains
+        """
+        from src.filter.source_verification import (
+            get_source_verifier,
+            load_domain_overrides_from_db,
+        )
+
+        db = memory_database
+        domain = "unblocked-on-startup.com"
+        verifier = get_source_verifier()
+
+        # Pre-condition: Domain is initially blocked (e.g., from denylist)
+        verifier._blocked_domains.add(domain)
+        assert domain in verifier._blocked_domains
+
+        # Given: DB contains active domain_unblock rule
+        await db.execute(
+            """INSERT INTO domain_override_rules
+               (domain_pattern, decision, reason, is_active, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))""",
+            (domain, "unblock", "Manual unblock from previous session", 1),
+        )
+
+        # When: load_domain_overrides_from_db() is called
+        with patch(
+            "src.storage.database.get_database",
+            new=AsyncMock(return_value=memory_database),
+        ):
+            await load_domain_overrides_from_db()
+
+        # Then: Domain is removed from SourceVerifier._blocked_domains
+        assert domain not in verifier._blocked_domains, (
+            f"Expected '{domain}' NOT in _blocked_domains after startup restore"
+        )
+
+    @pytest.mark.asyncio
+    async def test_startup_restores_multiple_rules(self, memory_database: "Database") -> None:
+        """
+        TC-SR-03: Server startup restores multiple domain rules (block + unblock).
+
+        // Given: DB contains multiple active rules
+        // When: load_domain_overrides_from_db() is called
+        // Then: All rules are applied correctly
+        """
+        from src.filter.source_verification import (
+            get_source_verifier,
+            load_domain_overrides_from_db,
+        )
+
+        db = memory_database
+        block_domain = "should-be-blocked.com"
+        unblock_domain = "should-be-unblocked.com"
+        verifier = get_source_verifier()
+
+        # Pre-condition: unblock_domain is initially blocked
+        verifier._blocked_domains.add(unblock_domain)
+
+        # Given: DB contains multiple active rules
+        await db.execute(
+            """INSERT INTO domain_override_rules
+               (domain_pattern, decision, reason, is_active, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))""",
+            (block_domain, "block", "Block rule", 1),
+        )
+        await db.execute(
+            """INSERT INTO domain_override_rules
+               (domain_pattern, decision, reason, is_active, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))""",
+            (unblock_domain, "unblock", "Unblock rule", 1),
+        )
+
+        # When: load_domain_overrides_from_db() is called
+        with patch(
+            "src.storage.database.get_database",
+            new=AsyncMock(return_value=memory_database),
+        ):
+            await load_domain_overrides_from_db()
+
+        # Then: All rules are applied correctly
+        assert block_domain in verifier._blocked_domains
+        assert unblock_domain not in verifier._blocked_domains
+
+    @pytest.mark.asyncio
+    async def test_startup_with_empty_rules(self, memory_database: "Database") -> None:
+        """
+        TC-SR-04: Server startup with no domain rules leaves _blocked_domains empty.
+
+        // Given: DB contains no domain_override_rules
+        // When: load_domain_overrides_from_db() is called
+        // Then: _blocked_domains remains empty (no error)
+        """
+        from src.filter.source_verification import (
+            get_source_verifier,
+            load_domain_overrides_from_db,
+        )
+
+        verifier = get_source_verifier()
+
+        # Given: DB contains no rules (memory_database is fresh)
+        # When: load_domain_overrides_from_db() is called
+        with patch(
+            "src.storage.database.get_database",
+            new=AsyncMock(return_value=memory_database),
+        ):
+            await load_domain_overrides_from_db()
+
+        # Then: _blocked_domains remains empty (no error)
+        assert len(verifier._blocked_domains) == 0
+
+    @pytest.mark.asyncio
+    async def test_startup_ignores_inactive_rules(self, memory_database: "Database") -> None:
+        """
+        TC-SR-05: Server startup ignores inactive (is_active=0) rules.
+
+        // Given: DB contains inactive domain_block rule (is_active=0)
+        // When: load_domain_overrides_from_db() is called
+        // Then: Inactive rule is ignored, domain NOT in _blocked_domains
+        """
+        from src.filter.source_verification import (
+            get_source_verifier,
+            load_domain_overrides_from_db,
+        )
+
+        db = memory_database
+        domain = "inactive-rule.com"
+
+        # Given: DB contains inactive rule
+        await db.execute(
+            """INSERT INTO domain_override_rules
+               (domain_pattern, decision, reason, is_active, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))""",
+            (domain, "block", "Inactive block rule", 0),  # is_active=0
+        )
+
+        # When: load_domain_overrides_from_db() is called
+        with patch(
+            "src.storage.database.get_database",
+            new=AsyncMock(return_value=memory_database),
+        ):
+            await load_domain_overrides_from_db()
+
+        # Then: Inactive rule is ignored
+        verifier = get_source_verifier()
+        assert domain not in verifier._blocked_domains, (
+            f"Expected '{domain}' NOT in _blocked_domains (inactive rule should be ignored)"
+        )
