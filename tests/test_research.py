@@ -1595,7 +1595,7 @@ class TestGetOverallHarvestRate:
         # Then: Returns rate >= 0.9 (9+10)/(10+10) = 19/20 = 0.95
         expected = 19 / 20
         assert abs(rate - expected) < 0.001
-        assert rate >= 0.9 # Triggers lastmile per ADR-0010
+        assert rate >= 0.9  # Triggers lastmile per ADR-0010
 
 
 # =============================================================================

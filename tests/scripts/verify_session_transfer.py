@@ -523,7 +523,7 @@ class SessionTransferVerifier:
             total_count += 1  # Referer
 
             success_rate = passed_count / total_count
-            threshold = 0.90 # : Referer整合率≥90%
+            threshold = 0.90  # : Referer整合率≥90%
 
             print(f"    Header consistency: {success_rate:.0%} ({passed_count}/{total_count})")
 
@@ -732,7 +732,7 @@ class SessionTransferVerifier:
         try:
             # Create manager with test settings
             test_manager = SessionTransferManager(
-                session_ttl_seconds=1.5, # Short TTL for testing (.1.8.3: テスト用調整の正当化)
+                session_ttl_seconds=1.5,  # Short TTL for testing (.1.8.3: テスト用調整の正当化)
                 max_sessions=3,
             )
 

@@ -91,7 +91,7 @@ class NetworkResilienceVerifier:
         return True
 
     async def verify_recovery_after_error(self) -> VerificationResult:
-        """ Recovery: ≥70% success within 3 retries after 429/403."""
+        """Recovery: ≥70% success within 3 retries after 429/403."""
         print("\n[1/5] Verifying recovery after 429/403 ( Recovery ≥70%)...")
 
         from src.crawler.fetcher import HTTPFetcher
@@ -176,7 +176,7 @@ class NetworkResilienceVerifier:
             pass
 
     async def verify_ipv6_success_rate(self) -> VerificationResult:
-        """ IPv6: ≥80% success rate on IPv6-capable sites."""
+        """IPv6: ≥80% success rate on IPv6-capable sites."""
         print("\n[2/5] Verifying IPv6 success rate ( IPv6 ≥80%)...")
 
         try:
@@ -247,7 +247,7 @@ class NetworkResilienceVerifier:
             )
 
     async def verify_ipv6_switch_rate(self) -> VerificationResult:
-        """ IPv6 Switch: ≥80% auto-switch success rate."""
+        """IPv6 Switch: ≥80% auto-switch success rate."""
         print("\n[3/5] Verifying IPv4↔IPv6 switch rate ( Switch ≥80%)...")
 
         try:
@@ -313,7 +313,7 @@ class NetworkResilienceVerifier:
             )
 
     async def verify_dns_leak_detection(self) -> VerificationResult:
-        """ DNS: 0 leaks detected on Tor routes."""
+        """DNS: 0 leaks detected on Tor routes."""
         print("\n[4/5] Verifying DNS leak detection ( DNS Leak = 0)...")
 
         try:
@@ -375,7 +375,7 @@ class NetworkResilienceVerifier:
             )
 
     async def verify_304_utilization(self) -> VerificationResult:
-        """ 304: ≥70% utilization rate on revisits."""
+        """304: ≥70% utilization rate on revisits."""
         print("\n[5/5] Verifying 304 utilization rate ( 304 ≥70%)...")
 
         from src.crawler.fetcher import HTTPFetcher

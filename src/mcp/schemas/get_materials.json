@@ -37,6 +37,15 @@
               },
               "additionalProperties": false
             }
+          },
+          "claim_adoption_status": {
+            "type": "string",
+            "enum": ["adopted", "pending", "not_adopted"],
+            "description": "Adoption status for high-reasoning AI to filter claims"
+          },
+          "claim_rejection_reason": {
+            "type": ["string", "null"],
+            "description": "Reason for rejection if claim_adoption_status is not_adopted"
           }
         },
         "additionalProperties": false
@@ -90,4 +99,3 @@
   "required": ["ok", "task_id", "query", "claims", "fragments", "summary"],
   "additionalProperties": false
 }
-

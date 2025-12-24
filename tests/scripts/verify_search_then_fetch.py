@@ -288,7 +288,7 @@ class SearchFetchVerifier:
                 await asyncio.sleep(1.0)
 
             success_rate = successful_fetches / total_fetches
-            threshold = 0.95 # : スクレイピング成功率≥95%
+            threshold = 0.95  # : スクレイピング成功率≥95%
 
             print(
                 f"\n    Fetch success rate: {success_rate:.0%} ({successful_fetches}/{total_fetches})"

@@ -467,7 +467,7 @@ class ChainOfDensityCompressor:
                 confidence=claim.get("claim_confidence", claim.get("confidence", 0.5)),
                 citations=citations,
                 claim_type=claim.get("claim_type", "fact"),
-                is_verified=False, # DB column removed
+                is_verified=False,  # DB column removed
                 refutation_status=claim.get("refutation_status", "pending"),
             )
             dense_claims.append(dense_claim)

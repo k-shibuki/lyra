@@ -119,7 +119,7 @@ class DomainVerificationState:
     block_reason: str | None = None
     block_cause_id: str | None = None
     original_domain_category: DomainCategory | None = None
-    domain_block_reason: DomainBlockReason | None = None # Coded block reason (per ADR-0005)
+    domain_block_reason: DomainBlockReason | None = None  # Coded block reason (per ADR-0005)
 
     @property
     def total_claims(self) -> int:

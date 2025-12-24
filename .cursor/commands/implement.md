@@ -18,7 +18,6 @@ Implement the selected task (code changes only; no tests in this step).
 
 ## Constraints
 
-- Do **not** add comments that reference planning documents inside source code.
 - Use repo search tools (e.g., `grep`, semantic search) to find necessary context rather than guessing or asking the user for every file.
 
 ## Steps

@@ -406,22 +406,6 @@ class TestGetStatusToolDefinition:
         assert "task_id" in tool.inputSchema["properties"]
         assert tool.inputSchema["required"] == ["task_id"]
 
-    def test_get_status_description_mentions_section(self) -> None:
-        """
-        Test that description references section 3.2.1.
-
-        // Given: get_status tool definition
-        // When: Reading description
-        // Then: Contains ADR-0003 reference
-        """
-        from src.mcp.server import TOOLS
-
-        tool = next((t for t in TOOLS if t.name == "get_status"), None)
-
-        assert tool is not None
-        assert tool.description is not None
-        assert "3.2.1" in tool.description
-
 
 class TestGetStatusBlockedDomains:
     """Tests for blocked_domains in get_status response."""
