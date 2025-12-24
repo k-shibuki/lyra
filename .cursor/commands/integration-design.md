@@ -48,7 +48,11 @@ This command focuses on the concrete deliverables and how to produce them.
 
 ### Execution environment
 
-- Use `scripts/test.sh` (venv or container) for running tests and debug scripts.
+- **pytest tests**: Use `scripts/test.sh` (venv or container).
+- **Debug scripts** (standalone Python): Run directly with venv Python:
+  ```bash
+  ./.venv/bin/python tests/scripts/debug_{feature}_flow.py
+  ```
 - Do **not** use system Python directly; the project uses `.venv` or Podman container.
 - See `@.cursor/commands/scripts-help.md` for script usage details.
 

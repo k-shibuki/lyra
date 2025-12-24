@@ -37,6 +37,10 @@ Notes:
 
 Notes:
 - `test.sh` accepts **any pytest args** after `run` (e.g. `tests/test_x.py::TestY -k foo -q`).
+- **`test.sh` is pytest-only**. For debug scripts (standalone Python), run directly:
+  ```bash
+  ./.venv/bin/python tests/scripts/debug_{feature}_flow.py
+  ```
 - Default runtime is **auto=container > venv**:
   - If a container named `$CONTAINER_NAME` (default: `lyra`) is running, tests run in that container.
   - Otherwise tests run in the local WSL venv (`.venv`).

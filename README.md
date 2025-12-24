@@ -526,6 +526,13 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+**Running debug scripts**:
+
+```bash
+# Use venv Python directly (test.sh is pytest-only)
+./.venv/bin/python tests/scripts/debug_{feature}_flow.py
+```
+
 ### Test Markers
 
 | Marker | Description | CI/Cloud | Local | Full |
