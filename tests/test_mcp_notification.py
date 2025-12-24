@@ -541,15 +541,15 @@ class TestOldToolsRemoved:
 
     def test_new_tools_count(self) -> None:
         """
-        Test that exactly 12 tools are defined (ADR-0003 + ADR-0012).
+        Test that exactly 13 tools are defined (ADR-0003 + ADR-0010 + ADR-0012).
 
-        // Given: TOOLS list (12 tools: 11 per ADR-0003 + feedback per ADR-0012)
+        // Given: TOOLS list (13 tools: 11 per ADR-0003 + queue_searches per ADR-0010 + feedback per ADR-0012)
         // When: Counting tools
-        // Then: Exactly 12 tools
+        // Then: Exactly 13 tools
         """
         from src.mcp.server import TOOLS
 
-        assert len(TOOLS) == 12, f"Expected 12 tools (ADR-0003 + feedback from ), got {len(TOOLS)}"
+        assert len(TOOLS) == 13, f"Expected 13 tools (ADR-0003 + ADR-0010 + ADR-0012), got {len(TOOLS)}"
 
     def test_all_new_tools_present(self) -> None:
         """

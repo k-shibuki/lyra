@@ -52,11 +52,13 @@ TEST_STATE_FILE="${LYRA_SCRIPT__TEST_STATE_FILE:-/tmp/lyra_test_state.env}"
 
 VENV_DIR="${PROJECT_ROOT}/.venv"
 
-# Result/PID files
-VENV_TEST_RESULT_FILE="${LYRA_SCRIPT__VENV_TEST_RESULT_FILE:-${LYRA_SCRIPT__TEST_RESULT_FILE:-/tmp/lyra_test_result.txt}}"
-VENV_TEST_PID_FILE="${LYRA_SCRIPT__VENV_TEST_PID_FILE:-${LYRA_SCRIPT__TEST_PID_FILE:-/tmp/lyra_test_pid}}"
-CONTAINER_TEST_RESULT_FILE="${LYRA_SCRIPT__CONTAINER_TEST_RESULT_FILE:-/tmp/lyra_test_result.txt}"
-CONTAINER_TEST_PID_FILE="${LYRA_SCRIPT__CONTAINER_TEST_PID_FILE:-/tmp/lyra_test_pid}"
+# Result directory and file naming
+# Each run creates unique files with timestamp to prevent result confusion
+TEST_RESULT_DIR="${LYRA_SCRIPT__TEST_RESULT_DIR:-/tmp/lyra_test}"
+
+# Legacy fixed paths (used only for cleanup of old runs)
+LEGACY_RESULT_FILE="/tmp/lyra_test_result.txt"
+LEGACY_PID_FILE="/tmp/lyra_test_pid"
 
 # check() behavior
 CHECK_INTERVAL_SECONDS="${LYRA_SCRIPT__CHECK_INTERVAL_SECONDS:-1}"
@@ -106,11 +108,10 @@ parse_common_flags() {
         esac
     done
 
-    # The remainder are pytest args (optional)
+    # The remainder are command args
+    # - run: pytest args (optional; default handled in cmd_run)
+    # - check/kill: run_id (optional; default handled in cmd_check/cmd_kill via state file)
     PYTEST_ARGS=("$@")
-    if [[ ${#PYTEST_ARGS[@]} -eq 0 ]]; then
-        PYTEST_ARGS=("tests/")
-    fi
 }
 
 write_test_state() {
@@ -119,6 +120,7 @@ write_test_state() {
     local container_name="$3"
     local result_file="$4"
     local pid_file="$5"
+    local run_id="$6"
 
     cat >"$TEST_STATE_FILE" <<EOF
 LYRA_TEST__RUNTIME=${runtime}
@@ -126,6 +128,7 @@ LYRA_TEST__CONTAINER_TOOL=${container_tool}
 LYRA_TEST__CONTAINER_NAME=${container_name}
 LYRA_TEST__RESULT_FILE=${result_file}
 LYRA_TEST__PID_FILE=${pid_file}
+LYRA_TEST__RUN_ID=${run_id}
 EOF
 }
 
@@ -199,21 +202,30 @@ container_exec_sh() {
     "$tool" exec "$CONTAINER_NAME_SELECTED" bash -lc "$1"
 }
 
-runtime_result_file() {
-    local runtime="$1"
-    if [[ "$runtime" == "container" ]]; then
-        echo "$CONTAINER_TEST_RESULT_FILE"
-    else
-        echo "$VENV_TEST_RESULT_FILE"
-    fi
+generate_run_id() {
+    # Generate unique run ID using timestamp and PID
+    local ts
+    ts=$(date +%Y%m%d_%H%M%S)
+    echo "${ts}_$$"
 }
 
-runtime_pid_file() {
-    local runtime="$1"
-    if [[ "$runtime" == "container" ]]; then
-        echo "$CONTAINER_TEST_PID_FILE"
-    else
-        echo "$VENV_TEST_PID_FILE"
+get_result_file() {
+    local run_id="$1"
+    echo "${TEST_RESULT_DIR}/result_${run_id}.txt"
+}
+
+get_pid_file() {
+    local run_id="$1"
+    echo "${TEST_RESULT_DIR}/pid_${run_id}"
+}
+
+cleanup_old_results() {
+    # Remove legacy fixed-path files
+    rm -f "$LEGACY_RESULT_FILE" "$LEGACY_PID_FILE" 2>/dev/null || true
+    
+    # Remove old result files (older than 1 hour)
+    if [[ -d "$TEST_RESULT_DIR" ]]; then
+        find "$TEST_RESULT_DIR" -type f -mmin +60 -delete 2>/dev/null || true
     fi
 }
 
@@ -238,13 +250,24 @@ runtime_tail() {
     fi
 }
 
-runtime_stat_mtime() {
+runtime_last_summary_line() {
+    local runtime="$1"
+    local path="$2"
+    local re="([=]{3,}.*)?[0-9]+ (passed|failed|skipped|deselected)"
+    if [[ "$runtime" == "container" ]]; then
+        container_exec_sh "grep -E \"$re\" \"$path\" 2>/dev/null | tail -n 1" 2>/dev/null || true
+    else
+        grep -E "$re" "$path" 2>/dev/null | tail -n 1 || true
+    fi
+}
+
+runtime_line_count() {
     local runtime="$1"
     local path="$2"
     if [[ "$runtime" == "container" ]]; then
-        container_exec stat -c "%Y" "$path" 2>/dev/null || echo "0"
+        container_exec_sh "wc -l \"$path\" 2>/dev/null | awk '{print \\$1}'" 2>/dev/null || echo "0"
     else
-        stat -c "%Y" "$path" 2>/dev/null || echo "0"
+        wc -l "$path" 2>/dev/null | awk '{print $1}' || echo "0"
     fi
 }
 
@@ -305,25 +328,32 @@ cmd_run() {
     local runtime
     runtime="$(resolve_runtime)"
 
+    # Generate unique run ID and file paths
+    local run_id
+    run_id=$(generate_run_id)
+    mkdir -p "$TEST_RESULT_DIR"
+    
     local result_file
     local pid_file
-    result_file="$(runtime_result_file "$runtime")"
-    pid_file="$(runtime_pid_file "$runtime")"
+    result_file=$(get_result_file "$run_id")
+    pid_file=$(get_pid_file "$run_id")
 
     echo "=== Cleanup ==="
+    # Clean up old result files (prevents /tmp bloat)
+    cleanup_old_results
+    
     if [[ "$runtime" == "container" ]]; then
         if ! is_container_running_selected; then
             log_error "Container '${CONTAINER_NAME_SELECTED}' is not running."
             log_error "Start it with: ./scripts/dev.sh up"
             exit 1
         fi
-        # Best-effort cleanup inside container
-        container_exec_sh "pkill -9 -f pytest 2>/dev/null || true; rm -f \"$result_file\" \"$pid_file\""
     else
         ensure_venv
-        pkill -9 -f "pytest" 2>/dev/null || true
-        sleep 1
-        rm -f "$result_file" "$pid_file"
+    fi
+
+    if [[ ${#PYTEST_ARGS[@]} -eq 0 ]]; then
+        PYTEST_ARGS=("tests/")
     fi
 
     echo "=== Running: ${PYTEST_ARGS[*]} ==="
@@ -352,8 +382,8 @@ cmd_run() {
         export_env+="export IS_CLOUD_AGENT=$(printf "%q" "${IS_CLOUD_AGENT}") ; "
         export_env+="export CLOUD_AGENT_TYPE=$(printf "%q" "${CLOUD_AGENT_TYPE}") ; "
         export_env+="export PYTHONPATH=/app:\\${PYTHONPATH:-} ; "
-        container_exec_sh "cd /app && ${export_env} PYTHONUNBUFFERED=1 ${escaped} > \"$result_file\" 2>&1 & echo \\$! > \"$pid_file\""
-        write_test_state "container" "$(detect_container_tool)" "$CONTAINER_NAME_SELECTED" "$result_file" "$pid_file"
+        container_exec_sh "mkdir -p \"$TEST_RESULT_DIR\" && cd /app && ${export_env} PYTHONUNBUFFERED=1 ${escaped} > \"$result_file\" 2>&1 & echo \\$! > \"$pid_file\""
+        write_test_state "container" "$(detect_container_tool)" "$CONTAINER_NAME_SELECTED" "$result_file" "$pid_file" "$run_id"
     else
         (
             # shellcheck source=/dev/null
@@ -369,10 +399,20 @@ cmd_run() {
             PYTHONUNBUFFERED=1 "${pytest_cmd[@]}" >"$result_file" 2>&1 &
             echo $! >"$pid_file"
         )
-        write_test_state "venv" "" "" "$result_file" "$pid_file"
+        write_test_state "venv" "" "" "$result_file" "$pid_file" "$run_id"
     fi
 
-    echo "Started. Run: ./scripts/test.sh check"
+    echo ""
+    echo "Started. To check results:"
+    echo "  ./scripts/test.sh check ${run_id}"
+    echo ""
+    echo "Artifacts:"
+    echo "  run_id:      ${run_id}"
+    echo "  result_file: ${result_file}"
+    echo "  pid_file:    ${pid_file}"
+    echo ""
+    echo "Tip:"
+    echo "  less -R ${result_file}"
 }
 
 # Function: cmd_env
@@ -434,20 +474,53 @@ filter_node_errors() {
 
 # Function: cmd_check
 # Description: Wait until tests are completed and print a concise result tail
+# Arguments:
+#   $1: run_id (optional, uses state file if not provided)
 # Returns:
 #   0: Tests completed (all passed / skipped / deselected)
-#   1: Result file not found
+#   1: Result file not found or no active test run
 cmd_check() {
-    local runtime
-    runtime="$(resolve_runtime)"
+    local run_id="${1:-}"
+    local runtime=""
+    local result_file=""
+    local pid_file=""
 
-    local result_file
-    local pid_file
-    result_file="$(runtime_result_file "$runtime")"
-    pid_file="$(runtime_pid_file "$runtime")"
+    if [[ -n "$run_id" ]]; then
+        # Explicit run_id provided.
+        # If it matches the last run in state, use the state (supports container runtime).
+        # Otherwise, fall back to venv-local file paths for that run_id.
+        if load_test_state && [[ "${LYRA_TEST__RUN_ID:-}" == "$run_id" ]]; then
+            runtime="${LYRA_TEST__RUNTIME}"
+            result_file="${LYRA_TEST__RESULT_FILE}"
+            pid_file="${LYRA_TEST__PID_FILE}"
+        else
+            runtime="venv"
+            result_file=$(get_result_file "$run_id")
+            pid_file=$(get_pid_file "$run_id")
+        fi
+    else
+        # No run_id - load from state file (legacy behavior)
+        if ! load_test_state; then
+            echo "NOT_STARTED"
+            log_error "No test state found. Run './scripts/test.sh run' first."
+            return 1
+        fi
+        runtime="${LYRA_TEST__RUNTIME}"
+        result_file="${LYRA_TEST__RESULT_FILE}"
+        pid_file="${LYRA_TEST__PID_FILE}"
+        run_id="${LYRA_TEST__RUN_ID:-}"
+    fi
+
+    if [[ -z "$result_file" ]] || [[ -z "$pid_file" ]]; then
+        echo "NOT_STARTED"
+        log_error "Invalid run_id or test state."
+        return 1
+    fi
 
     local start_ts
     start_ts=$(date +%s)
+    local last_printed_line=""
+    local last_print_ts=0
 
     while true; do
         # Check if result file exists
@@ -458,7 +531,6 @@ cmd_check() {
         fi
 
         # Determine whether pytest is still running (if pid file is present).
-        # This prevents false DONE on quiet output (mtime-based heuristic).
         local pid=""
         local pid_alive=false
         if runtime_file_exists "$runtime" "$pid_file"; then
@@ -480,13 +552,41 @@ cmd_check() {
         result_content=$(runtime_tail "$runtime" 50 "$result_file" | filter_node_errors || echo "")
         last_line=$(runtime_tail "$runtime" 1 "$result_file" | filter_node_errors || echo "waiting...")
 
+        # If pytest is still running, never claim DONE.
+        # This prevents "DONE" while pytest is still in teardown/cleanup.
+        if [[ "$pid_alive" == "true" ]]; then
+            local now_ts
+            now_ts=$(date +%s)
+            if [[ "$last_line" != "$last_printed_line" ]] || (( now_ts - last_print_ts >= 10 )); then
+                echo "RUNNING | $last_line"
+                last_printed_line="$last_line"
+                last_print_ts=$now_ts
+            fi
+            sleep "$CHECK_INTERVAL_SECONDS"
+            continue
+        fi
+
         # DONE condition 1: pytest summary line exists
         # Examples:
         #   "========== 10 passed, 1 skipped in 1.23s =========="
         #   "1 passed in 0.39s"  (quiet runs)
         if echo "$result_content" | grep -qE "([=]{3,}.*)?[0-9]+ (passed|failed|skipped|deselected)"; then
             echo "DONE"
-            echo "=== Result ==="
+            echo "=== Summary ==="
+            runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true
+            echo "=== Artifact ==="
+            echo "result_file: ${result_file}"
+            local total_lines
+            total_lines="$(runtime_line_count "$runtime" "$result_file")"
+            if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
+                if (( total_lines <= CHECK_TAIL_LINES )); then
+                    echo "=== Tail (full output: ${total_lines} lines) ==="
+                else
+                    echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
+                fi
+            else
+                echo "=== Tail ==="
+            fi
             runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
             if echo "$result_content" | grep -qE "[0-9]+ failed"; then
                 return 1
@@ -497,28 +597,21 @@ cmd_check() {
         # DONE condition 2: pid file exists and pytest process is gone
         if [[ -n "$pid" ]] && [[ "$pid_alive" == "false" ]]; then
             echo "DONE"
-            echo "=== Result ==="
-            runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
-            if echo "$result_content" | grep -qE "(FAILED|ERROR|[0-9]+ failed)"; then
-                return 1
+            echo "=== Summary ==="
+            runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true
+            echo "=== Artifact ==="
+            echo "result_file: ${result_file}"
+            local total_lines
+            total_lines="$(runtime_line_count "$runtime" "$result_file")"
+            if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
+                if (( total_lines <= CHECK_TAIL_LINES )); then
+                    echo "=== Tail (full output: ${total_lines} lines) ==="
+                else
+                    echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
+                fi
+            else
+                echo "=== Tail ==="
             fi
-            return 0
-        fi
-
-        # DONE condition 3 (fallback): no output update for COMPLETION_THRESHOLD seconds
-        # Only apply when we cannot confirm pytest is still running (no pid or dead pid).
-        if [[ "$pid_alive" == "true" ]]; then
-            echo "RUNNING | $last_line"
-            sleep "$CHECK_INTERVAL_SECONDS"
-            continue
-        fi
-        local now
-        local mtime
-        now=$(date +%s)
-        mtime=$(runtime_stat_mtime "$runtime" "$result_file")
-        if [[ "$mtime" -gt 0 ]] && (( now - mtime > COMPLETION_THRESHOLD )); then
-            echo "DONE"
-            echo "=== Result ==="
             runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
             if echo "$result_content" | grep -qE "(FAILED|ERROR|[0-9]+ failed)"; then
                 return 1
@@ -527,6 +620,8 @@ cmd_check() {
         fi
 
         # Timeout guard
+        local now
+        now=$(date +%s)
         if (( now - start_ts > CHECK_TIMEOUT_SECONDS )); then
             echo "TIMEOUT"
             echo "=== Result ==="
@@ -541,52 +636,102 @@ cmd_check() {
 
 # Function: cmd_kill
 # Description: Force stop pytest process
+# Arguments:
+#   $1: run_id (optional, uses state file if not provided)
 # Returns:
 #   0: Success
 cmd_kill() {
     echo "Killing..."
 
-    local runtime
-    runtime="$(resolve_runtime)"
-    local pid_file
-    pid_file="$(runtime_pid_file "$runtime")"
+    local run_id="${1:-}"
+    local runtime=""
+    local result_file=""
+    local pid_file=""
 
-    if [[ "$runtime" == "container" ]]; then
-        container_exec_sh "pkill -9 -f pytest 2>/dev/null || true"
-        if container_exec test -f "$pid_file" >/dev/null 2>&1; then
-            local pid
-            pid="$(container_exec cat "$pid_file" 2>/dev/null || echo "")"
-            if [[ -n "$pid" ]]; then
-                container_exec_sh "kill -9 $pid 2>/dev/null || true"
-            fi
-            container_exec_sh "rm -f \"$pid_file\""
+    if [[ "$run_id" == "--all" ]]; then
+        # Emergency cleanup: kill all pytest and remove all test artifacts
+        if is_container_running_selected; then
+            container_exec_sh "pkill -9 -f pytest 2>/dev/null || true"
+            container_exec_sh "rm -rf \"$TEST_RESULT_DIR\" \"$LEGACY_RESULT_FILE\" \"$LEGACY_PID_FILE\" 2>/dev/null || true"
+        fi
+        pkill -9 -f "pytest" 2>/dev/null || true
+        rm -rf "$TEST_RESULT_DIR" "$LEGACY_RESULT_FILE" "$LEGACY_PID_FILE" "$TEST_STATE_FILE" 2>/dev/null || true
+        echo "Done"
+        return 0
+    fi
+
+    if [[ -n "$run_id" ]]; then
+        # Explicit run_id provided.
+        # If it matches the last run in state, use the state (supports container runtime).
+        # Otherwise, fall back to venv-local file paths for that run_id.
+        if load_test_state && [[ "${LYRA_TEST__RUN_ID:-}" == "$run_id" ]]; then
+            runtime="${LYRA_TEST__RUNTIME}"
+            result_file="${LYRA_TEST__RESULT_FILE}"
+            pid_file="${LYRA_TEST__PID_FILE}"
+        else
+            runtime="venv"
+            result_file=$(get_result_file "$run_id")
+            pid_file=$(get_pid_file "$run_id")
         fi
     else
-        pkill -9 -f "pytest" 2>/dev/null || true
+        # No run_id - load from state file
+        if ! load_test_state; then
+            log_warn "No test state found. Use: ./scripts/test.sh kill --all"
+            return 0
+        fi
+        runtime="${LYRA_TEST__RUNTIME}"
+        result_file="${LYRA_TEST__RESULT_FILE}"
+        pid_file="${LYRA_TEST__PID_FILE}"
+        run_id="${LYRA_TEST__RUN_ID:-}"
+    fi
+
+    if [[ "$runtime" == "container" ]]; then
+        if is_container_running_selected && container_exec test -f "$pid_file" >/dev/null 2>&1; then
+            local pid
+            pid="$(container_exec cat "$pid_file" 2>/dev/null || echo "")"
+            if [[ -n "$pid" ]] && container_exec ps -p "$pid" >/dev/null 2>&1; then
+                container_exec_sh "kill -TERM $pid 2>/dev/null || true"
+                sleep 1
+                container_exec_sh "kill -KILL $pid 2>/dev/null || true"
+            fi
+            container_exec_sh "rm -f \"$pid_file\" \"$result_file\" 2>/dev/null || true"
+        fi
+    else
         if [[ -f "$pid_file" ]]; then
             local pid
-            pid=$(cat "$pid_file" 2>/dev/null || echo "")
-            if [[ -n "$pid" ]]; then
-                kill -9 "$pid" 2>/dev/null || true
+            pid="$(cat "$pid_file" 2>/dev/null || echo "")"
+            if [[ -n "$pid" ]] && ps -p "$pid" >/dev/null 2>&1; then
+                kill -TERM "$pid" 2>/dev/null || true
+                sleep 1
+                kill -KILL "$pid" 2>/dev/null || true
             fi
-            rm -f "$pid_file"
         fi
+        rm -f "$pid_file" "$result_file" 2>/dev/null || true
     fi
+
+    # If we killed the last run, clear the state file as well
+    if [[ -n "$run_id" ]] && load_test_state && [[ "${LYRA_TEST__RUN_ID:-}" == "$run_id" ]]; then
+        rm -f "$TEST_STATE_FILE" 2>/dev/null || true
+    fi
+    cleanup_old_results
     echo "Done"
 }
 
 show_help() {
     echo "Lyra Test Runner (Cloud Agent Compatible)"
     echo ""
-    echo "Usage: $0 {run|check|kill|env|help} [--container|--venv|--auto] [--name NAME] [--] [pytest_args...]"
+    echo "Usage: $0 {run|check|kill|env|help} [options] [args...]"
     echo ""
     echo "Commands:"
-    echo "  run [pytest_args...]  Start test execution (default: tests/)"
-    echo "  check         Wait until tests are done and print result tail"
-    echo "  kill          Force stop pytest process"
-    echo "  env           Show environment detection info"
+    echo "  run [pytest_args...]    Start test execution (default: tests/)"
+    echo "  check [run_id]          Wait until tests are done and print result tail"
+    echo "  kill [run_id|--all]     Force stop pytest process (or emergency kill/cleanup)"
+    echo "  env                     Show environment detection info"
     echo ""
-    echo "Pattern: Start with 'run', then run 'check' once (it waits until DONE)"
+    echo "Pattern:"
+    echo "  ./scripts/test.sh run tests/"
+    echo "  # Output shows: ./scripts/test.sh check <run_id>"
+    echo "  ./scripts/test.sh check <run_id>   # Use the displayed run_id"
     echo ""
     echo "Runtime selection (default: auto=container>venv):"
     echo "  --auto        Prefer container if running, otherwise venv"
@@ -648,12 +793,14 @@ case "$ACTION" in
 
     check)
         parse_common_flags "$@"
-        cmd_check
+        # First remaining arg (if any) is run_id
+        cmd_check "${PYTEST_ARGS[0]:-}"
         ;;
 
     kill)
         parse_common_flags "$@"
-        cmd_kill
+        # First remaining arg (if any) is run_id
+        cmd_kill "${PYTEST_ARGS[0]:-}"
         ;;
     
     env)

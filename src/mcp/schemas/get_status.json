@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:get_status",
   "title": "get_status Response",
-  "description": "Response schema for get_status tool (ADR-0003: unified task/exploration status)",
+  "description": "Response schema for get_status tool (ADR-0003: unified task/exploration status, ADR-0010: async search queue)",
   "type": "object",
   "properties": {
     "ok": {
@@ -34,6 +34,31 @@
         },
         "additionalProperties": false
       }
+    },
+    "queue": {
+      "type": "object",
+      "description": "Search queue status (ADR-0010)",
+      "properties": {
+        "depth": {"type": "integer", "description": "Number of queued searches"},
+        "running": {"type": "integer", "description": "Number of running searches"},
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "query": {"type": "string"},
+              "status": {"type": "string", "enum": ["queued", "running", "completed", "failed", "cancelled"]},
+              "priority": {"type": "integer"},
+              "created_at": {"type": ["string", "null"]},
+              "started_at": {"type": ["string", "null"]},
+              "completed_at": {"type": ["string", "null"]}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "metrics": {
       "type": "object",
@@ -117,6 +142,7 @@
     "status",
     "query",
     "searches",
+    "queue",
     "metrics",
     "budget",
     "warnings",
