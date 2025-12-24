@@ -457,7 +457,8 @@ cmd_run() {
         export_env+="export IS_CLOUD_AGENT=$(printf "%q" "${IS_CLOUD_AGENT}") ; "
         export_env+="export CLOUD_AGENT_TYPE=$(printf "%q" "${CLOUD_AGENT_TYPE}") ; "
         export_env+="export PYTHONPATH=/app:\\${PYTHONPATH:-} ; "
-        container_exec_sh "mkdir -p \"$TEST_RESULT_DIR\" && cd /app && ${export_env} PYTHONUNBUFFERED=1 ${escaped} > \"$result_file\" 2>&1 & echo \\$! > \"$pid_file\""
+        # Note: Use single quotes around '$!' to prevent host-side expansion
+        container_exec_sh 'mkdir -p "'"$TEST_RESULT_DIR"'" && cd /app && '"${export_env}"' PYTHONUNBUFFERED=1 '"${escaped}"' > "'"$result_file"'" 2>&1 & echo $! > "'"$pid_file"'"'
         write_test_state "container" "$(detect_container_tool)" "$CONTAINER_NAME_SELECTED" "$result_file" "$pid_file" "$run_id"
     else
         (
