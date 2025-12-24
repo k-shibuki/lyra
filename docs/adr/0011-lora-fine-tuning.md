@@ -5,7 +5,7 @@
 
 ## Context
 
-Lyraで使用するNLIモデル（Qwen2.5-3B）は、汎用的な事前学習モデルである。以下の課題がある：
+Lyraで使用するNLIモデル（DeBERTa-v3-xsmall/small）は、汎用的な事前学習モデルである。以下の課題がある：
 
 | 課題 | 詳細 |
 |------|------|
@@ -34,7 +34,7 @@ Lyraで使用するNLIモデル（Qwen2.5-3B）は、汎用的な事前学習モ
 ### アーキテクチャ
 
 ```
-ベースモデル（Qwen2.5-3B）
+ベースモデル（DeBERTa-v3-xsmall/small）
     │
     ├── LoRA Adapter: 一般NLI改善
     │
@@ -61,7 +61,7 @@ feedback_data = [
 
 # LoRA学習（数十〜数百サンプルで効果あり）
 adapter = train_lora(
-    base_model="qwen2.5-3b",
+    base_model="cross-encoder/nli-deberta-v3-xsmall",
     data=feedback_data,
     rank=8,
     alpha=16
@@ -74,8 +74,8 @@ adapter = train_lora(
 |------------|-----|------|
 | rank (r) | 8 | メモリ効率と性能のバランス |
 | alpha | 16 | r の2倍が推奨 |
-| dropout | 0.05 | 過学習防止 |
-| target_modules | q_proj, v_proj | Attentionレイヤーのみ |
+| dropout | 0.1 | 小モデル（70-140M params）では高めの正則化が有効 |
+| target_modules | query, value | DeBERTa-v3 の Attention レイヤー |
 
 ### アダプタ管理
 
@@ -108,7 +108,7 @@ await call_tool("calibration_rollback", {
 
 | 条件 | 閾値 | 理由 |
 |------|------|------|
-| フィードバック蓄積 | 50件以上 | 統計的有意性 |
+| フィードバック蓄積 | 100件以上 | 3クラス分類で各クラス約33件の統計的安定性 |
 | 誤判定率 | 10%以上 | 改善の必要性 |
 | ドメイン変更 | ユーザー指定 | 新ドメイン適応 |
 
@@ -137,7 +137,7 @@ await call_tool("calibration_rollback", {
 ## Implementation Status
 
 **Note**: 本ADRで記載されたLoRA学習機能は**Phase R（将来）** で実装予定である。
-詳細なタスクリストは `docs/R_LORA.md` を参照。
+詳細なタスクリストは `docs/S_LORA.md` を参照。
 
 ### 現状（実装済み）
 - `feedback(edge_correct)` でNLI訂正サンプルを `nli_corrections` テーブルに蓄積
@@ -158,7 +158,7 @@ LoRA学習を開始するには、以下が必要：
 | R.4.x | テスト・検証 | 未着手 |
 
 ## References
-- `docs/R_LORA.md` - LoRAファインチューニング詳細設計
+- `docs/S_LORA.md` - LoRAファインチューニング詳細設計
 - `docs/archive/P_EVIDENCE_SYSTEM.md` - Phase 6: NLI訂正サンプル蓄積（アーカイブ）
 - `src/utils/calibration.py` - 確率キャリブレーション実装
 - `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations`テーブル

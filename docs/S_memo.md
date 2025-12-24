@@ -1,41 +1,32 @@
-# R_LORA.md 設計メモ
+# S_LORA.md 設計メモ
 
 > **作成日**: 2025-12-24
+> **更新日**: 2025-12-24
 > **結論**: 方向性は正しい。ADR-0011の誤記修正と、ML実験設計の詳細化が必要。
 
 ---
 
-## 1. ADR-0011の誤記（要修正）
+## 1. ADR-0011の誤記 ✅ 修正済み
 
-ADR-0011に「NLIモデル（Qwen2.5-3B）」と記載があるが、**実装はDeBERTa**。
+~~ADR-0011に「NLIモデル（Qwen2.5-3B）」と記載があるが、**実装はDeBERTa**。~~
 
-```python
-# src/ml_server/model_paths.py:167, 180
-"cross-encoder/nli-deberta-v3-xsmall"  # fast
-"cross-encoder/nli-deberta-v3-small"   # slow
-
-# src/utils/config.py:227-228
-fast_model: str = "cross-encoder/nli-deberta-v3-xsmall"
-slow_model: str = "cross-encoder/nli-deberta-v3-small"
-```
-
-**R_LORA.mdが正しい。ADR-0011を修正すべき。**
+→ ADR-0011 を `DeBERTa-v3-xsmall/small` に修正済み。
 
 ---
 
-## 2. ハイパラの不整合（要統一）
+## 2. ハイパラの統一 ✅ 完了
 
-| パラメータ | ADR-0011 | R_LORA.md | 要決定 |
-|-----------|----------|-----------|:------:|
-| alpha | 16 | 32 | ○ |
-| dropout | 0.05 | 0.1 | ○ |
-| 学習トリガー閾値 | 50件 | 100件 | ○ |
+技術的根拠に基づき統一：
 
-→ 実験で決定し、ADR-0011とR_LORA.mdを統一する。
+| パラメータ | 統一後の値 | 根拠 |
+|-----------|:----------:|------|
+| alpha | 16 | r=8 の2倍が標準（[Sebastian Raschka LoRA ガイド](https://magazine.sebastianraschka.com/p/practical-tips-for-finetuning-llms)） |
+| dropout | 0.1 | 小モデル（70-140M params）では高めの正則化が有効（[QLoRA論文](https://arxiv.org/abs/2305.14314)） |
+| 学習トリガー閾値 | 100件 | 3クラス分類で各クラス約33件の統計的安定性 |
 
 ---
 
-## 3. R_LORA.mdに追記すべき内容
+## 3. S_LORA.mdに追記すべき内容
 
 ### 3.1 訂正サンプルの品質フィルタ
 
@@ -65,7 +56,7 @@ train, val = train_test_split(
 
 ### 3.3 target_modulesの確認
 
-R_LORA.mdでは `["query", "value"]` と記載。DeBERTa-v3の実際のモジュール名を確認し記載する。
+S_LORA.mdでは `["query", "value"]` と記載。DeBERTa-v3の実際のモジュール名を確認し記載する。
 
 ```python
 from transformers import AutoModel
@@ -98,9 +89,9 @@ def shadow_evaluation(val_set, old_adapter, new_adapter):
 
 ## 4. 次セッションでのアクション
 
-| 優先度 | タスク |
-|:------:|--------|
-| 高 | ADR-0011の「Qwen2.5-3B」→「DeBERTa-v3」に修正 |
-| 高 | ハイパラ（alpha, dropout, 閾値）を統一 |
-| 中 | R_LORA.mdに§3の内容を追記 |
-| 低 | target_modulesの実際の名前を確認 |
+| 優先度 | タスク | 状態 |
+|:------:|--------|:----:|
+| 高 | ADR-0011の「Qwen2.5-3B」→「DeBERTa-v3」に修正 | ✅ |
+| 高 | ハイパラ（alpha, dropout, 閾値）を統一 | ✅ |
+| 中 | S_LORA.mdに§3の内容を追記 | ⏳ |
+| 低 | target_modulesの実際の名前を確認 | ⏳ |
