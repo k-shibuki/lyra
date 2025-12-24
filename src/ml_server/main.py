@@ -75,7 +75,14 @@ async def health_check() -> HealthResponse:
 
 @app.post("/embed", response_model=EmbedResponse)
 async def embed(request: EmbedRequest) -> EmbedResponse:
-    """Generate embeddings for texts."""
+    """Generate embeddings for texts.
+
+    Args:
+        request: EmbedRequest containing texts and optional batch_size.
+
+    Returns:
+        EmbedResponse with normalized embedding vectors (768-dim for BGE-base).
+    """
     try:
         service = get_embedding_service()
         embeddings = await service.encode(request.texts, batch_size=request.batch_size)
@@ -96,7 +103,14 @@ async def embed(request: EmbedRequest) -> EmbedResponse:
 
 @app.post("/rerank", response_model=RerankResponse)
 async def rerank(request: RerankRequest) -> RerankResponse:
-    """Rerank documents by relevance to query."""
+    """Rerank documents by relevance to query.
+
+    Args:
+        request: RerankRequest containing query, documents, and top_k.
+
+    Returns:
+        RerankResponse with sorted (index, score) pairs by relevance.
+    """
     try:
         service = get_reranker_service()
         results = await service.rerank(
@@ -129,7 +143,14 @@ async def rerank(request: RerankRequest) -> RerankResponse:
 
 @app.post("/nli", response_model=NLIResponse)
 async def nli(request: NLIRequest) -> NLIResponse:
-    """Judge stance relationships for claim pairs."""
+    """Judge stance relationships for claim pairs.
+
+    Args:
+        request: NLIRequest containing premise-hypothesis pairs and use_slow flag.
+
+    Returns:
+        NLIResponse with label (SUPPORTS/REFUTES/NEUTRAL) and confidence for each pair.
+    """
     try:
         service = get_nli_service()
 

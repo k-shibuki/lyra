@@ -978,7 +978,7 @@ class DomainPolicyManager:
         return self.config.search_engine_policy.default_min_interval
 
     def get_site_search_qps(self) -> float:
-        """Get QPS for site-internal search .
+        """Get QPS for site-internal search.
 
         Returns:
             Site search QPS.

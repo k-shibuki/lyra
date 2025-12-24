@@ -885,7 +885,6 @@ class SearchExecutor:
                 ),
             )
 
-            # / (Prerequisite A):
             # Run NLI for (fragment -> claim) and persist edge with nli_confidence.
             #
             # Note: We intentionally do NOT use LLM-extracted confidence as Bayesian input.

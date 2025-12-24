@@ -1,5 +1,7 @@
 # 非同期アーキテクチャ改善
 
+> **Status**: DESIGN PROPOSAL（未実装）
+
 ## Executive Summary
 
 **問題の本質:** 現在の`search`ツールは同期的にパイプライン全体を実行するため、MCPクライアント（Cursor AI）がブロックされる。これでは複数検索の並列実行が不可能。

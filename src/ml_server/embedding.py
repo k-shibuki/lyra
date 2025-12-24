@@ -12,9 +12,22 @@ logger = structlog.get_logger(__name__)
 
 
 class EmbeddingService:
-    """Embedding model service using sentence-transformers."""
+    """Embedding model service using sentence-transformers.
+
+    Provides text embedding functionality using a sentence-transformer model.
+    The model is lazy-loaded on first encode() call.
+
+    Attributes:
+        _model: The loaded sentence-transformer model, or None if not yet loaded.
+        _use_gpu: Whether to use GPU for inference (from LYRA_ML__USE_GPU env var).
+    """
 
     def __init__(self) -> None:
+        """Initialize embedding service.
+
+        Sets up GPU availability flag. The model itself is lazy-loaded
+        on first encode() call via load() method.
+        """
         from typing import Any
 
         self._model: Any = None
