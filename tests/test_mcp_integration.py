@@ -1,5 +1,7 @@
 """Integration tests for MCP tool data flow.
 
+Per ADR-0003: MCP over CLI / REST API.
+
 Tests the full data flow between MCP tools:
 - create_task → search → get_status → get_materials → stop_task
 

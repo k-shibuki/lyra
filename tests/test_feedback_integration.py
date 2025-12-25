@@ -25,6 +25,7 @@ from src.filter.source_verification import (
 )
 from src.mcp.feedback_handler import handle_feedback_action
 
+pytestmark = pytest.mark.integration
 # ============================================================
 # Fixtures
 # ============================================================

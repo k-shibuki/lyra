@@ -1,6 +1,8 @@
 """
 Tests for academic APIs configuration loading.
 
+Per ADR-0008: Academic Data Source Strategy.
+
 Tests configuration file loading and legacy behavior.
 
 ## Test Perspectives Table

@@ -1,6 +1,8 @@
 """
 Tests for src/search/circuit_breaker.py
 
+Per ADR-0013: Worker Resource Contention Control.
+
 ## Test Perspectives Table
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |

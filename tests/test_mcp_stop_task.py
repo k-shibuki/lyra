@@ -21,14 +21,26 @@ Tests the stop_task tool's graceful/immediate mode per ADR-0010.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.mark.integration
 import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
 
+pytest.mark.integration
+import pytest
+
+import pytest
+
+pytest.mark.integration
 if TYPE_CHECKING:
     from src.storage.database import Database
+
+pytestmark = pytest.mark.integration
+
 
 
 class TestStopTaskModeValidation:

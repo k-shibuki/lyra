@@ -226,7 +226,8 @@ concurrency:
 ## Related Files
 
 - `tests/test_tab_pool.py` - TabPool unit tests
-- `tests/scripts/debug_phase4_concurrency.py` - Integration verification script
+- `tests/test_concurrency_config.py` - Concurrency config tests
+- `tests/test_concurrency_wiring.py` - Concurrency wiring tests
 - `docs/adr/0013-worker-resource-contention.md`
 - `docs/adr/0014-browser-serp-resource-control.md`
 - `docs/adr/0015-adaptive-concurrency-control.md`

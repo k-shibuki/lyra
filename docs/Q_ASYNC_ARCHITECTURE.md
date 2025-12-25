@@ -936,10 +936,7 @@ status = await call_tool("get_status", {
 - [x] `mode=immediate`: queued/running → cancelled
 - [x] テスト: `tests/test_mcp_stop_task.py`
 
-**3.3 E2E検証**
-- [x] デバッグスクリプト: `tests/scripts/debug_async_queue_flow.py`
-
-**3.4 完了チェックリスト**
+**3.3 完了チェックリスト**
 - [x] `JobKind.SEARCH_QUEUE` が追加され、`jobs` テーブルで検索キューが管理されている
 - [x] `queue_searches`ツールが動作する
 - [x] `get_status`の`wait`（long polling、asyncio.Event）が動作する
@@ -1157,6 +1154,7 @@ Phase 4.B で先送りした「max_tabs を増やして並列化」の検証準�
 - [x] `get_stats()` で backoff 状態が取得可能
 - [x] 全テストパス（42 tests）
 - [x] ADR-0015 の Implementation Status を更新
+- [x] ADR-0007統合: CAPTCHA検出→InterventionQueue登録→`awaiting_auth`状態→`resolve_auth`後の自動再キュー
 
 ### Phase 5: SERP Enhancement（ページネーション）🚧 IN PROGRESS
 

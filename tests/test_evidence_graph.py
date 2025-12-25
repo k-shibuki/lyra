@@ -1,6 +1,8 @@
 """
 Tests for src/filter/evidence_graph.py
 
+Per ADR-0005: Evidence Graph Structure.
+
 ## Test Perspectives Table
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
