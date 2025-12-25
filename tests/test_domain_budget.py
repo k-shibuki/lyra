@@ -44,7 +44,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.scheduler.domain_budget import (
-    DEFAULT_MAX_PAGES_PER_DAY,
+    DEFAULT_BUDGET_PAGES_PER_DAY,
     DEFAULT_MAX_REQUESTS_PER_DAY,
     DomainDailyBudgetManager,
     can_request_to_domain,
@@ -91,7 +91,7 @@ class TestDomainDailyBudgetSchema:
             requests_today=10,
             pages_today=5,
             max_requests_per_day=100,
-            max_pages_per_day=50,
+            budget_pages_per_day=50,
             date="2025-12-15",
         )
 
@@ -100,7 +100,7 @@ class TestDomainDailyBudgetSchema:
         assert budget.requests_today == 10
         assert budget.pages_today == 5
         assert budget.max_requests_per_day == 100
-        assert budget.max_pages_per_day == 50
+        assert budget.budget_pages_per_day == 50
         assert budget.date == "2025-12-15"
 
     def test_tc_sc_n_02_result_schema(self) -> None:
@@ -128,7 +128,7 @@ class TestDomainDailyBudgetSchema:
             requests_today=50,
             pages_today=25,
             max_requests_per_day=200,
-            max_pages_per_day=100,
+            budget_pages_per_day=100,
             date="2025-12-15",
         )
 
@@ -145,7 +145,7 @@ class TestDomainDailyBudgetSchema:
             requests_today=1000,
             pages_today=500,
             max_requests_per_day=0,  # Unlimited
-            max_pages_per_day=0,  # Unlimited
+            budget_pages_per_day=0,  # Unlimited
             date="2025-12-15",
         )
 
@@ -173,7 +173,7 @@ class TestDomainDailyBudgetManager:
         assert result.allowed is True
         assert result.reason is None
         assert result.requests_remaining == DEFAULT_MAX_REQUESTS_PER_DAY
-        assert result.pages_remaining == DEFAULT_MAX_PAGES_PER_DAY
+        assert result.pages_remaining == DEFAULT_BUDGET_PAGES_PER_DAY
 
     def test_tc_db_n_02_within_budget(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-02: Requests within budget are allowed."""
@@ -283,7 +283,7 @@ class TestDomainDailyBudgetManager:
 
         # Then: Uses custom limits
         assert budget.max_requests_per_day == 50
-        assert budget.max_pages_per_day == 25
+        assert budget.budget_pages_per_day == 25
 
     def test_tc_db_a_02_unknown_domain_uses_defaults(
         self, manager: DomainDailyBudgetManager
@@ -295,7 +295,7 @@ class TestDomainDailyBudgetManager:
 
         # Then: Uses defaults
         assert budget.max_requests_per_day == DEFAULT_MAX_REQUESTS_PER_DAY
-        assert budget.max_pages_per_day == DEFAULT_MAX_PAGES_PER_DAY
+        assert budget.budget_pages_per_day == DEFAULT_BUDGET_PAGES_PER_DAY
 
     def test_tc_db_n_05_record_request(self, manager: DomainDailyBudgetManager) -> None:
         """TC-DB-N-05: Recording request increments counter."""
@@ -338,7 +338,7 @@ class TestDomainDailyBudgetManager:
         """TC-DB-N-07: Request denied when page budget is reached."""
         # Given: Page budget at limit, request budget still available
         budget = manager._get_or_create_budget("example.com")
-        budget.pages_today = budget.max_pages_per_day
+        budget.pages_today = budget.budget_pages_per_day
         budget.requests_today = 10  # Still within request limit
 
         # When: Checking if more requests are allowed
@@ -482,7 +482,7 @@ class TestIntegration:
         with patch("src.scheduler.domain_budget.get_domain_policy_manager") as mock_pm:
             mock_policy = MagicMock()
             mock_policy.max_requests_per_day = 300
-            mock_policy.max_pages_per_day = 150
+            mock_policy.budget_pages_per_day = 150
             mock_pm.return_value.get_policy.return_value = mock_policy
             manager.clear_budgets()
 
@@ -491,7 +491,7 @@ class TestIntegration:
 
         # Then: Uses policy values
         assert budget.max_requests_per_day == 300
-        assert budget.max_pages_per_day == 150
+        assert budget.budget_pages_per_day == 150
 
     def test_budget_persists_across_requests(self, manager: DomainDailyBudgetManager) -> None:
         """Test that budget state persists correctly."""
@@ -559,7 +559,7 @@ class TestBudgetBoundaries:
         """Test: pages_today = max - 1 is allowed."""
         # Given: Page budget one below limit
         budget = manager._get_or_create_budget("boundary.com")
-        budget.pages_today = budget.max_pages_per_day - 1
+        budget.pages_today = budget.budget_pages_per_day - 1
 
         # When: Checking
         result = manager.can_request_to_domain("boundary.com")
@@ -572,7 +572,7 @@ class TestBudgetBoundaries:
         """Test: pages_today = max is denied."""
         # Given: Page budget at limit
         budget = manager._get_or_create_budget("boundary.com")
-        budget.pages_today = budget.max_pages_per_day
+        budget.pages_today = budget.budget_pages_per_day
 
         # When: Checking
         result = manager.can_request_to_domain("boundary.com")
@@ -610,4 +610,4 @@ class TestExceptionHandling:
             limits = manager._get_domain_limits("error.com")
 
         # Then: Uses defaults
-        assert limits == (DEFAULT_MAX_REQUESTS_PER_DAY, DEFAULT_MAX_PAGES_PER_DAY)
+        assert limits == (DEFAULT_MAX_REQUESTS_PER_DAY, DEFAULT_BUDGET_PAGES_PER_DAY)

@@ -331,8 +331,8 @@ class DomainDailyBudget(BaseModel):
     max_requests_per_day: int = Field(
         ..., ge=0, description="Maximum requests allowed per day (0 = unlimited)"
     )
-    max_pages_per_day: int = Field(
-        ..., ge=0, description="Maximum pages allowed per day (0 = unlimited)"
+    budget_pages_per_day: int = Field(
+        ..., ge=0, description="Page budget per day (0 = unlimited)"
     )
     date: str = Field(..., description="Date in YYYY-MM-DD format for reset detection")
 
@@ -354,9 +354,9 @@ class DomainDailyBudget(BaseModel):
         Returns:
             Remaining pages (int max if unlimited).
         """
-        if self.max_pages_per_day == 0:
+        if self.budget_pages_per_day == 0:
             return 2**31 - 1  # Effectively unlimited
-        return max(0, self.max_pages_per_day - self.pages_today)
+        return max(0, self.budget_pages_per_day - self.pages_today)
 
     class Config:
         json_schema_extra = {
@@ -365,7 +365,7 @@ class DomainDailyBudget(BaseModel):
                 "requests_today": 50,
                 "pages_today": 25,
                 "max_requests_per_day": 200,
-                "max_pages_per_day": 100,
+                "budget_pages_per_day": 100,
                 "date": "2025-12-15",
             }
         }

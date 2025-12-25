@@ -165,7 +165,7 @@ class SearchExecutor:
         self,
         *,
         enabled: bool,
-        max_pages_per_task: int,
+        budget_pages_per_task: int,
         run_on_primary_sources_only: bool,
         require_useful_text: bool,
         is_primary: bool,
@@ -177,7 +177,10 @@ class SearchExecutor:
         """
         if not enabled:
             return False
-        if max_pages_per_task > 0 and self._web_citation_pages_processed >= max_pages_per_task:
+        if (
+            budget_pages_per_task > 0
+            and self._web_citation_pages_processed >= budget_pages_per_task
+        ):
             return False
         if run_on_primary_sources_only and not is_primary:
             return False
@@ -344,8 +347,8 @@ class SearchExecutor:
                 # Calculate remaining budget
                 overall_status = await self.state.get_status()
                 result.budget_remaining = {
-                    "pages": overall_status["budget"]["pages_limit"]
-                    - overall_status["budget"]["pages_used"],
+                    "pages": overall_status["budget"]["budget_pages_limit"]
+                    - overall_status["budget"]["budget_pages_used"],
                     "time_seconds": overall_status["budget"]["time_limit_seconds"]
                     - overall_status["budget"]["time_used_seconds"],
                 }
@@ -558,7 +561,7 @@ class SearchExecutor:
                     if wc.enabled and html_path and fetch_result.get("page_id"):
                         should_run = self._should_run_web_citation_detection(
                             enabled=wc.enabled,
-                            max_pages_per_task=int(wc.max_pages_per_task),
+                            budget_pages_per_task=int(wc.budget_pages_per_task),
                             run_on_primary_sources_only=wc.run_on_primary_sources_only,
                             require_useful_text=wc.require_useful_text,
                             is_primary=is_primary,

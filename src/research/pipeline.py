@@ -106,7 +106,7 @@ class SearchOptions:
     """Options for search execution."""
 
     engines: list[str] | None = None  # Use None for Lyra-selected engines
-    max_pages: int | None = None
+    budget_pages: int | None = None
     seek_primary: bool = False  # Prioritize primary sources
     refute: bool = False  # Enable refutation mode
 
@@ -216,13 +216,13 @@ class SearchPipeline:
                 try:
                     overall_status = await self.state.get_status()
                     result.budget_remaining = {
-                        "pages": overall_status["budget"]["pages_limit"]
-                        - overall_status["budget"]["pages_used"],
+                        "pages": overall_status["budget"]["budget_pages_limit"]
+                        - overall_status["budget"]["budget_pages_used"],
                         "percent": int(
                             (
                                 1
-                                - overall_status["budget"]["pages_used"]
-                                / overall_status["budget"]["pages_limit"]
+                                - overall_status["budget"]["budget_pages_used"]
+                                / overall_status["budget"]["budget_pages_limit"]
                             )
                             * 100
                         ),
@@ -258,13 +258,13 @@ class SearchPipeline:
         # Calculate remaining budget
         overall_status = await self.state.get_status()
         result.budget_remaining = {
-            "pages": overall_status["budget"]["pages_limit"]
-            - overall_status["budget"]["pages_used"],
+            "pages": overall_status["budget"]["budget_pages_limit"]
+            - overall_status["budget"]["budget_pages_used"],
             "percent": int(
                 (
                     1
-                    - overall_status["budget"]["pages_used"]
-                    / overall_status["budget"]["pages_limit"]
+                    - overall_status["budget"]["budget_pages_used"]
+                    / overall_status["budget"]["budget_pages_limit"]
                 )
                 * 100
             ),
@@ -303,7 +303,7 @@ class SearchPipeline:
         complements with academic API if identifiers are found .
         """
         executor = SearchExecutor(self.task_id, self.state)
-        budget_pages = options.max_pages
+        budget_pages = options.budget_pages
 
         exec_result = await executor.execute(
             query=query,
@@ -347,7 +347,9 @@ class SearchPipeline:
 
             serp_items = await search_serp(
                 query=query,
-                limit=options.max_pages or 20,
+                # NOTE: This is a SERP result count, not a page budget.
+                # Keep it fixed to avoid semantic collisions with budget_pages.
+                limit=20,
                 task_id=self.task_id,
                 engines=options.engines,
             )
@@ -726,7 +728,8 @@ class SearchPipeline:
             # : Parallel search
             browser_task = search_serp(
                 query=query,
-                limit=options.max_pages or 20,
+                # NOTE: This is a SERP result count, not a page budget.
+                limit=20,
                 task_id=self.task_id,
                 engines=options.engines,
             )
@@ -1106,7 +1109,7 @@ class SearchPipeline:
         pages_fetched = 0
         useful_fragments = 0
 
-        budget = options.max_pages or 15
+        budget = options.budget_pages or 15
 
         for rq in refutation_queries:
             # Check budget
@@ -1312,8 +1315,11 @@ async def search_action(
     # Convert options dict to SearchOptions
     search_options = SearchOptions()
     if options:
+        if "max_pages" in options:
+            # Legacy key is rejected (see ADR-0003: MCP contract stability via explicit schema).
+            raise ValueError("options.max_pages is no longer supported; use options.budget_pages")
         search_options.engines = options.get("engines")
-        search_options.max_pages = options.get("max_pages")
+        search_options.budget_pages = options.get("budget_pages")
         search_options.seek_primary = options.get("seek_primary", False)
         search_options.refute = options.get("refute", False)
 

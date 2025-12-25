@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.utils.logging import get_logger
 
@@ -100,6 +100,8 @@ CATEGORY_WEIGHTS: dict[DomainCategory, float] = {
 class DefaultPolicySchema(BaseModel):
     """Schema for default domain policy (config/domains.yaml: default_policy)."""
 
+    model_config = ConfigDict(extra="forbid")
+
     qps: float = Field(default=0.2, ge=0.01, le=2.0, description="Requests per second limit")
     concurrent: int = Field(default=1, ge=1, le=10, description="Max concurrent requests")
     headful_ratio: float = Field(default=0.1, ge=0.0, le=1.0, description="Headful browser ratio")
@@ -115,11 +117,15 @@ class DefaultPolicySchema(BaseModel):
     max_requests_per_day: int = Field(
         default=200, ge=0, description="Max requests per day (0=unlimited)"
     )
-    max_pages_per_day: int = Field(default=100, ge=0, description="Max pages per day (0=unlimited)")
+    budget_pages_per_day: int = Field(
+        default=100, ge=0, description="Page budget per day (0=unlimited)"
+    )
 
 
 class AllowlistEntrySchema(BaseModel):
     """Schema for allowlist domain entries."""
+
+    model_config = ConfigDict(extra="forbid")
 
     domain: str = Field(..., description="Domain name (exact or suffix match)")
     domain_category: DomainCategory = Field(default=DomainCategory.UNVERIFIED)
@@ -134,8 +140,8 @@ class AllowlistEntrySchema(BaseModel):
     max_requests_per_day: int | None = Field(
         default=None, ge=0, description="Max requests per day (0=unlimited)"
     )
-    max_pages_per_day: int | None = Field(
-        default=None, ge=0, description="Max pages per day (0=unlimited)"
+    budget_pages_per_day: int | None = Field(
+        default=None, ge=0, description="Page budget per day (0=unlimited)"
     )
 
     @field_validator("domain")
@@ -175,6 +181,8 @@ class UserOverrideEntrySchema(BaseModel):
     Only exact domain matches are supported (no wildcards/patterns).
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     domain: str = Field(..., description="Domain name (exact match only, no patterns)")
     domain_category: DomainCategory | None = Field(default=None)
     qps: float | None = Field(default=None, ge=0.01, le=2.0)
@@ -184,7 +192,7 @@ class UserOverrideEntrySchema(BaseModel):
     cooldown_minutes: int | None = Field(default=None, ge=1, le=1440)
     max_retries: int | None = Field(default=None, ge=0, le=10)
     max_requests_per_day: int | None = Field(default=None, ge=0)
-    max_pages_per_day: int | None = Field(default=None, ge=0)
+    budget_pages_per_day: int | None = Field(default=None, ge=0)
     reason: str | None = Field(default=None, description="Audit: reason for override")
     added_at: str | None = Field(default=None, description="Audit: date added (ISO format)")
 
@@ -384,7 +392,7 @@ class DomainPolicy:
 
     # Daily budget limits (ADR-0006 - IP block prevention)
     max_requests_per_day: int = 200
-    max_pages_per_day: int = 100
+    budget_pages_per_day: int = 100
 
     # Learning state (populated from DB)
     block_score: float = 0.0
@@ -436,7 +444,7 @@ class DomainPolicy:
             "headful_required": self.headful_required,
             "tor_blocked": self.tor_blocked,
             "max_requests_per_day": self.max_requests_per_day,
-            "max_pages_per_day": self.max_pages_per_day,
+            "budget_pages_per_day": self.budget_pages_per_day,
             "block_score": self.block_score,
             "captcha_rate": self.captcha_rate,
             "success_rate_1h": self.success_rate_1h,
@@ -738,7 +746,7 @@ class DomainPolicyManager:
             max_retries=default.max_retries,
             domain_category=default.domain_category,
             max_requests_per_day=default.max_requests_per_day,
-            max_pages_per_day=default.max_pages_per_day,
+            budget_pages_per_day=default.budget_pages_per_day,
             source="default",
         )
 
@@ -786,8 +794,8 @@ class DomainPolicyManager:
                     policy.max_retries = override.max_retries
                 if override.max_requests_per_day is not None:
                     policy.max_requests_per_day = override.max_requests_per_day
-                if override.max_pages_per_day is not None:
-                    policy.max_pages_per_day = override.max_pages_per_day
+                if override.budget_pages_per_day is not None:
+                    policy.budget_pages_per_day = override.budget_pages_per_day
                 policy.source = "user_override"
                 break
 
@@ -811,8 +819,8 @@ class DomainPolicyManager:
                     # Daily budget limits (ADR-0006 - IP block prevention)
                     if allow_entry.max_requests_per_day is not None:
                         policy.max_requests_per_day = allow_entry.max_requests_per_day
-                    if allow_entry.max_pages_per_day is not None:
-                        policy.max_pages_per_day = allow_entry.max_pages_per_day
+                    if allow_entry.budget_pages_per_day is not None:
+                        policy.budget_pages_per_day = allow_entry.budget_pages_per_day
 
                     policy.domain_category = allow_entry.domain_category
                     policy.internal_search = allow_entry.internal_search

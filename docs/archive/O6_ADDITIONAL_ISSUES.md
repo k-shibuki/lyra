@@ -706,7 +706,7 @@ if not result.ok and result.status in (403, 429) and not use_tor:
 **実装ファイル**: 
 - `src/utils/schemas.py`: `DomainDailyBudget`, `DomainBudgetCheckResult` Pydanticモデル追加
 - `src/scheduler/domain_budget.py`: `DomainDailyBudgetManager` クラス新規作成
-- `src/utils/domain_policy.py`: `max_requests_per_day`, `max_pages_per_day` フィールド追加
+- `src/utils/domain_policy.py`: `max_requests_per_day`, `budget_pages_per_day` フィールド追加
 - `config/domains.yaml`: 日次予算設定追加
 - `src/crawler/fetcher.py`: `fetch_url()` に日次予算チェック統合
 
@@ -720,7 +720,7 @@ if not result.ok and result.status in (403, 429) and not use_tor:
 | 設定 | デフォルト | 説明 |
 |-----|----------|-----|
 | `max_requests_per_day` | 200 | ドメインごとの日次リクエスト上限 |
-| `max_pages_per_day` | 100 | ドメインごとの日次ページ上限 |
+| `budget_pages_per_day` | 100 | ドメインごとの日次ページ上限 |
 
 #### 主要機能
 

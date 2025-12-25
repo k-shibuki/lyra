@@ -38,7 +38,7 @@ class TaskBudget:
 
     # Page tracking
     pages_fetched: int = 0
-    max_pages: int = 120
+    budget_pages: int = 120
 
     # Time tracking (seconds)
     start_time: float = field(default_factory=time.time)
@@ -60,7 +60,7 @@ class TaskBudget:
     @property
     def remaining_pages(self) -> int:
         """Number of pages remaining in budget."""
-        return max(0, self.max_pages - self.pages_fetched)
+        return max(0, self.budget_pages - self.pages_fetched)
 
     @property
     def remaining_time_seconds(self) -> float:
@@ -88,7 +88,7 @@ class TaskBudget:
         """Check if a page can be fetched within budget."""
         if not self.is_active:
             return False
-        return self.pages_fetched < self.max_pages
+        return self.pages_fetched < self.budget_pages
 
     def can_continue(self) -> tuple[bool, BudgetExceededReason | None]:
         """
@@ -101,7 +101,7 @@ class TaskBudget:
             return False, self.exceeded_reason
 
         # Check page limit
-        if self.pages_fetched >= self.max_pages:
+        if self.pages_fetched >= self.budget_pages:
             return False, BudgetExceededReason.PAGE_LIMIT
 
         # Check time limit
@@ -143,7 +143,7 @@ class TaskBudget:
             "Page fetched",
             task_id=self.task_id,
             pages_fetched=self.pages_fetched,
-            max_pages=self.max_pages,
+            budget_pages=self.budget_pages,
         )
 
     def record_llm_time(self, seconds: float) -> None:
@@ -185,7 +185,7 @@ class TaskBudget:
         return {
             "task_id": self.task_id,
             "pages_fetched": self.pages_fetched,
-            "max_pages": self.max_pages,
+            "budget_pages": self.budget_pages,
             "elapsed_seconds": self.elapsed_seconds,
             "max_time_seconds": self.max_time_seconds,
             "llm_time_seconds": self.llm_time_seconds,
@@ -212,7 +212,7 @@ class BudgetManager:
 
         # Load limits from settings (Settings is a Pydantic model)
         task_limits = self._settings.task_limits
-        self._max_pages = task_limits.max_pages_per_task
+        self._budget_pages_per_task = task_limits.budget_pages_per_task
         self._max_time_gpu = task_limits.max_time_minutes_gpu * 60
         self._max_time_cpu = task_limits.max_time_minutes_cpu * 60
         self._max_llm_ratio = task_limits.llm_time_ratio_max
@@ -223,7 +223,7 @@ class BudgetManager:
 
         logger.info(
             "Budget manager initialized",
-            max_pages=self._max_pages,
+            budget_pages_per_task=self._budget_pages_per_task,
             max_time_seconds=self._max_time,
             max_llm_ratio=self._max_llm_ratio,
             has_gpu=self._has_gpu,
@@ -255,7 +255,7 @@ class BudgetManager:
 
             budget = TaskBudget(
                 task_id=task_id,
-                max_pages=self._max_pages,
+                budget_pages=self._budget_pages_per_task,
                 max_time_seconds=self._max_time,
                 max_llm_ratio=self._max_llm_ratio,
             )
@@ -264,7 +264,7 @@ class BudgetManager:
             logger.info(
                 "Budget created",
                 task_id=task_id,
-                max_pages=budget.max_pages,
+                budget_pages=budget.budget_pages,
                 max_time_seconds=budget.max_time_seconds,
             )
 

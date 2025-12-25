@@ -254,9 +254,9 @@ class ExplorationState:
         self.original_query: str = ""
 
         # Budget tracking
-        self._pages_limit = 120
+        self._budget_pages_limit = 120
         self._time_limit_seconds = 3600  # 60 minutes
-        self._pages_used = 0
+        self._budget_pages_used = 0
         self._time_started: float | None = None
 
         # UCB1 allocation (ADR-0010)
@@ -288,7 +288,7 @@ class ExplorationState:
         from src.research.ucb_allocator import UCBAllocator
 
         self._ucb_allocator = UCBAllocator(
-            total_budget=self._pages_limit,
+            total_budget=self._budget_pages_limit,
             exploration_constant=self._ucb_exploration_constant,
             min_budget_per_search=5,
             max_budget_ratio=0.4,
@@ -297,7 +297,7 @@ class ExplorationState:
         logger.info(
             "UCB allocator enabled",
             task_id=self.task_id,
-            total_budget=self._pages_limit,
+            total_budget=self._budget_pages_limit,
         )
 
     def record_activity(self) -> None:
@@ -508,7 +508,7 @@ class ExplorationState:
             return
 
         search.pages_fetched += 1
-        self._pages_used += 1
+        self._budget_pages_used += 1
 
         if is_independent:
             search.independent_sources += 1
@@ -577,7 +577,7 @@ class ExplorationState:
             Tuple of (is_within_budget, warning_message).
         """
         # Check page budget
-        if self._pages_used >= self._pages_limit:
+        if self._budget_pages_used >= self._budget_pages_limit:
             return False, "ページ数上限に達しました"
 
         # Check time budget
@@ -587,7 +587,7 @@ class ExplorationState:
                 return False, "時間上限に達しました"
 
         # Warnings
-        pages_remaining_ratio = 1 - (self._pages_used / self._pages_limit)
+        pages_remaining_ratio = 1 - (self._budget_pages_used / self._budget_pages_limit)
         if pages_remaining_ratio < 0.2:
             return True, f"予算残り{int(pages_remaining_ratio * 100)}%"
 
@@ -790,14 +790,14 @@ class ExplorationState:
                 "partial_count": partial,
                 "pending_count": pending,
                 "exhausted_count": exhausted_count,
-                "total_pages": self._pages_used,
+                "total_pages": self._budget_pages_used,
                 "total_fragments": self._total_fragments,
                 "total_claims": self._total_claims,
                 "elapsed_seconds": elapsed_seconds,
             },
             "budget": {
-                "pages_used": self._pages_used,
-                "pages_limit": self._pages_limit,
+                "budget_pages_used": self._budget_pages_used,
+                "budget_pages_limit": self._budget_pages_limit,
                 "time_used_seconds": elapsed_seconds,
                 "time_limit_seconds": self._time_limit_seconds,
             },

@@ -87,22 +87,34 @@ adapter = train_lora(
       └── user_feedback_v3.safetensors  # フィードバック学習
 ```
 
-### MCPツール統合（計画）
+### MCPツール統合の検討結果
 
-**注**: 以下はPhase R実装時の計画。現在の`calibration_metrics`ツールは確率キャリブレーションの評価のみを行い、LoRA学習トリガーは未実装。
+**決定: MCPツール化は却下。スクリプト運用を採用。**
 
-```python
-# 将来: LoRA学習をトリガー（Phase R）
-await call_tool("train_lora", {  # ツール名は未確定
-    "source": "nli_corrections",
-    "min_samples": 100
-})
+#### 却下理由
 
-# calibration_rollbackで以前のアダプタに戻す
-await call_tool("calibration_rollback", {
-    "version": "v2"
-})
+| 観点 | 問題 |
+|------|------|
+| 処理時間 | 数十分〜1時間でMCPタイムアウトリスク |
+| GPU占有 | 推論中のML Serverと競合 |
+| 手動確認 | シャドー評価の結果を人間が確認してから本番投入が望ましい |
+| 試行錯誤 | ハイパラ調整はスクリプトの方が柔軟 |
+
+#### 採用方式
+
+```bash
+# スクリプトでLoRA学習を実行（オフラインバッチ）
+python scripts/train_lora.py --db data/lyra.db --output adapters/lora-v1
+
+# 結果確認後、ML Serverにアダプタを適用
+curl -X POST http://localhost:8001/nli/adapter/load \
+  -d '{"adapter_path": "adapters/lora-v1"}'
 ```
+
+#### calibration_metricsとの関係
+
+- `calibration_metrics(get_stats)` / `(get_evaluations)`: 状態確認・履歴参照（MCPツール）
+- `calibration_metrics(evaluate)` / `(get_diagram_data)`: **スクリプト化予定**（Q_ASYNC_ARCHITECTURE.md Phase 5）
 
 ### 学習トリガー条件
 
@@ -133,6 +145,7 @@ await call_tool("calibration_rollback", {
 | プロンプトチューニング | 軽量 | 効果限定的 | 却下 |
 | Adapter Tuning | LoRA類似 | LoRAより効率悪い | 却下 |
 | QLoRA | 超軽量 | 品質低下リスク | 将来検討 |
+| **MCPツール化** | UI統合 | 長時間処理、GPU競合、手動確認困難 | **却下** |
 
 ## Implementation Status
 

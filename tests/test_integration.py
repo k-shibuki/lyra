@@ -24,7 +24,7 @@ These tests verify end-to-end workflows across multiple modules.
 | TC-INT-N-14 | Section title | Equivalence – normal | Valid slug generated | Anchor slug |
 | TC-INT-N-15 | ReportGenerator import | Equivalence – init | Callable class | Report generator |
 | TC-INT-N-16 | JobKind/Slot enums | Equivalence – init | Correct enum values | Scheduler enums |
-| TC-INT-N-17 | Budget with max_pages | Equivalence – normal | Remaining pages tracked | Budget tracking |
+| TC-INT-N-17 | Budget with budget_pages | Equivalence – normal | Remaining pages tracked | Budget tracking |
 | TC-INT-B-01 | Budget at limit | Boundary – max | can_fetch_page=False | Budget exceeded |
 | TC-INT-N-18 | Calibrator import | Equivalence – init | Instance created | Calibrator |
 | TC-INT-N-19 | EscalationDecider import | Equivalence – init | Instance created | Escalation decider |
@@ -496,10 +496,10 @@ class TestSchedulerIntegration:
         """Verify budget manager tracks resource usage."""
         from src.scheduler.budget import TaskBudget
 
-        # Given: A budget with max_pages=120
+        # Given: A budget with budget_pages=120
         budget = TaskBudget(
             task_id="task_1",
-            max_pages=120,
+            budget_pages=120,
             max_time_seconds=1200,
         )
 
@@ -521,7 +521,7 @@ class TestSchedulerIntegration:
         # Given: A budget at its limit
         budget = TaskBudget(
             task_id="task_2",
-            max_pages=10,
+            budget_pages=10,
         )
 
         budget.pages_fetched = 10

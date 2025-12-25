@@ -9,13 +9,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskLimitsConfig(BaseModel):
     """Task limits configuration."""
 
-    max_pages_per_task: int = 120
+    model_config = ConfigDict(extra="forbid")
+
+    budget_pages_per_task: int = 120
     max_time_minutes_gpu: int = 60
     max_time_minutes_cpu: int = 75
     llm_time_ratio_max: float = 0.30
@@ -34,6 +36,8 @@ class WebCitationDetectionConfig(BaseModel):
     - Setting max_* to 0 means "no limit".
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     enabled: bool = True
     run_on_primary_sources_only: bool = True
     require_useful_text: bool = True
@@ -42,7 +46,7 @@ class WebCitationDetectionConfig(BaseModel):
     # Candidate selection / LLM cost control
     max_candidates_per_page: int = 10  # max outbound links evaluated per page
     max_edges_per_page: int = 0  # max CITES edges created per page (0 = unlimited)
-    max_pages_per_task: int = 0  # max pages to run citation detection on per task (0 = unlimited)
+    budget_pages_per_task: int = 0  # max pages to run citation detection on per task (0 = unlimited)
 
     # Storage behavior for targets:
     # - True: create placeholder pages rows for newly discovered citation URLs.

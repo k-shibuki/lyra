@@ -49,7 +49,7 @@ class SearchResult(BaseModel):
     - source_tag: Source classification (primary/secondary/tertiary)
     """
 
-    model_config = ConfigDict(frozen=False)
+    model_config = ConfigDict(frozen=False, extra="forbid")
 
     title: str = Field(..., description="Result title")
     url: str = Field(..., description="Result URL")
@@ -131,14 +131,14 @@ class SearchOptions(BaseModel):
     Options for search requests.
     """
 
-    model_config = ConfigDict(frozen=False)
+    model_config = ConfigDict(frozen=False, extra="forbid")
 
     engines: list[str] | None = Field(default=None, description="List of search engines to use")
     categories: list[str] | None = Field(default=None, description="Search categories")
     language: str = Field(default="ja", description="Search language code")
     time_range: str = Field(default="all", description="Time filter (all, day, week, month, year)")
     limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
-    page: int = Field(default=1, ge=1, description="Page number for pagination")
+    serp_page: int = Field(default=1, ge=1, description="SERP page number (pagination)")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -148,7 +148,7 @@ class SearchOptions(BaseModel):
             "language": self.language,
             "time_range": self.time_range,
             "limit": self.limit,
-            "page": self.page,
+            "serp_page": self.serp_page,
         }
 
 

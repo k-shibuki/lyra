@@ -54,7 +54,7 @@ Test Quality Standards (.1):
 | TC-SS-A-03 | Invalid refutation_status | Abnormal – validation | ValidationError | Pydantic migration |
 | TC-SS-B-03 | novelty_score=0.0 | Boundary – zero novelty | Valid state | ADR-0010 |
 | TC-SS-B-04 | novelty_score=1.0 | Boundary – max novelty | Valid state | ADR-0010 |
-| TC-ES-B-01 | pages_limit=0 | Boundary – zero limit | Immediate budget exceeded | - |
+| TC-ES-B-01 | budget_pages_limit=0 | Boundary – zero limit | Immediate budget exceeded | - |
 """
 
 from __future__ import annotations
@@ -653,7 +653,7 @@ class TestExplorationState:
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
-        state._pages_limit = 10
+        state._budget_pages_limit = 10
 
         state.register_subquery("sq_001", "test")
 
@@ -907,10 +907,10 @@ class TestExplorationStateBoundaryValues:
     """
 
     @pytest.mark.asyncio
-    async def test_zero_pages_limit_immediately_exceeded(self, test_database: Database) -> None:
-        """TC-ES-B-01: Zero pages_limit is immediately exceeded.
+    async def test_zero_budget_pages_limit_immediately_exceeded(self, test_database: Database) -> None:
+        """TC-ES-B-01: Zero budget_pages_limit is immediately exceeded.
 
-        // Given: pages_limit = 0
+        // Given: budget_pages_limit = 0
         // When: Check budget
         // Then: Budget exceeded immediately
         """
@@ -918,7 +918,7 @@ class TestExplorationStateBoundaryValues:
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
-        state._pages_limit = 0
+        state._budget_pages_limit = 0
 
         # When: Check budget
         within_budget, warning = state.check_budget()
@@ -928,10 +928,10 @@ class TestExplorationStateBoundaryValues:
         assert warning is not None
 
     @pytest.mark.asyncio
-    async def test_pages_limit_exactly_at_boundary(self, test_database: Database) -> None:
-        """TC-ES-B-02: Exactly at pages_limit triggers exceeded.
+    async def test_budget_pages_limit_exactly_at_boundary(self, test_database: Database) -> None:
+        """TC-ES-B-02: Exactly at budget_pages_limit triggers exceeded.
 
-        // Given: pages_limit = 5, pages_used = 5
+        // Given: budget_pages_limit = 5, budget_pages_used = 5
         // When: Check budget
         // Then: Budget exceeded
         """
@@ -939,8 +939,8 @@ class TestExplorationStateBoundaryValues:
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
-        state._pages_limit = 5
-        state._pages_used = 5
+        state._budget_pages_limit = 5
+        state._budget_pages_used = 5
 
         # When: Check budget
         within_budget, warning = state.check_budget()
@@ -949,10 +949,10 @@ class TestExplorationStateBoundaryValues:
         assert within_budget is False
 
     @pytest.mark.asyncio
-    async def test_pages_limit_one_below_boundary(self, test_database: Database) -> None:
-        """TC-ES-B-03: One below pages_limit is within budget.
+    async def test_budget_pages_limit_one_below_boundary(self, test_database: Database) -> None:
+        """TC-ES-B-03: One below budget_pages_limit is within budget.
 
-        // Given: pages_limit = 5, pages_used = 4
+        // Given: budget_pages_limit = 5, budget_pages_used = 4
         // When: Check budget
         // Then: Within budget
         """
@@ -960,8 +960,8 @@ class TestExplorationStateBoundaryValues:
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
-        state._pages_limit = 5
-        state._pages_used = 4
+        state._budget_pages_limit = 5
+        state._budget_pages_used = 4
 
         # When: Check budget
         within_budget, _ = state.check_budget()
@@ -973,7 +973,7 @@ class TestExplorationStateBoundaryValues:
     async def test_budget_warning_at_80_percent(self, test_database: Database) -> None:
         """TC-ES-B-04: Warning at 80% budget usage.
 
-        // Given: pages_limit = 100, pages_used = 81 (81% usage)
+        // Given: budget_pages_limit = 100, budget_pages_used = 81 (81% usage)
         // When: Check budget
         // Then: Within budget with warning
         """
@@ -981,8 +981,8 @@ class TestExplorationStateBoundaryValues:
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
-        state._pages_limit = 100
-        state._pages_used = 81
+        state._budget_pages_limit = 100
+        state._budget_pages_used = 81
 
         # When: Check budget
         within_budget, warning = state.check_budget()

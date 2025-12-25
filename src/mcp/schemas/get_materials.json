@@ -48,7 +48,7 @@
           },
           "evidence": {
             "type": "array",
-            "description": "Evidence items with temporal metadata (ADR-0003 / Phase 4b).",
+            "description": "Evidence items with temporal metadata (ADR-0003).",
             "items": {
               "type": "object",
               "properties": {

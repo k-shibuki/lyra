@@ -31,7 +31,7 @@ class TestPipelineTimeout:
         state.record_activity = MagicMock()
         state.get_status = AsyncMock(
             return_value={
-                "budget": {"pages_limit": 120, "pages_used": 10},
+                "budget": {"budget_pages_limit": 120, "budget_pages_used": 10},
             }
         )
         state.register_search = MagicMock(return_value=MagicMock(id="s_test"))

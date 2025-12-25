@@ -1381,7 +1381,7 @@ class TestNonAcademicQueryIdentifierComplement:
                 result = await pipeline._execute_browser_search(
                     search_id="test_search",
                     query="COVID-19 treatment",
-                    options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                    options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                     result=SearchResult(
                         search_id="test_search",
                         query="COVID-19 treatment",
@@ -1497,7 +1497,7 @@ class TestNonAcademicQueryIdentifierComplement:
                 result = await pipeline._execute_browser_search(
                     search_id="test_search",
                     query="drug side effects",
-                    options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                    options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                     result=SearchResult(
                         search_id="test_search",
                         query="drug side effects",
@@ -1572,7 +1572,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="general topic",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="general topic",
@@ -1691,7 +1691,7 @@ class TestNonAcademicQueryIdentifierComplement:
                 result = await pipeline._execute_browser_search(
                     search_id="test_search",
                     query="COVID-19 treatment",
-                    options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                    options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                     result=SearchResult(
                         search_id="test_search",
                         query="COVID-19 treatment",
@@ -1765,7 +1765,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="COVID-19 treatment",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="COVID-19 treatment",
@@ -1863,7 +1863,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="machine learning",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="machine learning",
@@ -1930,7 +1930,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="general topic",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="general topic",
@@ -1998,7 +1998,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="general topic",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="general topic",
@@ -2093,7 +2093,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="COVID-19 treatment",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="COVID-19 treatment",
@@ -2172,7 +2172,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="drug side effects",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="drug side effects",
@@ -2275,7 +2275,7 @@ class TestNonAcademicQueryIdentifierComplement:
                 result = await pipeline._execute_browser_search(
                     search_id="test_search",
                     query="COVID-19 treatment",
-                    options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                    options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                     result=SearchResult(
                         search_id="test_search",
                         query="COVID-19 treatment",
@@ -2345,7 +2345,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="COVID-19 treatment",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="COVID-19 treatment",
@@ -2398,7 +2398,7 @@ class TestNonAcademicQueryIdentifierComplement:
             result = await pipeline._execute_browser_search(
                 search_id="test_search",
                 query="COVID-19 treatment",
-                options=MagicMock(max_pages=10, engines=None, seek_primary=False, refute=False),
+                options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
                 result=SearchResult(
                     search_id="test_search",
                     query="COVID-19 treatment",

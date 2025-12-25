@@ -393,7 +393,7 @@ Lyra exposes the following tools to MCP clients:
 ```python
 # 1. Create a research task
 create_task(query="Liraglutide cardiovascular safety profile")
-# Returns: {"task_id": "task_abc123", "budget": {"max_pages": 120}}
+# Returns: {"task_id": "task_abc123", "budget": {"budget_pages": 120}}
 
 # 2. Queue multiple search queries (non-blocking, immediate response)
 queue_searches(
@@ -445,7 +445,7 @@ stop_task(task_id="task_abc123", reason="completed")
 ```yaml
 # config/settings.yaml
 task_limits:
-  max_pages_per_task: 120        # Maximum pages to fetch per task
+  budget_pages_per_task: 120     # Page fetch budget per task
   max_time_minutes_gpu: 20       # Time budget (GPU mode)
 
 search:

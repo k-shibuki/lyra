@@ -50,7 +50,7 @@ TOOLS = [
                         "budget": {
                             "type": "object",
                             "properties": {
-                                "max_pages": {"type": "integer", "default": 120},
+                                "budget_pages": {"type": "integer", "default": 120},
                                 "max_seconds": {"type": "integer", "default": 1200},
                             },
                         },
@@ -112,9 +112,9 @@ TOOLS = [
                             "items": {"type": "string"},
                             "description": "Specific engines to use (optional)",
                         },
-                        "max_pages": {
+                        "budget_pages": {
                             "type": "integer",
-                            "description": "Maximum pages per search",
+                            "description": "Page fetch budget per search (max pages to fetch)",
                         },
                         "priority": {
                             "type": "string",
@@ -622,7 +622,16 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
 
     # Extract budget config
     budget_config = config.get("budget", {})
-    max_pages = budget_config.get("max_pages", 120)
+    if "max_pages" in budget_config:
+        # Legacy key is rejected (explicit schema; see ADR-0003).
+        from src.mcp.errors import InvalidParamsError
+
+        raise InvalidParamsError(
+            "budget.max_pages is no longer supported; use budget.budget_pages",
+            param_name="config.budget.budget_pages",
+            expected="integer",
+        )
+    budget_pages = budget_config.get("budget_pages", 120)
     max_seconds = budget_config.get("max_seconds", 1200)
 
     with LogContext(task_id=task_id):
@@ -647,7 +656,7 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
             "query": query,
             "created_at": created_at,
             "budget": {
-                "max_pages": max_pages,
+                "budget_pages": budget_pages,
                 "max_seconds": max_seconds,
             },
         }
@@ -764,9 +773,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             budget = exploration_status.get("budget", {})
 
             # Calculate remaining percent
-            pages_used = budget.get("pages_used", 0)
-            pages_limit = budget.get("pages_limit", 120)
-            remaining_percent = int((1 - pages_used / max(1, pages_limit)) * 100)
+            budget_pages_used = budget.get("budget_pages_used", 0)
+            budget_pages_limit = budget.get("budget_pages_limit", 120)
+            remaining_percent = int((1 - budget_pages_used / max(1, budget_pages_limit)) * 100)
 
             # Get blocked domains info for transparency
             from src.filter.source_verification import get_source_verifier
@@ -796,8 +805,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                     "elapsed_seconds": metrics.get("elapsed_seconds", 0),
                 },
                 "budget": {
-                    "pages_used": pages_used,
-                    "pages_limit": pages_limit,
+                    "budget_pages_used": budget_pages_used,
+                    "budget_pages_limit": budget_pages_limit,
                     "time_used_seconds": budget.get("time_used_seconds", 0),
                     "time_limit_seconds": budget.get("time_limit_seconds", 1200),
                     "remaining_percent": remaining_percent,
@@ -839,8 +848,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                     "elapsed_seconds": 0,
                 },
                 "budget": {
-                    "pages_used": 0,
-                    "pages_limit": 120,
+                    "budget_pages_used": 0,
+                    "budget_pages_limit": 120,
                     "time_used_seconds": 0,
                     "time_limit_seconds": 1200,
                     "remaining_percent": 100,
@@ -897,6 +906,13 @@ async def _handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
             "queries must not be empty",
             param_name="queries",
             expected="non-empty array of strings",
+        )
+
+    if "max_pages" in options:
+        raise InvalidParamsError(
+            "options.max_pages is no longer supported; use options.budget_pages",
+            param_name="options.budget_pages",
+            expected="integer",
         )
 
     with LogContext(task_id=task_id):

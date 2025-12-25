@@ -75,8 +75,8 @@
     "budget": {
       "type": "object",
       "properties": {
-        "pages_used": {"type": "integer"},
-        "pages_limit": {"type": "integer"},
+        "budget_pages_used": {"type": "integer"},
+        "budget_pages_limit": {"type": "integer"},
         "time_used_seconds": {"type": "number"},
         "time_limit_seconds": {"type": "integer"},
         "remaining_percent": {"type": "integer"}
