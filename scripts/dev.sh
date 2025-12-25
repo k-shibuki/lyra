@@ -22,11 +22,66 @@ enable_debug_mode
 # Set up error handler
 trap 'cleanup_on_error ${LINENO}' ERR
 
+# Parse global flags first (--json, --quiet)
+parse_global_flags "$@"
+set -- "${GLOBAL_ARGS[@]}"
+
 # Change to project directory
 cd "$PROJECT_DIR"
 
+# Function to show help (defined early for use before dependency check)
+_show_help() {
+    echo "Lyra Development Environment (Podman)"
+    echo ""
+    echo "Usage: ./scripts/dev.sh [global-options] [command]"
+    echo ""
+    echo "Commands:"
+    echo "  up        Start all services"
+    echo "  down      Stop all services"
+    echo "  build     Build containers"
+    echo "  rebuild   Rebuild containers (no cache)"
+    echo "  shell     Enter development shell"
+    echo "  logs      Show logs (logs [service] or logs -f [service])"
+    echo "  test      Run tests"
+    echo "  mcp       Start MCP server"
+    echo "  research  Run research query"
+    echo "  status    Show container status"
+    echo "  clean     Remove containers and images"
+    echo ""
+    echo "Global Options:"
+    echo "  --json        Output in JSON format (machine-readable)"
+    echo "  --quiet, -q   Suppress non-essential output"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/dev.sh --json status   # JSON status output"
+    echo ""
+    echo "Exit Codes:"
+    echo "  0   (EXIT_SUCCESS)     Operation successful"
+    echo "  3   (EXIT_CONFIG)      Configuration error (.env missing)"
+    echo "  4   (EXIT_DEPENDENCY)  Missing dependency (podman/podman-compose)"
+    echo ""
+}
+
+# Handle help and unknown commands early (before dependency check)
+# This allows showing help even when podman is not installed
+VALID_COMMANDS="up|down|build|rebuild|shell|logs|test|mcp|research|status|clean|help"
+case "${1:-}" in
+    help|--help|-h|"")
+        _show_help
+        exit 0
+        ;;
+    up|down|build|rebuild|shell|logs|test|mcp|research|status|clean)
+        # Valid command, continue to dependency check
+        ;;
+    *)
+        # Unknown command - show help
+        _show_help
+        exit 0
+        ;;
+esac
+
 # Verify required commands
-require_podman_compose || exit 1
+require_podman_compose || exit $EXIT_DEPENDENCY
 
 COMPOSE="podman-compose"
 
@@ -108,7 +163,7 @@ show_logs() {
     if [ "$follow_flag" = "-f" ]; then
         $COMPOSE logs -f "${service:-}"
     else
-        # AI-friendly: no -f by default, use --tail
+        # Default: show last 50 lines without following
         $COMPOSE logs --tail=50 "${follow_flag:-}"
     fi
 }
@@ -128,13 +183,14 @@ cleanup_environment() {
     if [ -n "${image_ids:-}" ]; then
         echo "$image_ids" | xargs -r podman rmi -f 2>/dev/null || true
     fi
-    
+
     local dangling_ids
     dangling_ids=$(podman images --filter "dangling=true" -q 2>/dev/null || true)
     if [ -n "${dangling_ids:-}" ]; then
         echo "$dangling_ids" | xargs -r podman rmi -f 2>/dev/null || true
     fi
     log_info "Cleanup complete."
+    output_result "success" "Cleanup complete"
 }
 
 # =============================================================================
@@ -145,35 +201,44 @@ cmd_up() {
     # Check for .env file (required for proxy server configuration)
     if [ ! -f "${PROJECT_DIR}/.env" ]; then
         log_error ".env file not found"
-        echo "Copy from template: cp .env.example .env"
-        echo "Note: CHROME_HOST defaults to localhost (works with WSL2 mirrored networking)"
-        exit 1
+        output_result "error" ".env file not found. Copy from template: cp .env.example .env" "exit_code=$EXIT_CONFIG"
+        exit $EXIT_CONFIG
     fi
-    
+
     log_info "Starting Lyra development environment..."
     # --no-build: Require explicit build (use dev-build first)
     $COMPOSE up -d --no-build
-    echo ""
-    echo "Services started:"
-    echo "  - Tor SOCKS: localhost:9050"
-    echo "  - Lyra: Running in container"
-    echo ""
-    echo "To enter the development shell: ./scripts/dev.sh shell"
+
+    output_result "success" "Services started" \
+        "tor_socks=localhost:9050" \
+        "container=$CONTAINER_NAME"
+
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo ""
+        echo "Services started:"
+        echo "  - Tor SOCKS: localhost:9050"
+        echo "  - Lyra: Running in container"
+        echo ""
+        echo "To enter the development shell: ./scripts/dev.sh shell"
+    fi
 }
 
 cmd_down() {
     log_info "Stopping Lyra development environment..."
     $COMPOSE down
+    output_result "success" "Containers stopped"
 }
 
 cmd_build() {
     log_info "Building containers..."
     $COMPOSE build
+    output_result "success" "Build complete"
 }
 
 cmd_rebuild() {
     log_info "Rebuilding containers from scratch..."
     $COMPOSE build --no-cache
+    output_result "success" "Rebuild complete"
 }
 
 cmd_test() {
@@ -197,33 +262,32 @@ cmd_research() {
 }
 
 cmd_status() {
-    $COMPOSE ps
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        # Get container status in JSON-friendly format
+        local containers
+        containers=$($COMPOSE ps --format json 2>/dev/null || echo "[]")
+        local running="false"
+        if check_container_running "$CONTAINER_NAME"; then
+            running="true"
+        fi
+        cat <<EOF
+{
+  "status": "ok",
+  "container_running": ${running},
+  "container_name": "${CONTAINER_NAME}",
+  "containers": ${containers:-[]}
 }
-
-show_help() {
-    echo "Lyra Development Environment (Podman)"
-    echo ""
-    echo "Usage: ./scripts/dev.sh [command]"
-    echo ""
-    echo "Commands:"
-    echo "  up        Start all services"
-    echo "  down      Stop all services"
-    echo "  build     Build containers"
-    echo "  rebuild   Rebuild containers (no cache)"
-    echo "  shell     Enter development shell"
-    echo "  logs      Show logs (logs [service] or logs -f [service])"
-    echo "  test      Run tests"
-    echo "  mcp       Start MCP server"
-    echo "  research  Run research query"
-    echo "  status    Show container status"
-    echo "  clean     Remove containers and images"
-    echo ""
+EOF
+    else
+        $COMPOSE ps
+    fi
 }
 
 # =============================================================================
 # MAIN
 # =============================================================================
 
+# Note: Help and unknown commands are already handled above before dependency check
 case "${1:-help}" in
     up)
         cmd_up
@@ -268,12 +332,6 @@ case "${1:-help}" in
     clean)
         cleanup_environment
         ;;
-    
-    help|--help|-h)
-        show_help
-        ;;
-    
-    *)
-        show_help
-        ;;
+
+    # help|--help|-h|* are handled above before dependency check
 esac
