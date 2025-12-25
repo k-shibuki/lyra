@@ -297,7 +297,8 @@ make setup              # Install MCP server dependencies
 
 # 2. Configure and start services
 cp .env.example .env
-make dev-up             # Start Ollama, ML Server, Tor containers
+make dev-build          # Build containers (first time or after changes)
+make dev-up             # Start containers (requires dev-build first)
 make chrome-start       # Start Chrome with CDP
 
 # 3. Configure MCP client (see below)
@@ -319,7 +320,8 @@ All operations are available via `make`. Run `make help` for the full list.
 
 | Command | Purpose |
 |---------|---------|
-| `make dev-up` | Start containers (Ollama, ML Server, Tor) |
+| `make dev-build` | Build containers (required before dev-up) |
+| `make dev-up` | Start containers (requires dev-build first) |
 | `make dev-down` | Stop containers |
 | `make dev-shell` | Enter development shell with container network access |
 | `make dev-logs` | Show container logs (tail) |
@@ -340,10 +342,10 @@ All operations are available via `make`. Run `make help` for the full list.
 
 | Command | Purpose |
 |---------|---------|
-| `make test` | Run all tests (unit + integration) |
-| `make test-unit` | Run unit tests only |
-| `make test-e2e` | Run E2E tests |
-| `make test-check` | Check test run status |
+| `make test` | Run all tests (unit + integration, RUNTIME=container/venv) |
+| `make test-unit` | Run unit tests only (RUNTIME=container/venv) |
+| `make test-e2e` | Run E2E tests (RUNTIME=container/venv) |
+| `make test-check` | Check test run status (auto-detects runtime) |
 | `make test-env` | Show environment detection info |
 
 **Code Quality:**
