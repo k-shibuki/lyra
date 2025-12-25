@@ -22,7 +22,7 @@ enable_debug_mode
 # Set up error handler
 trap 'cleanup_on_error ${LINENO}' ERR
 
-# Parse global flags first (--json, --dry-run, --quiet)
+# Parse global flags first (--json, --quiet)
 parse_global_flags "$@"
 set -- "${GLOBAL_ARGS[@]}"
 
@@ -50,12 +50,10 @@ _show_help() {
     echo ""
     echo "Global Options:"
     echo "  --json        Output in JSON format (machine-readable)"
-    echo "  --dry-run     Simulate operations without executing"
     echo "  --quiet, -q   Suppress non-essential output"
     echo ""
     echo "Examples:"
     echo "  ./scripts/dev.sh --json status   # JSON status output"
-    echo "  ./scripts/dev.sh --dry-run clean # Show what would be deleted"
     echo ""
     echo "Exit Codes:"
     echo "  0   (EXIT_SUCCESS)     Operation successful"
@@ -175,23 +173,7 @@ show_logs() {
 #             Removes all Lyra containers, volumes, and images
 # Returns:
 #   0: Success
-# Supports: --dry-run flag
 cleanup_environment() {
-    if dry_run_guard "Remove all Lyra containers, volumes, and images"; then
-        # Show what would be deleted
-        local image_ids
-        image_ids=$(podman images --filter "reference=lyra*" -q 2>/dev/null || true)
-        local dangling_ids
-        dangling_ids=$(podman images --filter "dangling=true" -q 2>/dev/null || true)
-        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-            echo "[DRY-RUN] Would remove:"
-            echo "  - All Lyra containers and volumes"
-            [[ -n "${image_ids:-}" ]] && echo "  - Lyra images: $(echo "$image_ids" | wc -l) image(s)"
-            [[ -n "${dangling_ids:-}" ]] && echo "  - Dangling images: $(echo "$dangling_ids" | wc -l) image(s)"
-        fi
-        return $EXIT_SUCCESS
-    fi
-
     log_info "Cleaning up containers and images..."
     $COMPOSE down --volumes
     # Remove project images manually (podman-compose doesn't support --rmi)
@@ -223,10 +205,6 @@ cmd_up() {
         exit $EXIT_CONFIG
     fi
 
-    if dry_run_guard "Start containers with podman-compose up -d"; then
-        return $EXIT_SUCCESS
-    fi
-
     log_info "Starting Lyra development environment..."
     # --no-build: Require explicit build (use dev-build first)
     $COMPOSE up -d --no-build
@@ -246,27 +224,18 @@ cmd_up() {
 }
 
 cmd_down() {
-    if dry_run_guard "Stop containers with podman-compose down"; then
-        return $EXIT_SUCCESS
-    fi
     log_info "Stopping Lyra development environment..."
     $COMPOSE down
     output_result "success" "Containers stopped"
 }
 
 cmd_build() {
-    if dry_run_guard "Build containers with podman-compose build"; then
-        return $EXIT_SUCCESS
-    fi
     log_info "Building containers..."
     $COMPOSE build
     output_result "success" "Build complete"
 }
 
 cmd_rebuild() {
-    if dry_run_guard "Rebuild containers with podman-compose build --no-cache"; then
-        return $EXIT_SUCCESS
-    fi
     log_info "Rebuilding containers from scratch..."
     $COMPOSE build --no-cache
     output_result "success" "Rebuild complete"

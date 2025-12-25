@@ -38,7 +38,7 @@ trap 'cleanup_on_error ${LINENO}' ERR
 # CONFIGURATION
 # =============================================================================
 
-# Parse global flags first (--json, --dry-run, --quiet)
+# Parse global flags first (--json, --quiet)
 parse_global_flags "$@"
 set -- "${GLOBAL_ARGS[@]}"
 
@@ -1125,7 +1125,6 @@ show_help() {
     echo ""
     echo "Global Options:"
     echo "  --json        Output in JSON format (machine-readable)"
-    echo "  --dry-run     Simulate operations without executing"
     echo "  --quiet, -q   Suppress non-essential output"
     echo ""
     echo "Pattern:"

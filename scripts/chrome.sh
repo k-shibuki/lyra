@@ -29,7 +29,7 @@ enable_debug_mode
 # Set up error handler
 trap 'cleanup_on_error ${LINENO}' ERR
 
-# Parse global flags first (--json, --dry-run, --quiet)
+# Parse global flags first (--json, --quiet)
 parse_global_flags "$@"
 set -- "${GLOBAL_ARGS[@]}"
 
@@ -759,14 +759,12 @@ show_help() {
     echo ""
     echo "Global Options:"
     echo "  --json        Output in JSON format (machine-readable)"
-    echo "  --dry-run     Simulate operations without executing"
     echo "  --quiet, -q   Suppress non-essential output"
     echo ""
     echo "Default port: $CHROME_PORT (from .env: LYRA_BROWSER__CHROME_PORT)"
     echo ""
     echo "Examples:"
     echo "  ./scripts/chrome.sh --json check    # JSON status check"
-    echo "  ./scripts/chrome.sh --dry-run start # Show what would be done"
     echo ""
     echo "Exit Codes:"
     echo "  0   (EXIT_SUCCESS)   Chrome is ready"

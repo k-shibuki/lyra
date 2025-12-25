@@ -14,7 +14,6 @@
 #   - Error handling utilities
 #   - Standardized exit codes
 #   - JSON output support (--json flag)
-#   - Dry-run mode support (--dry-run flag)
 #
 # Script Dependencies:
 #   common.sh  <- (base, no dependencies)
@@ -73,10 +72,6 @@ export EXIT_CONTAINER=32         # Container operation failed
 # JSON output mode (set via --json flag)
 # When true, commands output JSON instead of human-readable text
 export LYRA_OUTPUT_JSON="${LYRA_OUTPUT_JSON:-false}"
-
-# Dry-run mode (set via --dry-run flag)
-# When true, destructive operations are simulated but not executed
-export LYRA_DRY_RUN="${LYRA_DRY_RUN:-false}"
 
 # Quiet mode (set via --quiet or -q flag)
 # When true, suppress non-essential output
@@ -334,53 +329,20 @@ output_result() {
     fi
 }
 
-# =============================================================================
-# DRY-RUN UTILITIES
-# =============================================================================
-
-# Function: dry_run_guard
-# Description: Check if in dry-run mode and log intended action
-# Arguments:
-#   $1: Action description (what would be done)
-# Returns:
-#   0: Dry-run mode is active (caller should skip the action)
-#   1: Normal mode (caller should proceed with action)
-# Example:
-#   if dry_run_guard "Delete container 'lyra'"; then
-#       return 0  # Skip actual deletion
-#   fi
-#   podman rm lyra  # Actually delete
-dry_run_guard() {
-    local action="$1"
-    if [[ "$LYRA_DRY_RUN" == "true" ]]; then
-        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
-            json_output "{$(json_kv "dry_run" "true"), $(json_kv "action" "$action")}"
-        else
-            echo "[DRY-RUN] Would: $action"
-        fi
-        return 0
-    fi
-    return 1
-}
-
 # Function: parse_global_flags
-# Description: Parse global flags (--json, --dry-run, --quiet) from arguments
+# Description: Parse global flags (--json, --quiet) from arguments
 # Arguments:
 #   $@: Command line arguments
 # Returns:
 #   Remaining arguments after removing global flags (via GLOBAL_ARGS array)
 # Side effects:
-#   Sets LYRA_OUTPUT_JSON, LYRA_DRY_RUN, LYRA_QUIET
+#   Sets LYRA_OUTPUT_JSON, LYRA_QUIET
 parse_global_flags() {
     GLOBAL_ARGS=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --json)
                 export LYRA_OUTPUT_JSON="true"
-                shift
-                ;;
-            --dry-run)
-                export LYRA_DRY_RUN="true"
                 shift
                 ;;
             --quiet|-q)

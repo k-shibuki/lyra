@@ -5,7 +5,6 @@
 #
 # Features:
 #   - JSON output: make test-env-json, make dev-status-json, make chrome-json
-#   - Dry-run mode: make dev-clean-dry, make dev-rebuild-dry
 #   - Standardized exit codes (see scripts/common.sh)
 #
 # Script Dependencies:
@@ -131,7 +130,7 @@ test-scripts: ## Run shell script tests
 	@$(SCRIPTS)/test_scripts.sh
 
 # =============================================================================
-# AI-FRIENDLY TARGETS (JSON output, dry-run)
+# JSON OUTPUT TARGETS
 # =============================================================================
 # These targets provide machine-readable output for AI agents and automation.
 
@@ -146,12 +145,6 @@ dev-status-json: ## Show container status (JSON output)
 
 chrome-json: ## Check Chrome CDP status (JSON output)
 	@$(SCRIPTS)/chrome.sh --json check
-
-dev-clean-dry: ## Preview container cleanup (dry-run)
-	@$(SCRIPTS)/dev.sh --dry-run clean
-
-dev-rebuild-dry: ## Preview container rebuild (dry-run)
-	@$(SCRIPTS)/dev.sh --dry-run rebuild
 
 # =============================================================================
 # CODE QUALITY
@@ -201,7 +194,7 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Development:"
-	@grep -E '^dev-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json\|\-dry' | \
+	@grep -E '^dev-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "MCP:"
@@ -216,8 +209,8 @@ help: ## Show this help
 	@grep -E '^test[a-zA-Z0-9_-]*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Machine-Readable:"
-	@grep -E '^(test|dev|chrome)[a-zA-Z0-9_-]*-(json|dry):.*?## .*$$' $(MAKEFILE_LIST) | \
+	@echo "Machine-Readable (JSON):"
+	@grep -E '^(test|dev|chrome)[a-zA-Z0-9_-]*-json:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Code Quality:"
