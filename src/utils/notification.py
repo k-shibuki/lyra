@@ -649,8 +649,10 @@ def get_intervention_manager() -> InterventionManager:
 
 
 # ============================================================
-# Batch Notification Manager (ADR-0007 Phase 4 Integration)
+# Batch Notification Manager
 # ============================================================
+# Per ADR-0007: Human-in-the-Loop Authentication
+# Integrates with search queue workers for authentication workflow
 
 
 class BatchNotificationManager:
@@ -818,7 +820,7 @@ class InterventionQueue:
     ) -> str:
         """Add URL to authentication queue.
 
-        Per ADR-0007: Human-in-the-Loop Authentication with Phase 4 integration.
+        Per ADR-0007: Human-in-the-Loop Authentication.
         When search_job_id is provided, resolve_auth will auto-requeue the job.
 
         Args:

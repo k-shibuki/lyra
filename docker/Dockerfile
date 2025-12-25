@@ -1,13 +1,17 @@
 # Lyra Development Container
-# Python 3.12 + CUDA support for GPU inference
+# Python 3.13 + uv package manager
+# Note: Python 3.14 not yet supported (paddlepaddle OCR lacks cp314 wheels)
 
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.13-slim-bookworm AS base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+# Install uv (from official image)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -66,18 +70,21 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearm
 # Create app directory
 WORKDIR /app
 
-# Copy requirements first for caching
-COPY requirements.txt .
+# Copy dependency files first for caching
+# README.md is required by pyproject.toml (readme field) for uv run
+COPY pyproject.toml uv.lock README.md ./
 
-# Install Python dependencies (including dev tools)
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir ipython pytest-watch
+# Install Python dependencies with uv (MCP + browser + extraction + tor + dev + test)
+RUN uv sync --frozen --no-install-project --extra mcp --extra browser --extra extraction --extra tor --extra dev --extra test
 
 # Install Playwright browsers
-RUN playwright install chromium --with-deps
+RUN uv run playwright install chromium --with-deps
 
 # Copy application code
 COPY . .
+
+# Install the project itself
+RUN uv sync --frozen --extra mcp --extra browser --extra extraction --extra tor --extra dev --extra test
 
 # Create necessary directories
 RUN mkdir -p data/cache data/warc data/screenshots data/reports logs models
@@ -86,7 +93,7 @@ RUN mkdir -p data/cache data/warc data/screenshots data/reports logs models
 ENV PYTHONPATH=/app
 
 # Default command: run proxy server for hybrid mode
-CMD ["python", "-m", "src.proxy.server"]
+CMD ["uv", "run", "python", "-m", "src.proxy.server"]
 
 # ---
 # GPU-enabled variant (for systems with NVIDIA GPU)
@@ -95,9 +102,8 @@ FROM base AS gpu
 
 # Install CUDA-related packages (if available)
 # Note: For full GPU support, use nvidia/cuda base image
-RUN pip install --no-cache-dir \
+RUN uv pip install --system \
     torch --index-url https://download.pytorch.org/whl/cu121 || \
-    pip install --no-cache-dir torch
+    uv pip install --system torch
 
 # Note: HEALTHCHECK removed - not supported by Podman OCI format
-

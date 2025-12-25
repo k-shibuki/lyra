@@ -40,14 +40,14 @@ TEMPORAL_IMPOSSIBILITY_THRESHOLD_DAYS = 7  # Allow 7 days buffer for timezone is
 DATE_PATTERNS = [
     # ISO format: 2024-01-15, 2024/01/15
     r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})",
-    # Japanese format: 2024年1月15日
+    # Japanese format: YYYY年MM月DD日
     r"(\d{4})年(\d{1,2})月(\d{1,2})日",
     # Month name format: January 15, 2024 or 15 January 2024
     r"(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})",
     r"(\d{1,2})\s+(?:January|February|March|April|May|June|July|August|September|October|November|December),?\s+(\d{4})",
     # Abbreviated month: Jan 15, 2024
     r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})",
-    # Year only: 2024, 令和6年
+    # Year only: 2024, Reiwa 6 (令和6年)
     r"\b(20\d{2})\b",
     r"令和(\d+)年",
     r"平成(\d+)年",
@@ -244,7 +244,7 @@ class DateExtractor:
                         confidence=0.95,
                     )
 
-            # Japanese format: YYYY年MM月DD日
+            # Japanese format: YYYY年MM月DD日 (year month day)
             if "年" in pattern and "月" in pattern:
                 if len(groups) >= 3:
                     return DateExtraction(
@@ -286,10 +286,10 @@ class DateExtractor:
                             confidence=0.5,
                         )
 
-            # Japanese era: 令和, 平成
+            # Japanese era: Reiwa (令和), Heisei (平成)
             if "令和" in pattern:
                 era_year = int(groups[0])
-                # 令和1年 = 2019年
+                # Reiwa 1 = 2019
                 return DateExtraction(
                     year=2018 + era_year,
                     source="reiwa_era",
@@ -298,7 +298,7 @@ class DateExtractor:
 
             if "平成" in pattern:
                 era_year = int(groups[0])
-                # 平成1年 = 1989年
+                # Heisei 1 = 1989
                 return DateExtraction(
                     year=1988 + era_year,
                     source="heisei_era",

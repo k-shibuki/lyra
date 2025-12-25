@@ -875,9 +875,10 @@ class TestExplorationStateEvent:
 
 
 class TestSearchQueuePerformance:
-    """Performance tests for search queue (Phase 3).
+    """Performance tests for search queue.
 
     Tests large queue processing, worker stability, priority ordering, and concurrency.
+    See ADR-0010 for async search queue architecture.
 
     ## Test Perspectives Table (Performance)
 

@@ -46,7 +46,7 @@ from src.utils.config import (
 
 
 @pytest.fixture
-def temp_config_dir() -> Generator[Path, None, None]:
+def temp_config_dir() -> Generator[Path]:
     """Create temporary config directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)

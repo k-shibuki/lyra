@@ -2,99 +2,55 @@
 
 ## Purpose
 
-Reference for project helper scripts (`scripts/*.sh`).
+Reference for project development commands.
 
-## `dev.sh` (development environment)
+## Unified Interface: Makefile
 
-```bash
-./scripts/dev.sh up        # Start container
-./scripts/dev.sh down      # Stop container
-./scripts/dev.sh shell     # Open dev shell
-./scripts/dev.sh build     # Build container
-./scripts/dev.sh rebuild   # Rebuild without cache
-./scripts/dev.sh logs      # Show logs (last 50 lines, non-hanging)
-./scripts/dev.sh logs -f   # Follow logs (Ctrl+C to stop)
-./scripts/dev.sh status    # Container status
-./scripts/dev.sh test      # Run tests inside container
-./scripts/dev.sh mcp       # Start MCP server
-./scripts/dev.sh research  # Run research query
-./scripts/dev.sh clean     # Remove container/images
-```
-
-Notes:
-- `dev.sh` uses `podman-compose` under the hood (see `scripts/dev.sh` header).
-- `./scripts/dev.sh test` runs `pytest tests/ -v` inside the container and does **not** accept extra args.
-  - To run an arbitrary command inside the container, use `./scripts/dev.sh shell` and run it there.
-
-## `test.sh` (test runner, AI-friendly)
+All development operations are available via `make`. Run `make help` for the full list of available commands.
 
 ```bash
-./scripts/test.sh run [--container|--venv|--auto] [--name NAME] [--] [pytest_args...]  # Start tests (default: tests/)
-./scripts/test.sh check [run_id]  # Wait until DONE and print result (use run_id from run output)
-./scripts/test.sh kill [run_id]   # Kill pytest for specific run
-./scripts/test.sh kill --all      # Kill all pytest + clean up all result files
-./scripts/test.sh env             # Show environment info (venv/container/cloud-agent detection)
+make help
 ```
 
-Notes:
-- `test.sh` accepts **any pytest args** after `run` (e.g. `tests/test_x.py::TestY -k foo -q`).
-- **`test.sh` is pytest-only**. For debug scripts (standalone Python), run directly:
-  ```bash
-  ./.venv/bin/python tests/scripts/debug_{feature}_flow.py
-  ```
-- Default runtime is **auto=container > venv**:
-  - If a container named `$CONTAINER_NAME` (default: `lyra`) is running, tests run in that container.
-  - Otherwise tests run in the local WSL venv (`.venv`).
-- You can force the runtime:
-  - `--container`: require container (fails if not running)
-  - `--venv`: force local venv
-  - `--name NAME`: override container name
-- Each `run` generates a unique `run_id` and displays it. Use this `run_id` with `check`/`kill`.
-- Result files are stored in `/tmp/lyra_test/` with unique filenames per run.
+### Quick Reference
 
-Polling pattern:
+| Category | Command | Purpose |
+|----------|---------|---------|
+| **Setup** | `make setup` | Install dependencies (MCP extras) |
+| | `make setup-full` | Install all dependencies |
+| | `make setup-dev` | Install development dependencies |
+| **Development** | `make dev-up` | Start containers |
+| | `make dev-down` | Stop containers |
+| | `make dev-shell` | Enter development shell |
+| | `make dev-logs` | Show container logs |
+| | `make dev-status` | Container status |
+| **Testing** | `make test` | Run all tests |
+| | `make test-unit` | Run unit tests only |
+| | `make test-check` | Check test run status |
+| | `make test-kill` | Kill running tests |
+| | `make test-env` | Show environment info |
+| **Chrome** | `make chrome` | Check Chrome CDP status |
+| | `make chrome-start` | Start Chrome with CDP |
+| | `make chrome-stop` | Stop Chrome |
+| | `make chrome-diagnose` | Diagnose connectivity |
+| **Quality** | `make lint` | Run linters |
+| | `make format` | Format code |
+| | `make typecheck` | Run type checker |
+| | `make quality` | All quality checks |
+| **MCP** | `make mcp` | Start MCP server |
+| **Cleanup** | `make clean` | Clean temporary files |
+| | `make clean-all` | Clean everything |
 
-```bash
-./scripts/test.sh run tests/
-# Output: "Started. To check results: ./scripts/test.sh check 20251224_123456_12345"
-./scripts/test.sh check 20251224_123456_12345
-```
+## Direct Script Access (advanced)
 
-Completion logic:
+For fine-grained control, scripts are available under `scripts/`:
 
-- `check` returns `DONE` when pytest summary line exists AND pytest process has exited
-- `check` shows summary first, then tail of output with line count info
+| Script | Purpose |
+|--------|---------|
+| `scripts/test.sh` | Test runner with run_id tracking |
+| `scripts/dev.sh` | Container management |
+| `scripts/chrome.sh` | Chrome CDP management |
+| `scripts/mcp.sh` | MCP server launcher |
+| `scripts/common.sh` | Shared utilities (source only) |
 
-## `chrome.sh` (Chrome management)
-
-```bash
-./scripts/chrome.sh check [port]     # Check connectivity
-./scripts/chrome.sh start [port]     # Start Chrome (isolated profile)
-./scripts/chrome.sh stop [port]      # Stop Chrome
-./scripts/chrome.sh diagnose [port]  # Diagnose connectivity (WSL)
-./scripts/chrome.sh fix [port]       # Auto-fix WSL2 networking
-```
-
-Default port: `.env` key `LYRA_BROWSER__CHROME_PORT` (default: 9222).
-Chrome uses a dedicated `LyraChrome` profile to avoid affecting existing sessions.
-
-## `mcp.sh` (MCP server)
-
-```bash
-./scripts/mcp.sh
-```
-
-If the container is not running, it will run `dev.sh up`. Search tools require Chrome connectivity; if missing, follow the error guidance to run `chrome.sh start`.
-
-## `common.sh` (shared utilities)
-
-```bash
-source scripts/common.sh  # Do not execute directly; source from other scripts
-```
-
-Provides:
-
-- `.env` loading
-- Logging helpers (`log_info`, `log_warn`, `log_error`)
-- Container helpers (`check_container_running`, `wait_for_container`)
-- Shared constants (`CHROME_PORT`, `CONTAINER_NAME`, etc.)
+**Note**: Prefer `make` commands for consistency. Use scripts directly only when fine-grained control is needed (e.g., `./scripts/test.sh run tests/test_xxx.py -k specific_test`).

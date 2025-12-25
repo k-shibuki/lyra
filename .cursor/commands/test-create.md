@@ -42,11 +42,22 @@ Design and implement tests for the implemented change.
 
 ## Running tests (recommended)
 
-Use `scripts/test.sh` (async + polling):
+Use `make` commands (run `make help` for all options).
+
+> **CRITICAL:** Always capture `run_id` from `make test` output and pass it to `make test-check RUN_ID=xxx`.
 
 ```bash
-./scripts/test.sh run "tests/test_xxx.py"
-./scripts/test.sh check
+make test
+# Output shows: run_id: 20251225_123456_12345
+make test-check RUN_ID=<run_id_from_output>
+```
+
+For specific test files:
+
+```bash
+make test-scoped TARGET="tests/test_xxx.py"
+# Output shows: run_id: 20251225_123456_12345
+make test-check RUN_ID=<run_id_from_output>
 ```
 
 ## Output (response format)

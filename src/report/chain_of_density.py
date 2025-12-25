@@ -191,58 +191,58 @@ class DenseSummary:
 
 
 # LLM prompts for Chain-of-Density compression
-INITIAL_SUMMARY_PROMPT = """あなたは情報要約の専門家です。以下の情報を要約してください。
+INITIAL_SUMMARY_PROMPT = """You are an expert in information summarization. Summarize the following information.
 
-【入力情報】
+[Input Information]
 {content}
 
-【要件】
-1. 主要な事実と主張を抽出する
-2. 各主張に対応する出典情報を保持する
-3. 100-150語程度の要約を作成する
-4. 重要なエンティティ（人名、組織名、日付、数値）を含める
+[Requirements]
+1. Extract key facts and claims
+2. Preserve source information corresponding to each claim
+3. Create a summary of approximately 100-150 words
+4. Include important entities (person names, organization names, dates, numbers)
 
-【出力形式】
-JSON形式で以下を出力:
+[Output Format]
+Output the following in JSON format:
 {{
-  "summary": "要約テキスト",
-  "entities": ["エンティティ1", "エンティティ2", ...],
+  "summary": "summary text",
+  "entities": ["entity1", "entity2", ...],
   "claims": [
     {{
-      "text": "主張テキスト",
-      "source_indices": [0, 1]  // 入力情報のインデックス
+      "text": "claim text",
+      "source_indices": [0, 1]  // indices of input information
     }}
   ]
 }}
 
-JSON出力のみを返してください:"""
+Return only JSON output:"""
 
-DENSIFY_PROMPT = """あなたは情報圧縮の専門家です。以下の要約をより密度の高いものに改善してください。
+DENSIFY_PROMPT = """You are an expert in information compression. Improve the following summary to be more dense.
 
-【現在の要約】
+[Current Summary]
 {current_summary}
 
-【元の情報】
+[Original Information]
 {original_content}
 
-【欠落しているエンティティ】
+[Missing Entities]
 {missing_entities}
 
-【要件】
-1. 要約の長さを維持しながら、より多くの重要情報を含める
-2. 欠落しているエンティティを可能な限り含める
-3. 各主張の出典情報を保持する
-4. 冗長な表現を削除し、情報密度を高める
-5. 100-150語程度を維持する
+[Requirements]
+1. Include more important information while maintaining summary length
+2. Include missing entities as much as possible
+3. Preserve source information for each claim
+4. Remove redundant expressions and increase information density
+5. Maintain approximately 100-150 words
 
-【出力形式】
-JSON形式で以下を出力:
+[Output Format]
+Output the following in JSON format:
 {{
-  "summary": "改善された要約テキスト",
-  "entities": ["エンティティ1", "エンティティ2", ...],
+  "summary": "improved summary text",
+  "entities": ["entity1", "entity2", ...],
   "claims": [
     {{
-      "text": "主張テキスト",
+      "text": "claim text",
       "source_indices": [0, 1]
     }}
   ]

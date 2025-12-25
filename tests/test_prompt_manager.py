@@ -31,7 +31,7 @@ from src.utils.prompt_manager import (
 
 
 @pytest.fixture
-def temp_prompts_dir() -> Generator[Path, None, None]:
+def temp_prompts_dir() -> Generator[Path]:
     """Create a temporary prompts directory with test templates."""
     with tempfile.TemporaryDirectory() as tmpdir:
         prompts_dir = Path(tmpdir) / "prompts"
@@ -59,7 +59,7 @@ def real_manager() -> PromptManager:
 
 
 @pytest.fixture(autouse=True)
-def reset_singleton() -> Generator[None, None, None]:
+def reset_singleton() -> Generator[None]:
     """Reset the global singleton before and after each test."""
     reset_prompt_manager()
     yield

@@ -65,7 +65,7 @@ from src.filter.provider import (
 
 
 @pytest.fixture(autouse=True)
-def reset_registry() -> Generator[None, None, None]:
+def reset_registry() -> Generator[None]:
     """Reset global registry before each test."""
     reset_llm_registry()
     yield
@@ -1291,9 +1291,10 @@ class TestLLMModuleIntegration:
         mock_provider = AsyncMock()
         mock_provider.name = "mock"
         mock_provider.model = "test-model"  # Single model per ADR-0004
+        # Use output that doesn't match prompt template to avoid leakage detection
         mock_provider.generate = AsyncMock(
             return_value=LLMResponse.success(
-                text='[{"fact": "Test fact", "confidence": 0.9}]',
+                text='[{"fact": "Python is a programming language", "confidence": 0.95}]',
                 model="test",
                 provider="mock",
             )
@@ -1309,7 +1310,7 @@ class TestLLMModuleIntegration:
         assert result["ok"] is True
         assert result["task"] == "extract_facts"
         assert len(result["facts"]) == 1
-        assert result["facts"][0]["fact"] == "Test fact"
+        assert result["facts"][0]["fact"] == "Python is a programming language"
 
     @pytest.mark.asyncio
     async def test_generate_with_provider_function(self) -> None:

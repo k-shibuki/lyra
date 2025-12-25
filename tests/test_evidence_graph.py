@@ -639,8 +639,8 @@ class TestClaimConfidence:
 class TestIndependentSourcesFromFragments:
     """Tests for independent_sources calculation from FRAGMENT→CLAIM edges.
 
-    These tests ensure the fix for EVIDENCE_SYSTEM_CURRENT_STATUS.md inconsistency #2:
-    independent_sources should count unique pages when evidence comes from fragments.
+    These tests ensure independent_sources correctly counts unique pages
+    when evidence comes from fragments (not just unique domains).
 
     Test matrix:
     | Case ID     | Input                                | Expected                      |

@@ -141,7 +141,7 @@ def mock_playwright(mock_browser: AsyncMock) -> AsyncMock:
 
 
 @pytest.fixture(autouse=True)
-def mock_human_behavior_simulator() -> Generator[Any, None, None]:
+def mock_human_behavior_simulator() -> Generator[Any]:
     """Mock get_human_behavior_simulator to avoid coroutine warnings."""
     mock_simulator = MagicMock()
     mock_simulator.read_page = AsyncMock()
@@ -158,7 +158,7 @@ def mock_human_behavior_simulator() -> Generator[Any, None, None]:
 
 
 @pytest.fixture
-def mock_tab_pool_and_rate_limiter(mock_page: AsyncMock) -> Generator[Any, None, None]:
+def mock_tab_pool_and_rate_limiter(mock_page: AsyncMock) -> Generator[Any]:
     """Mock TabPool and EngineRateLimiter for browser search provider tests.
 
     Per ADR-0014: BrowserSearchProvider uses TabPool and EngineRateLimiter.
@@ -190,7 +190,7 @@ def mock_tab_pool_and_rate_limiter(mock_page: AsyncMock) -> Generator[Any, None,
 
 
 @pytest.fixture(autouse=True)
-def reset_provider() -> Generator[None, None, None]:
+def reset_provider() -> Generator[None]:
     """Reset provider and tab pool/rate limiter before each test."""
     import asyncio
 
@@ -218,7 +218,7 @@ def reset_provider() -> Generator[None, None, None]:
 @pytest.fixture
 def browser_search_provider(
     mock_human_behavior_simulator: MagicMock,
-) -> Generator[BrowserSearchProvider, None, None]:
+) -> Generator[BrowserSearchProvider]:
     """Create a properly managed BrowserSearchProvider for tests.
 
     Ensures the provider is properly closed after each test to prevent
@@ -3060,6 +3060,9 @@ class TestQueryNormalization:
                 patch(
                     "src.search.browser_search_provider.get_engine_config_manager"
                 ) as mock_get_config_manager,
+                patch(
+                    "src.search.browser_search_provider.get_policy_engine"
+                ) as mock_get_policy_engine,
             ):
                 mock_config_manager = MagicMock()
                 mock_engine_config = MagicMock()
@@ -3075,6 +3078,11 @@ class TestQueryNormalization:
                 )
                 mock_config_manager.get_engine.return_value = mock_engine_config
                 mock_get_config_manager.return_value = mock_config_manager
+
+                # Mock policy engine for dynamic weight calculation
+                mock_policy_engine = AsyncMock()
+                mock_policy_engine.get_dynamic_engine_weight = AsyncMock(return_value=0.7)
+                mock_get_policy_engine.return_value = mock_policy_engine
 
                 with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
                     mock_parser = MagicMock()
@@ -3100,19 +3108,51 @@ class TestQueryNormalization:
                         mock_page.query_selector_all = AsyncMock(return_value=[])
                         mock_page.is_closed = MagicMock(return_value=False)
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    # Given: Empty query
-                                    query = ""
+                        mock_context = MagicMock()
+                        with patch.object(provider, "_ensure_browser", AsyncMock()):
+                            with patch.object(provider, "_context", mock_context):
+                                mock_tab = AsyncMock()
+                                mock_tab.goto = AsyncMock(return_value=MagicMock(status=200))
+                                mock_tab.wait_for_load_state = AsyncMock()
+                                mock_tab.content = AsyncMock(
+                                    return_value="<html><body>Test</body></html>"
+                                )
+                                mock_tab.query_selector_all = AsyncMock(return_value=[])
+                                mock_tab.is_closed = MagicMock(return_value=False)
+                                mock_tab_pool = MagicMock()
+                                mock_tab_pool.acquire = AsyncMock(return_value=mock_tab)
+                                mock_tab_pool.release = MagicMock()  # release() is sync
+                                mock_rate_limiter = MagicMock()
+                                mock_rate_limiter.acquire = AsyncMock()
+                                mock_rate_limiter.release = MagicMock()  # release() is sync
+                                with patch.object(provider, "_tab_pool", mock_tab_pool):
+                                    with patch.object(
+                                        provider, "_engine_rate_limiter", mock_rate_limiter
+                                    ):
+                                        with patch.object(
+                                            provider, "_get_page", AsyncMock(return_value=mock_page)
+                                        ):
+                                            with patch.object(
+                                                provider, "_save_session", AsyncMock()
+                                            ):
+                                                with patch.object(
+                                                    provider, "_rate_limit", AsyncMock()
+                                                ):
+                                                    # Given: Empty query
+                                                    query = ""
 
-                                    # When: search() is called
-                                    await provider.search(query)
+                                                    # When: search() is called
+                                                    await provider.search(query)
 
-                                    # Then: parser.build_search_url was called with empty query
-                                    call_args = mock_parser.build_search_url.call_args
-                                    normalized_query = call_args.kwargs.get("query")
-                                    assert normalized_query == ""
+                                                    # Then: parser.build_search_url was called with empty query
+                                                    call_args = (
+                                                        mock_parser.build_search_url.call_args
+                                                    )
+                                                    assert call_args is not None, (
+                                                        "build_search_url should be called"
+                                                    )
+                                                    normalized_query = call_args.kwargs.get("query")
+                                                    assert normalized_query == ""
 
         await provider.close()
 

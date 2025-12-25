@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS intervention_log (
 CREATE INDEX IF NOT EXISTS idx_intervention_task ON intervention_log(task_id);
 
 -- Intervention Queue: Authentication queue (semi-automated operation)
--- Per ADR-0007: Human-in-the-Loop Authentication with Phase 4 integration
+-- Per ADR-0007: Human-in-the-Loop Authentication
 CREATE TABLE IF NOT EXISTS intervention_queue (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL,

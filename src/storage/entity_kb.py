@@ -68,7 +68,7 @@ CORPORATE_SUFFIXES = {
     "（有）": "YK",
 }
 
-# Japanese prefixed suffixes (株式会社 at the beginning)
+# Japanese prefixed suffixes (e.g., 株式会社 at the beginning)
 JAPANESE_PREFIX_SUFFIXES = {
     "株式会社": "KK",
     "有限会社": "YK",
@@ -339,13 +339,13 @@ class NameNormalizer:
             pattern = re.compile(rf"(?:^|\s){re.escape(suffix)}\.?(?:\s|$)", re.IGNORECASE)
             self._suffix_patterns.append((pattern, normalized, suffix))
 
-        # Japanese prefix patterns (株式会社テスト -> テスト KK)
+        # Japanese prefix patterns (e.g., 株式会社テスト -> テスト KK)
         self._jp_prefix_patterns: list[tuple[re.Pattern, str]] = []
         for prefix, normalized in JAPANESE_PREFIX_SUFFIXES.items():
             pattern = re.compile(rf"^{re.escape(prefix)}(.+)$")
             self._jp_prefix_patterns.append((pattern, normalized))
 
-        # Japanese parenthetical patterns (株) at beginning
+        # Japanese parenthetical patterns (e.g., (株) at beginning)
         self._jp_paren_patterns: list[tuple[re.Pattern, str]] = [
             (re.compile(r"^\(株\)(.+)$"), "KK"),
             (re.compile(r"^（株）(.+)$"), "KK"),
@@ -433,14 +433,14 @@ class NameNormalizer:
         Returns:
             Tuple of (name without suffix, normalized suffix).
         """
-        # Check Japanese parenthetical patterns first ((株)サンプル)
+        # Check Japanese parenthetical patterns first (e.g., (株)サンプル)
         for pattern, normalized_suffix in self._jp_paren_patterns:
             match = pattern.match(name)
             if match:
                 company_name = match.group(1).strip()
                 return (company_name, normalized_suffix)
 
-        # Check Japanese prefix patterns (株式会社テスト)
+        # Check Japanese prefix patterns (e.g., 株式会社テスト)
         for pattern, normalized_suffix in self._jp_prefix_patterns:
             match = pattern.match(name)
             if match:
@@ -448,7 +448,7 @@ class NameNormalizer:
                 company_name = match.group(1).strip()
                 return (company_name, normalized_suffix)
 
-        # Check suffix patterns (テスト株式会社, Example Corp, Acme Inc.)
+        # Check suffix patterns (e.g., テスト株式会社, Example Corp, Acme Inc.)
         for pattern, normalized_suffix, _original_suffix in self._suffix_patterns:
             if pattern.search(name):
                 # Remove the suffix from name

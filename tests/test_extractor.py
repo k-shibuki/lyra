@@ -40,14 +40,14 @@ _SKIP_MSG_FITZ = (
     "Requires PyMuPDF (fitz). "
     "PDF extraction runs in ML container. "
     "Run tests in container: podman exec lyra pytest tests/test_extractor.py, "
-    "or install: pip install PyMuPDF"
+    "or install: uv sync --extra extraction"
 )
 
 _SKIP_MSG_PIL = (
     "Requires Pillow (PIL). "
     "OCR functionality runs in ML container. "
     "Run tests in container: podman exec lyra pytest tests/test_extractor.py, "
-    "or install: pip install Pillow"
+    "or install: uv sync --extra ocr"
 )
 
 # Decorators for skipping tests based on optional dependencies

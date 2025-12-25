@@ -561,7 +561,7 @@ class TestStartSession:
     """
 
     @pytest.fixture(autouse=True)
-    def mock_browser_fetcher(self) -> Generator[None, None, None]:
+    def mock_browser_fetcher(self) -> Generator[None]:
         """Mock BrowserFetcher to prevent actual CDP connection in unit tests."""
         with patch("src.crawler.fetcher.BrowserFetcher") as mock_fetcher_class:
             mock_fetcher = mock_fetcher_class.return_value

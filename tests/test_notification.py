@@ -95,7 +95,7 @@ def mock_settings() -> MagicMock:
 @pytest.fixture
 def intervention_manager(
     mock_settings: MagicMock, mock_db: AsyncMock
-) -> Generator[InterventionManager, None, None]:
+) -> Generator[InterventionManager]:
     """Create InterventionManager with mocked dependencies.
 
     Per .1.7: External services should be mocked in unit tests.

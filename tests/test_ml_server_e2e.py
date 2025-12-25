@@ -46,7 +46,7 @@ class TestMLServerE2E:
     """E2E tests for ML Server API."""
 
     @pytest.fixture
-    async def ml_client(self) -> AsyncGenerator["MLClient", None]:
+    async def ml_client(self) -> AsyncGenerator["MLClient"]:
         """Create ML client (async fixture for proper cleanup)."""
         from src.ml_client import MLClient
 

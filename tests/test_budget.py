@@ -664,7 +664,7 @@ class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
     @pytest.fixture(autouse=True)
-    def reset_global_manager(self) -> Generator[None, None, None]:
+    def reset_global_manager(self) -> Generator[None]:
         """Reset global budget manager between tests."""
         import src.scheduler.budget as budget_module
 

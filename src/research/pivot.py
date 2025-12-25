@@ -590,7 +590,7 @@ def detect_entity_type(text: str) -> EntityType | None:
         if re.search(pattern, text_lower):
             return EntityType.DOMAIN
 
-    # Location patterns (check BEFORE person - 都/県/市 are distinctive)
+    # Location patterns (check BEFORE person - 都/県/市 are distinctive Japanese location suffixes)
     location_patterns = [
         r"(都|道|府|県|市|区|町|村)$",  # Japanese administrative units
         r"(東京|大阪|名古屋|福岡|札幌|横浜|神戸|京都)",

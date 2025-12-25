@@ -205,7 +205,7 @@ NLIモデル（DeBERTa-v3-xsmall/small）は事前学習済みモデルであり
 | `src/ml_server/main.py` | アダプタ管理エンドポイント追加 | 高 |
 | `scripts/train_lora.py` | LoRA学習スクリプト（新規） | 高 |
 | `config/settings.yaml` | アダプタパス設定 | 中 |
-| `requirements-ml.txt` | `peft` ライブラリ追加 | 高 |
+| `pyproject.toml` | `peft` ライブラリを ml extra に追加 | 高 |
 
 ### 7.2 コード例：推論時のアダプタ読み込み
 
@@ -612,7 +612,7 @@ def shadow_evaluation(val_set, old_adapter, new_adapter):
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
-| R.1.1 | `peft` ライブラリを `requirements-ml.txt` に追加 | 未着手 |
+| R.1.1 | `peft` ライブラリを `pyproject.toml` の ml extra に追加 | 未着手 |
 | R.1.2 | `NLIService` にアダプタ読み込み機能を追加 | 未着手 |
 | R.1.3 | アダプタ管理エンドポイント実装 | 未着手 |
 | R.1.4 | 設定ファイル拡張（アダプタパス） | 未着手 |

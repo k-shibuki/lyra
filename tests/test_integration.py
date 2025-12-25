@@ -53,7 +53,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest_asyncio.fixture
-async def integration_db(tmp_path: Path) -> AsyncGenerator[Database, None]:
+async def integration_db(tmp_path: Path) -> AsyncGenerator[Database]:
     """Create a test database for integration tests."""
     db_path = tmp_path / "integration_test.db"
     db = Database(str(db_path))

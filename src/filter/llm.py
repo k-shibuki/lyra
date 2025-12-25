@@ -342,20 +342,18 @@ async def chat_with_provider(
 # These exclude user-provided text to avoid false positive leakage detection
 # Note: Use single braces here (not double) since these are NOT f-string templates.
 # These templates are used for n-gram matching against LLM output.
-EXTRACT_FACTS_INSTRUCTION = """あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
-抽出した事実をJSON配列形式で出力してください。各事実は以下の形式で:
-{"fact": "事実の内容", "confidence": 0.0-1.0の信頼度}
-事実のみを出力し、意見や推測は含めないでください。"""
+EXTRACT_FACTS_INSTRUCTION = """You are an expert in information extraction. Extract objective facts from the following text.
+Output the extracted facts in JSON array format. Each fact should follow this format:
+{"fact": "fact content", "confidence": 0.0-1.0 confidence level}
+Output only facts, do not include opinions or speculations."""
 
-EXTRACT_CLAIMS_INSTRUCTION = """あなたは情報分析の専門家です。以下のテキストから主張を抽出してください。
-抽出した主張をJSON配列形式で出力してください。各主張は以下の形式で:
-{"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}"""
+EXTRACT_CLAIMS_INSTRUCTION = """You are an expert in information analysis. Extract claims from the following text.
+Output the extracted claims in JSON array format. Each claim should follow this format:
+{"claim": "claim content", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}"""
 
-SUMMARIZE_INSTRUCTION = (
-    """以下のテキストを要約してください。重要なポイントを簡潔にまとめてください。"""
-)
+SUMMARIZE_INSTRUCTION = """Summarize the following text. Concisely summarize the key points."""
 
-TRANSLATE_INSTRUCTION = """以下のテキストを翻訳してください。"""
+TRANSLATE_INSTRUCTION = """Translate the following text."""
 
 # Mapping from task to instruction template for leakage detection
 TASK_INSTRUCTIONS: dict[str, str] = {

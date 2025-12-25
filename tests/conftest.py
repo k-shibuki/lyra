@@ -78,16 +78,16 @@ In cloud agent environments:
 
 IMPORTANT: Cloud Agent Limitation
 ---------------------------------
-クラウドエージェント環境（Cursor Cloud Agent、Claude Code等）では、
-外部サービス依存のテスト（E2E、slow）は自動的にスキップされます。
+In cloud agent environments (Cursor Cloud Agent, Claude Code, etc.),
+tests dependent on external services (E2E, slow) are automatically skipped.
 
-**ローカル環境での追加テスト実行が必要です：**
-  - E2Eテスト: pytest -m e2e
-  - Slowテスト: pytest -m slow
-  - 全テスト: pytest
+**Additional test execution required in local environment:**
+  - E2E tests: pytest -m e2e
+  - Slow tests: pytest -m slow
+  - All tests: pytest
 
-依存関係が不足している場合、該当テストファイルは収集されません。
-ローカル環境で `pip install -e ".[dev]"` を実行して全依存関係をインストールしてください。
+If dependencies are missing, the corresponding test files will not be collected.
+Run `uv sync --extra full` in local environment to install all dependencies.
 
 =============================================================================
 Default Execution
@@ -384,7 +384,7 @@ def pytest_configure(config: "Config") -> None:
         if not _deps_available:
             print(f"  ⚠️  Missing dependencies: {', '.join(_missing_deps)}")
             print("      Only minimal-safe tests will run.")
-            print("      Install with: pip install -e '.[dev]'")
+            print("      Install with: uv sync --extra full")
             print()
         print(f"{'=' * 70}\n")
 
@@ -487,7 +487,7 @@ def pytest_sessionfinish(session: "Session", exitstatus: int) -> None:
 
 
 @pytest.fixture
-def temp_dir() -> Generator[Path, None, None]:
+def temp_dir() -> Generator[Path]:
     """Create a temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
@@ -500,7 +500,7 @@ def temp_db_path(temp_dir: Path) -> Path:
 
 
 @pytest_asyncio.fixture
-async def test_database(temp_db_path: Path) -> AsyncGenerator["Database", None]:
+async def test_database(temp_db_path: Path) -> AsyncGenerator["Database"]:
     """Create a temporary test database.
 
     Guards against global database singleton interference by saving
@@ -654,7 +654,7 @@ def make_mock_response() -> Callable[[dict[str, object], int], MockResponse]:
 
 
 @pytest.fixture(autouse=True)
-def reset_search_provider() -> Generator[None, None, None]:
+def reset_search_provider() -> Generator[None]:
     """Reset search provider singletons between tests.
 
     Ensures that each test starts with a fresh provider state.
@@ -672,7 +672,7 @@ def reset_search_provider() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def reset_global_database() -> Generator[None, None, None]:
+def reset_global_database() -> Generator[None]:
     """Reset global database singleton between tests.
 
     Prevents asyncio.Lock() from being bound to a stale event loop,
@@ -698,7 +698,7 @@ def reset_global_database() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def mock_ollama() -> Generator[MagicMock, None, None]:
+def mock_ollama() -> Generator[MagicMock]:
     """Mock Ollama client for unit tests.
 
     Per .1.7: External services (Ollama) should be mocked in unit/integration tests.
@@ -709,7 +709,7 @@ def mock_ollama() -> Generator[MagicMock, None, None]:
 
 
 @pytest.fixture
-def mock_browser() -> Generator[MagicMock, None, None]:
+def mock_browser() -> Generator[MagicMock]:
     """Mock Playwright browser for unit tests.
 
     Per .1.7: External services (Chrome) should be mocked in unit/integration tests.
@@ -731,7 +731,7 @@ def mock_browser() -> Generator[MagicMock, None, None]:
 
 
 @pytest_asyncio.fixture
-async def memory_database() -> AsyncGenerator["Database", None]:
+async def memory_database() -> AsyncGenerator["Database"]:
     """Create an in-memory database for fast unit tests.
 
     Per .1.7: Database should use in-memory SQLite for unit tests.
@@ -848,7 +848,7 @@ def make_claim() -> Callable[..., dict[str, str | float]]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def cleanup_aiohttp_sessions(request: "FixtureRequest") -> Generator[None, None, None]:
+def cleanup_aiohttp_sessions(request: "FixtureRequest") -> Generator[None]:
     """Cleanup global aiohttp client sessions after all tests complete.
 
     This prevents 'Unclosed client session' warnings by ensuring all

@@ -23,9 +23,10 @@ set -euo pipefail
 
 # Source common functions and load .env
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
+
+# Note: PROJECT_DIR and VENV_DIR are provided by common.sh
 
 # Enable debug mode if DEBUG=1
 enable_debug_mode
@@ -50,7 +51,7 @@ CONTAINER_NAME_SELECTED="${CONTAINER_NAME:-lyra}"
 # State file persists the last started runtime so check/get/kill target the same env.
 TEST_STATE_FILE="${LYRA_SCRIPT__TEST_STATE_FILE:-/tmp/lyra_test_state.env}"
 
-VENV_DIR="${PROJECT_ROOT}/.venv"
+# Note: VENV_DIR is provided by common.sh
 
 # Result directory and file naming
 # Each run creates unique files with timestamp to prevent result confusion
@@ -348,19 +349,10 @@ is_pytest_process_alive() {
 }
 
 # =============================================================================
-# VENV MANAGEMENT
-# =============================================================================
-
-ensure_venv() {
-    if [[ ! -f "${VENV_DIR}/bin/activate" ]]; then
-        log_error "venv not found. Run: ./scripts/mcp.sh (or create manually)"
-        exit 1
-    fi
-}
-
-# =============================================================================
 # TEST MARKER SELECTION
 # =============================================================================
+
+# Note: ensure_venv() is provided by common.sh
 
 # Function: get_pytest_markers
 # Description: Get appropriate pytest markers based on environment
@@ -465,8 +457,8 @@ cmd_run() {
         (
             # shellcheck source=/dev/null
             source "${VENV_DIR}/bin/activate"
-            cd "${PROJECT_ROOT}"
-            export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+            cd "${PROJECT_DIR}"
+            export PYTHONPATH="${PROJECT_DIR}:${PYTHONPATH:-}"
 
             # Export container detection flags (local default: off unless explicitly enabled)
             export LYRA_RUN_ML_TESTS="${LYRA_RUN_ML_TESTS:-0}"

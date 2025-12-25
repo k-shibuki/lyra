@@ -32,7 +32,7 @@
 | TC-A-06 | Exhaustive strategy, page = max_pages | Boundary – max | should_fetch_next = False | - |
 | TC-A-07 | Fixed strategy, page = max_pages | Boundary – max | should_fetch_next = False | - |
 
-## Wiring/Effect Test Cases (Phase 5 Pagination)
+## Wiring/Effect Test Cases (Pagination)
 
 | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
 |---------|---------------------|-------------|-----------------|-------|

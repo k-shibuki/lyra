@@ -150,22 +150,22 @@ class Citation:
 
         # Add section reference if available
         if self.heading_context:
-            lines.append(f"   - セクション: {self.heading_context}")
+            lines.append(f"   - Section: {self.heading_context}")
 
         # Add source type indicator
         if self.source_tag:
             source_labels = {
-                "government": "🏛️ 政府・公的機関",
-                "academic": "📚 学術資料",
-                "official": "✅ 公式発表",
-                "standard": "📋 規格・標準",
-                "registry": "📜 登記・登録",
-                "news": "📰 ニュース",
-                "blog": "📝 ブログ",
-                "forum": "💬 フォーラム",
+                "government": "🏛️ Government/Public Institution",
+                "academic": "📚 Academic Material",
+                "official": "✅ Official Announcement",
+                "standard": "📋 Standard/Specification",
+                "registry": "📜 Registry/Registration",
+                "news": "📰 News",
+                "blog": "📝 Blog",
+                "forum": "💬 Forum",
             }
             label = source_labels.get(self.source_tag, self.source_tag)
-            lines.append(f"   - 種別: {label}")
+            lines.append(f"   - Type: {label}")
 
         # Add excerpt if requested
         if include_excerpt and self.excerpt:
@@ -178,8 +178,8 @@ class Citation:
         if self.discovered_at:
             try:
                 dt = datetime.fromisoformat(self.discovered_at.replace("Z", "+00:00"))
-                formatted = dt.strftime("%Y年%m月%d日")
-                lines.append(f"   - 取得日: {formatted}")
+                formatted = dt.strftime("%Y-%m-%d")
+                lines.append(f"   - Discovered: {formatted}")
             except (ValueError, AttributeError):
                 pass
 
@@ -320,41 +320,41 @@ class ReportGenerator:
         lines = []
 
         # Title
-        lines.append("# リサーチレポート")
+        lines.append("# Research Report")
         lines.append("")
-        lines.append(f"**調査テーマ:** {task['query']}")
-        lines.append(f"**生成日時:** {datetime.now().strftime('%Y年%m月%d日 %H:%M')}")
-        lines.append(f"**タスクID:** {task['id']}")
+        lines.append(f"**Research Topic:** {task['query']}")
+        lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        lines.append(f"**Task ID:** {task['id']}")
         lines.append("")
 
         # Executive Summary
-        lines.append("## エグゼクティブサマリー")
+        lines.append("## Executive Summary")
         lines.append("")
 
         if claims:
             # Top claims
             top_claims = [c for c in claims if c.get("claim_confidence", 0) >= 0.7][:5]
             if top_claims:
-                lines.append("### 主要な発見")
+                lines.append("### Key Findings")
                 lines.append("")
                 for i, claim in enumerate(top_claims, 1):
                     confidence = claim.get("claim_confidence", 0)
-                    lines.append(f"{i}. {claim['claim_text']} (信頼度: {confidence:.2f})")
+                    lines.append(f"{i}. {claim['claim_text']} (Confidence: {confidence:.2f})")
                 lines.append("")
 
         # Methodology
-        lines.append("## 調査方法")
+        lines.append("## Methodology")
         lines.append("")
-        lines.append("本レポートは以下の手法で生成されました:")
+        lines.append("This report was generated using the following methods:")
         lines.append("")
-        lines.append("1. 複数の検索エンジンを用いた網羅的な情報収集")
-        lines.append("2. BM25、埋め込み、リランキングによる多段階の関連性評価")
-        lines.append("3. ローカルLLMによる事実・主張の抽出")
-        lines.append("4. NLIモデルによる立場の判定と矛盾検出")
+        lines.append("1. Comprehensive information gathering using multiple search engines")
+        lines.append("2. Multi-stage relevance evaluation using BM25, embeddings, and reranking")
+        lines.append("3. Fact and claim extraction using local LLM")
+        lines.append("4. Position determination and contradiction detection using NLI models")
         lines.append("")
 
         # Main Findings
-        lines.append("## 主要な発見")
+        lines.append("## Main Findings")
         lines.append("")
 
         if claims:
@@ -364,7 +364,7 @@ class ReportGenerator:
             [c for c in claims if c.get("claim_type") not in ("fact", "opinion")]
 
             if fact_claims:
-                lines.append("### 事実")
+                lines.append("### Facts")
                 lines.append("")
                 for claim in fact_claims[:10]:
                     confidence = claim.get("claim_confidence", 0)
@@ -372,22 +372,24 @@ class ReportGenerator:
                     refuting = claim.get("refuting_count", 0)
 
                     lines.append(f"- {claim['claim_text']}")
-                    lines.append(f"  - 信頼度: {confidence:.2f}")
-                    lines.append(f"  - 支持ソース: {supporting}件, 反証ソース: {refuting}件")
+                    lines.append(f"  - Confidence: {confidence:.2f}")
+                    lines.append(
+                        f"  - Supporting sources: {supporting}, Refuting sources: {refuting}"
+                    )
                     lines.append("")
 
             if opinion_claims:
-                lines.append("### 意見・見解")
+                lines.append("### Opinions/Views")
                 lines.append("")
                 for claim in opinion_claims[:5]:
                     lines.append(f"- {claim['claim_text']}")
                 lines.append("")
         else:
-            lines.append("*主張の抽出結果がありません*")
+            lines.append("*No claims extracted*")
             lines.append("")
 
         # Evidence with deep links (ADR-0005: Source Priority Order)
-        lines.append("## エビデンス")
+        lines.append("## Evidence")
         lines.append("")
 
         if fragments:
@@ -407,7 +409,7 @@ class ReportGenerator:
 
             # Primary sources first (ADR-0005)
             if primary_frags:
-                lines.append("### 一次資料")
+                lines.append("### Primary Sources")
                 lines.append("")
 
                 for frag in primary_frags[:10]:
@@ -421,14 +423,14 @@ class ReportGenerator:
 
                     lines.append(f"**[{title}]({deep_url})**")
                     if heading:
-                        lines.append(f"📍 セクション: {heading}")
+                        lines.append(f"📍 Section: {heading}")
                     lines.append("")
                     lines.append(f"> {text}...")
                     lines.append("")
 
             # Secondary sources
             if secondary_frags:
-                lines.append("### 二次資料")
+                lines.append("### Secondary Sources")
                 lines.append("")
 
                 # Group by domain
@@ -454,16 +456,16 @@ class ReportGenerator:
 
                         lines.append(f"**[{title}]({deep_url})**")
                         if heading:
-                            lines.append(f"📍 セクション: {heading}")
+                            lines.append(f"📍 Section: {heading}")
                         lines.append("")
                         lines.append(f"> {text}...")
                         lines.append("")
         else:
-            lines.append("*エビデンスがありません*")
+            lines.append("*No evidence available*")
             lines.append("")
 
         # Sources with full citations (ADR-0005: Deep Link Generation)
-        lines.append("## 出典一覧")
+        lines.append("## References")
         lines.append("")
 
         # Build citations list
@@ -494,14 +496,14 @@ class ReportGenerator:
         secondary_citations = [c for c in citations if not c.is_primary_source]
 
         if primary_citations:
-            lines.append("### 一次資料")
+            lines.append("### Primary Sources")
             lines.append("")
             for i, citation in enumerate(primary_citations, 1):
                 lines.append(citation.to_markdown(i, include_excerpt=False))
                 lines.append("")
 
         if secondary_citations:
-            lines.append("### 二次資料・その他")
+            lines.append("### Secondary Sources & Others")
             lines.append("")
             for i, citation in enumerate(secondary_citations, len(primary_citations) + 1):
                 lines.append(citation.to_markdown(i, include_excerpt=False))
@@ -515,13 +517,11 @@ class ReportGenerator:
             lines.extend(timeline_lines)
 
         # Limitations
-        lines.append("## 制約事項")
+        lines.append("## Limitations")
         lines.append("")
-        lines.append("- 本レポートは自動生成されたものであり、人間による検証を推奨します")
-        lines.append("- 情報の鮮度は収集時点のものです")
-        lines.append(
-            "- 商用APIを使用していないため、一部の情報源にアクセスできていない可能性があります"
-        )
+        lines.append("- This report is automatically generated; human verification is recommended")
+        lines.append("- Information freshness is as of the collection time")
+        lines.append("- Some sources may not be accessible as commercial APIs are not used")
         lines.append("")
 
         # Metadata
@@ -567,14 +567,14 @@ class ReportGenerator:
         if not claims_with_timeline:
             return []
 
-        lines.append("## タイムライン")
+        lines.append("## Timeline")
         lines.append("")
-        lines.append(f"タイムライン付与済み主張: {len(claims_with_timeline)}件 / {len(claims)}件")
+        lines.append(f"Claims with timeline: {len(claims_with_timeline)} / {len(claims)}")
         lines.append("")
 
         # Alert for retracted or corrected claims
         if retracted_claims:
-            lines.append("### ⚠️ 撤回された主張")
+            lines.append("### ⚠️ Retracted Claims")
             lines.append("")
             for claim, timeline in retracted_claims:
                 lines.append(f"- ~~{claim.get('claim_text', '')}~~")
@@ -583,17 +583,17 @@ class ReportGenerator:
                     None,
                 )
                 if retraction:
-                    lines.append(f"  - 撤回日: {retraction.timestamp.strftime('%Y年%m月%d日')}")
+                    lines.append(f"  - Retracted: {retraction.timestamp.strftime('%Y-%m-%d')}")
                     if retraction.notes:
-                        lines.append(f"  - 理由: {retraction.notes}")
+                        lines.append(f"  - Reason: {retraction.notes}")
                     if retraction.source_url:
                         lines.append(
-                            f"  - 出典: [{retraction.source_url[:60]}...]({retraction.source_url})"
+                            f"  - Source: [{retraction.source_url[:60]}...]({retraction.source_url})"
                         )
             lines.append("")
 
         if corrected_claims:
-            lines.append("### 📝 訂正された主張")
+            lines.append("### 📝 Corrected Claims")
             lines.append("")
             for claim, timeline in corrected_claims:
                 lines.append(f"- {claim.get('claim_text', '')}")
@@ -602,9 +602,9 @@ class ReportGenerator:
                     None,
                 )
                 if correction:
-                    lines.append(f"  - 訂正日: {correction.timestamp.strftime('%Y年%m月%d日')}")
+                    lines.append(f"  - Corrected: {correction.timestamp.strftime('%Y-%m-%d')}")
                     if correction.notes:
-                        lines.append(f"  - 内容: {correction.notes}")
+                        lines.append(f"  - Content: {correction.notes}")
             lines.append("")
 
         # Show timeline for high-confidence claims
@@ -615,7 +615,7 @@ class ReportGenerator:
         ][:10]  # Limit to 10
 
         if high_confidence_with_timeline:
-            lines.append("### 主要な主張のタイムライン")
+            lines.append("### Timeline of Key Claims")
             lines.append("")
 
             for claim, timeline in high_confidence_with_timeline:
