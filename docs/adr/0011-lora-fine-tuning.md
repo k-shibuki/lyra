@@ -61,7 +61,7 @@ feedback_data = [
 
 # LoRA学習（数十〜数百サンプルで効果あり）
 adapter = train_lora(
-    base_model="cross-encoder/nli-deberta-v3-xsmall",
+    base_model="cross-encoder/nli-deberta-v3-small",
     data=feedback_data,
     rank=8,
     alpha=16

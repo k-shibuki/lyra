@@ -1005,9 +1005,9 @@ Cursor AI                          Lyra MCP
    - 第3段: LLMで要点抽出・主張の仮説／反証ラベル付け
    - 引用評価（Step 5）: LLMで引用先論文の有用性（relevance/usefulness）を0-10で評価（Decision 11）
  - GPU最適化:
-   - 埋め込み`bge-m3`とリランカー`bge-reranker-v2-m3`はONNX Runtime CUDA/FP16（CPUフォールバックあり）。候補上限は100→最大150まで拡張（タスク予算内で自動調整）
+   - 埋め込み`bge-m3`とリランカー`bge-reranker-v2-m3`はGPU（NVIDIA CUDA）前提。CPUフォールバックは提供しない。
  - NLI昇格:
-   - 既定はtiny-DeBERTa（CPU）→不一致/矛盾検知の難例のみDeBERTa-v3-small/base（ONNX/CUDA, FP16）へ昇格
+   - NLIは単一モデル（DeBERTa-v3-small）をGPUで実行する。2段階（fast→slow）/CPU経路は提供しない。
  - エビデンスグラフ: 各断片に URL・タイトル・発見日時・抜粋・主張ID・信頼度・出典種別を付与し、SQLite/JSONに格納する。
  - 信頼度スコアリング:
    - ソース階層（例）: 一次資料 > 公的機関 > 学術 > 信頼メディア > 個人ブログ
@@ -1396,7 +1396,7 @@ lyra-net (外部可)                  lyra-internal (internal: true)
 - **MLモデル一覧**（`lyra-ml`コンテナ）:
   - 埋め込み: `BAAI/bge-m3`（semantic search用）
   - リランカー: `BAAI/bge-reranker-v2-m3`（精密順位付け用）
-  - NLI: `cross-encoder/nli-deberta-v3-xsmall/small`（スタンス判定用）
+  - NLI: `cross-encoder/nli-deberta-v3-small`（スタンス判定用）
 - **GPU共有**: CDI経由で両コンテナがGPUにアクセス。VRAM競合防止はスケジューラ（§3.2.2 `gpu`スロット同時実行=1）で排他制御
 
 **L2: 入力サニタイズ**
@@ -1639,8 +1639,8 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 - Interface: MCP (Model Context Protocol) Server
 - Agent Runtime: Python 3.12+ (running inside WSL2)
 - Local LLM Runtime: Ollama（CUDA有効）。Qwen2.5-3B Instruct q4（GPU）
-- Embeddings: `bge-m3`（多言語・長文安定, ONNX Runtime CUDA/FP16, CPUフォールバックあり）
-- Rerank: `bge-reranker-v2-m3`（ONNX Runtime CUDA/FP16, 候補は上位100→最大150まで拡張可, CPUフォールバックあり）
+- Embeddings: `bge-m3`（GPU前提、CPUフォールバックなし）
+- Rerank: `bge-reranker-v2-m3`（GPU前提、CPUフォールバックなし）
 - HTTP Client: curl_cffi（Chrome impersonate）
 - Browser Automation: Playwright（CDP接続／Windows側Chromeの実プロファイルpersistent context）＋ undetected-chromedriver（フォールバック）
 - Content Extraction: trafilatura（静的ページ抽出）

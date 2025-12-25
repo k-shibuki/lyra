@@ -212,13 +212,11 @@ class MLClient:
     async def nli(
         self,
         pairs: list[dict[str, str]],
-        use_slow: bool = False,
     ) -> list[dict[str, Any]]:
         """Judge stance relationships for claim pairs.
 
         Args:
             pairs: List of dicts with 'pair_id', 'premise', 'hypothesis'.
-            use_slow: Whether to use slow (GPU) model.
 
         Returns:
             List of result dicts with 'pair_id', 'label', 'confidence'.
@@ -229,7 +227,7 @@ class MLClient:
         response = await self._request_with_retry(
             "POST",
             "/nli",
-            json={"pairs": pairs, "use_slow": use_slow},
+            json={"pairs": pairs},
         )
 
         if not response.get("ok"):

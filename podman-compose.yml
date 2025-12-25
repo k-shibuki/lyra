@@ -112,8 +112,7 @@ services:
         # Model names from .env (downloaded at build time)
         - LYRA_ML__EMBEDDING_MODEL=${LYRA_ML__EMBEDDING_MODEL:-BAAI/bge-m3}
         - LYRA_ML__RERANKER_MODEL=${LYRA_ML__RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
-        - LYRA_ML__NLI_FAST_MODEL=${LYRA_ML__NLI_FAST_MODEL:-cross-encoder/nli-deberta-v3-xsmall}
-        - LYRA_ML__NLI_SLOW_MODEL=${LYRA_ML__NLI_SLOW_MODEL:-cross-encoder/nli-deberta-v3-small}
+        - LYRA_ML__NLI_MODEL=${LYRA_ML__NLI_MODEL:-cross-encoder/nli-deberta-v3-small}
     container_name: lyra-ml
     env_file:
       - .env

@@ -212,7 +212,6 @@ class EmbeddingConfig(BaseModel):
 
     model_name: str = "BAAI/bge-m3"
     onnx_path: str = "models/bge-m3"
-    use_gpu: bool = True
     batch_size: int = 8
     max_length: int = 512
 
@@ -222,7 +221,6 @@ class RerankerConfig(BaseModel):
 
     model_name: str = "BAAI/bge-reranker-v2-m3"
     onnx_path: str = "models/bge-reranker-v2-m3"
-    use_gpu: bool = True
     top_k: int = 100
     max_top_k: int = 150
 
@@ -230,9 +228,7 @@ class RerankerConfig(BaseModel):
 class NLIConfig(BaseModel):
     """NLI configuration."""
 
-    fast_model: str = "cross-encoder/nli-deberta-v3-xsmall"
-    slow_model: str = "cross-encoder/nli-deberta-v3-small"
-    use_gpu_for_slow: bool = True
+    model: str = "cross-encoder/nli-deberta-v3-small"
 
 
 class MLServerConfig(BaseModel):
