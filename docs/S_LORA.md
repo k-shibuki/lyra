@@ -123,8 +123,7 @@ NLIモデル（DeBERTa-v3-xsmall/small）は事前学習済みモデルであり
 │  ┌──────────────────────────────────────────────────┐  │
 │  │              NLI Model (DeBERTa-v3)              │  │
 │  │                                                   │  │
-│  │  Fast: nli-deberta-v3-xsmall (~70M params)       │  │
-│  │  Slow: nli-deberta-v3-small (~140M params)       │  │
+│  │  Model: nli-deberta-v3-small (GPU)               │  │
 │  └──────────────────────────────────────────────────┘  │
 │                           ↓                             │
 │                     /nli エンドポイント                  │
@@ -148,7 +147,7 @@ NLIモデル（DeBERTa-v3-xsmall/small）は事前学習済みモデルであり
 │  │                     +                             │  │
 │  │               LoRA Adapter                        │  │
 │  │                                                   │  │
-│  │  Base: nli-deberta-v3-xsmall (凍結)              │  │
+│  │  Base: nli-deberta-v3-small (GPU必須)            │  │
 │  │  Adapter: lora-lyra-v1.bin (~2MB)                │  │
 │  └──────────────────────────────────────────────────┘  │
 │                           ↓                             │
@@ -169,7 +168,7 @@ NLIモデル（DeBERTa-v3-xsmall/small）は事前学習済みモデルであり
 
 | 項目 | 現状 | LoRA適用後 |
 |------|------|-----------|
-| GPU | オプション（CPUでも動作） | **同じ** |
+| GPU | **必須**（NVIDIA GPU + CUDA。CPUはサポートしない） | **同じ** |
 | メモリ | 4-8GB | 4-8GB + 数MB |
 | 変更点 | - | アダプタファイルの読み込みのみ |
 
@@ -191,7 +190,7 @@ NLIモデル（DeBERTa-v3-xsmall/small）は事前学習済みモデルであり
 |------|------|
 | RTX 4060 Laptop (8GB VRAM) | ✅ LoRA学習可能 |
 | WSL2メモリ32GB | ✅ 十分 |
-| CPU-only学習 | ⚠️ 可能だが時間がかかる（数時間〜） |
+| CPU-only学習 | 対象外（本プロジェクトはGPU必須） |
 
 ---
 
@@ -224,7 +223,7 @@ class NLIService:
         
         # ベースモデル読み込み
         self._base_model = AutoModelForSequenceClassification.from_pretrained(
-            "cross-encoder/nli-deberta-v3-xsmall"
+            "cross-encoder/nli-deberta-v3-small"
         )
         
         # アダプタがあれば適用
@@ -278,7 +277,7 @@ def main():
     
     # ベースモデル読み込み
     base_model = AutoModelForSequenceClassification.from_pretrained(
-        "cross-encoder/nli-deberta-v3-xsmall",
+        "cross-encoder/nli-deberta-v3-small",
         num_labels=3  # supports, refutes, neutral
     )
     
@@ -519,7 +518,7 @@ S_LORA.md §7.3では `["query", "value"]` と記載。DeBERTa-v3の実際のモ
 
 ```python
 from transformers import AutoModel
-model = AutoModel.from_pretrained("cross-encoder/nli-deberta-v3-xsmall")
+model = AutoModel.from_pretrained("cross-encoder/nli-deberta-v3-small")
 print([n for n, m in model.named_modules() if "Linear" in str(type(m))])
 ```
 
@@ -554,7 +553,7 @@ CREATE TABLE IF NOT EXISTS adapters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     version_name TEXT NOT NULL,           -- "v1", "v1.1", "v2" 等
     adapter_path TEXT NOT NULL,           -- "adapters/lora-v1/"
-    base_model TEXT NOT NULL,             -- "cross-encoder/nli-deberta-v3-xsmall"
+    base_model TEXT NOT NULL,             -- "cross-encoder/nli-deberta-v3-small"
     samples_used INTEGER NOT NULL,        -- 学習に使用したサンプル数
     brier_before REAL,                    -- 学習前Brierスコア
     brier_after REAL,                     -- 学習後Brierスコア
@@ -624,7 +623,7 @@ def shadow_evaluation(val_set, old_adapter, new_adapter):
 - [ ] `target_modules` の事前確認（DeBERTa-v3のLinear層名取得）
   ```python
   from transformers import AutoModel
-  model = AutoModel.from_pretrained("cross-encoder/nli-deberta-v3-xsmall")
+  model = AutoModel.from_pretrained("cross-encoder/nli-deberta-v3-small")
   print([n for n, m in model.named_modules() if "Linear" in str(type(m))])
   ```
   → 結果に基づき §7.3 / §9.3 の `target_modules` を更新

@@ -26,10 +26,8 @@ class ModelPaths(TypedDict):
     embedding_name: str
     reranker: str
     reranker_name: str
-    nli_fast: str
-    nli_fast_name: str
-    nli_slow: str
-    nli_slow_name: str
+    nli: str
+    nli_name: str
 
 
 # Default path for model_paths.json (set in Dockerfile)
@@ -108,10 +106,8 @@ def get_model_paths() -> ModelPaths | None:
             "embedding_name": raw_paths["embedding_name"],
             "reranker": _validate_and_sanitize_path(raw_paths["reranker"], "reranker"),
             "reranker_name": raw_paths["reranker_name"],
-            "nli_fast": _validate_and_sanitize_path(raw_paths["nli_fast"], "nli_fast"),
-            "nli_fast_name": raw_paths["nli_fast_name"],
-            "nli_slow": _validate_and_sanitize_path(raw_paths["nli_slow"], "nli_slow"),
-            "nli_slow_name": raw_paths["nli_slow_name"],
+            "nli": _validate_and_sanitize_path(raw_paths["nli"], "nli"),
+            "nli_name": raw_paths["nli_name"],
         }
 
         _model_paths = validated_paths
@@ -149,35 +145,20 @@ def get_reranker_path() -> str:
     """
     paths = get_model_paths()
     if paths and "reranker" in paths:
-        # Path is already validated in get_model_paths()
         return paths["reranker"]
     return os.environ.get("LYRA_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 
 
-def get_nli_fast_path() -> str:
-    """Get NLI fast model path or name.
+def get_nli_path() -> str:
+    """Get NLI model path or name.
 
     Returns:
         Local path if available (validated), otherwise model name from env
     """
     paths = get_model_paths()
-    if paths and "nli_fast" in paths:
-        # Path is already validated in get_model_paths()
-        return paths["nli_fast"]
-    return os.environ.get("LYRA_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall")
-
-
-def get_nli_slow_path() -> str:
-    """Get NLI slow model path or name.
-
-    Returns:
-        Local path if available (validated), otherwise model name from env
-    """
-    paths = get_model_paths()
-    if paths and "nli_slow" in paths:
-        # Path is already validated in get_model_paths()
-        return paths["nli_slow"]
-    return os.environ.get("LYRA_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small")
+    if paths and "nli" in paths:
+        return paths["nli"]
+    return os.environ.get("LYRA_ML__NLI_MODEL", "cross-encoder/nli-deberta-v3-small")
 
 
 def is_using_local_paths() -> bool:

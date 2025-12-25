@@ -11,7 +11,7 @@ method that tests:
 
 - Embedding generation (bge-m3)
 - Reranking (bge-reranker-v2-m3)
-- NLI inference (nli-deberta-v3-xsmall/small)
+- NLI inference (nli-deberta-v3-small)
 - Offline mode operation (no HuggingFace API calls)
 
 Prerequisites:
@@ -136,7 +136,7 @@ class TestMLServerE2E:
                 "hypothesis": "It is raining.",
             },
         ]
-        result = await ml_client.nli(pairs, use_slow=False)
+        result = await ml_client.nli(pairs)
 
         # Then - result is list[dict] with pair_id, label, confidence
         assert result is not None

@@ -1,7 +1,7 @@
 # ADR-0001: Local-First Architecture / Zero OpEx
 
 ## Date
-2025-11-01
+2025-11-01 (Updated: 2025-12-25)
 
 ## Context
 
@@ -32,6 +32,18 @@
 2. **ベクトル検索**: ローカルembeddingモデル + SQLite FTS
 3. **Webクローリング**: Playwright（ローカル実行）
 4. **データ保存**: SQLite（ローカルファイル）
+5. **ML推論**: lyra-mlコンテナでembedding/reranking/NLI
+
+### GPU要件
+
+**NVIDIA GPU + CUDA環境を必須とする。**
+
+| コンポーネント | GPU要件 | 理由 |
+|---------------|---------|------|
+| Ollama (LLM) | 必須 | 実用的な推論速度の確保 |
+| lyra-ml (Embedding/Reranking/NLI) | 必須 | バッチ処理での性能確保 |
+
+CPU環境での動作はサポートしない。テスト時はモックを使用する（ADR-0009参照）。
 
 ### 例外（許容する外部通信）
 - 学術API（Semantic Scholar、OpenAlex）: 無料・レート制限緩い
@@ -53,9 +65,9 @@
 - **長期安定性**: 外部サービス終了の影響を受けない
 
 ### Negative
-- **初期セットアップ**: GPU環境の構築が必要
+- **GPU必須**: NVIDIA GPU + CUDA環境が必要
 - **モデル品質の制約**: GPT-4/Claude相当の推論は不可
-- **ストレージ消費**: モデルファイルで数GB必要
+- **ストレージ消費**: モデルファイルで数十GB必要
 
 ### 設計への影響
 - LLMは「抽出」に特化し、「推論」はMCPクライアントに委譲（ADR-0002参照）
@@ -68,8 +80,9 @@
 | OpenAI API使用 | 高品質、簡単 | 月額コスト、データ外部送信 | 却下 |
 | ハイブリッド（ローカル+API） | 柔軟性 | コスト発生、複雑性 | 却下 |
 | セルフホストクラウド | スケーラブル | インフラ運用コスト | 却下 |
+| CPU対応 | GPUなしで動作 | 実用的な速度が出ない | 却下 |
 
 ## References
-- `docs/REQUIREMENTS.md` 1.1節（アーカイブ）
+- `docs/archive/REQUIREMENTS.md` 1.1節（アーカイブ）
 - Ollama: https://ollama.ai
 - Qwen2.5: https://huggingface.co/Qwen

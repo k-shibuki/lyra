@@ -100,10 +100,8 @@ CMD ["uv", "run", "python", "-m", "src.proxy.server"]
 # ---
 FROM base AS gpu
 
-# Install CUDA-related packages (if available)
-# Note: For full GPU support, use nvidia/cuda base image
+# Install PyTorch with CUDA support
 RUN uv pip install --system \
-    torch --index-url https://download.pytorch.org/whl/cu121 || \
-    uv pip install --system torch
+    torch --index-url https://download.pytorch.org/whl/cu121
 
 # Note: HEALTHCHECK removed - not supported by Podman OCI format

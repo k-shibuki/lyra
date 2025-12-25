@@ -68,7 +68,6 @@ class NLIRequest(BaseModel):
     """Request model for NLI inference."""
 
     pairs: list[NLIPair] = Field(..., description="List of premise-hypothesis pairs")
-    use_slow: bool = Field(default=False, description="Use slow (more accurate) model")
 
 
 class NLIResult(BaseModel):

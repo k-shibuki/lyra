@@ -1285,7 +1285,7 @@ K.1の調査で以下が判明:
 - [x] MLサーバーの全機能が正常に動作（E2Eテストで検証済み）
   - 埋め込みAPI（bge-m3）: ✅ 動作確認済み
   - リランキングAPI（bge-reranker-v2-m3）: ✅ 動作確認済み
-  - NLI API（nli-deberta-v3-xsmall/small）: ✅ 動作確認済み
+  - NLI API（nli-deberta-v3-small）: ✅ 動作確認済み
   - オフラインモード: ✅ 動作確認済み（HuggingFace API呼び出しなし）
 - [x] オフラインモードでのモデルロード問題の解決
   - 解決方法: `huggingface_hub.snapshot_download()`でモデルのローカルパスを取得し、`model_paths.json`に保存

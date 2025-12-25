@@ -115,19 +115,11 @@ class EmbeddingRanker:
 
             model_name = self._settings.embedding.model_name
 
-            # Try to load ONNX version if available
             self._model = SentenceTransformer(model_name)
-            assert self._model is not None  # SentenceTransformer always returns model
+            assert self._model is not None
 
-            # Move to GPU if available
-            if self._settings.embedding.use_gpu:
-                try:
-                    self._model = self._model.to("cuda")
-                    logger.info("Embedding model loaded on GPU", model=model_name)
-                except Exception:
-                    logger.warning("GPU not available, using CPU for embeddings")
-            else:
-                logger.info("Embedding model loaded on CPU", model=model_name)
+            self._model = self._model.to("cuda")
+            logger.info("Embedding model loaded on GPU", model=model_name)
 
         except Exception as e:
             logger.error("Failed to load embedding model", error=str(e))
@@ -253,14 +245,8 @@ class Reranker:
 
             model_name = self._settings.reranker.model_name
 
-            device = "cuda" if self._settings.reranker.use_gpu else "cpu"
-
-            try:
-                self._model = CrossEncoder(model_name, device=device)
-                logger.info("Reranker model loaded", model=model_name, device=device)
-            except Exception:
-                self._model = CrossEncoder(model_name, device="cpu")
-                logger.warning("Reranker loaded on CPU (GPU failed)")
+            self._model = CrossEncoder(model_name, device="cuda")
+            logger.info("Reranker model loaded on GPU", model=model_name)
 
         except Exception as e:
             logger.error("Failed to load reranker model", error=str(e))

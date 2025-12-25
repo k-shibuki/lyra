@@ -281,10 +281,10 @@ Sources are classified by institutional authority:
 | Resource | Reference Spec | Notes |
 |----------|----------------|-------|
 | RAM | 64GB host, 32GB WSL2 | Lower limits not yet determined |
-| GPU | NVIDIA RTX 4060 Laptop (8GB VRAM) | CPU fallback available |
-| Task time | ~20 min (GPU), ~25 min (CPU) | Per 120-page research task |
+| GPU | NVIDIA RTX 4060 Laptop (8GB VRAM) | **Required** (no CPU fallback) |
+| Storage | ~25 GB | ML image (~18GB) + Ollama models (~5GB) + data |
 
-The default `podman-compose.yml` expects GPU access via CDI. For CPU-only operation, remove `devices: nvidia.com/gpu=all` from the compose file and set `LYRA_ML__USE_GPU=false` in `.env`.
+The default `podman-compose.yml` expects GPU access via CDI. **CPU-only operation is not supported.**
 
 ### Quick Start
 
@@ -690,7 +690,7 @@ lyra/
 
 - **Platform Dependency**: Currently requires Windows 11 + WSL2 environment
 - **HTML Selector Maintenance**: Search engine HTML changes may require selector updates
-- **GPU Recommended**: Inference speed depends significantly on GPU availability
+- **GPU Required**: ML inference requires NVIDIA GPU + CUDA (no CPU fallback)
 - **Chrome Dependency**: Browser-based operations require Chrome with CDP
 
 ---
@@ -758,7 +758,6 @@ Lyra depends on external ML models with their own licenses:
 | Qwen2.5-7B | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/Qwen/Qwen2.5-7B) |
 | bge-m3 | MIT | ✅ Yes | [Hugging Face](https://huggingface.co/BAAI/bge-m3) |
 | bge-reranker-v2-m3 | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/BAAI/bge-reranker-v2-m3) |
-| nli-deberta-v3-xsmall | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/cross-encoder/nli-deberta-v3-xsmall) |
 | nli-deberta-v3-small | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/cross-encoder/nli-deberta-v3-small) |
 
 **Note**: The default LLM (Qwen2.5-3B) uses a research-only license. For commercial use, configure an alternative model in `config/settings.yaml`:

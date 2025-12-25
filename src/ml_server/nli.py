@@ -7,8 +7,7 @@ import os
 import structlog
 
 from src.ml_server.model_paths import (
-    get_nli_fast_path,
-    get_nli_slow_path,
+    get_nli_path,
     is_using_local_paths,
 )
 
@@ -23,95 +22,46 @@ class NLIService:
     def __init__(self) -> None:
         from typing import Any
 
-        self._fast_model: Any = None
-        self._slow_model: Any = None
-        self._use_gpu = os.environ.get("LYRA_ML__USE_GPU", "true").lower() == "true"
+        self._model: Any = None
 
     @property
-    def is_fast_loaded(self) -> bool:
-        """Check if fast model is loaded."""
-        return self._fast_model is not None
+    def is_loaded(self) -> bool:
+        """Check if model is loaded."""
+        return self._model is not None
 
-    @property
-    def is_slow_loaded(self) -> bool:
-        """Check if slow model is loaded."""
-        return self._slow_model is not None
-
-    async def load_fast(self) -> None:
-        """Load fast (CPU) NLI model."""
-        if self._fast_model is not None:
+    async def load(self) -> None:
+        """Load NLI model (GPU)."""
+        if self._model is not None:
             return
 
         try:
             from transformers import pipeline
-            from transformers.utils import logging as hf_logging
 
-            # Suppress HuggingFace warnings in offline mode
-            hf_logging.set_verbosity_error()
-
-            model_path = get_nli_fast_path()
+            model_path = get_nli_path()
             use_local = is_using_local_paths()
 
             logger.info(
-                "Loading fast NLI model",
+                "Loading NLI model",
                 model_path=model_path,
                 use_local=use_local,
             )
 
-            # When using local paths, always use local_files_only=True
             local_only = use_local or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
 
-            self._fast_model = pipeline(
+            self._model = pipeline(
                 "text-classification",
                 model=model_path,
-                device=-1,  # CPU
-                local_files_only=local_only,
-            )
-            logger.info("Fast NLI model loaded", model_path=model_path)
-
-        except Exception as e:
-            logger.error("Failed to load fast NLI model", error=str(e))
-            raise
-
-    async def load_slow(self) -> None:
-        """Load slow (GPU) NLI model."""
-        if self._slow_model is not None:
-            return
-
-        try:
-            import torch
-            from transformers import pipeline
-
-            model_path = get_nli_slow_path()
-            use_local = is_using_local_paths()
-            device = 0 if torch.cuda.is_available() and self._use_gpu else -1
-
-            logger.info(
-                "Loading slow NLI model",
-                model_path=model_path,
-                use_local=use_local,
-                device="GPU" if device == 0 else "CPU",
-            )
-
-            # When using local paths, always use local_files_only=True
-            local_only = use_local or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
-
-            self._slow_model = pipeline(
-                "text-classification",
-                model=model_path,
-                device=device,
+                device=0,
                 local_files_only=local_only,
             )
 
-            device_name = "GPU" if device == 0 else "CPU"
             logger.info(
-                "Slow NLI model loaded",
+                "NLI model loaded on GPU",
                 model_path=model_path,
-                device=device_name,
             )
 
         except Exception as e:
-            logger.error("Failed to load slow NLI model", error=str(e))
+            logger.error("Failed to load NLI model", error=str(e))
             raise
 
     def _map_label(self, label: str) -> str:
@@ -129,30 +79,22 @@ class NLIService:
         self,
         premise: str,
         hypothesis: str,
-        use_slow: bool = False,
     ) -> dict:
         """Predict stance relationship.
 
         Args:
             premise: Premise text.
             hypothesis: Hypothesis text.
-            use_slow: Whether to use slow model.
 
         Returns:
             Prediction result with label and confidence.
         """
-        if use_slow:
-            await self.load_slow()
-            model = self._slow_model
-        else:
-            await self.load_fast()
-            model = self._fast_model
+        await self.load()
 
-        # Format input for NLI
         input_text = f"{premise} [SEP] {hypothesis}"
 
         try:
-            result = model(input_text)[0]
+            result = self._model(input_text)[0]
 
             return {
                 "label": self._map_label(result["label"]),
@@ -172,28 +114,21 @@ class NLIService:
     async def predict_batch(
         self,
         pairs: list[tuple[str, str]],
-        use_slow: bool = False,
     ) -> list[dict]:
         """Predict stance for multiple pairs.
 
         Args:
             pairs: List of (premise, hypothesis) tuples.
-            use_slow: Whether to use slow model.
 
         Returns:
             List of prediction results.
         """
-        if use_slow:
-            await self.load_slow()
-            model = self._slow_model
-        else:
-            await self.load_fast()
-            model = self._fast_model
+        await self.load()
 
         inputs = [f"{p} [SEP] {h}" for p, h in pairs]
 
         try:
-            results = model(inputs)
+            results = self._model(inputs)
 
             predictions = []
             for result in results:

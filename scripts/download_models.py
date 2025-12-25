@@ -7,16 +7,14 @@ Models can be updated by:
 1. Setting environment variables in .env (recommended):
    - LYRA_ML__EMBEDDING_MODEL
    - LYRA_ML__RERANKER_MODEL
-   - LYRA_ML__NLI_FAST_MODEL
-   - LYRA_ML__NLI_SLOW_MODEL
+   - LYRA_ML__NLI_MODEL
 2. Or editing the MODEL_* variables below directly
 3. Then running: ./scripts/dev.sh rebuild
 
 Default models:
 - BAAI/bge-m3 (embedding, ~1.2GB)
 - BAAI/bge-reranker-v2-m3 (reranker, ~1.2GB)
-- cross-encoder/nli-deberta-v3-xsmall (NLI fast, ~100MB)
-- cross-encoder/nli-deberta-v3-small (NLI slow, ~200MB)
+- cross-encoder/nli-deberta-v3-small (NLI, ~200MB)
 
 IMPORTANT: Models are downloaded using huggingface_hub.snapshot_download()
 and the local paths are saved to /app/models/model_paths.json for
@@ -30,11 +28,8 @@ import sys
 # Model names - edit these to update models
 MODEL_EMBEDDING = os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
 MODEL_RERANKER = os.environ.get("LYRA_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
-MODEL_NLI_FAST = os.environ.get(
-    "LYRA_ML__NLI_FAST_MODEL", "cross-encoder/nli-deberta-v3-xsmall"
-)
-MODEL_NLI_SLOW = os.environ.get(
-    "LYRA_ML__NLI_SLOW_MODEL", "cross-encoder/nli-deberta-v3-small"
+MODEL_NLI = os.environ.get(
+    "LYRA_ML__NLI_MODEL", "cross-encoder/nli-deberta-v3-small"
 )
 
 # Output path for model paths JSON
@@ -106,39 +101,30 @@ def verify_model_loads(model_paths: dict) -> None:
     local_only = offline_mode
 
     # Embedding
-    print("\n[Verify 1/4] Loading embedding model...")
+    print("\n[Verify 1/3] Loading embedding model...")
     from sentence_transformers import SentenceTransformer
 
     SentenceTransformer(model_paths["embedding"], local_files_only=local_only)
     print("  OK: Embedding model loads successfully")
 
     # Reranker
-    print("\n[Verify 2/4] Loading reranker model...")
+    print("\n[Verify 2/3] Loading reranker model...")
     from sentence_transformers import CrossEncoder
 
     # CrossEncoder doesn't have local_files_only param, but respects HF_HUB_OFFLINE
     CrossEncoder(model_paths["reranker"])
     print("  OK: Reranker model loads successfully")
 
-    # NLI fast
-    print("\n[Verify 3/4] Loading NLI fast model...")
+    # NLI
+    print("\n[Verify 3/3] Loading NLI model...")
     from transformers import pipeline
 
     pipeline(
         "text-classification",
-        model=model_paths["nli_fast"],
+        model=model_paths["nli"],
         local_files_only=local_only,
     )
-    print("  OK: NLI fast model loads successfully")
-
-    # NLI slow
-    print("\n[Verify 4/4] Loading NLI slow model...")
-    pipeline(
-        "text-classification",
-        model=model_paths["nli_slow"],
-        local_files_only=local_only,
-    )
-    print("  OK: NLI slow model loads successfully")
+    print("  OK: NLI model loads successfully")
 
 
 def main():
@@ -149,24 +135,19 @@ def main():
     model_paths = {}
 
     # Download embedding model
-    print(f"\n[1/4] Embedding model")
+    print(f"\n[1/3] Embedding model")
     model_paths["embedding"] = download_model(MODEL_EMBEDDING, "embedding")
     model_paths["embedding_name"] = MODEL_EMBEDDING
 
     # Download reranker model
-    print(f"\n[2/4] Reranker model")
+    print(f"\n[2/3] Reranker model")
     model_paths["reranker"] = download_model(MODEL_RERANKER, "reranker")
     model_paths["reranker_name"] = MODEL_RERANKER
 
-    # Download NLI fast model
-    print(f"\n[3/4] NLI fast model")
-    model_paths["nli_fast"] = download_model(MODEL_NLI_FAST, "NLI fast")
-    model_paths["nli_fast_name"] = MODEL_NLI_FAST
-
-    # Download NLI slow model
-    print(f"\n[4/4] NLI slow model")
-    model_paths["nli_slow"] = download_model(MODEL_NLI_SLOW, "NLI slow")
-    model_paths["nli_slow_name"] = MODEL_NLI_SLOW
+    # Download NLI model
+    print(f"\n[3/3] NLI model")
+    model_paths["nli"] = download_model(MODEL_NLI, "NLI")
+    model_paths["nli_name"] = MODEL_NLI
 
     # Verify models load correctly
     verify_model_loads(model_paths)

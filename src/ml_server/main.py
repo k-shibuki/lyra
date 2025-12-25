@@ -62,8 +62,7 @@ async def health_check() -> HealthResponse:
         models_loaded={
             "embedding": embedding_service.is_loaded,
             "reranker": reranker_service.is_loaded,
-            "nli_fast": nli_service.is_fast_loaded,
-            "nli_slow": nli_service.is_slow_loaded,
+            "nli": nli_service.is_loaded,
         },
     )
 
@@ -146,7 +145,7 @@ async def nli(request: NLIRequest) -> NLIResponse:
     """Judge stance relationships for claim pairs.
 
     Args:
-        request: NLIRequest containing premise-hypothesis pairs and use_slow flag.
+        request: NLIRequest containing premise-hypothesis pairs.
 
     Returns:
         NLIResponse with label (SUPPORTS/REFUTES/NEUTRAL) and confidence for each pair.
@@ -159,7 +158,6 @@ async def nli(request: NLIRequest) -> NLIResponse:
             prediction = await service.predict(
                 premise=pair.premise,
                 hypothesis=pair.hypothesis,
-                use_slow=request.use_slow,
             )
 
             results.append(
@@ -174,7 +172,6 @@ async def nli(request: NLIRequest) -> NLIResponse:
         logger.info(
             "NLI completed",
             pair_count=len(request.pairs),
-            use_slow=request.use_slow,
         )
 
         return NLIResponse(ok=True, results=results)
@@ -199,8 +196,7 @@ async def warmup() -> dict:
 
         await embedding_service.load()
         await reranker_service.load()
-        await nli_service.load_fast()
-        # Slow NLI model is loaded on-demand
+        await nli_service.load()
 
         logger.info("All models warmed up")
 

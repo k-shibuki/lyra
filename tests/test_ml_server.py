@@ -138,10 +138,8 @@ class TestModelPaths:
             "embedding_name": "BAAI/bge-m3",
             "reranker": "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+            "nli": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
+            "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
@@ -162,11 +160,7 @@ class TestModelPaths:
             == "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test"
         )
         assert (
-            result["nli_fast"]
-            == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test"
-        )
-        assert (
-            result["nli_slow"]
+            result["nli"]
             == "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test"
         )
 
@@ -221,10 +215,8 @@ class TestModelPaths:
             "embedding_name": "BAAI/bge-m3",
             "reranker": "/app/models/reranker/model",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/nli_fast/model",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/nli_slow/model",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+            "nli": "/app/models/nli/model",
+            "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
@@ -276,10 +268,8 @@ class TestModelPaths:
             "embedding_name": "BAAI/bge-m3",
             "reranker": "/app/models/reranker/model",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/nli_fast/model",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/nli_slow/model",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+            "nli": "/app/models/nli/model",
+            "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
@@ -293,42 +283,11 @@ class TestModelPaths:
         # Then
         assert result == "/app/models/reranker/model"
 
-    def test_get_nli_fast_path_with_local_paths(self, tmp_path: Path) -> None:
+    def test_get_nli_path_with_local_paths(self, tmp_path: Path) -> None:
         """
-        Given: model_paths.json exists with NLI fast path
-        When: get_nli_fast_path() is called
-        Then: Returns the local NLI fast path (validated)
-        """
-        # Given
-        # Use a path within /app/models for validation
-        # All required keys must be present for validation to succeed
-        model_paths_data = {
-            "embedding": "/app/models/embedding/model",
-            "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/reranker/model",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/nli_fast/model",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/nli_slow/model",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
-        }
-        json_file = tmp_path / "model_paths.json"
-        json_file.write_text(json.dumps(model_paths_data))
-
-        # When
-        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
-            from src.ml_server.model_paths import get_nli_fast_path
-
-            result = get_nli_fast_path()
-
-        # Then
-        assert result == "/app/models/nli_fast/model"
-
-    def test_get_nli_slow_path_with_local_paths(self, tmp_path: Path) -> None:
-        """
-        Given: model_paths.json exists with NLI slow path
-        When: get_nli_slow_path() is called
-        Then: Returns the local NLI slow path (validated)
+        Given: model_paths.json exists with NLI path
+        When: get_nli_path() is called
+        Then: Returns the local NLI path (validated)
         """
         # Given
         # Use a path within /app/models for validation
@@ -338,22 +297,20 @@ class TestModelPaths:
             "embedding_name": "BAAI/bge-m3",
             "reranker": "/app/models/reranker/model",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/nli_fast/model",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/nli_slow/model",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+            "nli": "/app/models/nli/model",
+            "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
 
         # When
         with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
-            from src.ml_server.model_paths import get_nli_slow_path
+            from src.ml_server.model_paths import get_nli_path
 
-            result = get_nli_slow_path()
+            result = get_nli_path()
 
         # Then
-        assert result == "/app/models/nli_slow/model"
+        assert result == "/app/models/nli/model"
 
     def test_is_using_local_paths_true(self, tmp_path: Path) -> None:
         """
@@ -368,10 +325,8 @@ class TestModelPaths:
             "embedding_name": "BAAI/bge-m3",
             "reranker": "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall/snapshots/test",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+            "nli": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
+            "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
@@ -415,10 +370,8 @@ class TestModelPaths:
             "embedding_name": "BAAI/bge-m3",
             "reranker": "/app/models/reranker/model",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/nli_fast/model",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/nli_slow/model",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+            "nli": "/app/models/nli/model",
+            "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
@@ -444,10 +397,8 @@ class TestModelPaths:
             "embedding_name": "BAAI/bge-m3",
             "reranker": "/app/models/reranker/model",
             "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli_fast": "/app/models/nli_fast/model",
-            "nli_fast_name": "cross-encoder/nli-deberta-v3-xsmall",
-            "nli_slow": "/app/models/nli_slow/model",
-            "nli_slow_name": "cross-encoder/nli-deberta-v3-small",
+            "nli": "/app/models/nli/model",
+            "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
         json_file = tmp_path / "model_paths.json"
         json_file.write_text(json.dumps(model_paths_data))
@@ -687,8 +638,8 @@ class TestNLIService:
     def test_is_loaded_false_initially(self) -> None:
         """
         Given: A new NLIService instance
-        When: is_fast_loaded and is_slow_loaded are checked
-        Then: Both return False
+        When: is_loaded is checked
+        Then: Returns False
         """
         # Given/When
         from src.ml_server.nli import NLIService
@@ -696,8 +647,7 @@ class TestNLIService:
         service = NLIService()
 
         # Then
-        assert service.is_fast_loaded is False
-        assert service.is_slow_loaded is False
+        assert service.is_loaded is False
 
     def test_map_label_entailment(self) -> None:
         """
@@ -764,13 +714,12 @@ class TestNLIService:
         service = NLIService()
 
         with patch("transformers.pipeline", return_value=mock_pipeline):
-            with patch("src.ml_server.nli.get_nli_fast_path", return_value="/mock/path"):
+            with patch("src.ml_server.nli.get_nli_path", return_value="/mock/path"):
                 with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
                     # When
                     result = await service.predict(
                         premise="The sky is blue.",
                         hypothesis="The weather is clear.",
-                        use_slow=False,
                     )
 
         # Then
@@ -799,7 +748,7 @@ class TestNLIService:
         service = NLIService()
 
         with patch("transformers.pipeline", return_value=mock_pipeline):
-            with patch("src.ml_server.nli.get_nli_fast_path", return_value="/mock/path"):
+            with patch("src.ml_server.nli.get_nli_path", return_value="/mock/path"):
                 with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
                     # When
                     pairs = [
@@ -814,41 +763,6 @@ class TestNLIService:
         assert result[0]["label"] == "supports"
         assert result[1]["label"] == "refutes"
         assert result[2]["label"] == "neutral"
-
-    @requires_transformers
-    @pytest.mark.asyncio
-    async def test_predict_use_slow_model(self) -> None:
-        """
-        Given: NLIService with mocked pipeline
-        When: predict() is called with use_slow=True
-        Then: Uses the slow model
-        """
-        # Given
-        import torch
-
-        from src.ml_server.nli import NLIService
-
-        mock_pipeline = MagicMock()
-        mock_pipeline.return_value = [{"label": "ENTAILMENT", "score": 0.98}]
-
-        service = NLIService()
-
-        with patch("transformers.pipeline", return_value=mock_pipeline) as mock_pl:
-            with patch("src.ml_server.nli.get_nli_slow_path", return_value="/mock/slow/path"):
-                with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
-                    with patch.object(torch.cuda, "is_available", return_value=False):
-                        # When
-                        result = await service.predict(
-                            premise="Test premise",
-                            hypothesis="Test hypothesis",
-                            use_slow=True,
-                        )
-
-        # Then
-        assert result["label"] == "supports"
-        # Verify pipeline was called with slow model path
-        call_kwargs = mock_pl.call_args[1]
-        assert call_kwargs["model"] == "/mock/slow/path"
 
     @requires_transformers
     @pytest.mark.asyncio
@@ -867,14 +781,13 @@ class TestNLIService:
             "transformers.pipeline",
             side_effect=RuntimeError("NLI model loading failed"),
         ):
-            with patch("src.ml_server.nli.get_nli_fast_path", return_value="/nonexistent/path"):
+            with patch("src.ml_server.nli.get_nli_path", return_value="/nonexistent/path"):
                 with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
                     # When/Then
                     with pytest.raises(RuntimeError) as exc_info:
                         await service.predict(
                             premise="Test premise",
                             hypothesis="Test hypothesis",
-                            use_slow=False,
                         )
 
                     assert "NLI model loading failed" in str(exc_info.value)

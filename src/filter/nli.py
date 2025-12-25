@@ -20,56 +20,29 @@ class NLIModel:
     LABELS = ["supports", "refutes", "neutral"]
 
     def __init__(self) -> None:
-        self._fast_model: Any = None
-        self._slow_model: Any = None
+        self._model: Any = None
         self._settings = get_settings()
 
-    async def _ensure_fast_model(self) -> None:
-        """Load fast (CPU) NLI model."""
-        if self._fast_model is not None:
+    async def _ensure_model(self) -> None:
+        """Load NLI model (GPU)."""
+        if self._model is not None:
             return
 
         try:
             from transformers import pipeline
 
-            model_name = self._settings.nli.fast_model
+            model_name = self._settings.nli.model
 
-            self._fast_model = pipeline(
+            self._model = pipeline(
                 "text-classification",
                 model=model_name,
-                device=-1,  # CPU
+                device=0,
             )
 
-            logger.info("Fast NLI model loaded", model=model_name)
+            logger.info("NLI model loaded on GPU", model=model_name)
 
         except Exception as e:
-            logger.error("Failed to load fast NLI model", error=str(e))
-            raise
-
-    async def _ensure_slow_model(self) -> None:
-        """Load slow (GPU) NLI model."""
-        if self._slow_model is not None:
-            return
-
-        try:
-            import torch
-            from transformers import pipeline
-
-            model_name = self._settings.nli.slow_model
-
-            device = 0 if torch.cuda.is_available() and self._settings.nli.use_gpu_for_slow else -1
-
-            self._slow_model = pipeline(
-                "text-classification",
-                model=model_name,
-                device=device,
-            )
-
-            device_name = "GPU" if device == 0 else "CPU"
-            logger.info("Slow NLI model loaded", model=model_name, device=device_name)
-
-        except Exception as e:
-            logger.error("Failed to load slow NLI model", error=str(e))
+            logger.error("Failed to load NLI model", error=str(e))
             raise
 
     def _map_label(self, label: str) -> str:
@@ -94,30 +67,22 @@ class NLIModel:
         self,
         premise: str,
         hypothesis: str,
-        use_slow: bool = False,
     ) -> dict[str, Any]:
         """Predict stance relationship.
 
         Args:
             premise: Premise text.
             hypothesis: Hypothesis text.
-            use_slow: Whether to use slow model.
 
         Returns:
             Prediction result with label and confidence.
         """
-        if use_slow:
-            await self._ensure_slow_model()
-            model = self._slow_model
-        else:
-            await self._ensure_fast_model()
-            model = self._fast_model
+        await self._ensure_model()
 
-        # Format input for NLI
         input_text = f"{premise} [SEP] {hypothesis}"
 
         try:
-            result = model(input_text)[0]
+            result = self._model(input_text)[0]
 
             label = self._map_label(result["label"])
             confidence = result["score"]
@@ -139,28 +104,21 @@ class NLIModel:
     async def predict_batch(
         self,
         pairs: list[tuple[str, str]],
-        use_slow: bool = False,
     ) -> list[dict[str, Any]]:
         """Predict stance for multiple pairs.
 
         Args:
             pairs: List of (premise, hypothesis) tuples.
-            use_slow: Whether to use slow model.
 
         Returns:
             List of prediction results.
         """
-        if use_slow:
-            await self._ensure_slow_model()
-            model = self._slow_model
-        else:
-            await self._ensure_fast_model()
-            model = self._fast_model
+        await self._ensure_model()
 
         inputs = [f"{p} [SEP] {h}" for p, h in pairs]
 
         try:
-            results = model(inputs)
+            results = self._model(inputs)
 
             predictions = []
             for result in results:
@@ -222,24 +180,7 @@ async def _nli_judge_remote(
 
     client = get_ml_client()
 
-    # First pass with fast model
-    results = await client.nli(pairs, use_slow=False)
-
-    # Check which pairs need slow model
-    low_confidence_pairs = []
-    low_confidence_indices = []
-
-    for idx, (pair, result) in enumerate(zip(pairs, results, strict=False)):
-        if result.get("confidence", 0) < 0.7:
-            low_confidence_pairs.append(pair)
-            low_confidence_indices.append(idx)
-
-    # Second pass with slow model for low confidence pairs
-    if low_confidence_pairs:
-        slow_results = await client.nli(low_confidence_pairs, use_slow=True)
-        for idx, result in zip(low_confidence_indices, slow_results, strict=False):
-            result["used_slow_model"] = True
-            results[idx] = result
+    results = await client.nli(pairs)
 
     # Map result format
     final_results = []
@@ -249,14 +190,12 @@ async def _nli_judge_remote(
                 "pair_id": result.get("pair_id", pairs[idx].get("pair_id", "unknown")),
                 "stance": result.get("label", "neutral"),
                 "confidence": result.get("confidence", 0.0),
-                "used_slow_model": result.get("used_slow_model", False),
             }
         )
 
     logger.info(
         "NLI judgment completed (remote)",
         pair_count=len(pairs),
-        slow_model_used=sum(1 for r in final_results if r.get("used_slow_model")),
     )
 
     return final_results
@@ -270,33 +209,24 @@ async def _nli_judge_local(
 
     results = []
 
-    # First pass with fast model
     for pair in pairs:
         pair_id = pair.get("pair_id", "unknown")
         premise = pair.get("premise", "")
         hypothesis = pair.get("hypothesis", "")
 
-        prediction = await model.predict(premise, hypothesis, use_slow=False)
-
-        # Check if we need slow model (low confidence or ambiguous)
-        need_slow = prediction["confidence"] < 0.7
-
-        if need_slow:
-            prediction = await model.predict(premise, hypothesis, use_slow=True)
+        prediction = await model.predict(premise, hypothesis)
 
         results.append(
             {
                 "pair_id": pair_id,
                 "stance": prediction["label"],
                 "confidence": prediction["confidence"],
-                "used_slow_model": need_slow,
             }
         )
 
     logger.info(
         "NLI judgment completed (local)",
         pair_count=len(pairs),
-        slow_model_used=sum(1 for r in results if r.get("used_slow_model")),
     )
 
     return results
@@ -320,38 +250,26 @@ async def detect_contradictions(
     # Compare all pairs
     for i, claim1 in enumerate(claims):
         for claim2 in claims[i + 1 :]:
-            # Check both directions
-            pred1 = await model.predict(
+            pred = await model.predict(
                 claim1["text"],
                 claim2["text"],
-                use_slow=False,
             )
 
-            if pred1["label"] == "refutes" and pred1["confidence"] > 0.7:
-                # Verify with slow model
-                pred_slow = await model.predict(
-                    claim1["text"],
-                    claim2["text"],
-                    use_slow=True,
+            if pred["label"] == "refutes" and pred["confidence"] > 0.7:
+                contradictions.append(
+                    {
+                        "claim1_id": claim1["id"],
+                        "claim2_id": claim2["id"],
+                        "claim1_text": claim1["text"],
+                        "claim2_text": claim2["text"],
+                        "confidence": pred["confidence"],
+                    }
                 )
-
-                if pred_slow["label"] == "refutes" and pred_slow["confidence"] > 0.6:
-                    contradictions.append(
-                        {
-                            "claim1_id": claim1["id"],
-                            "claim2_id": claim2["id"],
-                            "claim1_text": claim1["text"],
-                            "claim2_text": claim2["text"],
-                            "confidence": pred_slow["confidence"],
-                        }
-                    )
 
     logger.info(
         "Contradiction detection completed",
         claim_count=len(claims),
         contradiction_count=len(contradictions),
     )
-
-    return contradictions
 
     return contradictions

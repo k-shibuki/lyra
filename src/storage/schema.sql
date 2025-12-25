@@ -692,7 +692,7 @@ CREATE TABLE IF NOT EXISTS adapters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     version_name TEXT NOT NULL,           -- "v1", "v1.1", "v2" etc.
     adapter_path TEXT NOT NULL,           -- Path to adapter weights (e.g., "adapters/lora-v1/")
-    base_model TEXT NOT NULL,             -- Base model name (e.g., "cross-encoder/nli-deberta-v3-xsmall")
+    base_model TEXT NOT NULL,             -- Base model name (e.g., "cross-encoder/nli-deberta-v3-small")
     samples_used INTEGER NOT NULL,        -- Number of training samples used
     brier_before REAL,                    -- Brier score before training
     brier_after REAL,                     -- Brier score after training

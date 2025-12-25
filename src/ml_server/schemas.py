@@ -81,7 +81,6 @@ class NLIRequest(BaseModel):
     """NLI request."""
 
     pairs: list[NLIPair] = Field(..., description="Pairs to judge")
-    use_slow: bool = Field(default=False, description="Use slow (GPU) model")
 
 
 class NLIResult(BaseModel):

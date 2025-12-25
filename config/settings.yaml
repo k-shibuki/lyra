@@ -217,7 +217,6 @@ llm:
 embedding:
   model_name: "BAAI/bge-m3"
   onnx_path: "models/bge-m3"
-  use_gpu: true
   batch_size: 8  # Micro-batch for VRAM
   max_length: 512
 
@@ -225,17 +224,12 @@ embedding:
 reranker:
   model_name: "BAAI/bge-reranker-v2-m3"
   onnx_path: "models/bge-reranker-v2-m3"
-  use_gpu: true
   top_k: 100  # 100-150
   max_top_k: 150
 
 # === NLI Settings ===
 nli:
-  # Fast model (CPU)
-  fast_model: "cross-encoder/nli-deberta-v3-xsmall"
-  # Slow model (GPU)
-  slow_model: "cross-encoder/nli-deberta-v3-small"
-  use_gpu_for_slow: true
+  model: "cross-encoder/nli-deberta-v3-small"
 
 # === Storage Settings ===
 storage:

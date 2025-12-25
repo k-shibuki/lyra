@@ -16,22 +16,13 @@ class EmbeddingService:
 
     Provides text embedding functionality using a sentence-transformer model.
     The model is lazy-loaded on first encode() call.
-
-    Attributes:
-        _model: The loaded sentence-transformer model, or None if not yet loaded.
-        _use_gpu: Whether to use GPU for inference (from LYRA_ML__USE_GPU env var).
     """
 
     def __init__(self) -> None:
-        """Initialize embedding service.
-
-        Sets up GPU availability flag. The model itself is lazy-loaded
-        on first encode() call via load() method.
-        """
+        """Initialize embedding service."""
         from typing import Any
 
         self._model: Any = None
-        self._use_gpu = os.environ.get("LYRA_ML__USE_GPU", "true").lower() == "true"
 
     @property
     def is_loaded(self) -> bool:
@@ -55,31 +46,19 @@ class EmbeddingService:
                 use_local=use_local,
             )
 
-            # When using local paths, always use local_files_only=True
-            # When using model names (dev mode), check HF_HUB_OFFLINE
             local_only = use_local or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
 
             self._model = SentenceTransformer(
                 model_path,
                 local_files_only=local_only,
             )
-            assert self._model is not None  # SentenceTransformer always returns model
+            assert self._model is not None
 
-            # Move to GPU if available
-            if self._use_gpu:
-                try:
-                    self._model = self._model.to("cuda")
-                    logger.info(
-                        "Embedding model loaded on GPU",
-                        model_path=model_path,
-                    )
-                except Exception:
-                    logger.warning(
-                        "GPU not available, using CPU for embeddings",
-                        model_path=model_path,
-                    )
-            else:
-                logger.info("Embedding model loaded on CPU", model_path=model_path)
+            self._model = self._model.to("cuda")
+            logger.info(
+                "Embedding model loaded on GPU",
+                model_path=model_path,
+            )
 
         except Exception as e:
             logger.error("Failed to load embedding model", error=str(e))
@@ -99,7 +78,7 @@ class EmbeddingService:
             return []
 
         await self.load()
-        assert self._model is not None  # Guaranteed by load()
+        assert self._model is not None
 
         embeddings = self._model.encode(
             texts,
