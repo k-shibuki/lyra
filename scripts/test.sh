@@ -168,8 +168,10 @@ resolve_runtime() {
     fi
 
     if [[ "$runtime" == "auto" ]]; then
-        # If we are already inside a container, run in-container.
-        if [[ "${IN_CONTAINER:-false}" == "true" ]]; then
+        # If we are inside the lyra container, run in-container mode.
+        # Note: IN_CONTAINER=true can also mean CI sandbox (runsc), not lyra.
+        # Only use container mode if we're actually in the lyra container.
+        if [[ "${IN_CONTAINER:-false}" == "true" ]] && [[ "${CURRENT_CONTAINER_NAME:-}" == "$CONTAINER_NAME_SELECTED" ]]; then
             echo "container"
             return 0
         fi
