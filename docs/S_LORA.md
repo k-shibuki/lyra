@@ -432,22 +432,59 @@ ML Server再起動 or /nli/adapter/load
 | 訂正率の変化 | 学習前後での訂正率比較 | 減少傾向 |
 | ベースラインとの比較 | アダプタなしモデルとの比較 | 改善または同等 |
 
+### 8.4 アダプタ切り替え時の排他制御
+
+**方針**: `/nli/adapter/load` および `/nli/adapter/unload` 実行中は、新規推論リクエストを**ブロック（排他ロック）**する。
+
+**実装:**
+```python
+# src/ml_server/nli.py
+class NLIService:
+    def __init__(self):
+        self._model_lock = asyncio.Lock()  # モデル操作の排他制御
+    
+    async def predict(self, pairs: list) -> list:
+        async with self._model_lock:
+            return await self._predict_impl(pairs)
+    
+    async def load_adapter(self, adapter_path: str):
+        async with self._model_lock:
+            # モデル状態を変更（推論リクエストは待機）
+            await self._load_adapter_impl(adapter_path)
+```
+
+**理由:**
+- モデル状態の不整合を防止（load中に旧モデルと新モデルが混在するリスク）
+- 推論結果の一貫性を保証
+- シンプルな実装で安全性を確保
+
+**トレードオフ:**
+- load/unload中は推論がブロックされる（数秒〜数十秒）
+- 運用上は「推論が少ない時間帯にload」を推奨
+
 ---
 
 ## 9. ML実験設計の詳細
 
-### 9.1 訂正サンプルの品質フィルタ
+### 9.1 nli_corrections の設計方針
 
-高確信度で誤った明確なケースを優先的に使用し、学習効率を高める：
+**`nli_corrections` には訂正のみを記録する。**
+
+- **記録条件**: `predicted_label != correct_label`（予測が間違っていた場合のみ）
+- **記録しない**: 予測が正しかった場合（学習データの偏り防止）
+- **理由**: 正解サンプルは元モデルが既に学習済みであり、訂正サンプルに集中することで効率的な学習が可能
+
+### 9.1.1 訂正サンプルの品質フィルタ
+
+学習効率を高めるため、高確信度で誤った明確なケースを優先：
 
 ```sql
 -- 高確信度で誤った明確なケースのみ使用
 SELECT * FROM nli_corrections
 WHERE predicted_confidence > 0.8
-  AND predicted_label != correct_label
 ```
 
-**注**: `nli_corrections`には正しい予測もground-truthとして蓄積されるため、学習時はフィルタが必要。
+**注**: `nli_corrections` は訂正のみを記録するため、`predicted_label != correct_label` のフィルタは不要（テーブル設計で保証）。
 
 ### 9.2 バリデーション分割
 
@@ -505,11 +542,11 @@ SELECT premise, hypothesis, correct_label FROM nli_corrections
 -- v2: 未学習サンプルのみ使用
 SELECT premise, hypothesis, correct_label 
 FROM nli_corrections
-WHERE trained_adapter_version IS NULL
-   OR trained_adapter_version < ?  -- 現在のアダプタバージョン
+WHERE trained_adapter_id IS NULL
+   OR trained_adapter_id < ?  -- 現在のアダプタIDより小さい
 ```
 
-**v2に必要なスキーマ変更**（Q_ASYNC_ARCHITECTURE.md Phase 5で実施）:
+**v2に必要なスキーマ（実装済み）**:
 
 ```sql
 -- アダプタ管理テーブル（新規）
@@ -579,8 +616,18 @@ def shadow_evaluation(val_set, old_adapter, new_adapter):
 | R.1.2 | `NLIService` にアダプタ読み込み機能を追加 | 未着手 |
 | R.1.3 | アダプタ管理エンドポイント実装 | 未着手 |
 | R.1.4 | 設定ファイル拡張（アダプタパス） | 未着手 |
+| R.1.5 | アダプタload/unload時の排他制御実装（§8.4） | 未着手 |
 
 ### 10.2 Phase 2: 学習・評価スクリプト
+
+**前提作業（R.2.1開始前に実施）:**
+- [ ] `target_modules` の事前確認（DeBERTa-v3のLinear層名取得）
+  ```python
+  from transformers import AutoModel
+  model = AutoModel.from_pretrained("cross-encoder/nli-deberta-v3-xsmall")
+  print([n for n, m in model.named_modules() if "Linear" in str(type(m))])
+  ```
+  → 結果に基づき §7.3 / §9.3 の `target_modules` を更新
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|

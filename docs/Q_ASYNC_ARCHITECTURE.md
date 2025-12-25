@@ -967,18 +967,19 @@ status = await call_tool("get_status", {
 - [x] 全テストがパスする（互換なしのため、旧入力は失敗する）
 - [x] 実行コマンド/カバレッジ手順をPR本文末尾に記載
 
-### Phase 4: Search Resource Control 🚧 IN PROGRESS
+### Phase 4: Search Resource Control ✅ DONE (4.A/4.B)
 
 > **依存**: Phase 3完了後に開始
 > **ADR**: 
 > - [ADR-0013: Worker Resource Contention Control](adr/0013-worker-resource-contention.md) - 学術API
 > - [ADR-0014: Browser SERP Resource Control](adr/0014-browser-serp-resource-control.md) - ブラウザSERP
-> - [ADR-0015: Adaptive Concurrency Control](adr/0015-adaptive-concurrency-control.md) - 適応的並行性制御
+> - [ADR-0015: Adaptive Concurrency Control](adr/0015-adaptive-concurrency-control.md) - 適応的並行性制御（4.C: 任意/将来）
 >
 > **実装状況**: 2025-12-25
 > - [x] Phase 4.A: `AcademicAPIRateLimiter` 実装完了
 > - [x] Phase 4.B: `TabPool` + `EngineRateLimiter` 実装完了（max_tabs=1）
-> - [ ] 統合テスト、実環境検証
+> - [x] 統合テスト完了
+> - 4.C（Config-driven concurrency）は任意/将来対応
 
 **4.1 問題の特定**
 
@@ -1001,16 +1002,16 @@ Worker-1: search_action → AcademicSearchProvider() → SemanticScholarClient()
 ```
 
 **解決策:**
-- [ ] 学術APIクライアントにグローバルレートリミッター追加
-- [ ] `src/search/apis/rate_limiter.py` 新規作成
-- [ ] プロバイダー別（semantic_scholar, openalex）のQPS制限
-- [ ] 設定は `config/academic_apis.yaml` から読み込み
-- [ ] **max_parallel（同時数）もprovider別に制御**（`asyncio.gather()` 由来のfan-out対策）
+- [x] 学術APIクライアントにグローバルレートリミッター追加
+- [x] `src/search/apis/rate_limiter.py` 新規作成
+- [x] プロバイダー別（semantic_scholar, openalex）のQPS制限
+- [x] 設定は `config/academic_apis.yaml` から読み込み
+- [x] **max_parallel（同時数）もprovider別に制御**（`asyncio.gather()` 由来のfan-out対策）
 
 **テスト:**
-- [ ] 2ワーカー同時学術API呼び出しでQPS遵守確認
-- [ ] 異なるAPI（S2 + OA）は並列OK確認
-- [ ] 高負荷（5+ワーカー）でのレート制限動作確認
+- [x] 2ワーカー同時学術API呼び出しでQPS遵守確認
+- [x] 異なるAPI（S2 + OA）は並列OK確認
+- [x] 高負荷（5+ワーカー）でのレート制限動作確認
 
 #### 4.B ブラウザSERPリソース制御（ADR-0014）
 
@@ -1022,14 +1023,14 @@ Worker-1: search_action → BrowserSearchProvider.search(engine="mojeek")
 ```
 
 **解決策（Phase 4.Bの主目的 = 正しさ）:**
-- [ ] **TabPool導入（max_tabs=1）**で「同一Pageの同時操作」を構造的に排除（挙動は現状維持）
-- [ ] 検索1回を「借りたタブ（Page）」に閉じる（Page共有を廃止）
-- [ ] エンジン別の **QPS/並列（concurrency）** は `config/engines.yaml` に集約（engine policy）
+- [x] **TabPool導入（max_tabs=1）**で「同一Pageの同時操作」を構造的に排除（挙動は現状維持）
+- [x] 検索1回を「借りたタブ（Page）」に閉じる（Page共有を廃止）
+- [x] エンジン別の **QPS/並列（concurrency）** は `config/engines.yaml` に集約（engine policy）
 - [ ] `max_tabs>1` による並列化は Phase 4.B 完了後に段階的に解放（実測ベース）
 
 **テスト:**
-- [ ] 2ワーカー同時実行時に、ブラウザSERPが **Page競合せず**安定して完了すること（正しさ）
-- [ ] `max_tabs=1` のときに現状挙動（実質シリアル）と整合していること（回帰防止）
+- [x] 2ワーカー同時実行時に、ブラウザSERPが **Page競合せず**安定して完了すること（正しさ）
+- [x] `max_tabs=1` のときに現状挙動（実質シリアル）と整合していること（回帰防止）
 - [ ] （将来）`max_tabs>1` で並列化した場合のCAPTCHA率/成功率/メモリ影響の観測
 
 **4.2 完了チェックリスト**
@@ -1089,13 +1090,15 @@ Worker-1: search_action → BrowserSearchProvider.search(engine="mojeek")
 | 5.3 | `browser_search_provider.py` で `options.serp_page` 活用 | 未着手 |
 | 5.4 | `pagination_strategy.py` 新規作成 | 未着手 |
 | 5.5 | キャッシュキー拡張（SERPページ番号を含める） | 未着手 |
-| 5.6 | テスト追加 | 未着手 |
+| 5.6 | `serp_items.page_number` カラム追加（必須: 監査/再現性担保） | 未着手 |
+| 5.7 | テスト追加 | 未着手 |
 
 **5.4 完了チェックリスト**
 
 - [ ] ページネーションURL構築が全エンジンで動作
 - [ ] 停止判断ロジックが正しく機能（飽和時に停止）
 - [ ] キャッシュが page 別に分離
+- [ ] `serp_items.page_number` カラムが追加されている
 - [ ] テストパス
 - [ ] R_SERP_ENHANCEMENT.md 更新
 

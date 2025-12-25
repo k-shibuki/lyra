@@ -87,17 +87,27 @@ results = [r.to_search_result(engine) for r in parse_result.results[: options.li
 
 ### 2.2 各エンジンのページネーションパラメータ
 
-| エンジン | パラメータ形式 | 例（2ページ目） | 結果数/ページ |
-|---------|---------------|-----------------|---------------|
-| DuckDuckGo | `s={offset}` | `s=30` | 約30件 |
-| Google | `start={offset}` | `start=10` | 10件 |
-| Bing | `first={offset}` | `first=11` | 10件 |
-| Mojeek | `s={offset}` | `s=10` | 10件 |
-| Brave | `offset={offset}` | `offset=10` | 10件 |
-| Ecosia | `p={page}` | `p=1` | 10件 |
-| Startpage | `page={page}` | `page=2` | 10件 |
+**serp_page の仕様:**
+- **1始まり**（1ページ目 = `serp_page=1`）
+- 実装: `src/search/provider.py` の `SearchOptions.serp_page` は `default=1, ge=1` で定義済み
+- offset計算の基本式: `offset = (serp_page - 1) * results_per_page`
 
-**注意**: offset方式とpage方式が混在。抽象化レイヤーが必要。
+**複数エンジン指定時の挙動:**
+- **全エンジンに対してページネーションを適用**する
+- 各エンジン独立で `serp_max_pages` まで取得し、結果をマージ
+- キャッシュは**エンジン単位**で管理（後述）
+
+| エンジン | パラメータ形式 | 計算式（serp_page=N） | 例（2ページ目） | 結果数/ページ |
+|---------|---------------|----------------------|-----------------|---------------|
+| DuckDuckGo | `s={offset}` | `s = (N - 1) * 30` | `s=30` | 約30件 |
+| Google | `start={offset}` | `start = (N - 1) * 10` | `start=10` | 10件 |
+| Bing | `first={offset}` | `first = (N - 1) * 10 + 1` | `first=11` | 10件 |
+| Mojeek | `s={offset}` | `s = (N - 1) * 10` | `s=10` | 10件 |
+| Brave | `offset={offset}` | `offset = (N - 1) * 10` | `offset=10` | 10件 |
+| Ecosia | `p={page}` | `p = N - 1` | `p=1` | 10件 |
+| Startpage | `page={page}` | `page = N` | `page=2` | 10件 |
+
+**注意**: offset方式とpage方式が混在。`config/search_parsers.yaml` の `pagination_type` で抽象化。
 
 ---
 
@@ -194,12 +204,17 @@ class PaginationStrategy:
     def calculate_novelty_rate(self, new_urls: list[str], seen_urls: set[str]) -> float: ...
 ```
 
-### 4.4 DB変更（任意）
+### 4.4 DB変更（必須）
 
 ```sql
--- serp_items に追加（推奨）
+-- serp_items に追加（監査/再現性をDB側で担保）
 ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
 ```
+
+**設計判断:**
+- `serp_items.page_number` は **必須** とする
+- 監査/再現性をDB側で担保（どのSERPページから取得されたかを追跡可能）
+- `jobs.output_json` への依存を避け、正規化された形でデータを保持
 
 ---
 
@@ -252,9 +267,14 @@ ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
 # 現在のキャッシュキー
 cache_key = f"{normalized_query}|{engines}|{time_range}"
 
-# 変更後（SERPページ番号/ページネーション設定を追加）
-cache_key = f"{normalized_query}|{engines}|{time_range}|serp_page={page}"
+# 変更後（SERPページ番号を追加、エンジン単位でキャッシュ）
+cache_key = f"{normalized_query}|{engine}|{time_range}|serp_page={page}"
 ```
+
+**キャッシュキー設計:**
+- `engine` は**単一エンジン単位**（複数エンジン指定時は各エンジン毎にキャッシュエントリを作成）
+- `serp_max_pages` / `pagination_type` / `results_per_page` は**キャッシュキーに含めない**
+  - これらの設定変更時は、キャッシュ無効化（TTL経過 or 手動クリア）で対応
 
 ### 7.2.1 ページ上限パラメータの意味の分離（重要）
 
@@ -312,7 +332,7 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_page={page}"
 
 ### Phase 2: 検索プロバイダー対応
 - [ ] `browser_search_provider.py` で `options.serp_page` を使用
-- [ ] キャッシュキーにページ番号含める
+- [ ] キャッシュキーにページ番号含める（`serp_page` を使用、`budget_pages` はクロール予算であり別概念）
 - [ ] `SearchResponse` にページ情報追加（任意）
 
 ### Phase 3: 停止判断ロジック
@@ -326,9 +346,9 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_page={page}"
 - [ ] 結合テスト（実エンジン）
 - [ ] Q_ASYNC / ADR更新
 
-### Phase 5: DB拡張（任意）
-- [ ] `serp_items.page_number` カラム追加
-- [ ] マイグレーションスクリプト作成
+### Phase 5: DB拡張（必須）
+- [ ] `serp_items.page_number` カラム追加（監査/再現性をDB側で担保）
+- [ ] スキーマを更新し、DBを作り直し（開発フェーズなので破壊的にやる。マイグレーションではない）
 
 ---
 

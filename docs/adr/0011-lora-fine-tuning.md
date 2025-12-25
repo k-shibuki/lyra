@@ -10,7 +10,7 @@ Lyraで使用するNLIモデル（DeBERTa-v3-xsmall/small）は、汎用的な�
 | 課題 | 詳細 |
 |------|------|
 | ドメイン適応 | 学術論文・技術文書への特化が不十分 |
-| 誤分類 | SUPPORTSをNEUTRALと判定する等のエラー |
+| 誤分類 | supportsをneutralと判定する等のエラー |
 | ユーザー固有 | 各ユーザーの調査ドメインに最適化されていない |
 
 フルファインチューニングには以下の問題がある：
@@ -53,8 +53,8 @@ feedback_data = [
     {
         "premise": "論文Aの主張...",
         "hypothesis": "ユーザーの仮説...",
-        "correct_label": "SUPPORTS",  # ユーザー訂正
-        "original_label": "NEUTRAL"   # モデル誤判定
+        "correct_label": "supports",  # ユーザー訂正
+        "original_label": "neutral"   # モデル誤判定
     },
     ...
 ]
