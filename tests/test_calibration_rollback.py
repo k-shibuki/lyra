@@ -1,6 +1,8 @@
 """
 Tests for calibration_rollback MCP tool.
 
+Per ADR-0011: LoRA Fine-tuning Strategy.
+
 Implements test perspectives for calibration_rollback tool per test-strategy.mdc.
 Renamed from calibrate_rollback.
 """

@@ -189,8 +189,10 @@ class BrowserSearchProvider(BaseSearchProvider):
         Per spec (ADR-0003, ADR-0006), CDP connection to real Chrome profile is required.
         Headless fallback is not supported as it violates the "real profile consistency" principle.
 
+        Auto-starts Chrome via chrome.sh if not running (same behavior as BrowserFetcher).
+
         Raises:
-            CDPConnectionError: If CDP connection fails (Chrome not running or not accessible).
+            CDPConnectionError: If CDP connection fails after auto-start attempt.
         """
         if self._playwright is None:
             try:
@@ -204,11 +206,49 @@ class BrowserSearchProvider(BaseSearchProvider):
                 chrome_port = getattr(self._settings.browser, "chrome_port", 9222)
                 cdp_url = f"http://{chrome_host}:{chrome_port}"
 
+                cdp_connected = False
+                cdp_error: Exception | None = None
+
+                # First attempt to connect
                 try:
                     self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+                    cdp_connected = True
                     self._cdp_connected = True
                     logger.info("Connected to Chrome via CDP", url=cdp_url)
                 except Exception as e:
+                    logger.info("CDP connection failed, attempting auto-start", error=str(e))
+                    cdp_error = e
+
+                # Auto-start Chrome if CDP connection failed
+                if not cdp_connected:
+                    auto_start_success = await self._auto_start_chrome()
+
+                    if auto_start_success:
+                        # Wait for CDP connection with polling (max 15 seconds, 0.5s interval)
+                        import asyncio
+                        import time
+
+                        start_time = time.monotonic()
+                        timeout = 15.0
+                        poll_interval = 0.5
+
+                        while time.monotonic() - start_time < timeout:
+                            try:
+                                self._browser = await self._playwright.chromium.connect_over_cdp(
+                                    cdp_url
+                                )
+                                cdp_connected = True
+                                self._cdp_connected = True
+                                logger.info(
+                                    "Connected to Chrome via CDP after auto-start",
+                                    url=cdp_url,
+                                    elapsed=f"{time.monotonic() - start_time:.1f}s",
+                                )
+                                break
+                            except Exception:
+                                await asyncio.sleep(poll_interval)
+
+                if not cdp_connected:
                     # CDP connection failed - do NOT fall back to headless
                     # Per spec: "real profile consistency" is required
                     self._cdp_connected = False
@@ -217,8 +257,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                         self._playwright = None
 
                     raise CDPConnectionError(
-                        f"CDP connection failed: {e}. Start Chrome with: ./scripts/chrome.sh start"
-                    ) from e
+                        f"CDP connection failed: {cdp_error}. Start Chrome with: ./scripts/chrome.sh start"
+                    ) from cdp_error
 
                 # Reuse existing context if available (preserves profile cookies per ADR-0007)
                 assert self._browser is not None  # Just connected
@@ -264,6 +304,67 @@ class BrowserSearchProvider(BaseSearchProvider):
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/120.0.0.0 Safari/537.36"
         )
+
+    async def _auto_start_chrome(self) -> bool:
+        """Auto-start Chrome using chrome.sh script.
+
+        When a CDP (Chrome DevTools Protocol) connection is not detected,
+        Lyra automatically executes ./scripts/chrome.sh start to launch Chrome.
+
+        Returns:
+            True if chrome.sh start succeeded, False otherwise.
+        """
+        import asyncio
+        from pathlib import Path
+
+        # Find chrome.sh script relative to project root
+        # src/search/browser_search_provider.py -> scripts/chrome.sh
+        script_path = Path(__file__).parent.parent.parent / "scripts" / "chrome.sh"
+
+        if not script_path.exists():
+            logger.warning("chrome.sh not found", path=str(script_path))
+            return False
+
+        try:
+            logger.info("Auto-starting Chrome", script=str(script_path))
+            process = await asyncio.create_subprocess_exec(
+                str(script_path),
+                "start",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            # Wait for process completion with timeout
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=30.0,  # 30 second timeout for script execution
+                )
+            except TimeoutError:
+                logger.error("Chrome auto-start timed out")
+                process.kill()
+                await process.wait()
+                return False
+
+            stdout_text = stdout.decode() if stdout else ""
+            stderr_text = stderr.decode() if stderr else ""
+
+            if process.returncode == 0:
+                logger.info(
+                    "Chrome auto-start script completed",
+                    stdout=stdout_text[:200] if stdout_text else "",
+                )
+                return True
+            else:
+                logger.warning(
+                    "Chrome auto-start script failed",
+                    returncode=process.returncode,
+                    stderr=stderr_text[:200] if stderr_text else "",
+                )
+                return False
+        except Exception as e:
+            logger.error("Chrome auto-start error", error=str(e))
+            return False
 
     async def _perform_health_audit(self) -> None:
         """Perform profile health audit on browser session initialization.

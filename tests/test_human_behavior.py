@@ -1,5 +1,7 @@
 """
-Tests for human_behavior.py module .
+Tests for human_behavior.py module.
+
+Per ADR-0007: Human-in-the-Loop Authentication.
 
 Tests MouseTrajectory, HumanTyping, InertialScroll, and HumanBehaviorSimulator.
 

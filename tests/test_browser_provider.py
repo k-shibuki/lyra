@@ -1,6 +1,8 @@
 """
 Tests for browser provider abstraction layer.
 
+Per ADR-0014: Browser SERP Resource Control.
+
 Implements .1 test quality standards:
 - Specific assertions (no vague len > 0 checks)
 - Production-like test data

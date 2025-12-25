@@ -1,6 +1,8 @@
 """
 Tests for calibration_metrics MCP tool.
 
+Per ADR-0003: MCP over CLI / REST API.
+
 Renamed from calibrate. add_sample action was removed.
 Use feedback(edge_correct) for ground-truth collection.
 

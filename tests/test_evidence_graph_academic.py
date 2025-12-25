@@ -1,6 +1,8 @@
 """
 Tests for academic citation integration in evidence graph.
 
+Per ADR-0005: Evidence Graph Structure.
+
 Tests the add_academic_page_with_citations() function and
 citation_source, citation_context edge attributes.
 

@@ -30,13 +30,10 @@ to HTTP client requests, including:
 | TC-PV-04 | CookieData with default values | Equivalence – defaults | Defaults applied | Pydantic |
 """
 
-import pytest
-
-# All tests in this module are unit tests (no external dependencies)
-pytestmark = pytest.mark.unit
-# E402: Intentionally import after pytestmark for test configuration
 import time
 from unittest.mock import AsyncMock
+
+import pytest
 
 from src.crawler.session_transfer import (
     CookieData,
@@ -46,6 +43,9 @@ from src.crawler.session_transfer import (
     get_session_transfer_manager,
     get_transfer_headers,
 )
+
+# All tests in this module are integration tests (use database)
+pytestmark = pytest.mark.integration
 
 # =============================================================================
 # CookieData Tests

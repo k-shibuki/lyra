@@ -32,6 +32,8 @@ from src.mcp.errors import (
     generate_error_id,
 )
 
+pytestmark = pytest.mark.integration
+
 
 class TestMCPErrorCode:
     """Tests for MCPErrorCode enum."""

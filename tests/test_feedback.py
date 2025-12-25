@@ -48,6 +48,8 @@ from src.mcp.feedback_handler import (
     handle_feedback_action,
 )
 
+pytestmark = pytest.mark.integration
+
 # ============================================================
 # Domain Pattern Validation Tests
 # ============================================================

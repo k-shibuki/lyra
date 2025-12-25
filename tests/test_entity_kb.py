@@ -35,10 +35,6 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import pytest
-
-# All tests in this module are integration tests (use database)
-pytestmark = pytest.mark.integration
-
 import pytest_asyncio
 
 from src.storage.entity_kb import (
@@ -50,6 +46,9 @@ from src.storage.entity_kb import (
     NameNormalizer,
     NormalizedName,
 )
+
+# All tests in this module are integration tests (use database)
+pytestmark = pytest.mark.integration
 
 # =============================================================================
 # Fixtures

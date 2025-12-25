@@ -1,6 +1,8 @@
 """
 Tests for academic search pipeline integration.
 
+Per ADR-0008: Academic Data Source Strategy.
+
 Tests the Abstract Only strategy and citation graph integration
 in the SearchPipeline._execute_complementary_search() method.
 

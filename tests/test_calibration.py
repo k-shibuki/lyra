@@ -1,6 +1,8 @@
 """
 Tests for confidence calibration module.
 
+Per ADR-0011: LoRA Fine-tuning Strategy.
+
 Covers:
 - PlattScaling: Logistic regression calibration
 - TemperatureScaling: Single parameter scaling

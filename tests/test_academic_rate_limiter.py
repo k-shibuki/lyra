@@ -20,6 +20,8 @@ from src.search.apis.rate_limiter import (
     reset_academic_rate_limiter,
 )
 
+pytestmark = pytest.mark.integration
+
 
 def _setup_limiter_with_config(
     limiter: AcademicAPIRateLimiter, provider: str, config: ProviderRateLimitConfig
