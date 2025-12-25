@@ -41,7 +41,7 @@ services:
       - "127.0.0.1:8080:8080"
     # Run proxy server (enables hybrid WSL/container mode)
     # For development shell access, use: podman exec -it lyra bash
-    command: ["python", "-m", "src.proxy.server"]
+    command: ["uv", "run", "python", "-m", "src.proxy.server"]
     stdin_open: true
     tty: true
     depends_on:

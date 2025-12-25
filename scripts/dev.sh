@@ -151,7 +151,8 @@ cmd_up() {
     fi
     
     log_info "Starting Lyra development environment..."
-    $COMPOSE up -d
+    # --no-build: Require explicit build (use dev-build first)
+    $COMPOSE up -d --no-build
     echo ""
     echo "Services started:"
     echo "  - Tor SOCKS: localhost:9050"
