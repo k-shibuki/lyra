@@ -406,21 +406,22 @@ cmd_run() {
     local run_id
     run_id=$(generate_run_id)
     mkdir -p "$TEST_RESULT_DIR"
-    
+
     local result_file
     local pid_file
     result_file=$(get_result_file "$run_id")
     pid_file=$(get_pid_file "$run_id")
 
-    echo "=== Cleanup ==="
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "=== Cleanup ==="
+    fi
     # Clean up old result files (prevents /tmp bloat)
     cleanup_old_results
-    
+
     if [[ "$runtime" == "container" ]]; then
         if ! is_container_running_selected; then
-            log_error "Container '${CONTAINER_NAME_SELECTED}' is not running."
-            log_error "Start it with: ./scripts/dev.sh up"
-            exit 1
+            output_error $EXIT_NOT_RUNNING "Container '${CONTAINER_NAME_SELECTED}' is not running" \
+                "container=${CONTAINER_NAME_SELECTED}" "hint=./scripts/dev.sh up"
         fi
     else
         ensure_venv
@@ -430,11 +431,13 @@ cmd_run() {
         PYTEST_ARGS=("tests/")
     fi
 
-    echo "=== Running: ${PYTEST_ARGS[*]} ==="
-    
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "=== Running: ${PYTEST_ARGS[*]} ==="
+    fi
+
     # Get appropriate markers for this environment
     local markers
-    markers=$(get_pytest_markers)
+    markers=$(get_pytest_markers 2>/dev/null)
 
     # Build pytest command args (no eval; allow multiple args)
     local pytest_cmd=()
@@ -482,17 +485,32 @@ cmd_run() {
         write_test_state "venv" "" "" "$result_file" "$pid_file" "$run_id"
     fi
 
-    echo ""
-    echo "Started. To check results:"
-    echo "  ./scripts/test.sh check ${run_id}"
-    echo ""
-    echo "Artifacts:"
-    echo "  run_id:      ${run_id}"
-    echo "  result_file: ${result_file}"
-    echo "  pid_file:    ${pid_file}"
-    echo ""
-    echo "Tip:"
-    echo "  less -R ${result_file}"
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        cat <<EOF
+{
+  "status": "started",
+  "exit_code": ${EXIT_SUCCESS},
+  "run_id": "${run_id}",
+  "runtime": "${runtime}",
+  "result_file": "${result_file}",
+  "pid_file": "${pid_file}",
+  "check_command": "./scripts/test.sh check ${run_id}",
+  "markers": "${markers}"
+}
+EOF
+    else
+        echo ""
+        echo "Started. To check results:"
+        echo "  ./scripts/test.sh check ${run_id}"
+        echo ""
+        echo "Artifacts:"
+        echo "  run_id:      ${run_id}"
+        echo "  result_file: ${result_file}"
+        echo "  pid_file:    ${pid_file}"
+        echo ""
+        echo "Tip:"
+        echo "  less -R ${result_file}"
+    fi
 }
 
 # Function: cmd_env
@@ -915,7 +933,9 @@ EOF
 # Returns:
 #   0: Success
 cmd_kill() {
-    echo "Killing..."
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "Killing..."
+    fi
 
     local run_id="${1:-}"
     local runtime=""
@@ -930,7 +950,17 @@ cmd_kill() {
         fi
         pkill -9 -f "pytest" 2>/dev/null || true
         rm -rf "$TEST_RESULT_DIR" "$LEGACY_RESULT_FILE" "$LEGACY_PID_FILE" "$TEST_STATE_FILE" 2>/dev/null || true
-        echo "Done"
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "success",
+  "exit_code": ${EXIT_SUCCESS},
+  "message": "All pytest processes killed and artifacts cleaned"
+}
+EOF
+        else
+            echo "Done"
+        fi
         return 0
     fi
 
@@ -950,7 +980,18 @@ cmd_kill() {
     else
         # No run_id - load from state file
         if ! load_test_state; then
-            log_warn "No test state found. Use: ./scripts/test.sh kill --all"
+            if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                cat <<EOF
+{
+  "status": "success",
+  "exit_code": ${EXIT_SUCCESS},
+  "message": "No test state found",
+  "hint": "./scripts/test.sh kill --all"
+}
+EOF
+            else
+                log_warn "No test state found. Use: ./scripts/test.sh kill --all"
+            fi
             return 0
         fi
         runtime="${LYRA_TEST__RUNTIME}"
@@ -959,11 +1000,13 @@ cmd_kill() {
         run_id="${LYRA_TEST__RUN_ID:-}"
     fi
 
+    local killed_pid=""
     # Kill process if PID file exists and process is running
     if runtime_file_exists "$runtime" "$pid_file"; then
         local pid
         pid="$(runtime_cat "$runtime" "$pid_file" | tr -d '[:space:]')"
         if [[ -n "$pid" ]] && is_pytest_process_alive "$runtime" "$pid"; then
+            killed_pid="$pid"
             if [[ "$runtime" == "container" ]]; then
                 container_exec_sh "kill -TERM $pid 2>/dev/null || true"
                 sleep 1
@@ -975,7 +1018,7 @@ cmd_kill() {
             fi
         fi
     fi
-    
+
     # Clean up files
     if [[ "$runtime" == "container" ]]; then
         if is_container_running_selected; then
@@ -990,7 +1033,25 @@ cmd_kill() {
         rm -f "$TEST_STATE_FILE" 2>/dev/null || true
     fi
     cleanup_old_results
-    echo "Done"
+
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        local was_running="false"
+        if [[ -n "$killed_pid" ]]; then
+            was_running="true"
+        fi
+        cat <<EOF
+{
+  "status": "success",
+  "exit_code": ${EXIT_SUCCESS},
+  "message": "Test run killed",
+  "run_id": "${run_id}",
+  "was_running": ${was_running},
+  "pid": "${killed_pid:-null}"
+}
+EOF
+    else
+        echo "Done"
+    fi
 }
 
 # Function: cmd_debug
