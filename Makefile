@@ -85,18 +85,20 @@ chrome-fix: ## Auto-fix WSL2 networking for Chrome
 # =============================================================================
 # TESTING
 # =============================================================================
+# RUNTIME=container/venv to override auto-detection (container preferred)
+# RUN_ID= to specify a specific test run for check/kill/debug
 
-test: ## Run all tests (unit + integration)
-	@$(SCRIPTS)/test.sh run tests/
+test: ## Run all tests (RUNTIME=container/venv)
+	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/
 
-test-unit: ## Run unit tests only
-	@$(SCRIPTS)/test.sh run tests/ -m unit
+test-unit: ## Run unit tests only (RUNTIME=container/venv)
+	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m unit
 
-test-integration: ## Run integration tests only
-	@$(SCRIPTS)/test.sh run tests/ -m integration
+test-integration: ## Run integration tests only (RUNTIME=container/venv)
+	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m integration
 
-test-e2e: ## Run E2E tests
-	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run tests/ -m e2e
+test-e2e: ## Run E2E tests (RUNTIME=container/venv)
+	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m e2e
 
 test-check: ## Check test run status (RUN_ID= optional)
 	@$(SCRIPTS)/test.sh check $(RUN_ID)
@@ -176,7 +178,7 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Testing:"
-	@grep -E '^test[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^test[a-zA-Z0-9_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Code Quality:"
