@@ -219,11 +219,53 @@ log_warn() {
 }
 
 # Function: log_error
-# Description: Log error message to stderr
+# Description: Log error message to stderr (JSON-aware)
 # Arguments:
 #   $*: Message to log
+# Note: In JSON mode, this outputs to stderr only (main output should use output_error)
 log_error() {
-    echo "[ERROR] $*" >&2
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "[ERROR] $*" >&2
+    fi
+}
+
+# Function: output_error
+# Description: Output error in appropriate format (JSON or human-readable) and exit
+# Arguments:
+#   $1: exit_code (from EXIT_* constants)
+#   $2: error message
+#   $3+: Additional key=value pairs for JSON output
+# Example:
+#   output_error $EXIT_CONFIG "Configuration file not found" "file=.env"
+output_error() {
+    local exit_code="$1"
+    local message="$2"
+    shift 2
+
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        local json_parts=()
+        json_parts+=("$(json_kv "status" "error")")
+        json_parts+=("$(json_num "exit_code" "$exit_code")")
+        json_parts+=("$(json_kv "message" "$message")")
+
+        for kv in "$@"; do
+            local key="${kv%%=*}"
+            local value="${kv#*=}"
+            if [[ "$value" =~ ^[0-9]+$ ]]; then
+                json_parts+=("$(json_num "$key" "$value")")
+            elif [[ "$value" == "true" ]] || [[ "$value" == "false" ]]; then
+                json_parts+=("$(json_bool "$key" "$value")")
+            else
+                json_parts+=("$(json_kv "$key" "$value")")
+            fi
+        done
+
+        local IFS=','
+        echo "{${json_parts[*]}}"
+    else
+        echo "[ERROR] $message" >&2
+    fi
+    exit "$exit_code"
 }
 
 # =============================================================================
@@ -565,14 +607,22 @@ get_compose_cmd() {
 
 # Function: require_podman
 # Description: Check if podman command exists
+# Arguments:
+#   $1: If "exit", exits on failure; otherwise returns 1
 # Returns:
 #   0: podman is available
-#   1: podman not found
+#   Exits or returns 1: podman not found
 require_podman() {
     if ! command -v podman &> /dev/null; then
-        log_error "podman not found"
-        log_error "Install with: sudo apt install podman"
-        return 1
+        if [[ "${1:-}" == "exit" ]]; then
+            output_error $EXIT_DEPENDENCY "podman not found" "hint=sudo apt install podman"
+        else
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+                log_error "podman not found"
+                log_error "Install with: sudo apt install podman"
+            fi
+            return 1
+        fi
     fi
     return 0
 }
@@ -596,15 +646,24 @@ get_container_runtime_cmd() {
 
 # Function: require_podman_compose
 # Description: Check if podman and podman-compose commands exist
+# Arguments:
+#   $1: If "exit", exits on failure; otherwise returns 1
 # Returns:
 #   0: Both commands are available
-#   1: One or both commands not found
+#   Exits or returns 1: One or both commands not found
 require_podman_compose() {
-    require_podman || return 1
+    local mode="${1:-}"
+    require_podman "$mode" || return 1
     if ! command -v podman-compose &> /dev/null; then
-        log_error "podman-compose not found"
-        log_error "Install with: sudo apt install podman-compose"
-        return 1
+        if [[ "$mode" == "exit" ]]; then
+            output_error $EXIT_DEPENDENCY "podman-compose not found" "hint=sudo apt install podman-compose"
+        else
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+                log_error "podman-compose not found"
+                log_error "Install with: sudo apt install podman-compose"
+            fi
+            return 1
+        fi
     fi
     return 0
 }
@@ -620,12 +679,10 @@ export VENV_DIR
 # Description: Check if venv exists, fail if not
 # Returns:
 #   0: venv exists
-#   1: venv not found
+#   Exits with EXIT_DEPENDENCY if venv not found
 ensure_venv() {
     if [[ ! -f "${VENV_DIR}/bin/activate" ]]; then
-        log_error "venv not found at ${VENV_DIR}"
-        log_error "Run: make setup"
-        return 1
+        output_error $EXIT_DEPENDENCY "venv not found at ${VENV_DIR}" "hint=make setup"
     fi
 }
 
