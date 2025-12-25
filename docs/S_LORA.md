@@ -392,7 +392,7 @@ response:
 | **状態確認** | `calibration_metrics(get_stats)` | MCPツール（軽量） |
 | **履歴参照** | `calibration_metrics(get_evaluations)` | MCPツール（軽量） |
 
-**注**: `calibration_metrics`の`evaluate`および`get_diagram_data`アクションは、Q_ASYNC_ARCHITECTURE.md Phase 5でスクリプト化・削除予定。
+**注**: `calibration_metrics`の`evaluate`および`get_diagram_data`アクションは、Q_ASYNC_ARCHITECTURE.md Phase 6で削除済み。評価・可視化は`scripts/evaluate_calibration.py`で実施。
 
 ---
 
@@ -637,9 +637,9 @@ def shadow_evaluation(val_set, old_adapter, new_adapter):
 | R.2.4 | 学習ログ・メトリクス出力 | 未着手 |
 | R.2.5 | `scripts/evaluate_calibration.py` 作成（※1） | 未着手 |
 
-**※1**: Q_ASYNC_ARCHITECTURE.md Phase 5で`calibration_metrics`から`evaluate`/`get_diagram_data`を削除した後、このスクリプトが評価機能を担う。
+**※1**: Q_ASYNC_ARCHITECTURE.md Phase 6で`calibration_metrics`から`evaluate`/`get_diagram_data`を削除済み。このスクリプトが評価機能を担う。
 
-**※スキーマ変更**: `adapters`テーブルおよび`nli_corrections.trained_adapter_id`はQ_ASYNC_ARCHITECTURE.md Phase 5で追加済みの前提。
+**※スキーマ変更**: `adapters`テーブルおよび`nli_corrections.trained_adapter_id`はQ_ASYNC_ARCHITECTURE.md Phase 6で追加済み。
 
 ### 10.3 Phase 3: 運用機能
 
@@ -685,7 +685,7 @@ def shadow_evaluation(val_set, old_adapter, new_adapter):
 `feedback(edge_correct)` により蓄積される ground-truth は、用途が2つに分岐する（§決定17参照）:
 
 - **LoRA（本ドキュメント）**: `nli_corrections` を教師データとして NLIモデルのラベル誤り自体を減らす
-- **校正（計測）**: `calibration_metrics.evaluate` が同じ蓄積データを用いて Brier/ECE 等を算出し、改善・劣化の監査に使う
+- **校正（計測）**: `scripts/evaluate_calibration.py` が同じ蓄積データを用いて Brier/ECE 等を算出し、改善・劣化の監査に使う
 
 ---
 

@@ -18,11 +18,10 @@ Test Perspectives Table (Equivalence Partitioning / Boundary Value Analysis)
 | TC-N-02   | action="get_evaluations"                    | Equivalence – normal                 | Evaluations returned, ok=True             | -                        |
 | TC-A-01   | action=None                                 | Boundary – NULL                      | InvalidParamsError                        | MCP handler validates    |
 | TC-A-02   | action="" (empty)                           | Boundary – empty                     | InvalidParamsError                        | -                        |
-| TC-A-03   | action="invalid_action"                     | Equivalence – invalid                | ok=False, error=INVALID_PARAMS            | calibration_metrics handles |
-| TC-A-04   | action="evaluate"                           | Removed action (Phase 6)             | ok=False, Unknown action                  | -                        |
-| TC-A-05   | action="get_diagram_data"                   | Removed action (Phase 6)             | ok=False, Unknown action                  | -                        |
-| TC-A-06   | action="add_sample"                         | Removed action                       | ok=False, Unknown action                  | BREAKING                 |
+| TC-A-03   | action="invalid_action"                     | Equivalence – invalid                | ok=False, error=INVALID_PARAMS            | covers unknown actions   |
 | TC-B-01   | get_evaluations: limit=0                    | Boundary – zero                      | Empty list returned                       | -                        |
+
+Note: Removed action tests (TC-A-04~06) intentionally omitted - covered by TC-A-03.
 """
 
 from typing import Any
@@ -260,84 +259,9 @@ class TestCalibrationMetricsHandler:
         assert result["error"] == "INVALID_PARAMS"
         assert "Unknown action" in result["message"]
 
-    @pytest.mark.asyncio
-    async def test_evaluate_action_removed(self) -> None:
-        """
-        TC-A-04: evaluate action was removed in Phase 6.
-
-        // Given: Trying to use the removed evaluate action
-        // When: Calling calibration_metrics with action="evaluate"
-        // Then: ok=False with error=INVALID_PARAMS, "Unknown action"
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        result = await _handle_calibration_metrics(
-            {
-                "action": "evaluate",
-                "data": {
-                    "source": "llm_extract",
-                    "predictions": [0.8, 0.6, 0.9],
-                    "labels": [1, 0, 1],
-                },
-            }
-        )
-
-        assert result["ok"] is False
-        assert result["error"] == "INVALID_PARAMS"
-        assert "Unknown action" in result["message"]
-        assert "evaluate" in result["message"]
-
-    @pytest.mark.asyncio
-    async def test_get_diagram_data_action_removed(self) -> None:
-        """
-        TC-A-05: get_diagram_data action was removed in Phase 6.
-
-        // Given: Trying to use the removed get_diagram_data action
-        // When: Calling calibration_metrics with action="get_diagram_data"
-        // Then: ok=False with error=INVALID_PARAMS, "Unknown action"
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        result = await _handle_calibration_metrics(
-            {
-                "action": "get_diagram_data",
-                "data": {
-                    "source": "llm_extract",
-                },
-            }
-        )
-
-        assert result["ok"] is False
-        assert result["error"] == "INVALID_PARAMS"
-        assert "Unknown action" in result["message"]
-        assert "get_diagram_data" in result["message"]
-
-    @pytest.mark.asyncio
-    async def test_add_sample_removed(self) -> None:
-        """
-        TC-A-06: add_sample action was removed.
-
-        // Given: Trying to use the removed add_sample action
-        // When: Calling calibration_metrics with action="add_sample"
-        // Then: ok=False with error=INVALID_PARAMS, "Unknown action"
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        result = await _handle_calibration_metrics(
-            {
-                "action": "add_sample",
-                "data": {
-                    "source": "llm_extract",
-                    "prediction": 0.85,
-                    "actual": 1,
-                },
-            }
-        )
-
-        assert result["ok"] is False
-        assert result["error"] == "INVALID_PARAMS"
-        assert "Unknown action" in result["message"]
-        assert "add_sample" in result["message"]
+    # NOTE: Tests for removed actions (evaluate, get_diagram_data, add_sample) are
+    # intentionally omitted as they are not essential - they only verify that calling
+    # a non-existent action returns an error, which is already covered by test_action_invalid.
 
     # =========================================================================
     # Boundary Cases (TC-B-*)

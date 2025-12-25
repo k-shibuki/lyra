@@ -40,19 +40,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-pytest.mark.integration
-import pytest
 import pytest_asyncio
 
 from src.storage.database import Database
 
-import pytest
-
-pytestmark = pytest.mark.integration
-
-
-pytest.mark.integration
 pytestmark = pytest.mark.integration
 
 

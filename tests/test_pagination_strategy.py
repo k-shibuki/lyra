@@ -17,7 +17,7 @@ from src.search.pagination_strategy import (
 class TestPaginationStrategy:
     """Tests for PaginationStrategy."""
 
-    def test_should_fetch_next_fixed_strategy(self):
+    def test_should_fetch_next_fixed_strategy(self) -> None:
         """Test fixed strategy: always fetch up to max_pages."""
         # Given: Fixed strategy with max_pages=5
         config = PaginationConfig(serp_max_pages=5, strategy="fixed")
@@ -35,7 +35,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_auto_strategy_novelty_rate(self):
+    def test_should_fetch_next_auto_strategy_novelty_rate(self) -> None:
         """Test auto strategy: stop when novelty_rate < min_novelty_rate."""
         # Given: Auto strategy with min_novelty_rate=0.1
         config = PaginationConfig(serp_max_pages=10, min_novelty_rate=0.1, strategy="auto")
@@ -53,7 +53,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_auto_strategy_harvest_rate(self):
+    def test_should_fetch_next_auto_strategy_harvest_rate(self) -> None:
         """Test auto strategy: stop when harvest_rate < min_harvest_rate."""
         # Given: Auto strategy with min_harvest_rate=0.05
         config = PaginationConfig(serp_max_pages=10, min_harvest_rate=0.05, strategy="auto")
@@ -71,7 +71,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_auto_strategy_both_conditions(self):
+    def test_should_fetch_next_auto_strategy_both_conditions(self) -> None:
         """Test auto strategy: both novelty_rate and harvest_rate checked."""
         # Given: Auto strategy
         config = PaginationConfig(
@@ -100,7 +100,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_max_pages_boundary(self):
+    def test_should_fetch_next_max_pages_boundary(self) -> None:
         """Test boundary: max_pages limit."""
         # Given: Strategy with max_pages=10
         config = PaginationConfig(serp_max_pages=10)
@@ -118,7 +118,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_none_rates(self):
+    def test_should_fetch_next_none_rates(self) -> None:
         """Test auto strategy: None rates should not stop pagination."""
         # Given: Auto strategy
         config = PaginationConfig(serp_max_pages=10, strategy="auto")
@@ -130,7 +130,7 @@ class TestPaginationStrategy:
         # Then: Should fetch next (no rate information means continue)
         assert strategy.should_fetch_next(context) is True
 
-    def test_calculate_novelty_rate_empty_new_urls(self):
+    def test_calculate_novelty_rate_empty_new_urls(self) -> None:
         """Test novelty rate calculation: empty new_urls."""
         # Given: Strategy instance
         strategy = PaginationStrategy()
@@ -141,7 +141,7 @@ class TestPaginationStrategy:
         # Then: Should return 0.0
         assert novelty_rate == 0.0
 
-    def test_calculate_novelty_rate_no_seen_urls(self):
+    def test_calculate_novelty_rate_no_seen_urls(self) -> None:
         """Test novelty rate calculation: no seen URLs."""
         # Given: Strategy instance
         strategy = PaginationStrategy()
@@ -153,7 +153,7 @@ class TestPaginationStrategy:
         # Then: Should return 1.0 (all new)
         assert novelty_rate == 1.0
 
-    def test_calculate_novelty_rate_all_seen(self):
+    def test_calculate_novelty_rate_all_seen(self) -> None:
         """Test novelty rate calculation: all URLs seen."""
         # Given: Strategy instance
         strategy = PaginationStrategy()
@@ -166,7 +166,7 @@ class TestPaginationStrategy:
         # Then: Should return 0.0 (no new URLs)
         assert novelty_rate == 0.0
 
-    def test_calculate_novelty_rate_partial_seen(self):
+    def test_calculate_novelty_rate_partial_seen(self) -> None:
         """Test novelty rate calculation: partial URLs seen."""
         # Given: Strategy instance
         strategy = PaginationStrategy()
@@ -183,7 +183,7 @@ class TestPaginationStrategy:
         # Then: Should return 2/3 = 0.666...
         assert abs(novelty_rate - 2.0 / 3.0) < 0.001
 
-    def test_should_fetch_next_exhaustive_strategy(self):
+    def test_should_fetch_next_exhaustive_strategy(self) -> None:
         """Test exhaustive strategy: fetch all pages up to max_pages."""
         # Given: Exhaustive strategy with max_pages=10
         config = PaginationConfig(serp_max_pages=10, strategy="exhaustive")
@@ -201,7 +201,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_boundary_novelty_rate_threshold(self):
+    def test_should_fetch_next_boundary_novelty_rate_threshold(self) -> None:
         """Test boundary: novelty_rate exactly at threshold."""
         # Given: Auto strategy with min_novelty_rate=0.1
         config = PaginationConfig(serp_max_pages=10, min_novelty_rate=0.1, strategy="auto")
@@ -219,7 +219,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_boundary_harvest_rate_threshold(self):
+    def test_should_fetch_next_boundary_harvest_rate_threshold(self) -> None:
         """Test boundary: harvest_rate exactly at threshold."""
         # Given: Auto strategy with min_harvest_rate=0.05
         config = PaginationConfig(serp_max_pages=10, min_harvest_rate=0.05, strategy="auto")
@@ -237,7 +237,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_boundary_zero_novelty_rate(self):
+    def test_should_fetch_next_boundary_zero_novelty_rate(self) -> None:
         """Test boundary: novelty_rate = 0.0."""
         # Given: Auto strategy
         config = PaginationConfig(serp_max_pages=10, min_novelty_rate=0.1, strategy="auto")
@@ -249,7 +249,7 @@ class TestPaginationStrategy:
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-    def test_should_fetch_next_boundary_max_novelty_rate(self):
+    def test_should_fetch_next_boundary_max_novelty_rate(self) -> None:
         """Test boundary: novelty_rate = 1.0."""
         # Given: Auto strategy
         config = PaginationConfig(serp_max_pages=10, min_novelty_rate=0.1, strategy="auto")
@@ -261,7 +261,7 @@ class TestPaginationStrategy:
         # Then: Should fetch next
         assert strategy.should_fetch_next(context) is True
 
-    def test_should_fetch_next_boundary_page_one(self):
+    def test_should_fetch_next_boundary_page_one(self) -> None:
         """Test boundary: current_page = 1."""
         # Given: Strategy with max_pages=10
         config = PaginationConfig(serp_max_pages=10)
@@ -277,7 +277,7 @@ class TestPaginationStrategy:
 class TestPaginationWiringEffect:
     """Wiring/Effect tests for pagination parameters."""
 
-    def test_cache_key_includes_serp_max_pages(self):
+    def test_cache_key_includes_serp_max_pages(self) -> None:
         """TC-E-02: Effect test - cache key differs for different serp_max_pages.
 
         // Given: Same query with different serp_max_pages
@@ -298,7 +298,7 @@ class TestPaginationWiringEffect:
         # And: Same serp_max_pages produce same key
         assert key1 == key3, "Same serp_max_pages should produce same cache key"
 
-    def test_pagination_config_wiring(self):
+    def test_pagination_config_wiring(self) -> None:
         """TC-W-04: Wiring test - PaginationConfig receives serp_max_pages.
 
         // Given: serp_max_pages=5
@@ -311,7 +311,7 @@ class TestPaginationWiringEffect:
         # Then: Value is stored
         assert config.serp_max_pages == 5
 
-    def test_pagination_config_default(self):
+    def test_pagination_config_default(self) -> None:
         """Test default PaginationConfig values.
 
         // Given: No parameters
@@ -327,7 +327,7 @@ class TestPaginationWiringEffect:
         assert config.min_harvest_rate == 0.05
         assert config.strategy == "auto"
 
-    def test_search_options_serp_params_propagation(self):
+    def test_search_options_serp_params_propagation(self) -> None:
         """TC-E-03b: Effect test - SearchOptions propagates serp parameters.
 
         // Given: SearchOptions with custom serp_page and serp_max_pages
