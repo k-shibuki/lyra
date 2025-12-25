@@ -29,7 +29,7 @@ setup-dev: ## Install development dependencies
 # DEVELOPMENT ENVIRONMENT
 # =============================================================================
 
-dev-up: ## Start development containers
+dev-up: ## Start containers (requires dev-build first)
 	@$(SCRIPTS)/dev.sh up
 
 dev-down: ## Stop development containers

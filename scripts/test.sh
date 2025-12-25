@@ -443,6 +443,11 @@ cmd_run() {
     export IS_CLOUD_AGENT="${IS_CLOUD_AGENT:-false}"
     export CLOUD_AGENT_TYPE="${CLOUD_AGENT_TYPE:-none}"
 
+    # Container uses uv venv, prepend "uv run" to pytest command
+    if [[ "$runtime" == "container" ]]; then
+        pytest_cmd=("uv" "run" "${pytest_cmd[@]}")
+    fi
+
     if [[ "$runtime" == "container" ]]; then
         local escaped
         escaped="$(printf "%q " "${pytest_cmd[@]}")"
