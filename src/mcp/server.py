@@ -187,7 +187,7 @@ TOOLS = [
     # ============================================================
     Tool(
         name="calibration_metrics",
-        description="Calibration metrics operations. Actions: get_stats, evaluate, get_evaluations, get_diagram_data. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback.",
+        description="Calibration metrics operations. Actions: get_stats, get_evaluations. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback. Note: evaluate and get_diagram_data were removed in Phase 6; use scripts for batch evaluation/visualization.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -195,15 +195,13 @@ TOOLS = [
                     "type": "string",
                     "enum": [
                         "get_stats",
-                        "evaluate",
                         "get_evaluations",
-                        "get_diagram_data",
                     ],
                     "description": "Action to perform",
                 },
                 "data": {
                     "type": "object",
-                    "description": "Action-specific data. evaluate: {source, predictions, labels}. get_evaluations: {source?, limit?, since?}. get_diagram_data: {source, evaluation_id?}. get_stats: no data required.",
+                    "description": "Action-specific data. get_evaluations: {source?, limit?, since?}. get_stats: no data required.",
                 },
             },
             "required": ["action"],
@@ -1280,10 +1278,11 @@ async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
     """
     Handle calibration_metrics tool call.
 
-    Implements calibration metrics operations (4 actions).
-    Actions: get_stats, evaluate, get_evaluations, get_diagram_data.
+    Implements calibration metrics operations (2 actions).
+    Actions: get_stats, get_evaluations.
 
     Note: add_sample was removed. Use feedback(edge_correct) for ground-truth collection.
+    Note: evaluate and get_diagram_data were removed in Phase 6; use scripts instead.
     For rollback (destructive operation), use calibration_rollback tool.
     """
     from src.mcp.errors import InvalidParamsError
@@ -1296,7 +1295,7 @@ async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
         raise InvalidParamsError(
             "action is required",
             param_name="action",
-            expected="one of: get_stats, evaluate, get_evaluations, get_diagram_data",
+            expected="one of: get_stats, get_evaluations",
         )
 
     return await calibration_metrics_action(action, data)

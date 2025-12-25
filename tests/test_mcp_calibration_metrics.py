@@ -6,28 +6,27 @@ Per ADR-0003: MCP over CLI / REST API.
 Renamed from calibrate. add_sample action was removed.
 Use feedback(edge_correct) for ground-truth collection.
 
+Phase 6: evaluate and get_diagram_data actions were removed.
+Use scripts for batch evaluation and visualization (S_LORA.md).
+
 Test Perspectives Table (Equivalence Partitioning / Boundary Value Analysis)
 =============================================================================
 
 | Case ID   | Input / Precondition                        | Perspective (Equivalence / Boundary) | Expected Result                           | Notes                    |
 |-----------|---------------------------------------------|--------------------------------------|-------------------------------------------|--------------------------|
-| TC-N-02   | action="get_stats"                          | Equivalence – normal                 | Stats returned, ok=True                   | No data required         |
-| TC-N-03   | action="evaluate" with valid data           | Equivalence – normal                 | Evaluation saved, ok=True                 | -                        |
-| TC-N-04   | action="get_evaluations"                    | Equivalence – normal                 | Evaluations returned, ok=True             | -                        |
-| TC-N-05   | action="get_diagram_data" with valid source | Equivalence – normal                 | Diagram data returned                     | -                        |
+| TC-N-01   | action="get_stats"                          | Equivalence – normal                 | Stats returned, ok=True                   | No data required         |
+| TC-N-02   | action="get_evaluations"                    | Equivalence – normal                 | Evaluations returned, ok=True             | -                        |
 | TC-A-01   | action=None                                 | Boundary – NULL                      | InvalidParamsError                        | MCP handler validates    |
 | TC-A-02   | action="" (empty)                           | Boundary – empty                     | InvalidParamsError                        | -                        |
 | TC-A-03   | action="invalid_action"                     | Equivalence – invalid                | ok=False, error=INVALID_PARAMS            | calibration_metrics handles |
-| TC-A-07   | evaluate: source=None                       | Boundary – NULL                      | ok=False, error=INVALID_PARAMS            | -                        |
-| TC-A-08   | evaluate: predictions=None                  | Boundary – NULL                      | ok=False, error=INVALID_PARAMS            | -                        |
-| TC-A-09   | evaluate: labels=None                       | Boundary – NULL                      | ok=False, error=INVALID_PARAMS            | -                        |
-| TC-A-10   | get_diagram_data: source=None               | Boundary – NULL                      | ok=False, error=INVALID_PARAMS            | -                        |
-| TC-B-05   | get_evaluations: limit=0                    | Boundary – zero                      | Empty list returned                       | -                        |
-| TC-CM-08 | action="add_sample" | Abnormal – removed action | ok=False, Unknown action | BREAKING: |
+| TC-A-04   | action="evaluate"                           | Removed action (Phase 6)             | ok=False, Unknown action                  | -                        |
+| TC-A-05   | action="get_diagram_data"                   | Removed action (Phase 6)             | ok=False, Unknown action                  | -                        |
+| TC-A-06   | action="add_sample"                         | Removed action                       | ok=False, Unknown action                  | BREAKING                 |
+| TC-B-01   | get_evaluations: limit=0                    | Boundary – zero                      | Empty list returned                       | -                        |
 """
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -66,88 +65,13 @@ def mock_calibration_stats() -> dict[str, Any]:
     }
 
 
-@pytest.fixture
-def mock_evaluation_result() -> dict[str, Any]:
-    """Mock result from save_calibration_evaluation."""
-    return {
-        "ok": True,
-        "evaluation_id": "eval_abc123",
-        "source": "llm_extract",
-        "brier_score": 0.15,
-        "brier_score_calibrated": 0.12,
-        "improvement_ratio": 0.20,
-        "expected_calibration_error": 0.08,
-        "samples_evaluated": 100,
-        "bins": [],
-        "calibration_version": 3,
-        "evaluated_at": "2024-01-15T10:00:00+00:00",
-        "created_at": "2024-01-15T10:00:00+00:00",
-    }
-
-
-@pytest.fixture
-def mock_evaluations_result() -> dict[str, Any]:
-    """Mock result from get_calibration_evaluations."""
-    return {
-        "ok": True,
-        "evaluations": [
-            {
-                "evaluation_id": "eval_abc123",
-                "source": "llm_extract",
-                "brier_score": 0.15,
-                "brier_score_calibrated": 0.12,
-                "improvement_ratio": 0.20,
-                "expected_calibration_error": 0.08,
-                "samples_evaluated": 100,
-            }
-        ],
-        "total_count": 1,
-        "filter_source": "llm_extract",
-        "filter_since": None,
-        "returned_count": 1,
-    }
-
-
-@pytest.fixture
-def mock_diagram_data() -> dict[str, Any]:
-    """Mock result from get_reliability_diagram_data."""
-    return {
-        "ok": True,
-        "source": "llm_extract",
-        "evaluation_id": "eval_abc123",
-        "n_bins": 10,
-        "bins": [
-            {
-                "bin_lower": 0.0,
-                "bin_upper": 0.1,
-                "count": 5,
-                "accuracy": 0.0,
-                "confidence": 0.05,
-                "gap": 0.05,
-            },
-            {
-                "bin_lower": 0.1,
-                "bin_upper": 0.2,
-                "count": 10,
-                "accuracy": 0.1,
-                "confidence": 0.15,
-                "gap": 0.05,
-            },
-        ],
-        "overall_ece": 0.08,
-        "brier_score": 0.15,
-        "brier_score_calibrated": 0.12,
-        "evaluated_at": "2024-01-15T10:00:00+00:00",
-    }
-
-
 # =============================================================================
 # Test Classes
 # =============================================================================
 
 
 class TestCalibrationMetricsHandler:
-    """Tests for _handle_calibration_metrics MCP handler ."""
+    """Tests for _handle_calibration_metrics MCP handler."""
 
     # =========================================================================
     # Normal Cases (TC-N-*)
@@ -156,7 +80,7 @@ class TestCalibrationMetricsHandler:
     @pytest.mark.asyncio
     async def test_get_stats(self, mock_calibration_stats: dict[str, Any]) -> None:
         """
-        TC-N-02: action="get_stats".
+        TC-N-01: action="get_stats".
 
         // Given: Calibration system initialized
         // When: Calling calibration_metrics with action="get_stats"
@@ -176,6 +100,7 @@ class TestCalibrationMetricsHandler:
             )
 
         assert result["ok"] is True
+        assert result["action"] == "get_stats"
         assert "current_params" in result
         assert "history" in result
         mock_stats.assert_called_once()
@@ -183,7 +108,7 @@ class TestCalibrationMetricsHandler:
     @pytest.mark.asyncio
     async def test_get_stats_no_data(self, mock_calibration_stats: dict[str, Any]) -> None:
         """
-        TC-N-02b: action="get_stats" with no data field.
+        TC-N-01b: action="get_stats" with no data field.
 
         // Given: Calibration system initialized
         // When: Calling calibration_metrics with action="get_stats" without data
@@ -206,55 +131,26 @@ class TestCalibrationMetricsHandler:
         assert result["ok"] is True
 
     @pytest.mark.asyncio
-    async def test_evaluate_valid(self, mock_evaluation_result: dict[str, Any]) -> None:
+    async def test_get_evaluations_valid(self) -> None:
         """
-        TC-N-03: action="evaluate" with valid data.
+        TC-N-02: action="get_evaluations".
 
-        // Given: Valid predictions and labels arrays
-        // When: Calling calibration_metrics with action="evaluate"
-        // Then: Evaluation saved and results returned
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        with patch(
-            "src.utils.calibration.save_calibration_evaluation", new_callable=AsyncMock
-        ) as mock_eval:
-            mock_eval.return_value = mock_evaluation_result
-
-            result = await _handle_calibration_metrics(
-                {
-                    "action": "evaluate",
-                    "data": {
-                        "source": "llm_extract",
-                        "predictions": [0.8, 0.6, 0.9],
-                        "labels": [1, 0, 1],
-                    },
-                }
-            )
-
-        assert result["ok"] is True
-        assert "evaluation_id" in result
-        mock_eval.assert_called_once_with(
-            source="llm_extract",
-            predictions=[0.8, 0.6, 0.9],
-            labels=[1, 0, 1],
-        )
-
-    @pytest.mark.asyncio
-    async def test_get_evaluations_valid(self, mock_evaluations_result: dict[str, Any]) -> None:
-        """
-        TC-N-04: action="get_evaluations".
-
-        // Given: Evaluation history exists
+        // Given: Evaluation history exists in database
         // When: Calling calibration_metrics with action="get_evaluations"
-        // Then: Evaluations list returned
+        // Then: Evaluations list returned with ok=True
         """
         from src.mcp.server import _handle_calibration_metrics
 
-        with patch(
-            "src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock
-        ) as mock_get:
-            mock_get.return_value = mock_evaluations_result
+        # Mock database cursor and connection
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_cursor.fetchone = AsyncMock(return_value=(0,))
+
+        mock_db = MagicMock()
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
+
+        with patch("src.storage.database.get_database", new_callable=AsyncMock) as mock_get_db:
+            mock_get_db.return_value = mock_db
 
             result = await _handle_calibration_metrics(
                 {
@@ -267,19 +163,15 @@ class TestCalibrationMetricsHandler:
             )
 
         assert result["ok"] is True
+        assert result["action"] == "get_evaluations"
         assert "evaluations" in result
-        mock_get.assert_called_once_with(
-            source="llm_extract",
-            limit=10,
-            since=None,
-        )
+        assert "total_count" in result
+        assert result["filter_source"] == "llm_extract"
 
     @pytest.mark.asyncio
-    async def test_get_evaluations_with_since(
-        self, mock_evaluations_result: dict[str, Any]
-    ) -> None:
+    async def test_get_evaluations_with_since(self) -> None:
         """
-        TC-N-04b: action="get_evaluations" with since filter.
+        TC-N-02b: action="get_evaluations" with since filter.
 
         // Given: Evaluation history exists
         // When: Calling calibration_metrics with action="get_evaluations" and since
@@ -287,10 +179,16 @@ class TestCalibrationMetricsHandler:
         """
         from src.mcp.server import _handle_calibration_metrics
 
-        with patch(
-            "src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock
-        ) as mock_get:
-            mock_get.return_value = mock_evaluations_result
+        # Mock database cursor and connection
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_cursor.fetchone = AsyncMock(return_value=(0,))
+
+        mock_db = MagicMock()
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
+
+        with patch("src.storage.database.get_database", new_callable=AsyncMock) as mock_get_db:
+            mock_get_db.return_value = mock_db
 
             result = await _handle_calibration_metrics(
                 {
@@ -303,77 +201,7 @@ class TestCalibrationMetricsHandler:
             )
 
         assert result["ok"] is True
-        mock_get.assert_called_once_with(
-            source="llm_extract",
-            limit=50,  # Default
-            since="2024-01-01T00:00:00Z",
-        )
-
-    @pytest.mark.asyncio
-    async def test_get_diagram_data_valid(self, mock_diagram_data: dict[str, Any]) -> None:
-        """
-        TC-N-05: action="get_diagram_data" with valid source.
-
-        // Given: Evaluation exists for source
-        // When: Calling calibration_metrics with action="get_diagram_data"
-        // Then: Diagram data returned
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        with patch(
-            "src.utils.calibration.get_reliability_diagram_data", new_callable=AsyncMock
-        ) as mock_diag:
-            mock_diag.return_value = mock_diagram_data
-
-            result = await _handle_calibration_metrics(
-                {
-                    "action": "get_diagram_data",
-                    "data": {
-                        "source": "llm_extract",
-                    },
-                }
-            )
-
-        assert result["ok"] is True
-        assert "bins" in result
-        mock_diag.assert_called_once_with(
-            source="llm_extract",
-            evaluation_id=None,
-        )
-
-    @pytest.mark.asyncio
-    async def test_get_diagram_data_with_evaluation_id(
-        self, mock_diagram_data: dict[str, Any]
-    ) -> None:
-        """
-        TC-N-05b: action="get_diagram_data" with evaluation_id.
-
-        // Given: Specific evaluation exists
-        // When: Calling calibration_metrics with action="get_diagram_data" and evaluation_id
-        // Then: Specific evaluation diagram data returned
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        with patch(
-            "src.utils.calibration.get_reliability_diagram_data", new_callable=AsyncMock
-        ) as mock_diag:
-            mock_diag.return_value = mock_diagram_data
-
-            result = await _handle_calibration_metrics(
-                {
-                    "action": "get_diagram_data",
-                    "data": {
-                        "source": "llm_extract",
-                        "evaluation_id": "eval_abc123",
-                    },
-                }
-            )
-
-        assert result["ok"] is True
-        mock_diag.assert_called_once_with(
-            source="llm_extract",
-            evaluation_id="eval_abc123",
-        )
+        assert result["filter_since"] == "2024-01-01T00:00:00Z"
 
     # =========================================================================
     # Abnormal Cases (TC-A-*)
@@ -433,9 +261,61 @@ class TestCalibrationMetricsHandler:
         assert "Unknown action" in result["message"]
 
     @pytest.mark.asyncio
+    async def test_evaluate_action_removed(self) -> None:
+        """
+        TC-A-04: evaluate action was removed in Phase 6.
+
+        // Given: Trying to use the removed evaluate action
+        // When: Calling calibration_metrics with action="evaluate"
+        // Then: ok=False with error=INVALID_PARAMS, "Unknown action"
+        """
+        from src.mcp.server import _handle_calibration_metrics
+
+        result = await _handle_calibration_metrics(
+            {
+                "action": "evaluate",
+                "data": {
+                    "source": "llm_extract",
+                    "predictions": [0.8, 0.6, 0.9],
+                    "labels": [1, 0, 1],
+                },
+            }
+        )
+
+        assert result["ok"] is False
+        assert result["error"] == "INVALID_PARAMS"
+        assert "Unknown action" in result["message"]
+        assert "evaluate" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_get_diagram_data_action_removed(self) -> None:
+        """
+        TC-A-05: get_diagram_data action was removed in Phase 6.
+
+        // Given: Trying to use the removed get_diagram_data action
+        // When: Calling calibration_metrics with action="get_diagram_data"
+        // Then: ok=False with error=INVALID_PARAMS, "Unknown action"
+        """
+        from src.mcp.server import _handle_calibration_metrics
+
+        result = await _handle_calibration_metrics(
+            {
+                "action": "get_diagram_data",
+                "data": {
+                    "source": "llm_extract",
+                },
+            }
+        )
+
+        assert result["ok"] is False
+        assert result["error"] == "INVALID_PARAMS"
+        assert "Unknown action" in result["message"]
+        assert "get_diagram_data" in result["message"]
+
+    @pytest.mark.asyncio
     async def test_add_sample_removed(self) -> None:
         """
-        TC-CM-08: add_sample action was removed.
+        TC-A-06: add_sample action was removed.
 
         // Given: Trying to use the removed add_sample action
         // When: Calling calibration_metrics with action="add_sample"
@@ -459,98 +339,6 @@ class TestCalibrationMetricsHandler:
         assert "Unknown action" in result["message"]
         assert "add_sample" in result["message"]
 
-    @pytest.mark.asyncio
-    async def test_evaluate_source_none(self) -> None:
-        """
-        TC-A-07: evaluate: source=None.
-
-        // Given: evaluate action without source
-        // When: Calling calibration_metrics
-        // Then: ok=False with error=INVALID_PARAMS
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        result = await _handle_calibration_metrics(
-            {
-                "action": "evaluate",
-                "data": {
-                    "predictions": [0.8, 0.6],
-                    "labels": [1, 0],
-                },
-            }
-        )
-
-        assert result["ok"] is False
-        assert result["error"] == "INVALID_PARAMS"
-        assert "source is required" in result["message"]
-
-    @pytest.mark.asyncio
-    async def test_evaluate_predictions_none(self) -> None:
-        """
-        TC-A-08: evaluate: predictions=None.
-
-        // Given: evaluate action without predictions
-        // When: Calling calibration_metrics
-        // Then: ok=False with error=INVALID_PARAMS
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        result = await _handle_calibration_metrics(
-            {
-                "action": "evaluate",
-                "data": {
-                    "source": "llm_extract",
-                    "labels": [1, 0],
-                },
-            }
-        )
-
-        assert result["ok"] is False
-        assert result["error"] == "INVALID_PARAMS"
-        assert "predictions is required" in result["message"]
-
-    @pytest.mark.asyncio
-    async def test_evaluate_labels_none(self) -> None:
-        """
-        TC-A-09: evaluate: labels=None.
-
-        // Given: evaluate action without labels
-        // When: Calling calibration_metrics
-        // Then: ok=False with error=INVALID_PARAMS
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        result = await _handle_calibration_metrics(
-            {
-                "action": "evaluate",
-                "data": {
-                    "source": "llm_extract",
-                    "predictions": [0.8, 0.6],
-                },
-            }
-        )
-
-        assert result["ok"] is False
-        assert result["error"] == "INVALID_PARAMS"
-        assert "labels is required" in result["message"]
-
-    @pytest.mark.asyncio
-    async def test_get_diagram_data_source_none(self) -> None:
-        """
-        TC-A-10: get_diagram_data: source=None.
-
-        // Given: get_diagram_data action without source
-        // When: Calling calibration_metrics
-        // Then: ok=False with error=INVALID_PARAMS
-        """
-        from src.mcp.server import _handle_calibration_metrics
-
-        result = await _handle_calibration_metrics({"action": "get_diagram_data", "data": {}})
-
-        assert result["ok"] is False
-        assert result["error"] == "INVALID_PARAMS"
-        assert "source is required" in result["message"]
-
     # =========================================================================
     # Boundary Cases (TC-B-*)
     # =========================================================================
@@ -558,7 +346,7 @@ class TestCalibrationMetricsHandler:
     @pytest.mark.asyncio
     async def test_get_evaluations_limit_zero(self) -> None:
         """
-        TC-B-05: get_evaluations: limit=0.
+        TC-B-01: get_evaluations: limit=0.
 
         // Given: limit set to zero
         // When: Calling calibration_metrics with action="get_evaluations"
@@ -566,19 +354,16 @@ class TestCalibrationMetricsHandler:
         """
         from src.mcp.server import _handle_calibration_metrics
 
-        empty_result = {
-            "ok": True,
-            "evaluations": [],
-            "total_count": 0,
-            "filter_source": None,
-            "filter_since": None,
-            "returned_count": 0,
-        }
+        # Mock database cursor and connection
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_cursor.fetchone = AsyncMock(return_value=(0,))
 
-        with patch(
-            "src.utils.calibration.get_calibration_evaluations", new_callable=AsyncMock
-        ) as mock_get:
-            mock_get.return_value = empty_result
+        mock_db = MagicMock()
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
+
+        with patch("src.storage.database.get_database", new_callable=AsyncMock) as mock_get_db:
+            mock_get_db.return_value = mock_db
 
             result = await _handle_calibration_metrics(
                 {
@@ -637,3 +422,32 @@ class TestCalibrationMetricsActionDirectly:
             result = await calibration_metrics_action("get_stats", None)
 
         assert result["ok"] is True
+
+    @pytest.mark.asyncio
+    async def test_get_evaluations_returns_action_field(self) -> None:
+        """
+        TC-N-02c: get_evaluations includes action field in response.
+
+        // Given: Valid get_evaluations request
+        // When: Calling calibration_metrics_action
+        // Then: Response includes action="get_evaluations"
+        """
+        from src.utils.calibration import calibration_metrics_action
+
+        # Mock database cursor and connection
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_cursor.fetchone = AsyncMock(return_value=(0,))
+
+        mock_db = MagicMock()
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
+
+        with patch("src.storage.database.get_database", new_callable=AsyncMock) as mock_get_db:
+            mock_get_db.return_value = mock_db
+
+            result = await calibration_metrics_action(
+                "get_evaluations", {"source": "test", "limit": 10}
+            )
+
+        assert result["ok"] is True
+        assert result["action"] == "get_evaluations"

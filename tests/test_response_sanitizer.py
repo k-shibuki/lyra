@@ -216,22 +216,27 @@ class TestNormalCases:
         // When: Sanitizing the response
         // Then: Matches the get_stats variant schema
 
-        NOTE: Updated in Phase 6 (ADR-0011): calibrate -> calibration_metrics,
-        add_sample removed (use feedback(edge_correct) instead).
+        NOTE: Updated in Phase 6:
+        - calibrate -> calibration_metrics
+        - add_sample, evaluate, get_diagram_data removed
+        - stats -> current_params (schema update)
         """
         response = {
             "ok": True,
             "action": "get_stats",
-            "stats": {
-                "llm_extract": {"sample_count": 100, "brier_score": 0.15, "version": 1},
-                "nli_judge": {"sample_count": 50, "brier_score": 0.12, "version": 1},
+            "current_params": {
+                "llm_extract": {"version": 1, "method": "temperature", "brier_after": 0.15, "samples_used": 100},
+                "nli_judge": {"version": 1, "method": "temperature", "brier_after": 0.12, "samples_used": 50},
             },
+            "history": {},
+            "recalibration_threshold": 10,
+            "degradation_threshold": 0.05,
         }
 
         result = sanitizer.sanitize_response(response, "calibration_metrics")
 
         assert result.sanitized_response["action"] == "get_stats"
-        assert "llm_extract" in result.sanitized_response["stats"]
+        assert "llm_extract" in result.sanitized_response["current_params"]
         assert result.stats.fields_removed == 0
 
 
