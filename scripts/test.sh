@@ -38,6 +38,10 @@ trap 'cleanup_on_error ${LINENO}' ERR
 # CONFIGURATION
 # =============================================================================
 
+# Parse global flags first (--json, --dry-run, --quiet)
+parse_global_flags "$@"
+set -- "${GLOBAL_ARGS[@]}"
+
 ACTION="${1:-run}"
 shift || true
 
@@ -493,50 +497,116 @@ cmd_run() {
 # Description: Show environment detection information
 # Returns:
 #   0: Success
+# Supports: --json flag for machine-readable output
 cmd_env() {
-    echo "=== Lyra Test Environment ==="
-    echo ""
-    echo "Environment Detection:"
-    echo "  OS Type: $(detect_env)"
-    echo "  In Container: ${IN_CONTAINER:-false}"
-    echo "  Container Name: ${CURRENT_CONTAINER_NAME:-N/A}"
-    echo "  Is ML Container: ${IS_ML_CONTAINER:-false}"
-    echo ""
-    echo "Execution Mode:"
-    echo "  Requested Runtime: ${RUNTIME_MODE}"
-    echo "  Selected Container Name: ${CONTAINER_NAME_SELECTED}"
-    echo "  Container Runtime Tool: $(detect_container_tool || echo "<none>")"
-    echo "  Container Running: $(is_container_running_selected && echo "true" || echo "false")"
+    local os_type
+    os_type=$(detect_env)
+    local container_tool
+    container_tool=$(detect_container_tool 2>/dev/null || echo "")
+    local container_running
+    container_running=$(is_container_running_selected && echo "true" || echo "false")
+    local e2e_capable
+    e2e_capable=$(is_e2e_capable && echo "true" || echo "false")
+    local markers
+    markers=$(get_pytest_markers 2>/dev/null || echo "")
+
+    # Load state file info
+    local last_runtime=""
+    local last_result_file=""
+    local last_run_id=""
+    local state_file_exists="false"
     if [[ -f "$TEST_STATE_FILE" ]]; then
-        echo "  State File: $TEST_STATE_FILE (present)"
+        state_file_exists="true"
         # shellcheck disable=SC1090
         source "$TEST_STATE_FILE"
-        echo "  Last Runtime: ${LYRA_TEST__RUNTIME:-<unknown>}"
-        echo "  Last Result File: ${LYRA_TEST__RESULT_FILE:-<unknown>}"
-    else
-        echo "  State File: $TEST_STATE_FILE (missing)"
+        last_runtime="${LYRA_TEST__RUNTIME:-}"
+        last_result_file="${LYRA_TEST__RESULT_FILE:-}"
+        last_run_id="${LYRA_TEST__RUN_ID:-}"
     fi
-    echo ""
-    echo "Cloud Agent Detection:"
-    echo "  Is Cloud Agent: ${IS_CLOUD_AGENT:-false}"
-    echo "  Agent Type: ${CLOUD_AGENT_TYPE:-none}"
-    echo "  E2E Capable: $(is_e2e_capable && echo "true" || echo "false")"
-    echo ""
-    echo "Test Configuration:"
-    echo "  Test Layer: ${LYRA_TEST_LAYER:-default (unit + integration)}"
-    local markers
-    markers=$(get_pytest_markers 2>/dev/null)
-    echo "  Markers: ${markers:-<none>}"
-    echo ""
-    echo "Environment Variables:"
-    echo "  DISPLAY: ${DISPLAY:-<not set>}"
-    echo "  CI: ${CI:-<not set>}"
-    echo "  GITHUB_ACTIONS: ${GITHUB_ACTIONS:-<not set>}"
-    echo "  CURSOR_CLOUD_AGENT: ${CURSOR_CLOUD_AGENT:-<not set>}"
-    echo "  CURSOR_SESSION_ID: ${CURSOR_SESSION_ID:-<not set>}"
-    echo "  CURSOR_BACKGROUND: ${CURSOR_BACKGROUND:-<not set>}"
-    echo "  CLAUDE_CODE: ${CLAUDE_CODE:-<not set>}"
-    echo ""
+
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        # JSON output for AI agents
+        cat <<EOF
+{
+  "environment": {
+    "os_type": "${os_type}",
+    "in_container": ${IN_CONTAINER:-false},
+    "container_name": "${CURRENT_CONTAINER_NAME:-}",
+    "is_ml_container": ${IS_ML_CONTAINER:-false}
+  },
+  "execution": {
+    "runtime_mode": "${RUNTIME_MODE}",
+    "container_name_selected": "${CONTAINER_NAME_SELECTED}",
+    "container_runtime_tool": "${container_tool}",
+    "container_running": ${container_running}
+  },
+  "state": {
+    "state_file_exists": ${state_file_exists},
+    "last_runtime": "${last_runtime}",
+    "last_result_file": "${last_result_file}",
+    "last_run_id": "${last_run_id}"
+  },
+  "cloud_agent": {
+    "is_cloud_agent": ${IS_CLOUD_AGENT:-false},
+    "agent_type": "${CLOUD_AGENT_TYPE:-none}",
+    "e2e_capable": ${e2e_capable}
+  },
+  "test_config": {
+    "test_layer": "${LYRA_TEST_LAYER:-default}",
+    "markers": "${markers}"
+  },
+  "exit_codes": {
+    "EXIT_SUCCESS": ${EXIT_SUCCESS},
+    "EXIT_TEST_FAILED": ${EXIT_TEST_FAILED},
+    "EXIT_TEST_ERROR": ${EXIT_TEST_ERROR},
+    "EXIT_TEST_TIMEOUT": ${EXIT_TEST_TIMEOUT},
+    "EXIT_TEST_FATAL": ${EXIT_TEST_FATAL},
+    "EXIT_NOT_RUNNING": ${EXIT_NOT_RUNNING}
+  }
+}
+EOF
+    else
+        # Human-readable output
+        echo "=== Lyra Test Environment ==="
+        echo ""
+        echo "Environment Detection:"
+        echo "  OS Type: ${os_type}"
+        echo "  In Container: ${IN_CONTAINER:-false}"
+        echo "  Container Name: ${CURRENT_CONTAINER_NAME:-N/A}"
+        echo "  Is ML Container: ${IS_ML_CONTAINER:-false}"
+        echo ""
+        echo "Execution Mode:"
+        echo "  Requested Runtime: ${RUNTIME_MODE}"
+        echo "  Selected Container Name: ${CONTAINER_NAME_SELECTED}"
+        echo "  Container Runtime Tool: ${container_tool:-<none>}"
+        echo "  Container Running: ${container_running}"
+        if [[ "$state_file_exists" == "true" ]]; then
+            echo "  State File: $TEST_STATE_FILE (present)"
+            echo "  Last Runtime: ${last_runtime:-<unknown>}"
+            echo "  Last Result File: ${last_result_file:-<unknown>}"
+        else
+            echo "  State File: $TEST_STATE_FILE (missing)"
+        fi
+        echo ""
+        echo "Cloud Agent Detection:"
+        echo "  Is Cloud Agent: ${IS_CLOUD_AGENT:-false}"
+        echo "  Agent Type: ${CLOUD_AGENT_TYPE:-none}"
+        echo "  E2E Capable: ${e2e_capable}"
+        echo ""
+        echo "Test Configuration:"
+        echo "  Test Layer: ${LYRA_TEST_LAYER:-default (unit + integration)}"
+        echo "  Markers: ${markers:-<none>}"
+        echo ""
+        echo "Environment Variables:"
+        echo "  DISPLAY: ${DISPLAY:-<not set>}"
+        echo "  CI: ${CI:-<not set>}"
+        echo "  GITHUB_ACTIONS: ${GITHUB_ACTIONS:-<not set>}"
+        echo "  CURSOR_CLOUD_AGENT: ${CURSOR_CLOUD_AGENT:-<not set>}"
+        echo "  CURSOR_SESSION_ID: ${CURSOR_SESSION_ID:-<not set>}"
+        echo "  CURSOR_BACKGROUND: ${CURSOR_BACKGROUND:-<not set>}"
+        echo "  CLAUDE_CODE: ${CLAUDE_CODE:-<not set>}"
+        echo ""
+    fi
 }
 
 # Function: filter_node_errors
@@ -658,25 +728,39 @@ cmd_check() {
         # Check this first to fail fast on catastrophic errors
         local fatal_error=""
         if fatal_error=$(check_fatal_errors "$result_content"); then
-            echo "FATAL_ERROR"
-            echo "=== Fatal Error Detected ==="
-            echo "Pattern matched: $fatal_error"
-            echo ""
-            echo "=== Artifact ==="
-            echo "result_file: ${result_file}"
-            local total_lines
-            total_lines="$(runtime_line_count "$runtime" "$result_file")"
-            if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
-                if (( total_lines <= CHECK_TAIL_LINES )); then
-                    echo "=== Tail (full output: ${total_lines} lines) ==="
-                else
-                    echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
-                fi
+            if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                local total_lines
+                total_lines="$(runtime_line_count "$runtime" "$result_file")"
+                cat <<EOF
+{
+  "status": "fatal_error",
+  "exit_code": ${EXIT_TEST_FATAL},
+  "fatal_error_pattern": "${fatal_error}",
+  "result_file": "${result_file}",
+  "total_lines": ${total_lines}
+}
+EOF
             else
-                echo "=== Tail ==="
+                echo "FATAL_ERROR"
+                echo "=== Fatal Error Detected ==="
+                echo "Pattern matched: $fatal_error"
+                echo ""
+                echo "=== Artifact ==="
+                echo "result_file: ${result_file}"
+                local total_lines
+                total_lines="$(runtime_line_count "$runtime" "$result_file")"
+                if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
+                    if (( total_lines <= CHECK_TAIL_LINES )); then
+                        echo "=== Tail (full output: ${total_lines} lines) ==="
+                    else
+                        echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
+                    fi
+                else
+                    echo "=== Tail ==="
+                fi
+                runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
             fi
-            runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
-            return 1
+            return $EXIT_TEST_FATAL
         fi
 
         # DONE condition 1: pytest summary line exists
@@ -688,79 +772,133 @@ cmd_check() {
         # Note: Must include "in X.XXs" to avoid matching collection line like:
         #   "collected 3377 items / 23 deselected / 3354 selected"
         if echo "$result_content" | grep -qE "[0-9]+ (passed|failed).* in [0-9]+(\.[0-9]+)?s"; then
-            echo "DONE"
-            echo "=== Summary ==="
-            runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true
-            echo "=== Artifact ==="
-            echo "result_file: ${result_file}"
+            local summary_line
+            summary_line=$(runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true)
             local total_lines
             total_lines="$(runtime_line_count "$runtime" "$result_file")"
-            if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
-                if (( total_lines <= CHECK_TAIL_LINES )); then
-                    echo "=== Tail (full output: ${total_lines} lines) ==="
-                else
-                    echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
-                fi
-            else
-                echo "=== Tail ==="
-            fi
-            runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
+            local has_failed="false"
+            local exit_code=$EXIT_SUCCESS
             if echo "$result_content" | grep -qE "[0-9]+ failed"; then
-                return 1
+                has_failed="true"
+                exit_code=$EXIT_TEST_FAILED
             fi
-            return 0
+
+            if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                cat <<EOF
+{
+  "status": "done",
+  "exit_code": ${exit_code},
+  "passed": ${has_failed} == "false",
+  "summary": "${summary_line}",
+  "result_file": "${result_file}",
+  "total_lines": ${total_lines},
+  "run_id": "${run_id}"
+}
+EOF
+            else
+                echo "DONE"
+                echo "=== Summary ==="
+                echo "$summary_line"
+                echo "=== Artifact ==="
+                echo "result_file: ${result_file}"
+                if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
+                    if (( total_lines <= CHECK_TAIL_LINES )); then
+                        echo "=== Tail (full output: ${total_lines} lines) ==="
+                    else
+                        echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
+                    fi
+                else
+                    echo "=== Tail ==="
+                fi
+                runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
+            fi
+            return $exit_code
         fi
 
         # DONE condition 2: pid file exists and pytest process is gone
         if [[ -n "$pid" ]] && [[ "$pid_alive" == "false" ]]; then
-            echo "DONE"
-            echo "=== Summary ==="
-            runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true
-            echo "=== Artifact ==="
-            echo "result_file: ${result_file}"
+            local summary_line
+            summary_line=$(runtime_last_summary_line "$runtime" "$result_file" | filter_node_errors || true)
             local total_lines
             total_lines="$(runtime_line_count "$runtime" "$result_file")"
-            if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
-                if (( total_lines <= CHECK_TAIL_LINES )); then
-                    echo "=== Tail (full output: ${total_lines} lines) ==="
-                else
-                    echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
-                fi
-            else
-                echo "=== Tail ==="
-            fi
-            runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
+            local has_failed="false"
+            local exit_code=$EXIT_SUCCESS
             if echo "$result_content" | grep -qE "(FAILED|ERROR|[0-9]+ failed)"; then
-                return 1
+                has_failed="true"
+                exit_code=$EXIT_TEST_FAILED
             fi
-            return 0
+
+            if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                cat <<EOF
+{
+  "status": "done",
+  "exit_code": ${exit_code},
+  "passed": $([ "$has_failed" == "false" ] && echo "true" || echo "false"),
+  "summary": "${summary_line}",
+  "result_file": "${result_file}",
+  "total_lines": ${total_lines},
+  "run_id": "${run_id}"
+}
+EOF
+            else
+                echo "DONE"
+                echo "=== Summary ==="
+                echo "$summary_line"
+                echo "=== Artifact ==="
+                echo "result_file: ${result_file}"
+                if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
+                    if (( total_lines <= CHECK_TAIL_LINES )); then
+                        echo "=== Tail (full output: ${total_lines} lines) ==="
+                    else
+                        echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
+                    fi
+                else
+                    echo "=== Tail ==="
+                fi
+                runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
+            fi
+            return $exit_code
         fi
 
         # Timeout guard
         local now
         now=$(date +%s)
         if (( now - start_ts > CHECK_TIMEOUT_SECONDS )); then
-            echo "TIMEOUT (after ${CHECK_TIMEOUT_SECONDS}s)"
-            echo ""
-            echo "=== Debug Info ==="
-            echo "PID: ${pid:-<none>}"
-            echo "PID alive: ${pid_alive}"
-            if [[ -n "$pid" ]]; then
-                local proc_comm proc_state
-                if [[ "$runtime" == "container" ]]; then
-                    proc_comm=$(container_exec_sh "ps -p $pid -o comm= 2>/dev/null || true" 2>/dev/null || echo "")
-                    proc_state=$(container_exec_sh "ps -p $pid -o stat= 2>/dev/null || true" 2>/dev/null || echo "")
-                else
-                    proc_comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "")
-                    proc_state=$(ps -p "$pid" -o stat= 2>/dev/null || echo "")
+            if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                cat <<EOF
+{
+  "status": "timeout",
+  "exit_code": ${EXIT_TEST_TIMEOUT},
+  "timeout_seconds": ${CHECK_TIMEOUT_SECONDS},
+  "pid": "${pid:-}",
+  "pid_alive": ${pid_alive},
+  "result_file": "${result_file}",
+  "run_id": "${run_id}"
+}
+EOF
+            else
+                echo "TIMEOUT (after ${CHECK_TIMEOUT_SECONDS}s)"
+                echo ""
+                echo "=== Debug Info ==="
+                echo "PID: ${pid:-<none>}"
+                echo "PID alive: ${pid_alive}"
+                if [[ -n "$pid" ]]; then
+                    local proc_comm proc_state
+                    if [[ "$runtime" == "container" ]]; then
+                        proc_comm=$(container_exec_sh "ps -p $pid -o comm= 2>/dev/null || true" 2>/dev/null || echo "")
+                        proc_state=$(container_exec_sh "ps -p $pid -o stat= 2>/dev/null || true" 2>/dev/null || echo "")
+                    else
+                        proc_comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "")
+                        proc_state=$(ps -p "$pid" -o stat= 2>/dev/null || echo "")
+                    fi
+                    echo "Process comm: '${proc_comm:-<empty>}'"
+                    echo "Process state: '${proc_state:-<empty>}'"
                 fi
-                echo "Process comm: '${proc_comm:-<empty>}'"
-                echo "Process state: '${proc_state:-<empty>}'"
+                echo ""
+                echo "=== Result ==="
+                runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
             fi
-            echo ""
-            echo "=== Result ==="
-            runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
-            return 1
+            return $EXIT_TEST_TIMEOUT
         fi
 
         echo "RUNNING | $last_line"
@@ -976,7 +1114,7 @@ cmd_debug() {
 show_help() {
     echo "Lyra Test Runner (Cloud Agent Compatible)"
     echo ""
-    echo "Usage: $0 {run|check|kill|debug|env|help} [options] [args...]"
+    echo "Usage: $0 [global-options] {run|check|kill|debug|env|help} [options] [args...]"
     echo ""
     echo "Commands:"
     echo "  run [pytest_args...]    Start test execution (default: tests/)"
@@ -985,10 +1123,19 @@ show_help() {
     echo "  debug [run_id]          Show detailed debug info about test run"
     echo "  env                     Show environment detection info"
     echo ""
+    echo "Global Options (AI-friendly):"
+    echo "  --json        Output in JSON format (machine-readable)"
+    echo "  --dry-run     Simulate operations without executing"
+    echo "  --quiet, -q   Suppress non-essential output"
+    echo ""
     echo "Pattern:"
     echo "  ./scripts/test.sh run tests/"
     echo "  # Output shows: ./scripts/test.sh check <run_id>"
     echo "  ./scripts/test.sh check <run_id>   # Use the displayed run_id"
+    echo ""
+    echo "JSON Output Example:"
+    echo "  ./scripts/test.sh --json env"
+    echo "  ./scripts/test.sh --json check <run_id>"
     echo ""
     echo "Runtime selection (default: auto=container>venv):"
     echo "  --auto        Prefer container if running, otherwise venv"
@@ -1036,6 +1183,14 @@ show_help() {
     echo "  LYRA_RUN_EXTRACTOR_TESTS=1  Enable extractor tests even without libs"
     echo ""
     echo "Note: Tests run in WSL venv (.venv) by default, or in container if detected."
+    echo ""
+    echo "Exit Codes (standardized for AI agents):"
+    echo "  0   (EXIT_SUCCESS)      All tests passed"
+    echo "  20  (EXIT_TEST_FAILED)  One or more tests failed"
+    echo "  21  (EXIT_TEST_ERROR)   Test execution error"
+    echo "  22  (EXIT_TEST_TIMEOUT) Test timeout"
+    echo "  23  (EXIT_TEST_FATAL)   Fatal error (disk I/O, OOM)"
+    echo "  12  (EXIT_NOT_RUNNING)  Container not running"
 }
 
 # =============================================================================

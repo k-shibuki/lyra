@@ -12,6 +12,16 @@
 #   - Common constants with .env overrides
 #   - Debug mode support
 #   - Error handling utilities
+#   - Standardized exit codes (AI-friendly)
+#   - JSON output support (--json flag)
+#   - Dry-run mode support (--dry-run flag)
+#
+# Script Dependencies:
+#   common.sh  <- (base, no dependencies)
+#   dev.sh     <- common.sh, podman-compose
+#   chrome.sh  <- common.sh, curl, (WSL: powershell.exe)
+#   test.sh    <- common.sh, pytest, uv
+#   mcp.sh     <- common.sh, dev.sh, uv, playwright
 
 # =============================================================================
 # INITIALIZATION
@@ -20,6 +30,57 @@
 # Note: Scripts sourcing this file should set "set -euo pipefail" after sourcing
 # This file does not set it here to avoid affecting the sourcing script's behavior
 # before it has a chance to set its own error handling
+
+# =============================================================================
+# STANDARDIZED EXIT CODES (AI-friendly)
+# =============================================================================
+# These exit codes provide machine-readable status for AI agents and CI systems.
+# Exit codes follow a semantic convention for easy parsing.
+
+# Success
+export EXIT_SUCCESS=0
+
+# General errors (1-9)
+export EXIT_ERROR=1              # General/unknown error
+export EXIT_USAGE=2              # Invalid usage/arguments
+export EXIT_CONFIG=3             # Configuration error (missing .env, invalid config)
+export EXIT_DEPENDENCY=4         # Missing dependency (podman, uv, etc.)
+export EXIT_TIMEOUT=5            # Operation timed out
+export EXIT_PERMISSION=6         # Permission denied
+
+# Resource errors (10-19)
+export EXIT_NOT_FOUND=10         # Resource not found (file, container, etc.)
+export EXIT_ALREADY_EXISTS=11    # Resource already exists
+export EXIT_NOT_RUNNING=12       # Service/container not running
+export EXIT_NOT_READY=13         # Service not ready (health check failed)
+
+# Test-specific errors (20-29)
+export EXIT_TEST_FAILED=20       # Tests failed
+export EXIT_TEST_ERROR=21        # Test execution error (not test failure)
+export EXIT_TEST_TIMEOUT=22      # Test timeout
+export EXIT_TEST_FATAL=23        # Fatal test error (disk I/O, OOM)
+
+# Operation errors (30-39)
+export EXIT_OPERATION_FAILED=30  # Generic operation failure
+export EXIT_NETWORK=31           # Network/connection error
+export EXIT_CONTAINER=32         # Container operation failed
+
+# =============================================================================
+# GLOBAL OUTPUT MODE FLAGS
+# =============================================================================
+# These flags control output format and behavior across all scripts.
+
+# JSON output mode (set via --json flag)
+# When true, commands output JSON instead of human-readable text
+export LYRA_OUTPUT_JSON="${LYRA_OUTPUT_JSON:-false}"
+
+# Dry-run mode (set via --dry-run flag)
+# When true, destructive operations are simulated but not executed
+export LYRA_DRY_RUN="${LYRA_DRY_RUN:-false}"
+
+# Quiet mode (set via --quiet or -q flag)
+# When true, suppress non-essential output
+export LYRA_QUIET="${LYRA_QUIET:-false}"
 
 # Get project directory (parent of scripts/)
 get_project_dir() {
@@ -117,7 +178,11 @@ cleanup_on_error() {
     local exit_code=$?
     local line_num="${1:-unknown}"
     if [ $exit_code -ne 0 ]; then
-        log_error "Script failed at line ${line_num} with exit code ${exit_code}"
+        # In JSON mode, suppress human-readable error messages for expected exit codes
+        # (These are already communicated via JSON output)
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]] || [[ "$exit_code" -eq 1 ]]; then
+            log_error "Script failed at line ${line_num} with exit code ${exit_code}"
+        fi
         if [ "${DEBUG:-}" = "1" ]; then
             log_error "Stack trace:"
             # Temporarily disable trace to avoid recursion
@@ -164,6 +229,170 @@ log_warn() {
 #   $*: Message to log
 log_error() {
     echo "[ERROR] $*" >&2
+}
+
+# =============================================================================
+# JSON OUTPUT UTILITIES
+# =============================================================================
+# These functions provide machine-readable JSON output for AI agents.
+
+# Function: json_output
+# Description: Output a JSON object (only if JSON mode is enabled)
+# Arguments:
+#   $1: JSON string to output
+# Example:
+#   json_output '{"status": "ready", "port": 9222}'
+json_output() {
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        echo "$1"
+    fi
+}
+
+# Function: json_kv
+# Description: Build a JSON key-value pair (properly escaped)
+# Arguments:
+#   $1: key
+#   $2: value
+# Returns: "key": "value" (with proper escaping)
+json_kv() {
+    local key="$1"
+    local value="$2"
+    # Escape special characters for JSON
+    value="${value//\\/\\\\}"  # backslash
+    value="${value//\"/\\\"}"  # double quote
+    value="${value//$'\n'/\\n}" # newline
+    value="${value//$'\r'/\\r}" # carriage return
+    value="${value//$'\t'/\\t}" # tab
+    printf '"%s": "%s"' "$key" "$value"
+}
+
+# Function: json_bool
+# Description: Build a JSON key-boolean pair
+# Arguments:
+#   $1: key
+#   $2: value (will be converted to true/false)
+json_bool() {
+    local key="$1"
+    local value="$2"
+    if [[ "$value" == "true" ]] || [[ "$value" == "1" ]] || [[ "$value" == "yes" ]]; then
+        printf '"%s": true' "$key"
+    else
+        printf '"%s": false' "$key"
+    fi
+}
+
+# Function: json_num
+# Description: Build a JSON key-number pair
+# Arguments:
+#   $1: key
+#   $2: numeric value
+json_num() {
+    local key="$1"
+    local value="$2"
+    printf '"%s": %s' "$key" "$value"
+}
+
+# Function: output_result
+# Description: Output result in appropriate format (JSON or human-readable)
+# Arguments:
+#   $1: status (e.g., "success", "error", "running")
+#   $2: message (human-readable)
+#   $3+: Additional key=value pairs for JSON output
+# Example:
+#   output_result "success" "Container started" "container=lyra" "port=8080"
+output_result() {
+    local status="$1"
+    local message="$2"
+    shift 2
+
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        local json_parts=()
+        json_parts+=("$(json_kv "status" "$status")")
+        json_parts+=("$(json_kv "message" "$message")")
+
+        # Add additional key=value pairs
+        for kv in "$@"; do
+            local key="${kv%%=*}"
+            local value="${kv#*=}"
+            # Detect if value looks like a number or boolean
+            if [[ "$value" =~ ^[0-9]+$ ]]; then
+                json_parts+=("$(json_num "$key" "$value")")
+            elif [[ "$value" == "true" ]] || [[ "$value" == "false" ]]; then
+                json_parts+=("$(json_bool "$key" "$value")")
+            else
+                json_parts+=("$(json_kv "$key" "$value")")
+            fi
+        done
+
+        # Join with commas and wrap in braces
+        local IFS=','
+        echo "{${json_parts[*]}}"
+    else
+        if [[ "$LYRA_QUIET" != "true" ]]; then
+            echo "$message"
+        fi
+    fi
+}
+
+# =============================================================================
+# DRY-RUN UTILITIES
+# =============================================================================
+
+# Function: dry_run_guard
+# Description: Check if in dry-run mode and log intended action
+# Arguments:
+#   $1: Action description (what would be done)
+# Returns:
+#   0: Dry-run mode is active (caller should skip the action)
+#   1: Normal mode (caller should proceed with action)
+# Example:
+#   if dry_run_guard "Delete container 'lyra'"; then
+#       return 0  # Skip actual deletion
+#   fi
+#   podman rm lyra  # Actually delete
+dry_run_guard() {
+    local action="$1"
+    if [[ "$LYRA_DRY_RUN" == "true" ]]; then
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            json_output "{$(json_kv "dry_run" "true"), $(json_kv "action" "$action")}"
+        else
+            echo "[DRY-RUN] Would: $action"
+        fi
+        return 0
+    fi
+    return 1
+}
+
+# Function: parse_global_flags
+# Description: Parse global flags (--json, --dry-run, --quiet) from arguments
+# Arguments:
+#   $@: Command line arguments
+# Returns:
+#   Remaining arguments after removing global flags (via GLOBAL_ARGS array)
+# Side effects:
+#   Sets LYRA_OUTPUT_JSON, LYRA_DRY_RUN, LYRA_QUIET
+parse_global_flags() {
+    GLOBAL_ARGS=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json)
+                export LYRA_OUTPUT_JSON="true"
+                shift
+                ;;
+            --dry-run)
+                export LYRA_DRY_RUN="true"
+                shift
+                ;;
+            --quiet|-q)
+                export LYRA_QUIET="true"
+                shift
+                ;;
+            *)
+                GLOBAL_ARGS+=("$1")
+                shift
+                ;;
+        esac
+    done
 }
 
 # =============================================================================
