@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lyra Chrome Manager (AI-friendly)
+# Lyra Chrome Manager
 #
 # Start Chrome with remote debugging for Lyra.
 # Designed to coexist with existing Chrome sessions by using separate user-data-dir.
@@ -28,6 +28,10 @@ enable_debug_mode
 
 # Set up error handler
 trap 'cleanup_on_error ${LINENO}' ERR
+
+# Parse global flags first (--json, --quiet)
+parse_global_flags "$@"
+set -- "${GLOBAL_ARGS[@]}"
 
 # Command line arguments (override .env defaults)
 ACTION="${1:-check}"
@@ -238,22 +242,51 @@ try_connect_with_backoff() {
 # Returns:
 #   0: Chrome is ready, outputs connection info
 #   1: Chrome is not ready
+# Supports: --json flag for machine-readable output
 get_status() {
     local port="$1"
     local host
-    
+
     if host=$(try_connect "$port"); then
         local info
         info=$(curl -s --connect-timeout 2 "http://$host:$port/json/version" 2>/dev/null)
-        echo "READY"
-        echo "Host: $host:$port"
-        echo "Browser: $(echo "$info" | grep -o '"Browser":"[^"]*"' | cut -d'"' -f4)"
-        echo "Connect: chromium.connect_over_cdp('http://$host:$port')"
-        return 0
+        local browser
+        browser=$(echo "$info" | grep -o '"Browser":"[^"]*"' | cut -d'"' -f4)
+
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "ready",
+  "exit_code": ${EXIT_SUCCESS},
+  "host": "${host}",
+  "port": ${port},
+  "browser": "${browser}",
+  "connect_url": "http://${host}:${port}",
+  "cdp_command": "chromium.connect_over_cdp('http://${host}:${port}')"
+}
+EOF
+        else
+            echo "READY"
+            echo "Host: $host:$port"
+            echo "Browser: $browser"
+            echo "Connect: chromium.connect_over_cdp('http://$host:$port')"
+        fi
+        return $EXIT_SUCCESS
     else
-        echo "NOT_READY"
-        echo "Port: $port"
-        return 1
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "not_ready",
+  "exit_code": ${EXIT_NOT_READY},
+  "port": ${port},
+  "message": "Chrome CDP not responding"
+}
+EOF
+        else
+            echo "NOT_READY"
+            echo "Port: $port"
+        fi
+        return $EXIT_NOT_READY
     fi
 }
 
@@ -713,9 +746,9 @@ run_fix() {
 # =============================================================================
 
 show_help() {
-    echo "Lyra Chrome Manager (AI-friendly)"
+    echo "Lyra Chrome Manager"
     echo ""
-    echo "Usage: $0 {check|start|stop|diagnose|fix} [port]"
+    echo "Usage: $0 [global-options] {check|start|stop|diagnose|fix} [port]"
     echo ""
     echo "Commands:"
     echo "  check     Check if Chrome debug port is available (default)"
@@ -724,7 +757,19 @@ show_help() {
     echo "  diagnose  Troubleshoot connection issues (WSL only)"
     echo "  fix       Auto-generate fix commands for WSL2 mirrored networking"
     echo ""
+    echo "Global Options:"
+    echo "  --json        Output in JSON format (machine-readable)"
+    echo "  --quiet, -q   Suppress non-essential output"
+    echo ""
     echo "Default port: $CHROME_PORT (from .env: LYRA_BROWSER__CHROME_PORT)"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/chrome.sh --json check    # JSON status check"
+    echo ""
+    echo "Exit Codes:"
+    echo "  0   (EXIT_SUCCESS)   Chrome is ready"
+    echo "  13  (EXIT_NOT_READY) Chrome CDP not responding"
+    echo "  31  (EXIT_NETWORK)   Network/connection error"
     echo ""
     echo "The Chrome instance uses a separate profile (LyraChrome)"
     echo "so it won't interfere with your normal browsing."

@@ -2,6 +2,17 @@
 #
 # Usage: make [target]
 # Run 'make help' for available targets
+#
+# Features:
+#   - JSON output: make test-env-json, make dev-status-json, make chrome-json
+#   - Standardized exit codes (see scripts/common.sh)
+#
+# Script Dependencies:
+#   common.sh  <- (base, no dependencies)
+#   dev.sh     <- common.sh, podman-compose
+#   chrome.sh  <- common.sh, curl, (WSL: powershell.exe)
+#   test.sh    <- common.sh, pytest, uv
+#   mcp.sh     <- common.sh, dev.sh, uv, playwright
 
 .PHONY: help setup test lint format clean
 .DEFAULT_GOAL := help
@@ -119,6 +130,23 @@ test-scripts: ## Run shell script tests
 	@$(SCRIPTS)/test_scripts.sh
 
 # =============================================================================
+# JSON OUTPUT TARGETS
+# =============================================================================
+# These targets provide machine-readable output for AI agents and automation.
+
+test-env-json: ## Show test environment (JSON output)
+	@$(SCRIPTS)/test.sh --json env
+
+test-check-json: ## Check test status (JSON output, RUN_ID= optional)
+	@$(SCRIPTS)/test.sh --json check $(RUN_ID)
+
+dev-status-json: ## Show container status (JSON output)
+	@$(SCRIPTS)/dev.sh --json status
+
+chrome-json: ## Check Chrome CDP status (JSON output)
+	@$(SCRIPTS)/chrome.sh --json check
+
+# =============================================================================
 # CODE QUALITY
 # =============================================================================
 
@@ -166,7 +194,7 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Development:"
-	@grep -E '^dev-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^dev-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "MCP:"
@@ -174,11 +202,15 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Chrome:"
-	@grep -E '^chrome[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^chrome[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Testing:"
-	@grep -E '^test[a-zA-Z0-9_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^test[a-zA-Z0-9_-]*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Machine-Readable (JSON):"
+	@grep -E '^(test|dev|chrome)[a-zA-Z0-9_-]*-json:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Code Quality:"
