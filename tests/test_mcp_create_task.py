@@ -150,9 +150,7 @@ class TestCreateTaskValidation:
                 await _handle_create_task({})
 
     @pytest.mark.asyncio
-    async def test_create_task_legacy_max_pages_rejected(
-        self, test_database: Database
-    ) -> None:
+    async def test_create_task_legacy_max_pages_rejected(self, test_database: Database) -> None:
         """
         TC-CT-A-03: create_task rejects legacy budget.max_pages key.
 
@@ -178,9 +176,7 @@ class TestCreateTaskValidation:
         assert "budget.budget_pages" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_create_task_budget_pages_zero(
-        self, test_database: Database
-    ) -> None:
+    async def test_create_task_budget_pages_zero(self, test_database: Database) -> None:
         """
         TC-CT-B-01: create_task accepts budget_pages=0.
 
@@ -204,9 +200,7 @@ class TestCreateTaskValidation:
         assert result["budget"]["budget_pages"] == 0
 
     @pytest.mark.asyncio
-    async def test_create_task_budget_pages_negative(
-        self, test_database: Database
-    ) -> None:
+    async def test_create_task_budget_pages_negative(self, test_database: Database) -> None:
         """
         TC-CT-B-02: create_task accepts negative budget_pages (validation elsewhere).
 
@@ -230,9 +224,7 @@ class TestCreateTaskValidation:
         assert result["budget"]["budget_pages"] == -1
 
     @pytest.mark.asyncio
-    async def test_create_task_max_seconds_zero(
-        self, test_database: Database
-    ) -> None:
+    async def test_create_task_max_seconds_zero(self, test_database: Database) -> None:
         """
         TC-CT-B-03: create_task accepts max_seconds=0.
 
@@ -256,9 +248,7 @@ class TestCreateTaskValidation:
         assert result["budget"]["max_seconds"] == 0
 
     @pytest.mark.asyncio
-    async def test_create_task_max_seconds_negative(
-        self, test_database: Database
-    ) -> None:
+    async def test_create_task_max_seconds_negative(self, test_database: Database) -> None:
         """
         TC-CT-B-04: create_task accepts negative max_seconds (validation elsewhere).
 

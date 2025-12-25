@@ -7,9 +7,6 @@ as integration tests per .1.7.
 
 from __future__ import annotations
 
-import pytest
-
-pytest.mark.integration
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -17,9 +14,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-import pytest
-
-pytest.mark.integration
 if TYPE_CHECKING:
     from src.storage.database import Database
 

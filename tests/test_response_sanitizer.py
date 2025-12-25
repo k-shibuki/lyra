@@ -225,8 +225,18 @@ class TestNormalCases:
             "ok": True,
             "action": "get_stats",
             "current_params": {
-                "llm_extract": {"version": 1, "method": "temperature", "brier_after": 0.15, "samples_used": 100},
-                "nli_judge": {"version": 1, "method": "temperature", "brier_after": 0.12, "samples_used": 50},
+                "llm_extract": {
+                    "version": 1,
+                    "method": "temperature",
+                    "brier_after": 0.15,
+                    "samples_used": 100,
+                },
+                "nli_judge": {
+                    "version": 1,
+                    "method": "temperature",
+                    "brier_after": 0.12,
+                    "samples_used": 50,
+                },
             },
             "history": {},
             "recalibration_threshold": 10,

@@ -77,8 +77,12 @@ class EngineParserSchema(BaseModel):
     # Pagination settings
     results_per_page: int | None = Field(default=None, description="Number of results per page")
     pagination_type: str | None = Field(default=None, description="offset or page")
-    page_zero_indexed: bool | None = Field(default=None, description="Whether page parameter is 0-indexed")
-    offset_one_indexed: bool | None = Field(default=None, description="Whether offset parameter is 1-indexed")
+    page_zero_indexed: bool | None = Field(
+        default=None, description="Whether page parameter is 0-indexed"
+    )
+    offset_one_indexed: bool | None = Field(
+        default=None, description="Whether offset parameter is 1-indexed"
+    )
 
     @field_validator("selectors", mode="before")
     @classmethod
@@ -527,7 +531,7 @@ class ParserConfigManager:
             pagination_type=engine_schema.pagination_type or "offset",
             page_zero_indexed=engine_schema.page_zero_indexed or False,
             offset_one_indexed=engine_schema.offset_one_indexed or False,
-            )
+        )
 
         engine_config = EngineParserConfig(
             name=name_lower,

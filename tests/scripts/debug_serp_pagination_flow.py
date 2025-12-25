@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
-async def test_pagination_config():
+async def test_pagination_config() -> None:
     """Test PaginationConfig and PaginationStrategy."""
     print("\n=== Test 1: PaginationConfig/Strategy ===")
 
@@ -64,7 +64,7 @@ async def test_pagination_config():
     print("✓ PaginationConfig/Strategy tests passed")
 
 
-async def test_url_building():
+async def test_url_building() -> None:
     """Test URL building with serp_page parameter."""
     print("\n=== Test 2: URL Building with serp_page ===")
 
@@ -97,7 +97,7 @@ async def test_url_building():
     print("✓ URL building tests passed")
 
 
-async def test_cache_key():
+async def test_cache_key() -> None:
     """Test cache key generation with serp_max_pages."""
     print("\n=== Test 3: Cache Key Generation ===")
 
@@ -118,7 +118,7 @@ async def test_cache_key():
     print("✓ Cache key tests passed")
 
 
-async def test_search_options():
+async def test_search_options() -> None:
     """Test SearchOptions propagation."""
     print("\n=== Test 4: SearchOptions Propagation ===")
 
@@ -128,13 +128,17 @@ async def test_search_options():
     options = SearchOptions()
     assert options.serp_page == 1, "Default serp_page should be 1"
     assert options.serp_max_pages == 1, "Default serp_max_pages should be 1"
-    print(f"✓ Default options: serp_page={options.serp_page}, serp_max_pages={options.serp_max_pages}")
+    print(
+        f"✓ Default options: serp_page={options.serp_page}, serp_max_pages={options.serp_max_pages}"
+    )
 
     # Test custom values
     options = SearchOptions(serp_page=2, serp_max_pages=5)
     assert options.serp_page == 2
     assert options.serp_max_pages == 5
-    print(f"✓ Custom options: serp_page={options.serp_page}, serp_max_pages={options.serp_max_pages}")
+    print(
+        f"✓ Custom options: serp_page={options.serp_page}, serp_max_pages={options.serp_max_pages}"
+    )
 
     # Test validation
     try:
@@ -146,7 +150,7 @@ async def test_search_options():
     print("✓ SearchOptions tests passed")
 
 
-async def main():
+async def main() -> int:
     """Run all debug tests."""
     print("=" * 60)
     print("Phase 5: SERP Pagination Flow Debug")
@@ -168,6 +172,7 @@ async def main():
     except Exception as e:
         print(f"\n✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -175,4 +180,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-
