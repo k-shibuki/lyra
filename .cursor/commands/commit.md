@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Create a git commit with an English message in the project’s standard format.
+Create a git commit with an **English message** in the project’s standard format.
 
 ## When to use
 
