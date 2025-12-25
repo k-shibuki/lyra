@@ -289,34 +289,71 @@ The default `podman-compose.yml` expects GPU access via CDI. For CPU-only operat
 ### Quick Start
 
 ```bash
-# 1. Clone and setup Python environment
+# 1. Clone and setup Python environment (using uv)
 git clone https://github.com/k-shibuki/lyra.git
 cd lyra
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-mcp.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Install uv if needed
+make setup              # Install MCP server dependencies
 
 # 2. Configure and start services
 cp .env.example .env
-./scripts/dev.sh up      # Start Ollama, ML Server, Tor containers
-./scripts/chrome.sh start # Start Chrome with CDP
+make dev-up             # Start Ollama, ML Server, Tor containers
+make chrome-start       # Start Chrome with CDP
 
 # 3. Configure MCP client (see below)
 ```
 
-### Helper Scripts
+### Makefile Commands
 
-| Script | Purpose |
-|--------|---------|
-| `./scripts/dev.sh up` | Start containers (Ollama, ML Server, Tor) |
-| `./scripts/dev.sh down` | Stop containers |
-| `./scripts/dev.sh shell` | Enter development shell with container network access |
-| `./scripts/dev.sh clean` | Remove containers and images |
-| `./scripts/chrome.sh start` | Start Chrome with CDP on port 9222 |
-| `./scripts/chrome.sh stop` | Stop Chrome |
-| `./scripts/test.sh run` | Run tests in venv (auto-detects environment) |
-| `./scripts/test.sh check` | Check test completion status |
-| `./scripts/test.sh env` | Show environment detection info |
+All operations are available via `make`. Run `make help` for the full list.
+
+**Setup:**
+
+| Command | Purpose |
+|---------|---------|
+| `make setup` | Install dependencies with uv (MCP extras) |
+| `make setup-full` | Install all dependencies (full development) |
+| `make setup-dev` | Install development dependencies |
+
+**Development Environment:**
+
+| Command | Purpose |
+|---------|---------|
+| `make dev-up` | Start containers (Ollama, ML Server, Tor) |
+| `make dev-down` | Stop containers |
+| `make dev-shell` | Enter development shell with container network access |
+| `make dev-logs` | Show container logs (tail) |
+| `make dev-status` | Show container status |
+| `make dev-clean` | Remove containers and images |
+
+**Chrome / Browser:**
+
+| Command | Purpose |
+|---------|---------|
+| `make chrome` | Check Chrome CDP status |
+| `make chrome-start` | Start Chrome with CDP on port 9222 |
+| `make chrome-stop` | Stop Chrome |
+| `make chrome-diagnose` | Diagnose connection issues |
+| `make chrome-fix` | Auto-fix WSL2 networking |
+
+**Testing:**
+
+| Command | Purpose |
+|---------|---------|
+| `make test` | Run all tests (unit + integration) |
+| `make test-unit` | Run unit tests only |
+| `make test-e2e` | Run E2E tests |
+| `make test-check` | Check test run status |
+| `make test-env` | Show environment detection info |
+
+**Code Quality:**
+
+| Command | Purpose |
+|---------|---------|
+| `make lint` | Run linters (ruff) |
+| `make format` | Format code (black + ruff) |
+| `make typecheck` | Run type checker (mypy) |
+| `make quality` | Run all quality checks |
 
 **Test execution**: Tests run in WSL venv (`.venv/`) by default. The script auto-detects:
 - Cloud agents (Cursor, Claude Code) → unit + integration only
@@ -579,11 +616,14 @@ pytest             # All tests
 ### Code Quality
 
 ```bash
-# Lint check
-ruff check src/ tests/
+# Using Makefile (recommended)
+make lint       # Lint check
+make typecheck  # Type check
+make quality    # Run all quality checks
 
-# Type check
-mypy src/
+# Or run directly
+uv run ruff check src/ tests/
+uv run mypy src/
 ```
 
 ---
@@ -694,9 +734,12 @@ Contributions are welcome. Please:
 3. Follow existing code style (enforced by ruff)
 
 ```bash
-# Before committing
-pytest tests/ -m 'not e2e' --tb=short
-ruff check src/ tests/
+# Before committing (using Makefile)
+make test           # Run unit + integration tests
+make quality        # Run lint + typecheck
+
+# Or run directly
+make test-check     # Check test completion
 ```
 
 ---

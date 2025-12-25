@@ -130,7 +130,7 @@ def temp_config_file(sample_config_data: dict[str, object], tmp_path: Path) -> P
 
 
 @pytest.fixture
-def manager(temp_config_file: Path) -> Generator[SearchEngineConfigManager, None, None]:
+def manager(temp_config_file: Path) -> Generator[SearchEngineConfigManager]:
     """Create a SearchEngineConfigManager with test config."""
     manager = SearchEngineConfigManager(
         config_path=temp_config_file,
@@ -142,7 +142,7 @@ def manager(temp_config_file: Path) -> Generator[SearchEngineConfigManager, None
 
 
 @pytest.fixture(autouse=True)
-def reset_singleton() -> Generator[None, None, None]:
+def reset_singleton() -> Generator[None]:
     """Reset singleton before and after each test."""
     reset_engine_config_manager()
     yield

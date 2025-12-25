@@ -17,37 +17,33 @@ Follow the quality policy here:
 
 ## Commands
 
-Ruff lint:
+Use `make` commands (run `make help` for all options):
 
 ```bash
-# Run from WSL venv (hybrid mode)
-ruff check src/ tests/
-ruff check --fix src/ tests/  # if applicable
+# Lint check
+make lint
+
+# Lint with auto-fix
+make lint-fix
+
+# Format check
+make format-check
+
+# Format (auto-fix)
+make format
+
+# Type check
+make typecheck
+
+# Run all quality checks (lint + typecheck)
+make quality
 ```
 
-Ruff format:
-
-```bash
-ruff format --check src/ tests/
-ruff format src/ tests/  # auto-fix
-```
-
-Mypy:
-
-```bash
-mypy src/ tests/ --config-file pyproject.toml
-```
-
-Note: `--config-file pyproject.toml` applies `[tool.mypy]` settings (e.g., `warn_return_any = true`).
-
-JSON Schema validation:
+JSON Schema validation (if needed):
 
 ```bash
 # Validate JSON Schema files against Draft 7 meta-schema
-check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/*.json
-
-# Or validate all JSON files in the schemas directory
-check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/
+uv run check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/*.json
 ```
 
 ## Output (response format)

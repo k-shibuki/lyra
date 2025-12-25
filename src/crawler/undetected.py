@@ -94,8 +94,7 @@ class UndetectedChromeFetcher:
         except ImportError:
             self._available = False
             logger.warning(
-                "undetected-chromedriver not available - "
-                "install with: pip install undetected-chromedriver"
+                "undetected-chromedriver not available - install with: uv sync --extra browser"
             )
 
         return self._available

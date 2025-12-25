@@ -219,8 +219,8 @@ class TestCitation:
         result = citation.to_markdown(1, include_excerpt=False)
         # Should include deep link
         assert "#第1章-概要" in result
-        # Should include section label
-        assert "セクション: 第1章 概要" in result
+        # Should include section label (Japanese text in test data, but output is English)
+        assert "Section: 第1章 概要" in result
 
     def test_citation_to_markdown_with_source_tag(self) -> None:
         """Test markdown output includes source type."""
@@ -230,7 +230,7 @@ class TestCitation:
             source_tag="government",
         )
         result = citation.to_markdown(1, include_excerpt=False)
-        assert "政府・公的機関" in result
+        assert "Government/Public Institution" in result
 
     def test_citation_to_markdown_with_excerpt(self) -> None:
         """Test markdown output includes excerpt when requested."""

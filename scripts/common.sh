@@ -418,3 +418,92 @@ require_podman_compose() {
     return 0
 }
 
+# =============================================================================
+# VENV MANAGEMENT (uv)
+# =============================================================================
+
+VENV_DIR="${PROJECT_DIR}/.venv"
+export VENV_DIR
+
+# Function: ensure_venv
+# Description: Check if venv exists, fail if not
+# Returns:
+#   0: venv exists
+#   1: venv not found
+ensure_venv() {
+    if [[ ! -f "${VENV_DIR}/bin/activate" ]]; then
+        log_error "venv not found at ${VENV_DIR}"
+        log_error "Run: make setup"
+        return 1
+    fi
+}
+
+# Function: setup_venv
+# Description: Create venv with uv if not exists
+# Arguments:
+#   $1: Extra dependencies (e.g., "mcp", "ml", "full")
+# Returns:
+#   0: venv ready
+#   1: Failed to setup venv
+setup_venv() {
+    local extras="${1:-mcp}"
+    
+    if [[ -f "${VENV_DIR}/bin/activate" ]]; then
+        log_info "venv already exists"
+        return 0
+    fi
+    
+    log_info "Setting up Python environment with uv..."
+    
+    if ! command -v uv &> /dev/null; then
+        log_info "Installing uv package manager..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        # shellcheck source=/dev/null
+        source "$HOME/.local/bin/env" 2>/dev/null || true
+    fi
+    
+    cd "$PROJECT_DIR" || return 1
+    uv sync --frozen --extra "$extras"
+    log_info "venv setup complete"
+}
+
+# =============================================================================
+# HTTP UTILITIES
+# =============================================================================
+
+# Function: wait_for_endpoint
+# Description: Wait for HTTP endpoint with exponential backoff
+# Arguments:
+#   $1: URL to check (e.g., "http://localhost:8080/health")
+#   $2: Total timeout in seconds (default: 30)
+#   $3: Success message (optional)
+# Returns:
+#   0: Endpoint is ready
+#   1: Timeout waiting for endpoint
+wait_for_endpoint() {
+    local url="$1"
+    local timeout="${2:-30}"
+    local success_msg="${3:-Endpoint ready}"
+    
+    local delay=0.5
+    local max_delay=4.0
+    local start_time
+    start_time=$(date +%s)
+    
+    while true; do
+        if curl -s --connect-timeout 2 "$url" > /dev/null 2>&1; then
+            log_info "$success_msg"
+            return 0
+        fi
+        
+        local elapsed=$(($(date +%s) - start_time))
+        if (( elapsed >= timeout )); then
+            log_warn "Timeout waiting for $url"
+            return 1
+        fi
+        
+        sleep "$delay"
+        delay=$(awk "BEGIN {d=$delay*2; print (d<$max_delay)?d:$max_delay}")
+    done
+}
+

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:calibration_metrics",
   "title": "calibration_metrics Response",
-  "description": "Response schema for calibration_metrics tool (2 actions). Phase 6: evaluate and get_diagram_data were removed; use scripts for batch evaluation/visualization.",
+  "description": "Response schema for calibration_metrics tool (2 actions). Batch evaluation/visualization are handled by scripts (see ADR-0011).",
   "oneOf": [
     {
       "title": "get_stats Response",

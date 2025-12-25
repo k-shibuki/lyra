@@ -110,7 +110,7 @@ async def is_ollama_available() -> bool:
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
-async def e2e_database(tmp_path_factory: TempPathFactory) -> AsyncGenerator["Database", None]:
+async def e2e_database(tmp_path_factory: TempPathFactory) -> AsyncGenerator["Database"]:
     """Create a test database for E2E tests."""
     from src.storage.database import Database
 
@@ -409,7 +409,7 @@ class TestAuthenticationQueueFlow:
     """
 
     @pytest_asyncio.fixture(autouse=True)
-    async def cleanup_queue(self, e2e_database: "Database") -> AsyncGenerator[None, None]:
+    async def cleanup_queue(self, e2e_database: "Database") -> AsyncGenerator[None]:
         """Clear intervention_queue before each test to ensure isolation."""
         await e2e_database.execute("DELETE FROM intervention_queue WHERE 1=1")
         yield

@@ -332,7 +332,7 @@ def with_api_retry(
 
 # Pre-configured policies for common API types
 
-#: Policy for Japanese government APIs (e-Stat, 法令API, etc.)
+#: Policy for Japanese government APIs (e-Stat, Law API, etc.)
 #: These tend to have stricter rate limits
 JAPAN_GOV_API_POLICY = APIRetryPolicy(
     max_retries=3,

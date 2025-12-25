@@ -488,7 +488,7 @@ class TestL7BugFix:
         // When: Sanitizing the response
         // Then: Each field is processed exactly once (no double counting)
 
-        NOTE: Updated in Phase 2 (ADR-0010) to use get_materials instead of search.
+        NOTE: Per ADR-0010, uses get_materials instead of search.
         """
         from src.mcp.response_sanitizer import ResponseSanitizer
 

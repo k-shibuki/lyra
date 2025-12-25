@@ -48,13 +48,12 @@ This command focuses on the concrete deliverables and how to produce them.
 
 ### Execution environment
 
-- **pytest tests**: Use `scripts/test.sh` (venv or container).
+- **pytest tests**: Use `make test`, then `make test-check RUN_ID=<run_id>` (always specify `run_id` from output).
 - **Debug scripts** (standalone Python): Run directly with venv Python:
   ```bash
   ./.venv/bin/python tests/scripts/debug_{feature}_flow.py
   ```
 - Do **not** use system Python directly; the project uses `.venv` or Podman container.
-- See `@.cursor/commands/scripts-help.md` for script usage details.
 
 ### DB management
 
@@ -76,7 +75,3 @@ Do **not** assume the phase; always confirm to prevent data loss.
 
 - `@.cursor/rules/integration-design.mdc`
 - `@.cursor/rules/code-execution.mdc`
-
-## Related commands
-
-- `@.cursor/commands/scripts-help.md` — script runner reference (`test.sh`, `dev.sh`)

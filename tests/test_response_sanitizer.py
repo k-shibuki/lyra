@@ -57,7 +57,7 @@ def sanitizer_with_prompt() -> ResponseSanitizer:
 
 
 @pytest.fixture(autouse=True)
-def clear_schema_cache() -> Generator[None, None, None]:
+def clear_schema_cache() -> Generator[None]:
     """Clear schema cache before each test."""
     clear_cache()
     yield
@@ -156,7 +156,7 @@ class TestNormalCases:
         // When: Sanitizing the response
         // Then: Claims text passes through L4 validation
 
-        NOTE: Updated in Phase 2 (ADR-0010) to use get_materials instead of search.
+        NOTE: Per ADR-0010, uses get_materials instead of search.
         """
         response = {
             "ok": True,
@@ -216,9 +216,9 @@ class TestNormalCases:
         // When: Sanitizing the response
         // Then: Matches the get_stats variant schema
 
-        NOTE: Updated in Phase 6:
+        NOTE: Per ADR-0011, batch evaluation/visualization are handled by scripts.
         - calibrate -> calibration_metrics
-        - add_sample, evaluate, get_diagram_data removed
+        - add_sample removed (use feedback(edge_correct))
         - stats -> current_params (schema update)
         """
         response = {
@@ -294,7 +294,7 @@ class TestAbnormalCases:
         // When: Sanitizing the response
         // Then: URL is detected and logged as suspicious
 
-        NOTE: Updated in Phase 2 (ADR-0010) to use get_materials instead of search.
+        NOTE: Per ADR-0010, uses get_materials instead of search.
         """
         response = {
             "ok": True,
@@ -336,7 +336,7 @@ class TestAbnormalCases:
         // When: Sanitizing the response
         // Then: Fragment is masked with [REDACTED]
 
-        NOTE: Updated in Phase 2 (ADR-0010) to use get_materials instead of search.
+        NOTE: Per ADR-0010, uses get_materials instead of search.
         """
         response = {
             "ok": True,
@@ -571,7 +571,7 @@ class TestBoundaryCases:
         // When: Sanitizing the response
         // Then: Text is processed normally
 
-        NOTE: Updated in Phase 2 (ADR-0010) to use get_materials instead of search.
+        NOTE: Per ADR-0010, uses get_materials instead of search.
         """
         long_text = "A" * 10000  # 10000 character text
 
@@ -699,7 +699,7 @@ class TestSchemas:
     def test_all_tool_schemas_exist(self) -> None:
         """Test that schemas exist for all MCP tools.
 
-        NOTE: Updated in Phase 2 (ADR-0010):
+        NOTE: Per ADR-0010:
         - Removed: search, notify_user, wait_for_user
         - Added: queue_searches, feedback
         - Renamed: calibrate → calibration_metrics

@@ -6,8 +6,7 @@ Per ADR-0003: MCP over CLI / REST API.
 Renamed from calibrate. add_sample action was removed.
 Use feedback(edge_correct) for ground-truth collection.
 
-Phase 6: evaluate and get_diagram_data actions were removed.
-Use scripts for batch evaluation and visualization (S_LORA.md).
+Batch evaluation/visualization are handled by scripts (see ADR-0011).
 
 Test Perspectives Table (Equivalence Partitioning / Boundary Value Analysis)
 =============================================================================

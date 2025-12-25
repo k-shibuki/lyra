@@ -176,7 +176,7 @@ class TestQueryExpander:
 
         synonyms = expander.get_synonyms("AI")
 
-        # STRICT: AI's synonyms are defined in _init_synonym_dict as ["人工知能", "エーアイ", "機械知能"]
+        # STRICT: AI's synonyms are defined in _init_synonym_dict (includes Japanese variants)
         assert "人工知能" in synonyms, f"Expected '人工知能' in synonyms, got {synonyms}"
         assert "エーアイ" in synonyms, f"Expected 'エーアイ' in synonyms, got {synonyms}"
         assert "機械知能" in synonyms, f"Expected '機械知能' in synonyms, got {synonyms}"
@@ -229,7 +229,7 @@ class TestQueryExpander:
 
         # STRICT: Original query must be first element
         assert variants[0] == query, f"First element should be '{query}', got '{variants[0]}'"
-        # STRICT: Should have additional variants (AI -> 人工知能 and 問題 -> 課題 exist in synonym dict)
+        # STRICT: Should have additional variants (synonym dict includes Japanese variants)
         assert len(variants) >= 2, (
             f"Expected at least 2 variants (original + synonym), got {len(variants)}"
         )
@@ -256,7 +256,7 @@ class TestQueryExpander:
         assert variants[0] == query, f"First element should be '{query}', got '{variants[0]}'"
         # STRICT: Upper bound respected
         assert len(variants) <= 5, f"Expected at most 5 variants, got {len(variants)}"
-        # STRICT: Should have synonym variants (人工知能 has synonyms in dict)
+        # STRICT: Should have synonym variants (synonym dict includes Japanese variants)
         assert len(variants) >= 2, f"Expected at least 2 variants, got {len(variants)}"
 
     def test_generate_variants_respects_max_results(self) -> None:
@@ -300,7 +300,7 @@ class TestExpandQuery:
 
         # STRICT: Original query must be first element
         assert results[0] == query, f"First element should be '{query}', got '{results[0]}'"
-        # STRICT: Should have variants (人工知能 and 影響 both have synonyms)
+        # STRICT: Should have variants (synonym dict includes Japanese variants)
         assert len(results) >= 2, (
             f"Expected at least 2 variants for query with known synonyms, got {len(results)}"
         )
@@ -858,7 +858,7 @@ class TestQueryOperatorProcessor:
         query = 'AI規制 site:go.jp filetype:pdf "ガイドライン" -draft after:2023'
         parsed = processor.parse(query)
 
-        # Base query should only contain "AI規制"
+        # Base query should only contain the Japanese query term
         assert "AI規制" in parsed.base_query, (
             f"Expected 'AI規制' in base_query, got '{parsed.base_query}'"
         )

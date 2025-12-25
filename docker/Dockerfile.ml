@@ -12,7 +12,7 @@
 #
 # To update models: edit .env and run ./scripts/dev.sh rebuild
 
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.13-slim-bookworm AS base
 
 # Model versions (from .env via build args)
 ARG LYRA_ML__EMBEDDING_MODEL=BAAI/bge-m3
@@ -23,14 +23,17 @@ ARG LYRA_ML__NLI_SLOW_MODEL=cross-encoder/nli-deberta-v3-small
 # Set environment variables (offline mode disabled during build for download)
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
     HF_HOME=/app/models/huggingface \
     LYRA_ML__MODEL_PATHS_FILE=/app/models/model_paths.json \
     LYRA_ML__EMBEDDING_MODEL=${LYRA_ML__EMBEDDING_MODEL} \
     LYRA_ML__RERANKER_MODEL=${LYRA_ML__RERANKER_MODEL} \
     LYRA_ML__NLI_FAST_MODEL=${LYRA_ML__NLI_FAST_MODEL} \
     LYRA_ML__NLI_SLOW_MODEL=${LYRA_ML__NLI_SLOW_MODEL}
+
+# Install uv (from official image)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -48,22 +51,26 @@ WORKDIR /app
 # Create models directory
 RUN mkdir -p /app/models
 
-# Copy requirements for ML server
-COPY requirements-ml.txt .
+# Copy dependency files
+# README.md is required by pyproject.toml (readme field) for uv run
+COPY pyproject.toml uv.lock README.md ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-ml.txt
+# Install Python dependencies with uv (ML extra only)
+RUN uv sync --frozen --no-install-project --extra ml
 
 # Download models at build time
 # This ensures models are available without internet access at runtime
 # Model paths are saved to /app/models/model_paths.json
 COPY scripts/download_models.py /app/scripts/
-RUN python /app/scripts/download_models.py && \
+RUN uv run python /app/scripts/download_models.py && \
     test -f /app/models/model_paths.json || (echo "ERROR: model_paths.json not created" && exit 1) && \
     echo "Model paths file created successfully"
 
 # Copy ML server code
 COPY src/ml_server /app/src/ml_server
+
+# Install the project itself (ML extra)
+RUN uv sync --frozen --extra ml
 
 # Enable offline mode for runtime (models already downloaded)
 # Using local paths from model_paths.json, no HF API calls needed
@@ -75,7 +82,7 @@ ENV HF_HUB_OFFLINE=1 \
 EXPOSE 8100
 
 # Run FastAPI server
-CMD ["python", "-m", "uvicorn", "src.ml_server.main:app", "--host", "0.0.0.0", "--port", "8100"]
+CMD ["uv", "run", "uvicorn", "src.ml_server.main:app", "--host", "0.0.0.0", "--port", "8100"]
 
 # ---
 # GPU-enabled variant
@@ -83,9 +90,9 @@ CMD ["python", "-m", "uvicorn", "src.ml_server.main:app", "--host", "0.0.0.0", "
 FROM base AS gpu
 
 # Install PyTorch with CUDA support
-RUN pip install --no-cache-dir \
+RUN uv pip install --system \
     torch --index-url https://download.pytorch.org/whl/cu121 || \
-    pip install --no-cache-dir torch
+    uv pip install --system torch
 
 # Re-install sentence-transformers to pick up GPU torch
-RUN pip install --no-cache-dir --force-reinstall sentence-transformers transformers
+RUN uv pip install --system --force-reinstall sentence-transformers transformers

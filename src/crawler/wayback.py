@@ -404,7 +404,7 @@ class ContentAnalyzer:
         patterns = [
             r"\d{4}[-/]\d{1,2}[-/]\d{1,2}",  # 2024-01-15 or 2024/01/15
             r"\d{1,2}[-/]\d{1,2}[-/]\d{4}",  # 15-01-2024
-            r"\d{4}年\d{1,2}月\d{1,2}日",  # 2024年1月15日
+            r"\d{4}年\d{1,2}月\d{1,2}日",  # Japanese format: YYYY年MM月DD日
             r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}",
         ]
 

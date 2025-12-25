@@ -13,7 +13,7 @@ services:
   lyra:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       target: base  # Use base stage (no GPU packages) for development
     container_name: lyra
     env_file:
@@ -106,7 +106,7 @@ services:
   lyra-ml:
     build:
       context: .
-      dockerfile: Dockerfile.ml
+      dockerfile: docker/Dockerfile.ml
       target: gpu  # Use GPU variant
       args:
         # Model names from .env (downloaded at build time)

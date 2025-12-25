@@ -882,8 +882,9 @@ class TestMCPToolDataConsistency:
 
 @pytest.mark.integration
 class TestDomainOverrideStartupRestore:
-    """Tests for domain override restoration on server startup (ISSUE-001).
+    """Tests for domain override restoration on server startup.
 
+    Ensures domain-specific policies persist across server restarts.
     Test matrix for load_domain_overrides_from_db() on startup:
 
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |

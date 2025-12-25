@@ -1,5 +1,7 @@
 """
-Tests for pagination strategy (SERP Enhancement Phase 5).
+Tests for pagination strategy.
+
+See ADR-0010 and ADR-0014 for pagination design.
 """
 
 import pytest

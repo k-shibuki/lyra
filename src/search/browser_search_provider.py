@@ -898,7 +898,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                     engine=engine,
                 )
 
-            # Initialize pagination (Phase 5 SERP Enhancement)
+            # Initialize pagination for multi-page SERP results
+            # See ADR-0010 and ADR-0014 for pagination strategy design
             from src.search.pagination_strategy import (
                 PaginationConfig,
                 PaginationContext,

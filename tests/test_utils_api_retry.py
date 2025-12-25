@@ -532,7 +532,7 @@ class TestSpecCompliance:
         policy = APIRetryPolicy()
 
         # Then: 403 is explicitly non-retryable
-        # Per ADR-0006: "検索エンジン/ブラウザ取得では使用禁止"
+        # Per ADR-0006: "Prohibited for search engine/browser retrieval"
         assert 403 in policy.non_retryable_status_codes
         assert not policy.should_retry_status(403)
 

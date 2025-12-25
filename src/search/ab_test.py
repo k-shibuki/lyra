@@ -115,17 +115,17 @@ class QueryVariantGenerator:
 
         # Particle substitution rules (Japanese)
         self._particle_rules = [
-            # の ↔ における (more formal)
+            # の ↔ における (more formal Japanese particle variant)
             (r"(\w+)の(\w+)", r"\1における\2"),
-            # は ↔ について
+            # は ↔ について (particle variant)
             (r"(\w+)は(\w+)", r"\1について\2"),
-            # を ↔ に関する
+            # を ↔ に関する (particle variant)
             (r"(\w+)を(\w+)", r"\1に関する\2"),
-            # と ↔ および
+            # と ↔ および (particle variant)
             (r"(\w+)と(\w+)", r"\1および\2"),
-            # から ↔ より
+            # から ↔ より (particle variant)
             (r"から", r"より"),
-            # まで ↔ に至る
+            # まで ↔ に至る (particle variant)
             (r"まで", r"に至る"),
         ]
 
@@ -276,7 +276,7 @@ class QueryVariantGenerator:
         content_words = [
             t["surface"]
             for t in tokens
-            if t["pos"] in ["名詞", "動詞", "形容詞", "unknown"] and len(t["surface"]) > 1
+            if t["pos"] in ["noun", "verb", "adjective", "unknown"] and len(t["surface"]) > 1
         ]
 
         # Only reorder if we have 2+ content words

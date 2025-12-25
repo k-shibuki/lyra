@@ -169,7 +169,7 @@ class TestDateExtractor:
         dates = extractor.extract_from_text(text)
 
         assert len(dates) >= 1
-        # 令和6年 = 2024年
+        # Reiwa 6 = 2024
         assert dates[0].year == 2024
 
     def test_extract_multiple_dates(self, extractor: DateExtractor) -> None:

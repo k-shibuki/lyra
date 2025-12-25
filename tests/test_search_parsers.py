@@ -98,7 +98,7 @@ def bing_html(fixtures_dir: Path) -> str:
 
 
 @pytest.fixture(autouse=True)
-def reset_manager() -> Generator[None, None, None]:
+def reset_manager() -> Generator[None]:
     """Reset parser config manager before each test."""
     reset_parser_config_manager()
     yield
@@ -800,7 +800,7 @@ class TestStartpageParser:
 # ============================================================================
 
 
-class TestPhase1613ParserRegistry:
+class TestAdditionalParserRegistry:
     """Tests for additional parsers (Ecosia, Startpage)."""
 
     def test_ecosia_parser_available(self) -> None:

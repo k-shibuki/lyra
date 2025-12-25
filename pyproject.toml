@@ -3,28 +3,155 @@ name = "lyra"
 version = "0.1.0"
 description = "Local Yielding Research Aide for Academic Research"
 readme = "README.md"
-requires-python = ">=3.12"
+# Note: Python 3.14 is not yet supported due to paddlepaddle (OCR) dependency
+# which only provides wheels up to cp313. Revisit when paddlepaddle releases cp314 wheels.
+# Using ==3.13.* to prevent uv from selecting 3.14+ which breaks paddlepaddle[ocr].
+requires-python = "==3.13.*"
 license = {text = "MIT"}
 authors = [
     {name = "Katsuya Shibuki"}
 ]
 keywords = ["academic", "research", "agent", "mcp", "llm"]
 
+# =============================================================================
+# Core Dependencies (all environments)
+# =============================================================================
+dependencies = [
+    # Core
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pyyaml>=6.0.1",
+    "python-dotenv>=1.0.0",
+    "aiohttp>=3.9.0",
+    "aiofiles>=23.2.1",
+    # Logging
+    "structlog>=23.2.0",
+    # Database
+    "aiosqlite>=0.19.0",
+]
+
+# =============================================================================
+# Optional Dependencies
+# =============================================================================
+[project.optional-dependencies]
+# MCP Server (lightweight, for WSL host execution)
+mcp = [
+    "mcp>=1.0.0",
+    "jinja2>=3.1.0",
+    # HTTP Client (Browser Impersonation)
+    "curl-cffi>=0.6.0",
+    # Browser Automation
+    "playwright>=1.40.0",
+    # Content Extraction
+    "trafilatura>=1.6.0",
+    "beautifulsoup4>=4.12.0",
+    "readability-lxml>=0.8.1",
+    # Japanese NLP (for BM25 tokenization)
+    "sudachipy>=0.6.7",
+    "sudachidict-core>=20231110",
+    # Text Processing & Search
+    "rank-bm25>=0.2.2",
+    "tldextract>=5.1.0",
+    # Graph
+    "networkx>=3.2.0",
+    # HTTP Client (for proxy calls)
+    "httpx>=0.26.0",
+    # Archive & WARC
+    "warcio>=1.7.4",
+    # Similarity (for deduplication)
+    "datasketch>=1.6.0",
+]
+
+# ML Server (embedding, reranking, NLI inference)
+ml = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "sentence-transformers>=2.2.2",
+    "transformers>=4.36.0",
+    "torch>=2.1.0",
+    "huggingface_hub>=0.20.0",
+    "httpx>=0.26.0",
+]
+
+# Browser automation (Cloudflare/Turnstile bypass)
+browser = [
+    "undetected-chromedriver>=3.5.4",
+    "selenium>=4.15.0",
+]
+
+# OCR (Optical Character Recognition) - heavy dependencies
+ocr = [
+    "paddleocr>=2.7.0",
+    "paddlepaddle>=2.5.0",
+    "pytesseract>=0.3.10",
+    "pillow>=10.0.0",
+]
+
+# Content extraction (additional extractors)
+extraction = [
+    "justext>=3.0.0",
+    "boilerpy3>=1.0.6",
+    # PDF Processing
+    "pymupdf>=1.23.0",
+]
+
+# Tor network support
+tor = [
+    "stem>=1.8.2",
+    "pysocks>=1.7.1",
+]
+
+# Development tools
+dev = [
+    "black>=23.11.0",
+    "ruff>=0.1.6",
+    "mypy>=1.7.0",
+    "check-jsonschema>=0.36.0",
+    "types-PyYAML>=6.0.12",
+    "ipython>=8.0.0",
+]
+
+# Testing
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-watch>=4.2.0",
+]
+
+# Full development environment (all optional deps)
+full = [
+    "lyra[mcp,ml,browser,ocr,extraction,tor,dev,test]",
+]
+
 [project.scripts]
 lyra = "src.main:main"
 lyra-mcp = "src.mcp.server:main"
 
+# =============================================================================
+# Build System
+# =============================================================================
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
+# =============================================================================
+# Dependency Groups (for uv)
+# =============================================================================
+[dependency-groups]
+dev = [
+    "lyra[mcp,dev,test]",
+]
+
+# =============================================================================
+# Tool Configuration
+# =============================================================================
 [tool.black]
 line-length = 100
-target-version = ["py312"]
+target-version = ["py313"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -38,7 +165,7 @@ exclude = '''
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
@@ -61,7 +188,7 @@ ignore = [
 known-first-party = ["src"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
@@ -107,6 +234,7 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["src"]
 branch = true
+data_file = "tests/.coverage"
 omit = [
     "src/__init__.py",
     "src/*/migrations/*",
@@ -122,4 +250,3 @@ exclude_lines = [
 ]
 fail_under = 0
 show_missing = true
-

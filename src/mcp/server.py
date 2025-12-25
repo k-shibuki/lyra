@@ -187,7 +187,7 @@ TOOLS = [
     # ============================================================
     Tool(
         name="calibration_metrics",
-        description="Calibration metrics operations. Actions: get_stats, get_evaluations. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback. Note: evaluate and get_diagram_data were removed in Phase 6; use scripts for batch evaluation/visualization.",
+        description="Calibration metrics operations. Actions: get_stats, get_evaluations. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback. Batch evaluation/visualization are handled by scripts (see ADR-0011).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -1282,7 +1282,7 @@ async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
     Actions: get_stats, get_evaluations.
 
     Note: add_sample was removed. Use feedback(edge_correct) for ground-truth collection.
-    Note: evaluate and get_diagram_data were removed in Phase 6; use scripts instead.
+    Batch evaluation/visualization are handled by scripts (see ADR-0011).
     For rollback (destructive operation), use calibration_rollback tool.
     """
     from src.mcp.errors import InvalidParamsError
@@ -1803,7 +1803,8 @@ async def run_server() -> None:
     # Initialize database
     await get_database()
 
-    # Restore domain overrides from DB (ISSUE-001 fix)
+    # Restore domain overrides from DB on startup
+    # Ensures domain-specific policies persist across server restarts
     from src.filter.source_verification import load_domain_overrides_from_db
 
     await load_domain_overrides_from_db()

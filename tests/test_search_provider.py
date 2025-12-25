@@ -166,7 +166,7 @@ def mock_provider(sample_results: list[SearchResult]) -> MockSearchProvider:
 
 
 @pytest.fixture(autouse=True)
-def cleanup() -> Generator[None, None, None]:
+def cleanup() -> Generator[None]:
     """Reset global state before and after each test."""
     reset_registry()
     yield

@@ -56,8 +56,8 @@ Must include (at minimum):
 
 - [ ] Confirm PR / branch state (git commands)
 - [ ] Discover relevant docs and acceptance criteria (standalone; do not rely on other commands)
-- [ ] Run quality checks (ruff check/format + mypy)
-- [ ] Run regression tests (`./scripts/test.sh`)
+- [ ] Run quality checks (`make quality`)
+- [ ] Run regression tests (`make test`)
 - [ ] Make merge decision (with reasons)
 - [ ] After approval only: merge (non-interactive `git merge --no-edit` or manual steps)
 - [ ] After approval only: push (`git push origin main`)
@@ -129,8 +129,8 @@ Decision rules:
 
 - Fetch PR branch(es)
 - Review diff(s)
-- Run quality checks (ruff + mypy)
-- Run regression tests (`./scripts/test.sh`)
+- Run quality checks (`make quality`)
+- Run regression tests (`make test`)
 - Decide mergeability (with reasons)
 - After approval only: merge to `main`
 - After approval only: push (`git push origin main`)
@@ -138,8 +138,8 @@ Decision rules:
 ### Scenario B (already merged locally, not pushed)
 
 - Validate local `main` vs `origin/main`
-- Run quality checks on `main` (ruff + mypy)
-- Run regression tests on `main` (`./scripts/test.sh`)
+- Run quality checks on `main` (`make quality`)
+- Run regression tests on `main` (`make test`)
 - Decide whether it is safe to push
 - After approval only: push `main` (`git push origin main`)
 
@@ -387,14 +387,13 @@ Scenario B: run quality checks on `main`
 Commands:
 
 ```bash
-# Run from WSL venv (hybrid mode)
-ruff check src/ tests/
-ruff check --fix src/ tests/  # if applicable
-
-ruff format --check src/ tests/
-ruff format src/ tests/  # auto-fix
-
-mypy src/ tests/ --config-file pyproject.toml
+# Using make (recommended)
+make lint           # Lint check
+make lint-fix       # Lint with auto-fix
+make format-check   # Format check
+make format         # Format auto-fix
+make typecheck      # Type check
+make quality        # All quality checks
 
 # Trailing whitespace check (use the relevant range)
 git diff --check
@@ -411,32 +410,22 @@ Scenario B: run tests on `main`
 
 ```bash
 # Start tests
-./scripts/test.sh run tests/
+make test
+# Output shows: run_id: 20251225_123456_12345
 
-# Poll for completion (max 5 minutes, 5s interval)
-for i in {1..60}; do
-    sleep 5
-    status=$(./scripts/test.sh check 2>&1)
-    echo "[$i] $status"
-    # Done criteria: "DONE" or result keywords (passed/failed/skipped)
-    if echo "$status" | grep -qE "(DONE|passed|failed|skipped|deselected)"; then
-        break
-    fi
-done
-
-# Fetch results
-./scripts/test.sh get
+# Check completion (always specify RUN_ID)
+make test-check RUN_ID=<run_id_from_output>
 ```
 
-Note: `check` returns `DONE` if output includes `passed`/`failed`/`skipped`/`deselected`, so explicit `DONE` checks are usually unnecessary.
+> **CRITICAL:** Always capture `run_id` from `make test` output and pass it to `make test-check RUN_ID=xxx`.
 
 ## 5. Merge decision
 
 ### Merge criteria
 
 - [ ] Code review has no critical issues
-- [ ] Lint/type checks pass (ruff + mypy)
-- [ ] All tests pass (`./scripts/test.sh`)
+- [ ] Lint/type checks pass (`make quality`)
+- [ ] All tests pass (`make test`)
 - [ ] Change aligns with requirements/spec
 - [ ] **No warnings remain** (required)
 
@@ -472,17 +461,20 @@ Before merging, confirm:
 3. **No trailing whitespace warnings** from `git diff --check`
 
 ```bash
-# Warning checks (run from WSL venv unless you intentionally run inside container)
-ruff check src/ tests/
-ruff format --check src/ tests/
-mypy src/ tests/ --config-file pyproject.toml
+# Warning checks (using make)
+make lint
+make format-check
+make typecheck
+
+# Or run all quality checks at once
+make quality
 
 # Trailing whitespace check
 git diff --check
 
 # If applicable, try auto-fix
-ruff check --fix src/ tests/
-ruff format src/ tests/
+make lint-fix
+make format
 ```
 
 ### 6.2 Merge

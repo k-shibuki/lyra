@@ -28,8 +28,8 @@ How to run:
     pytest tests/test_ml_server.py -v
 
     # To run ML-dependent unit tests, install ML libs locally (not recommended):
-    pip install sentence-transformers transformers torch
-    pytest tests/test_ml_server.py -v
+    uv sync --extra ml
+    uv run pytest tests/test_ml_server.py -v
 
 =============================================================================
 """
@@ -85,13 +85,13 @@ except ImportError:
 _SKIP_MSG_SENTENCE_TRANSFORMERS = (
     "Requires sentence_transformers. "
     "Use E2E tests (test_ml_server_e2e.py) for ML validation, "
-    "or install: pip install sentence-transformers"
+    "or install: uv sync --extra ml"
 )
 
 _SKIP_MSG_TRANSFORMERS = (
     "Requires transformers. "
     "Use E2E tests (test_ml_server_e2e.py) for ML validation, "
-    "or install: pip install transformers torch"
+    "or install: uv sync --extra ml"
 )
 
 _SKIP_MSG_ML_CONTAINER = (

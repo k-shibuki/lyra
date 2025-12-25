@@ -154,7 +154,7 @@ def registry() -> NotificationProviderRegistry:
 
 
 @pytest.fixture(autouse=True)
-def reset_global_registry() -> Generator[None, None, None]:
+def reset_global_registry() -> Generator[None]:
     """Reset global registry before and after each test."""
     reset_notification_registry()
     yield

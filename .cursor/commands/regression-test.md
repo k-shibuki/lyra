@@ -20,9 +20,10 @@ Run tests in two stages to detect regressions efficiently:
 
 ## How to run (recommended)
 
-Use `scripts/test.sh` (async + polling).
+Use `make` commands (run `make help` for all options).
 
-> **Note:** `test.sh check` has built-in polling. Do NOT combine it with `sleep` commands.
+> **CRITICAL:** Always capture `run_id` from `make test` output and pass it to `make test-check RUN_ID=xxx`.
+> Do NOT omit `RUN_ID` — state file fallback is unreliable and causes confusion.
 
 ### Stage 1: session-scoped tests (recommended)
 
@@ -38,21 +39,22 @@ CHANGED_TESTS="$(
 )"
 
 if [[ -n "${CHANGED_TESTS}" ]]; then
-  ./scripts/test.sh run ${CHANGED_TESTS}
-  ./scripts/test.sh check
+  make test-scoped TARGET="${CHANGED_TESTS}"
+  # Output shows: run_id: 20251225_123456_12345
+  # Use that run_id:
+  make test-check RUN_ID=<run_id_from_output>
 else
   echo "No changed test files under tests/. Skipping Stage 1."
 fi
 ```
 
-If you changed implementation code but didn’t touch tests, explicitly choose the smallest relevant pytest target(s) instead of running everything immediately:
+If you changed implementation code but didn't touch tests, explicitly choose the smallest relevant pytest target(s) instead of running everything immediately:
 
 ```bash
 # Examples (pick what matches your change)
-./scripts/test.sh run "tests/test_xxx.py"
-./scripts/test.sh run "tests/test_xxx.py" -k "test_specific_case"
-./scripts/test.sh run "tests/unit/test_a.py" "tests/integration/test_b.py"
-./scripts/test.sh check
+make test-scoped TARGET="tests/test_xxx.py"
+# Output shows: run_id: 20251225_123456_12345
+make test-check RUN_ID=<run_id_from_output>
 ```
 
 ### Stage 2: full suite (final gate)
@@ -60,24 +62,28 @@ If you changed implementation code but didn’t touch tests, explicitly choose t
 Run the full test suite to catch regressions outside your local change surface:
 
 ```bash
-./scripts/test.sh run tests/
-# Output shows: ./scripts/test.sh check <run_id>
-./scripts/test.sh check <run_id>
-./scripts/test.sh kill <run_id>  # only if you need to abort
+make test
+# Output shows: run_id: 20251225_123456_12345
+make test-check RUN_ID=<run_id_from_output>
+make test-kill RUN_ID=<run_id>   # only if you need to abort
 ```
 
-Polling example:
+### run_id の取得方法
 
-```bash
-./scripts/test.sh run tests/
-# Output: "Started. To check results: ./scripts/test.sh check 20251224_123456_12345"
-./scripts/test.sh check 20251224_123456_12345
+`make test` / `make test-scoped` の出力に以下が含まれます:
+
+```
+Artifacts:
+  run_id:      20251225_123456_12345
+  result_file: /tmp/lyra_test/result_20251225_123456_12345.txt
 ```
 
-Completion logic:
+この `run_id` を `make test-check RUN_ID=xxx` に渡してください。
 
-- `check` returns `DONE` when pytest summary line exists AND pytest process has exited
-- Each `run` generates a unique `run_id`; use it with `check`/`kill` to avoid result confusion
+### Completion logic
+
+- `test-check` returns `DONE` when pytest summary line exists AND pytest process has exited
+- Each `run` generates a unique `run_id`; **always specify it** with `check`/`kill`
 
 ## Output (response format)
 

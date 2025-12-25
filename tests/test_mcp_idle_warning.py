@@ -3,7 +3,7 @@ Tests for MCP handlers idle warning (ADR-0002).
 
 Tests verify that MCP handlers record activity and get_status includes idle_seconds.
 
-NOTE: _handle_search tests removed in Phase 2 (ADR-0010).
+NOTE: Per ADR-0010, _handle_search tests removed.
       Use queue_searches + get_status(wait=N) instead.
 
 Test Perspectives Table:
@@ -99,7 +99,7 @@ class TestMCPIdleWarning:
             assert result["idle_seconds"] == 100
             mock_state.record_activity.assert_called_once()
 
-    # NOTE: test_search_records_activity removed in Phase 2 (ADR-0010).
+    # NOTE: Per ADR-0010, test_search_records_activity removed.
     # _handle_search was removed; use queue_searches + get_status(wait=N) instead.
 
     @pytest.mark.asyncio
@@ -241,6 +241,6 @@ class TestMCPIdleWarning:
 
             assert "task_id" in str(exc_info.value).lower()
 
-    # NOTE: test_search_query_none_raises_error, test_search_query_empty_raises_error,
-    # and test_search_task_id_none_raises_error removed in Phase 2 (ADR-0010).
+    # NOTE: Per ADR-0010, test_search_query_none_raises_error, test_search_query_empty_raises_error,
+    # and test_search_task_id_none_raises_error removed.
     # _handle_search was removed; use queue_searches + get_status(wait=N) instead.

@@ -130,27 +130,27 @@ class QualityResult:
 
 
 # LLM prompt for quality assessment
-LLM_QUALITY_ASSESSMENT_PROMPT = """あなたはウェブコンテンツの品質評価の専門家です。以下のテキストを分析し、品質を評価してください。
+LLM_QUALITY_ASSESSMENT_PROMPT = """You are an expert in web content quality assessment. Analyze the following text and evaluate its quality.
 
-テキスト（最初の2000文字）:
+Text (first 2000 characters):
 {text}
 
-以下の観点で評価し、JSON形式で回答してください:
-1. quality_score: 0.0（最低）〜1.0（最高）の品質スコア
-2. is_ai_generated: AI生成コンテンツの可能性（true/false）
-3. is_spam: SEOスパム/低品質コンテンツの可能性（true/false）
-4. is_aggregator: 他サイトからの寄せ集めコンテンツか（true/false）
-5. reason: 判断理由（日本語で簡潔に）
+Evaluate from the following perspectives and respond in JSON format:
+1. quality_score: Quality score from 0.0 (lowest) to 1.0 (highest)
+2. is_ai_generated: Likelihood of AI-generated content (true/false)
+3. is_spam: Likelihood of SEO spam/low-quality content (true/false)
+4. is_aggregator: Whether content is aggregated from other sites (true/false)
+5. reason: Reason for judgment (concise)
 
-評価基準:
-- 独自の洞察や分析があるか
-- 一次情報源に基づいているか
-- 文章が自然で人間らしいか
-- 広告やアフィリエイトが過剰でないか
-- 情報が正確で信頼できそうか
+Evaluation criteria:
+- Does it have unique insights or analysis?
+- Is it based on primary sources?
+- Is the writing natural and human-like?
+- Are ads or affiliate links excessive?
+- Is the information accurate and trustworthy?
 
-JSON形式で回答:
-{{"quality_score": 0.0-1.0, "is_ai_generated": true/false, "is_spam": true/false, "is_aggregator": true/false, "reason": "理由"}}"""
+Respond in JSON format:
+{{"quality_score": 0.0-1.0, "is_ai_generated": true/false, "is_spam": true/false, "is_aggregator": true/false, "reason": "reason"}}"""
 
 
 LLM_QUALITY_ASSESSMENT_PROMPT_EN = """You are an expert in evaluating web content quality. Analyze the following text and assess its quality.

@@ -253,7 +253,7 @@ def temp_config_file(sample_config_yaml: str, tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def policy_manager(temp_config_file: Path) -> Generator[DomainPolicyManager, None, None]:
+def policy_manager(temp_config_file: Path) -> Generator[DomainPolicyManager]:
     """Create DomainPolicyManager with test config."""
     reset_domain_policy_manager()
     manager = DomainPolicyManager(
@@ -265,7 +265,7 @@ def policy_manager(temp_config_file: Path) -> Generator[DomainPolicyManager, Non
 
 
 @pytest.fixture(autouse=True)
-def reset_singleton() -> Generator[None, None, None]:
+def reset_singleton() -> Generator[None]:
     """Reset singleton before and after each test."""
     reset_domain_policy_manager()
     yield

@@ -44,7 +44,7 @@ start_dev_shell() {
     log_info "Entering development shell..."
     
     # Build dev image (base stage only, no GPU packages)
-    podman build -t lyra-dev:latest -f Dockerfile --target base .
+    podman build -t lyra-dev:latest -f docker/Dockerfile --target base .
     
     # Load environment from .env if exists, otherwise use defaults
     local env_opts=""

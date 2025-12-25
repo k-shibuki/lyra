@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Debug script for Phase 5: SERP Pagination Flow.
+Debug script for SERP Pagination Flow.
+
+See ADR-0010 and ADR-0014 for pagination design.
 
 Validates the end-to-end flow including:
 1. PaginationConfig/Strategy initialization
@@ -153,7 +155,7 @@ async def test_search_options() -> None:
 async def main() -> int:
     """Run all debug tests."""
     print("=" * 60)
-    print("Phase 5: SERP Pagination Flow Debug")
+    print("SERP Pagination Flow Debug")
     print("=" * 60)
 
     try:

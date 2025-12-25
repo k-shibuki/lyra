@@ -61,7 +61,7 @@ from src.utils.schemas import DomainBudgetCheckResult, DomainDailyBudget
 
 
 @pytest.fixture(autouse=True)
-def reset_manager() -> Generator[None, None, None]:
+def reset_manager() -> Generator[None]:
     """Reset singleton before each test."""
     reset_domain_budget_manager()
     yield

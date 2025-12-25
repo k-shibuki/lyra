@@ -1585,13 +1585,12 @@ async def get_calibration_stats() -> dict[str, Any]:
 
 
 # =============================================================================
-# Unified Calibration API (Phase 6: evaluate/get_diagram_data removed)
+# Unified Calibration API
 # =============================================================================
 #
-# NOTE: CalibrationEvaluation, CalibrationEvaluator, save_calibration_evaluation,
-# get_calibration_evaluations, get_reliability_diagram_data were removed in Phase 6.
-# Computation/visualization is now handled by scripts (S_LORA.md), not MCP tools.
+# NOTE: Batch evaluation and visualization are handled by scripts, not MCP tools.
 # The calibration_evaluations table remains for historical data and script access.
+# See ADR-0011 for LoRA fine-tuning design and script usage.
 #
 
 
@@ -1603,8 +1602,8 @@ async def calibration_metrics_action(
     This is the single entry point for calibration metrics operations (except rollback).
     Renamed from calibrate_action; add_sample removed.
 
-    Per Q_ASYNC_ARCHITECTURE.md Phase 6: evaluate and get_diagram_data were removed.
-    Computation/visualization is handled by scripts (S_LORA.md), not MCP tools.
+    Batch evaluation and visualization are handled by scripts, not MCP tools.
+    See ADR-0011 for LoRA fine-tuning design and script usage.
 
     Args:
         action: One of "get_stats", "get_evaluations"
@@ -1622,8 +1621,8 @@ async def calibration_metrics_action(
         add_sample was removed. Use feedback(edge_correct) for
         ground-truth collection which accumulates samples in nli_corrections table.
 
-        evaluate and get_diagram_data were removed (Phase 6).
-        Use scripts for batch evaluation and visualization.
+        Batch evaluation and visualization are handled by scripts.
+        See ADR-0011 for LoRA fine-tuning design and script usage.
 
     Raises:
         ValueError: If action is invalid or required data is missing

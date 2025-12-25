@@ -92,7 +92,7 @@ from src.crawler.browser_provider import (
 
 
 @pytest.fixture
-def reset_registry() -> Generator[None, None, None]:
+def reset_registry() -> Generator[None]:
     """Reset global registry before and after each test."""
     reset_browser_registry()
     yield

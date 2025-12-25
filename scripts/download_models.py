@@ -4,10 +4,15 @@ Download ML models for Lyra.
 This script is run during Docker build to include models in the image.
 
 Models can be updated by:
-1. Editing the MODEL_* variables below
-2. Running: ./scripts/dev.sh rebuild
+1. Setting environment variables in .env (recommended):
+   - LYRA_ML__EMBEDDING_MODEL
+   - LYRA_ML__RERANKER_MODEL
+   - LYRA_ML__NLI_FAST_MODEL
+   - LYRA_ML__NLI_SLOW_MODEL
+2. Or editing the MODEL_* variables below directly
+3. Then running: ./scripts/dev.sh rebuild
 
-Models downloaded:
+Default models:
 - BAAI/bge-m3 (embedding, ~1.2GB)
 - BAAI/bge-reranker-v2-m3 (reranker, ~1.2GB)
 - cross-encoder/nli-deberta-v3-xsmall (NLI fast, ~100MB)

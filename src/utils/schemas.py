@@ -1,7 +1,7 @@
 """
-Pydantic schemas for module间データ受け渡し.
+Pydantic schemas for inter-module data transfer.
 
-モジュール間のデータ受け渡しを型安全にするためのPydanticモデル定義。
+Type-safe Pydantic model definitions for data exchange between modules.
 """
 
 from __future__ import annotations
@@ -18,15 +18,18 @@ from pydantic import BaseModel, Field
 
 
 class AuthSessionData(BaseModel):
-    """認証待ちキューで保存されたセッションデータ（問題3用）.
+    """Session data stored in authentication queue.
 
-    認証完了後に保存され、後続リクエストで再利用される。
+    Saved after authentication completion and reused in subsequent requests.
+    Used for human-in-the-loop authentication workflow (see ADR-0007).
     """
 
-    domain: str = Field(..., description="ドメイン名（小文字）")
-    cookies: list[dict[str, Any]] = Field(default_factory=list, description="Cookie情報のリスト")
-    completed_at: str = Field(..., description="認証完了時刻（ISO形式）")
-    task_id: str | None = Field(None, description="タスクID（タスクスコープセッションの場合）")
+    domain: str = Field(..., description="Domain name (lowercase)")
+    cookies: list[dict[str, Any]] = Field(
+        default_factory=list, description="List of cookie information"
+    )
+    completed_at: str = Field(..., description="Authentication completion time (ISO format)")
+    task_id: str | None = Field(None, description="Task ID (for task-scoped sessions)")
 
     class Config:
         json_schema_extra = {
@@ -51,58 +54,68 @@ class AuthSessionData(BaseModel):
 
 
 class StartSessionRequest(BaseModel):
-    """start_session()のリクエスト（問題5用）."""
+    """Request for start_session().
 
-    task_id: str = Field(..., description="タスクID")
-    queue_ids: list[str] | None = Field(None, description="特定のキューIDリスト（オプション）")
+    Used to initiate authentication session processing from the queue.
+    """
+
+    task_id: str = Field(..., description="Task ID")
+    queue_ids: list[str] | None = Field(None, description="Specific queue ID list (optional)")
     priority_filter: str | None = Field(
-        None, description="優先度フィルタ（'high', 'medium', 'low'）"
+        None, description="Priority filter ('high', 'medium', 'low')"
     )
 
 
 class QueueItem(BaseModel):
-    """認証待ちキューアイテム."""
+    """Authentication queue item."""
 
-    id: str = Field(..., description="キューID")
-    url: str = Field(..., description="認証待ちURL")
-    domain: str = Field(..., description="ドメイン名")
-    auth_type: str = Field(..., description="認証タイプ（'captcha', 'login', etc.）")
-    priority: str = Field(..., description="優先度（'high', 'medium', 'low'）")
+    id: str = Field(..., description="Queue ID")
+    url: str = Field(..., description="URL awaiting authentication")
+    domain: str = Field(..., description="Domain name")
+    auth_type: str = Field(..., description="Authentication type ('captcha', 'login', etc.)")
+    priority: str = Field(..., description="Priority ('high', 'medium', 'low')")
 
 
 class StartSessionResponse(BaseModel):
-    """start_session()のレスポンス（問題5用）."""
+    """Response for start_session().
 
-    ok: bool = Field(..., description="成功フラグ")
-    session_started: bool = Field(..., description="セッション開始フラグ")
-    count: int = Field(..., description="処理アイテム数")
-    items: list[QueueItem] = Field(default_factory=list, description="処理アイテムリスト")
-    message: str | None = Field(None, description="メッセージ（エラー時など）")
+    Returns status and processed items from authentication queue.
+    """
+
+    ok: bool = Field(..., description="Success flag")
+    session_started: bool = Field(..., description="Session started flag")
+    count: int = Field(..., description="Number of processed items")
+    items: list[QueueItem] = Field(default_factory=list, description="List of processed items")
+    message: str | None = Field(None, description="Message (e.g., on error)")
 
 
 class SessionTransferRequest(BaseModel):
-    """セッション転送リクエスト（問題12用）."""
+    """Session transfer request.
 
-    url: str = Field(..., description="ターゲットURL")
+    Transfers authenticated session (cookies, headers) to a target URL.
+    Used for reusing authentication across related requests.
+    """
+
+    url: str = Field(..., description="Target URL")
     session_id: str | None = Field(
-        None, description="セッションID（指定しない場合はドメインから検索）"
+        None, description="Session ID (if not specified, searched by domain)"
     )
     include_conditional: bool = Field(
-        default=True, description="ETag/Last-Modifiedヘッダーを含めるか"
+        default=True, description="Whether to include ETag/Last-Modified headers"
     )
 
 
 class TransferResult(BaseModel):
-    """セッション転送結果（問題12用）.
+    """Session transfer result.
 
-    既存のTransferResult（dataclass）と互換性を保つため、
-    必要に応じて既存コードを移行する。
+    Contains transferred session headers and status.
+    Maintains compatibility with existing TransferResult (dataclass).
     """
 
-    ok: bool = Field(..., description="転送成功フラグ")
-    session_id: str | None = Field(None, description="セッションID（利用可能な場合）")
-    headers: dict[str, str] = Field(default_factory=dict, description="転送ヘッダー")
-    reason: str | None = Field(None, description="エラー理由（失敗時）")
+    ok: bool = Field(..., description="Transfer success flag")
+    session_id: str | None = Field(None, description="Session ID (if available)")
+    headers: dict[str, str] = Field(default_factory=dict, description="Transfer headers")
+    reason: str | None = Field(None, description="Error reason (on failure)")
 
     class Config:
         json_schema_extra = {
@@ -168,8 +181,8 @@ class EngineHealthMetrics(BaseModel):
 class LastmileCheckResult(BaseModel):
     """Result of lastmile slot check.
 
-    Per ADR-0010: "ラストマイル・スロット: 回収率の最後の10%を狙う限定枠として
-    Google/Braveを最小限開放（厳格なQPS・回数・時間帯制御）"
+    Per ADR-0010: "Lastmile slot: Limited allocation targeting the final 10% of harvest rate,
+    minimally opening Google/Brave with strict QPS, count, and time-of-day controls."
 
     Used to determine if lastmile engines should be used based on harvest rate.
     """
@@ -321,7 +334,7 @@ class DomainTorMetrics(BaseModel):
 class DomainDailyBudget(BaseModel):
     """Daily budget state for a domain.
 
-    Per ADR-0006: "時間帯・日次の予算上限を設定" for IP block prevention.
+    Per ADR-0006: "Set time-of-day and daily budget limits" for IP block prevention.
     Tracks requests and pages consumed today for rate limiting.
     """
 

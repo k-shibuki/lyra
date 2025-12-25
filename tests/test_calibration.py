@@ -76,9 +76,9 @@ Covers:
 | TC-MR-N-04 | get_rollback_events | Equivalence – normal | Event list | - |
 | TC-MR-N-05 | get_stats | Equivalence – normal | Comprehensive | - |
 
-Note: TC-CE-*, TC-EV-*, TC-ME-* tests were removed in Phase 6.
+Note: Batch evaluation/visualization tests were moved to scripts.
 CalibrationEvaluation, CalibrationEvaluator, save_calibration_evaluation,
-get_calibration_evaluations, get_reliability_diagram_data are now in scripts (S_LORA.md).
+get_calibration_evaluations, get_reliability_diagram_data are now in scripts (see ADR-0011).
 """
 
 import math
@@ -108,9 +108,9 @@ from src.utils.calibration import (
     rollback_calibration,
 )
 
-# NOTE: Phase 6 removed CalibrationEvaluation, CalibrationEvaluator,
-# save_calibration_evaluation, get_calibration_evaluations, get_reliability_diagram_data.
-# Related tests were moved to scripts (S_LORA.md).
+# NOTE: Batch evaluation/visualization are handled by scripts.
+# CalibrationEvaluation, CalibrationEvaluator, save_calibration_evaluation,
+# get_calibration_evaluations, get_reliability_diagram_data are now in scripts (see ADR-0011).
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
@@ -1057,7 +1057,8 @@ class TestMCPRollbackTools:
 
 
 # =============================================================================
-# NOTE: Phase 6 removed CalibrationEvaluation, CalibrationEvaluator,
-# save_calibration_evaluation, get_calibration_evaluations, get_reliability_diagram_data.
-# Related tests have been removed. Use scripts for batch evaluation/visualization (S_LORA.md).
+# NOTE: Batch evaluation/visualization are handled by scripts.
+# CalibrationEvaluation, CalibrationEvaluator, save_calibration_evaluation,
+# get_calibration_evaluations, get_reliability_diagram_data are now in scripts (see ADR-0011).
+# Related tests have been removed.
 # =============================================================================

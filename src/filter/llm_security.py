@@ -68,7 +68,7 @@ DANGEROUS_PATTERNS = [
     r"pretend\s+(to\s+be|you\s+are)",
     r"from\s+now\s+on",
     r"ignore\s+everything",
-    r"上記.{0,5}無視",  # Matches "上記の指示を無視" etc.
+    r"上記.{0,5}無視",  # Matches Japanese "ignore above instructions" etc.
     r"指示(を|に)従(わ|う)な",
     r"新しい指示",
     r"システムプロンプト",

@@ -521,7 +521,7 @@ class TestConvenienceFunctions:
     """Tests for convenience functions."""
 
     @pytest.fixture(autouse=True)
-    def reset_global_manager(self) -> Generator[None, None, None]:
+    def reset_global_manager(self) -> Generator[None]:
         """Reset global lifecycle manager before each test."""
         import src.utils.lifecycle as lifecycle_module
 
@@ -700,7 +700,7 @@ class TestLLMCleanup:
     """Tests for LLM cleanup functions."""
 
     @pytest.fixture(autouse=True)
-    def reset_llm_client(self) -> Generator[None, None, None]:
+    def reset_llm_client(self) -> Generator[None]:
         """Reset global LLM client before each test."""
         import src.filter.llm as llm_module
 
