@@ -213,7 +213,7 @@ class StatusResult:
 
 ## Implementation Status
 
-**Status**: Phase 1-3 ✅ 完了 / Phase 4-6 🔜 計画中
+**Status**: Phase 1-4 ✅ 完了 / Phase 5-6 🔜 計画中
 
 詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
 
@@ -224,7 +224,7 @@ class StatusResult:
 | Phase 1 | `queue_searches` ツール追加、`get_status` に `wait` パラメータ追加 | ✅ 完了 (2025-12-24) |
 | Phase 2 | `search`, `notify_user`, `wait_for_user` ツール削除 | ✅ 完了 (2025-12-24) |
 | Phase 3 | 一次検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加 | ✅ 完了 (2025-12-24) |
-| Phase 4 | Search Resource Control（学術API + ブラウザSERP） | 🔜 計画中 ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
+| Phase 4 | Search Resource Control（学術API + ブラウザSERP） | ✅ 完了 (2025-12-25) ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
 | Phase 5 | SERP Enhancement（ページネーション） | 🔜 計画中 ([R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md)) |
 | Phase 6 | calibration_metrics action削除 | 🔜 計画中 |
 
@@ -284,8 +284,8 @@ When running multiple queue workers, external rate limits must still be respecte
 
 | Resource | Control | Status | ADR |
 |----------|---------|--------|-----|
-| **Browser (SERP)** | TabPool (max_tabs=1) + per-engine policy | 🔜 Phase 4 | [ADR-0014](0014-browser-serp-resource-control.md) |
-| **Academic APIs** | Global rate limiter per provider | 🔜 Phase 4 | [ADR-0013](0013-worker-resource-contention.md) |
+| **Browser (SERP)** | TabPool (max_tabs=1) + per-engine policy | ✅ Implemented | [ADR-0014](0014-browser-serp-resource-control.md) |
+| **Academic APIs** | Global rate limiter per provider | ✅ Implemented | [ADR-0013](0013-worker-resource-contention.md) |
 | **HTTP fetch** | `RateLimiter` per domain | ✅ Implemented | - |
 
 **Note**: 

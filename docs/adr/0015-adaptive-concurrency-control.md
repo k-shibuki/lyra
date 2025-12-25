@@ -35,21 +35,27 @@ Lyra は `SearchQueueWorker` により複数ジョブを並列処理する（ADR
   - `browser.serp_max_tabs`（TabPool上限）
   - エンジン別QPS/並列は `config/engines.yaml`（engine policy）
 
-### 2) Safe auto-backoff（自動最適化は“下げる”中心）
+### 2) リソース別の自動制御戦略
 
-自動最適化は「上限を超えて加速しない」ことを保証し、以下の入力シグナルで**一時的にeffective concurrencyを下げる**：
+リソースごとにリスク特性が異なるため、自動制御の方針を分ける：
 
-- **Academic API**:
-  - 429（Rate Limited）発生率、連続429、レイテンシ悪化
-- **Browser SERP**:
-  - CAPTCHA率、403率、タイムアウト率
+#### Academic API: 自動増減OK
 
-制御の形は AIMD（Additive Increase / Multiplicative Decrease）に近いが、**Increaseは慎重**にする：
+`AcademicAPIRateLimiter`（ADR-0013）がリクエスト直前にグローバルQPS制限を強制するため、並列度を上げてもレート制限は確実に遵守される。
 
-- Decrease: 429/CAPTCHAが増えたら即座に `effective_max_parallel` / `effective_max_tabs` を下げる
-- Increase: 安定時間（hysteresis）経過後に 1段だけ戻す（上限は超えない）
+- **Decrease**: 429発生時に即座に `effective_max_parallel` を下げる
+- **Increase**: 安定時間（例: 60秒）経過後に1段戻す（config上限まで）
+- **リスク**: 低（レート制限で保護）
 
-> Note: 「自動で上げる」ことは bot検出・BANリスクがあるため、運用上は“手動で上限を上げる”のを基本とし、Autoは補助に留める。
+#### Browser SERP: 保守的に（自動増加なし）
+
+bot検出・CAPTCHAはレート制限では防げない。エンジン側のヒューリスティクスに依存するため予測困難。
+
+- **Decrease**: CAPTCHA/403率上昇時に `effective_max_tabs` を下げる
+- **Increase**: **手動のみ**（config変更で段階的に上げる）
+- **リスク**: 中〜高（bot検出でBANリスク）
+
+> Note: ブラウザSERPは `max_tabs=1` で開始し、CAPTCHA率・成功率を観測しながら手動で上限を調整する運用を推奨。
 
 ## Consequences
 

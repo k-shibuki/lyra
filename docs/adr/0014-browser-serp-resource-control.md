@@ -164,18 +164,18 @@ mojeek:
 
 ## Implementation Status
 
+**Status**: ✅ Phase 1 Implemented (2025-12-25)
+
 ### Phase 1: TabPool（max_tabs=1）+ 正しさ担保
 
-- [ ] ADR承認
-- [ ] `BrowserSearchProvider` を「Page共有なし」に変更（TabPool導入）
-- [ ] エンジン別 concurrency/min_interval の責務を `config/engines.yaml` に統一
-- [ ] テスト追加 (`tests/test_browser_search_concurrency.py`)
-- [ ] シーケンス図更新
+- `src/search/tab_pool.py`: `TabPool` + `EngineRateLimiter` 実装済み
+- `src/search/browser_search_provider.py`: TabPool 統合済み（max_tabs=1）
+- `config/engines.yaml`: min_interval / concurrency 設定追加済み
 
 ### Phase 2: max_tabs>1 の段階的解放（将来）
 
-- [ ] `max_tabs` を2以上に上げた場合の挙動検証（CAPTCHA/成功率/メモリ）
-- [ ] メモリ影響評価
+- `max_tabs` を2以上に上げた場合の挙動検証は未実施
+- メモリ影響評価は未実施
 
 ## Related
 

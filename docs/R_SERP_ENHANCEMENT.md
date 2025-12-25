@@ -116,8 +116,8 @@ results = [r.to_search_result(engine) for r in parse_result.results[: options.li
 
 ```python
 class PaginationStrategy:
-    serp_max_pages: int = 5        # 絶対上限（SERPページ数）
-    min_novelty_rate: float = 0.2  # 新規URL率の下限
+    serp_max_pages: int = 10       # 絶対上限（SERPページ数）→ 100〜300件取得可能
+    min_novelty_rate: float = 0.1  # 新規URL率の下限（state.py の既存閾値と整合）
     min_harvest_rate: float = 0.05 # 収穫率の下限
 
     def should_fetch_next(
@@ -183,8 +183,8 @@ mojeek:
 ```python
 @dataclass
 class PaginationConfig:
-    serp_max_pages: int = 5
-    min_novelty_rate: float = 0.2
+    serp_max_pages: int = 10       # 100〜300件取得可能（エンジンにより10〜30件/ページ）
+    min_novelty_rate: float = 0.1  # state.py の既存閾値（novelty_score < 0.1 で EXHAUSTED）と整合
     min_harvest_rate: float = 0.05
     strategy: Literal["fixed", "auto", "exhaustive"] = "auto"
 
@@ -306,7 +306,7 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_page={page}"
 ## 8. 実装タスク
 
 ### Phase 1: 基盤整備
-- [ ] `config/search_parsers.yaml` にページネーションパラメータ追加
+- [x] `config/search_parsers.yaml` にページネーションパラメータ追加（pagination_type, results_per_page, offset/page テンプレート）
 - [ ] `src/search/parser_config.py` でページネーション設定読み込み
 - [ ] `build_search_url()` にoffset/page引数追加
 
