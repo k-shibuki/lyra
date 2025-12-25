@@ -75,29 +75,19 @@ Covers:
 | TC-MR-N-03 | get_history | Equivalence – normal | Version list | - |
 | TC-MR-N-04 | get_rollback_events | Equivalence – normal | Event list | - |
 | TC-MR-N-05 | get_stats | Equivalence – normal | Comprehensive | - |
-| TC-CE-N-01 | Evaluation create | Equivalence – normal | All fields set | - |
-| TC-CE-N-02 | to_dict | Equivalence – normal | Serializable | - |
-| TC-EV-N-01 | save_evaluation | Equivalence – normal | Saved to DB | - |
-| TC-EV-N-02 | correct brier | Equivalence – normal | Score = 0 | - |
-| TC-EV-N-03 | generate_id | Equivalence – normal | Unique IDs | - |
-| TC-EV-N-04 | get_evaluations empty | Equivalence – normal | Empty list | - |
-| TC-EV-N-05 | diagram no eval | Equivalence – normal | Error returned | - |
-| TC-EV-N-06 | count_evaluations | Equivalence – normal | Count returned | - |
-| TC-ME-N-01 | save_calibration_eval | Equivalence – normal | ok=True | - |
-| TC-ME-N-02 | get_evaluations | Equivalence – normal | List returned | - |
-| TC-ME-N-03 | get_diagram_data | Equivalence – normal | Bins returned | - |
+
+Note: TC-CE-*, TC-EV-*, TC-ME-* tests were removed in Phase 6.
+CalibrationEvaluation, CalibrationEvaluator, save_calibration_evaluation,
+get_calibration_evaluations, get_reliability_diagram_data are now in scripts (S_LORA.md).
 """
 
 import math
-from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.utils.calibration import (
-    CalibrationEvaluation,
-    CalibrationEvaluator,
     CalibrationHistory,
     CalibrationParams,
     CalibrationResult,
@@ -112,14 +102,15 @@ from src.utils.calibration import (
     evaluate_calibration,
     expected_calibration_error,
     fit_calibration,
-    get_calibration_evaluations,
     get_calibration_history,
     get_calibration_stats,
-    get_reliability_diagram_data,
     get_rollback_events,
     rollback_calibration,
-    save_calibration_evaluation,
 )
+
+# NOTE: Phase 6 removed CalibrationEvaluation, CalibrationEvaluator,
+# save_calibration_evaluation, get_calibration_evaluations, get_reliability_diagram_data.
+# Related tests were moved to scripts (S_LORA.md).
 
 # All tests in this module are unit tests (no external dependencies)
 pytestmark = pytest.mark.unit
@@ -1066,249 +1057,7 @@ class TestMCPRollbackTools:
 
 
 # =============================================================================
-# CalibrationEvaluation Tests
+# NOTE: Phase 6 removed CalibrationEvaluation, CalibrationEvaluator,
+# save_calibration_evaluation, get_calibration_evaluations, get_reliability_diagram_data.
+# Related tests have been removed. Use scripts for batch evaluation/visualization (S_LORA.md).
 # =============================================================================
-
-
-class TestCalibrationEvaluation:
-    """Tests for CalibrationEvaluation dataclass."""
-
-    def test_create_evaluation(self) -> None:
-        """Should create evaluation with all fields."""
-        evaluation = CalibrationEvaluation(
-            id="eval_001",
-            source="llm_extract",
-            brier_score=0.15,
-            brier_score_calibrated=0.12,
-            improvement_ratio=0.20,
-            expected_calibration_error=0.08,
-            samples_evaluated=100,
-            bins=[{"bin_lower": 0.0, "bin_upper": 0.1, "count": 10}],
-            calibration_version=2,
-            evaluated_at=datetime.now(UTC),
-        )
-
-        assert evaluation.id == "eval_001"
-        assert evaluation.source == "llm_extract"
-        assert evaluation.brier_score == 0.15
-        assert evaluation.improvement_ratio == 0.20
-
-    def test_to_dict(self) -> None:
-        """Should convert to serializable dict."""
-        evaluation = CalibrationEvaluation(
-            id="eval_002",
-            source="nli_judge",
-            brier_score=0.18,
-            brier_score_calibrated=0.14,
-            improvement_ratio=0.22,
-            expected_calibration_error=0.06,
-            samples_evaluated=50,
-            bins=[],
-            calibration_version=1,
-            evaluated_at=datetime.now(UTC),
-        )
-
-        d = evaluation.to_dict()
-
-        assert d["evaluation_id"] == "eval_002"
-        assert d["source"] == "nli_judge"
-        assert "evaluated_at" in d
-
-
-# =============================================================================
-# CalibrationEvaluator Tests
-# =============================================================================
-
-
-class TestCalibrationEvaluator:
-    """Tests for CalibrationEvaluator class ."""
-
-    @pytest.fixture
-    def mock_db(self) -> MagicMock:
-        """Create mock database with async methods."""
-        db = MagicMock()
-        # Create async mock for execute that returns a cursor with async fetchall/fetchone
-        mock_cursor = MagicMock()
-        mock_cursor.fetchall = AsyncMock(return_value=[])
-        mock_cursor.fetchone = AsyncMock(return_value=None)
-        db.execute = AsyncMock(return_value=mock_cursor)
-        return db
-
-    @pytest.fixture
-    def evaluator(self, mock_db: MagicMock, tmp_path: Path) -> CalibrationEvaluator:
-        """Create evaluator with mock database."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
-            mock_root.return_value = tmp_path
-            with patch("src.utils.calibration.get_database", new=AsyncMock(return_value=mock_db)):
-                return CalibrationEvaluator(db=mock_db)
-
-    @pytest.mark.asyncio
-    async def test_save_evaluation(
-        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
-    ) -> None:
-        """save_evaluation should calculate metrics and save to DB."""
-        predictions = [0.1, 0.4, 0.6, 0.9, 0.2, 0.8, 0.3, 0.7, 0.5, 0.95]
-        labels = [0, 0, 1, 1, 0, 1, 0, 1, 0, 1]
-
-        evaluation = await evaluator.save_evaluation("test_source", predictions, labels)
-
-        assert evaluation.source == "test_source"
-        assert evaluation.samples_evaluated == 10
-        assert 0 <= evaluation.brier_score <= 1
-        # Should have at least 1 calibration bin
-        assert len(evaluation.bins) >= 1, f"Expected >=1 bins, got {len(evaluation.bins)}"
-        mock_db.execute.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_save_evaluation_stores_correct_brier(
-        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
-    ) -> None:
-        """save_evaluation should calculate correct Brier score."""
-        # Perfect predictions
-        predictions = [0.0, 0.0, 1.0, 1.0]
-        labels = [0, 0, 1, 1]
-
-        evaluation = await evaluator.save_evaluation("test", predictions, labels)
-
-        assert evaluation.brier_score == 0.0
-
-    def test_generate_id(self, evaluator: CalibrationEvaluator) -> None:
-        """_generate_id should create unique IDs."""
-        id1 = evaluator._generate_id()
-        id2 = evaluator._generate_id()
-
-        assert id1 != id2
-        assert id1.startswith("eval_")
-
-    @pytest.mark.asyncio
-    async def test_get_evaluations_empty(
-        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
-    ) -> None:
-        """get_evaluations should return empty list when no data."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchall = AsyncMock(return_value=[])
-        mock_db.execute = AsyncMock(return_value=mock_cursor)
-
-        evaluations = await evaluator.get_evaluations(source="test")
-
-        assert evaluations == []
-
-    @pytest.mark.asyncio
-    async def test_get_reliability_diagram_data_no_evaluation(
-        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
-    ) -> None:
-        """get_reliability_diagram_data should return error when no evaluation."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchall = AsyncMock(return_value=[])
-        mock_db.execute = AsyncMock(return_value=mock_cursor)
-
-        result = await evaluator.get_reliability_diagram_data("nonexistent")
-
-        assert result["ok"] is False
-        assert result["reason"] == "no_evaluation_found"
-
-    @pytest.mark.asyncio
-    async def test_count_evaluations(
-        self, evaluator: CalibrationEvaluator, mock_db: MagicMock
-    ) -> None:
-        """count_evaluations should return count."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone = AsyncMock(return_value=(5,))
-        mock_db.execute = AsyncMock(return_value=mock_cursor)
-
-        count = await evaluator.count_evaluations("test")
-
-        assert count == 5
-
-
-# =============================================================================
-# MCP Calibration Evaluation Tool Tests
-# =============================================================================
-
-
-class TestMCPCalibrationEvaluationTools:
-    """Tests for MCP calibration evaluation tool functions ."""
-
-    @pytest.mark.asyncio
-    async def test_save_calibration_evaluation(self) -> None:
-        """save_calibration_evaluation should save and return result."""
-        with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
-            mock_evaluator = MagicMock()
-            mock_evaluator.save_evaluation = AsyncMock(
-                return_value=CalibrationEvaluation(
-                    id="eval_test",
-                    source="test",
-                    brier_score=0.15,
-                    brier_score_calibrated=0.12,
-                    improvement_ratio=0.20,
-                    expected_calibration_error=0.08,
-                    samples_evaluated=100,
-                    bins=[],
-                    calibration_version=1,
-                    evaluated_at=datetime.now(UTC),
-                )
-            )
-            mock_get.return_value = mock_evaluator
-
-            result = await save_calibration_evaluation(
-                source="test",
-                predictions=[0.5, 0.6],
-                labels=[1, 0],
-            )
-
-            assert result["ok"] is True
-            assert result["evaluation_id"] == "eval_test"
-            assert result["source"] == "test"
-
-    @pytest.mark.asyncio
-    async def test_get_calibration_evaluations(self) -> None:
-        """get_calibration_evaluations should return evaluation history."""
-        with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
-            mock_evaluator = MagicMock()
-            mock_evaluator.get_evaluations = AsyncMock(
-                return_value=[
-                    CalibrationEvaluation(
-                        id="eval_1",
-                        source="test",
-                        brier_score=0.15,
-                        brier_score_calibrated=0.12,
-                        improvement_ratio=0.20,
-                        expected_calibration_error=0.08,
-                        samples_evaluated=100,
-                        bins=[],
-                        calibration_version=1,
-                        evaluated_at=datetime.now(UTC),
-                    ),
-                ]
-            )
-            mock_evaluator.count_evaluations = AsyncMock(return_value=1)
-            mock_get.return_value = mock_evaluator
-
-            result = await get_calibration_evaluations(source="test", limit=10)
-
-            assert result["ok"] is True
-            assert len(result["evaluations"]) == 1
-            assert result["total_count"] == 1
-
-    @pytest.mark.asyncio
-    async def test_get_reliability_diagram_data(self) -> None:
-        """get_reliability_diagram_data should return bin data."""
-        with patch("src.utils.calibration.get_calibration_evaluator") as mock_get:
-            mock_evaluator = MagicMock()
-            mock_evaluator.get_reliability_diagram_data = AsyncMock(
-                return_value={
-                    "ok": True,
-                    "source": "test",
-                    "evaluation_id": "eval_1",
-                    "n_bins": 10,
-                    "bins": [{"bin_lower": 0.0, "bin_upper": 0.1, "count": 5}],
-                    "overall_ece": 0.08,
-                }
-            )
-            mock_get.return_value = mock_evaluator
-
-            result = await get_reliability_diagram_data(source="test")
-
-            assert result["ok"] is True
-            assert result["source"] == "test"
-            assert len(result["bins"]) == 1

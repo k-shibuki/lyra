@@ -22,7 +22,6 @@ from typing import Any
 
 import numpy as np
 
-from src.storage.database import get_database
 from src.utils.config import get_project_root, get_settings
 from src.utils.logging import get_logger
 
@@ -1586,496 +1585,29 @@ async def get_calibration_stats() -> dict[str, Any]:
 
 
 # =============================================================================
-# Calibration Evaluation
+# Unified Calibration API (Phase 6: evaluate/get_diagram_data removed)
 # =============================================================================
-
-
-@dataclass
-class CalibrationEvaluation:
-    """Stored calibration evaluation result."""
-
-    id: str
-    source: str
-    brier_score: float
-    brier_score_calibrated: float | None
-    improvement_ratio: float
-    expected_calibration_error: float
-    samples_evaluated: int
-    bins: list[dict[str, float]]
-    calibration_version: int | None
-    evaluated_at: datetime
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "evaluation_id": self.id,
-            "source": self.source,
-            "brier_score": self.brier_score,
-            "brier_score_calibrated": self.brier_score_calibrated,
-            "improvement_ratio": self.improvement_ratio,
-            "expected_calibration_error": self.expected_calibration_error,
-            "samples_evaluated": self.samples_evaluated,
-            "bins": self.bins,
-            "calibration_version": self.calibration_version,
-            "evaluated_at": self.evaluated_at.isoformat(),
-            "created_at": self.created_at.isoformat(),
-        }
-
-
-class CalibrationEvaluator:
-    """Manages calibration evaluation persistence.
-
-    Responsibilities (Lyra Worker):
-    - Execute evaluation calculations
-    - Persist evaluation results to DB
-    - Return structured data
-
-    NOT responsible for (Cursor AI Thinking):
-    - Report generation/composition
-    - Interpretation of evaluation results
-    - Decision on response policies
-    """
-
-    def __init__(self, db: Any = None):
-        """Initialize evaluator.
-
-        Args:
-            db: Database connection. If None, uses global database.
-        """
-        self._db = db
-        self._calibrator = get_calibrator()
-
-    async def _get_db(self) -> Any:
-        """Get database connection."""
-        if self._db is not None:
-            return self._db
-        return await get_database()
-
-    def _generate_id(self) -> str:
-        """Generate unique evaluation ID."""
-        import uuid
-
-        return f"eval_{uuid.uuid4().hex[:12]}"
-
-    async def save_evaluation(
-        self,
-        source: str,
-        predictions: list[float],
-        labels: list[int],
-    ) -> CalibrationEvaluation:
-        """Execute evaluation and save to database.
-
-        Args:
-            source: Source model identifier.
-            predictions: Predicted probabilities.
-            labels: Ground truth labels (0 or 1).
-
-        Returns:
-            Saved CalibrationEvaluation.
-        """
-        # Create samples
-        samples = [
-            CalibrationSample(predicted_prob=p, actual_label=label, source=source)
-            for p, label in zip(predictions, labels, strict=False)
-        ]
-
-        # Calculate metrics
-        brier_before = brier_score(predictions, labels)
-        ece, bins = expected_calibration_error(predictions, labels)
-
-        # Get calibration params if available
-        params = self._calibrator.get_params(source)
-        calibration_version = params.version if params else None
-
-        # Calculate calibrated metrics if calibration exists
-        brier_calibrated = None
-        improvement_ratio = 0.0
-
-        if params is not None:
-            calibrated_probs = [self._calibrator.calibrate(p, source) for p in predictions]
-            brier_calibrated = brier_score(calibrated_probs, labels)
-
-            if brier_before > 0:
-                improvement_ratio = (brier_before - brier_calibrated) / brier_before
-
-        # Create evaluation record
-        now = datetime.now(UTC)
-        evaluation = CalibrationEvaluation(
-            id=self._generate_id(),
-            source=source,
-            brier_score=brier_before,
-            brier_score_calibrated=brier_calibrated,
-            improvement_ratio=improvement_ratio,
-            expected_calibration_error=ece,
-            samples_evaluated=len(samples),
-            bins=bins,
-            calibration_version=calibration_version,
-            evaluated_at=now,
-            created_at=now,
-        )
-
-        # Save to database
-        await self._save_to_db(evaluation)
-
-        logger.info(
-            "Calibration evaluation saved",
-            evaluation_id=evaluation.id,
-            source=source,
-            brier_score=f"{brier_before:.4f}",
-            samples=len(samples),
-        )
-
-        return evaluation
-
-    async def _save_to_db(self, evaluation: CalibrationEvaluation) -> None:
-        """Save evaluation to database.
-
-        Args:
-            evaluation: Evaluation to save.
-        """
-        db = await self._get_db()
-
-        await db.execute(
-            """
-            INSERT INTO calibration_evaluations (
-                id, source, brier_score, brier_score_calibrated,
-                improvement_ratio, expected_calibration_error,
-                samples_evaluated, bins_json, calibration_version,
-                evaluated_at, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                evaluation.id,
-                evaluation.source,
-                evaluation.brier_score,
-                evaluation.brier_score_calibrated,
-                evaluation.improvement_ratio,
-                evaluation.expected_calibration_error,
-                evaluation.samples_evaluated,
-                json.dumps(evaluation.bins),
-                evaluation.calibration_version,
-                evaluation.evaluated_at.isoformat(),
-                evaluation.created_at.isoformat(),
-            ),
-        )
-
-    async def get_evaluations(
-        self,
-        source: str | None = None,
-        limit: int = 50,
-        since: datetime | None = None,
-    ) -> list[CalibrationEvaluation]:
-        """Get evaluation history.
-
-        Args:
-            source: Optional source filter.
-            limit: Maximum evaluations to return.
-            since: Optional start datetime filter.
-
-        Returns:
-            List of CalibrationEvaluations (most recent first).
-        """
-        db = await self._get_db()
-
-        query = "SELECT * FROM calibration_evaluations WHERE 1=1"
-        params: list[Any] = []
-
-        if source is not None:
-            query += " AND source = ?"
-            params.append(source)
-
-        if since is not None:
-            query += " AND evaluated_at >= ?"
-            params.append(since.isoformat())
-
-        query += " ORDER BY evaluated_at DESC LIMIT ?"
-        params.append(limit)
-
-        cursor = await db.execute(query, params)
-        rows = await cursor.fetchall()
-
-        evaluations = []
-        for row in rows:
-            evaluations.append(self._row_to_evaluation(row))
-
-        return evaluations
-
-    async def get_latest_evaluation(self, source: str) -> CalibrationEvaluation | None:
-        """Get most recent evaluation for a source.
-
-        Args:
-            source: Source model identifier.
-
-        Returns:
-            Latest CalibrationEvaluation or None.
-        """
-        evaluations = await self.get_evaluations(source=source, limit=1)
-        return evaluations[0] if evaluations else None
-
-    async def get_evaluation_by_id(self, evaluation_id: str) -> CalibrationEvaluation | None:
-        """Get evaluation by ID.
-
-        Args:
-            evaluation_id: Evaluation ID.
-
-        Returns:
-            CalibrationEvaluation or None.
-        """
-        db = await self._get_db()
-
-        cursor = await db.execute(
-            "SELECT * FROM calibration_evaluations WHERE id = ?",
-            (evaluation_id,),
-        )
-        row = await cursor.fetchone()
-
-        if row is None:
-            return None
-
-        return self._row_to_evaluation(row)
-
-    def _row_to_evaluation(self, row: Any) -> CalibrationEvaluation:
-        """Convert database row to CalibrationEvaluation.
-
-        Args:
-            row: Database row.
-
-        Returns:
-            CalibrationEvaluation.
-        """
-        # Handle both dict-like and tuple rows
-        if hasattr(row, "keys"):
-            data = dict(row)
-        else:
-            # Assume column order matches schema
-            columns = [
-                "id",
-                "source",
-                "brier_score",
-                "brier_score_calibrated",
-                "improvement_ratio",
-                "expected_calibration_error",
-                "samples_evaluated",
-                "bins_json",
-                "calibration_version",
-                "evaluated_at",
-                "created_at",
-            ]
-            data = dict(zip(columns, row, strict=False))
-
-        evaluated_at = data["evaluated_at"]
-        if isinstance(evaluated_at, str):
-            evaluated_at = datetime.fromisoformat(evaluated_at.replace("Z", "+00:00"))
-
-        created_at = data["created_at"]
-        if isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-
-        bins = data["bins_json"]
-        if isinstance(bins, str):
-            bins = json.loads(bins)
-
-        return CalibrationEvaluation(
-            id=data["id"],
-            source=data["source"],
-            brier_score=data["brier_score"],
-            brier_score_calibrated=data["brier_score_calibrated"],
-            improvement_ratio=data["improvement_ratio"] or 0.0,
-            expected_calibration_error=data["expected_calibration_error"],
-            samples_evaluated=data["samples_evaluated"],
-            bins=bins,
-            calibration_version=data["calibration_version"],
-            evaluated_at=evaluated_at,
-            created_at=created_at,
-        )
-
-    async def get_reliability_diagram_data(
-        self,
-        source: str,
-        evaluation_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Get reliability diagram data for visualization.
-
-        Args:
-            source: Source model identifier.
-            evaluation_id: Optional specific evaluation ID.
-
-        Returns:
-            Structured data for reliability diagram.
-        """
-        if evaluation_id:
-            evaluation = await self.get_evaluation_by_id(evaluation_id)
-        else:
-            evaluation = await self.get_latest_evaluation(source)
-
-        if evaluation is None:
-            return {
-                "ok": False,
-                "source": source,
-                "reason": "no_evaluation_found",
-            }
-
-        return {
-            "ok": True,
-            "source": evaluation.source,
-            "evaluation_id": evaluation.id,
-            "n_bins": len(evaluation.bins),
-            "bins": evaluation.bins,
-            "overall_ece": evaluation.expected_calibration_error,
-            "brier_score": evaluation.brier_score,
-            "brier_score_calibrated": evaluation.brier_score_calibrated,
-            "evaluated_at": evaluation.evaluated_at.isoformat(),
-        }
-
-    async def count_evaluations(self, source: str | None = None) -> int:
-        """Count evaluations.
-
-        Args:
-            source: Optional source filter.
-
-        Returns:
-            Count of evaluations.
-        """
-        db = await self._get_db()
-
-        if source is not None:
-            cursor = await db.execute(
-                "SELECT COUNT(*) FROM calibration_evaluations WHERE source = ?",
-                (source,),
-            )
-        else:
-            cursor = await db.execute("SELECT COUNT(*) FROM calibration_evaluations")
-
-        row = await cursor.fetchone()
-        if row is None:
-            return 0
-        return int(row[0])
-
-
-# =============================================================================
-# Global Evaluator Instance
-# =============================================================================
-
-_calibration_evaluator: CalibrationEvaluator | None = None
-
-
-def get_calibration_evaluator() -> CalibrationEvaluator:
-    """Get or create global CalibrationEvaluator instance."""
-    global _calibration_evaluator
-    if _calibration_evaluator is None:
-        _calibration_evaluator = CalibrationEvaluator()
-    return _calibration_evaluator
-
-
-# =============================================================================
-# MCP Tool Integration
-# =============================================================================
-
-
-async def save_calibration_evaluation(
-    source: str,
-    predictions: list[float],
-    labels: list[int],
-) -> dict[str, Any]:
-    """Execute evaluation and save to database (for MCP tool use).
-
-    Implements : Lyra Worker - Evaluation calculation and DB persistence.
-
-    Args:
-        source: Source model identifier.
-        predictions: Predicted probabilities.
-        labels: Ground truth labels (0 or 1).
-
-    Returns:
-        Saved evaluation result.
-    """
-    evaluator = get_calibration_evaluator()
-
-    evaluation = await evaluator.save_evaluation(source, predictions, labels)
-
-    return {
-        "ok": True,
-        **evaluation.to_dict(),
-    }
-
-
-async def get_calibration_evaluations(
-    source: str | None = None,
-    limit: int = 50,
-    since: str | None = None,
-) -> dict[str, Any]:
-    """Get evaluation history (for MCP tool use).
-
-    Implements : Lyra Worker - Return structured data.
-
-    Args:
-        source: Optional source filter.
-        limit: Maximum evaluations to return.
-        since: Optional start datetime (ISO format).
-
-    Returns:
-        Evaluation history as structured data.
-    """
-    evaluator = get_calibration_evaluator()
-
-    since_dt = None
-    if since is not None:
-        since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-
-    evaluations = await evaluator.get_evaluations(
-        source=source,
-        limit=limit,
-        since=since_dt,
-    )
-
-    total_count = await evaluator.count_evaluations(source)
-
-    return {
-        "ok": True,
-        "evaluations": [e.to_dict() for e in evaluations],
-        "total_count": total_count,
-        "filter_source": source,
-        "filter_since": since,
-        "returned_count": len(evaluations),
-    }
-
-
-async def get_reliability_diagram_data(
-    source: str,
-    evaluation_id: str | None = None,
-) -> dict[str, Any]:
-    """Get reliability diagram data for visualization (for MCP tool use).
-
-    Implements : Lyra Worker - Return bin data for reliability curve.
-
-    Args:
-        source: Source model identifier.
-        evaluation_id: Optional specific evaluation ID.
-
-    Returns:
-        Reliability diagram data.
-    """
-    evaluator = get_calibration_evaluator()
-
-    return await evaluator.get_reliability_diagram_data(source, evaluation_id)
-
-
-# =============================================================================
-# Unified Calibration API
-# =============================================================================
+#
+# NOTE: CalibrationEvaluation, CalibrationEvaluator, save_calibration_evaluation,
+# get_calibration_evaluations, get_reliability_diagram_data were removed in Phase 6.
+# Computation/visualization is now handled by scripts (S_LORA.md), not MCP tools.
+# The calibration_evaluations table remains for historical data and script access.
+#
 
 
 async def calibration_metrics_action(
     action: str, data: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """Unified calibration metrics API for MCP .
+    """Unified calibration metrics API for MCP.
 
     This is the single entry point for calibration metrics operations (except rollback).
     Renamed from calibrate_action; add_sample removed.
 
+    Per Q_ASYNC_ARCHITECTURE.md Phase 6: evaluate and get_diagram_data were removed.
+    Computation/visualization is handled by scripts (S_LORA.md), not MCP tools.
+
     Args:
-        action: One of "get_stats", "evaluate", "get_evaluations", "get_diagram_data"
+        action: One of "get_stats", "get_evaluations"
         data: Action-specific data (optional for get_stats)
 
     Returns:
@@ -2083,16 +1615,15 @@ async def calibration_metrics_action(
 
     Actions:
         - get_stats: Get calibration statistics (no data required)
-        - evaluate: Execute batch evaluation and save to DB
-            data: {source: str, predictions: list[float], labels: list[int]}
         - get_evaluations: Get evaluation history
             data: {source?: str, limit?: int, since?: str}
-        - get_diagram_data: Get reliability diagram data
-            data: {source: str, evaluation_id?: str}
 
     Note:
         add_sample was removed. Use feedback(edge_correct) for
         ground-truth collection which accumulates samples in nli_corrections table.
+
+        evaluate and get_diagram_data were removed (Phase 6).
+        Use scripts for batch evaluation and visualization.
 
     Raises:
         ValueError: If action is invalid or required data is missing
@@ -2103,56 +1634,95 @@ async def calibration_metrics_action(
     try:
         if action == "get_stats":
             result = await get_calibration_stats()
-            return {"ok": True, **result}
-
-        elif action == "evaluate":
-            # Validate required fields
-            source = data.get("source")
-            predictions = data.get("predictions")
-            labels = data.get("labels")
-
-            if source is None:
-                return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
-            if predictions is None:
-                return {
-                    "ok": False,
-                    "error": "INVALID_PARAMS",
-                    "message": "predictions is required",
-                }
-            if labels is None:
-                return {"ok": False, "error": "INVALID_PARAMS", "message": "labels is required"}
-
-            result = await save_calibration_evaluation(
-                source=source,
-                predictions=[float(p) for p in predictions],
-                labels=[int(lbl) for lbl in labels],
-            )
-            return result  # Already has ok: True
+            return {"ok": True, "action": "get_stats", **result}
 
         elif action == "get_evaluations":
-            result = await get_calibration_evaluations(
-                source=data.get("source"),
-                limit=data.get("limit", 50),
-                since=data.get("since"),
-            )
-            return result  # Already has ok: True
+            # Query evaluation history from database
+            from src.storage.database import get_database
 
-        elif action == "get_diagram_data":
+            db = await get_database()
             source = data.get("source")
-            if source is None:
-                return {"ok": False, "error": "INVALID_PARAMS", "message": "source is required"}
+            limit = data.get("limit", 50)
+            since = data.get("since")
 
-            result = await get_reliability_diagram_data(
-                source=source,
-                evaluation_id=data.get("evaluation_id"),
-            )
-            return result  # Already has ok field
+            query = "SELECT * FROM calibration_evaluations WHERE 1=1"
+            params: list[Any] = []
+
+            if source is not None:
+                query += " AND source = ?"
+                params.append(source)
+
+            if since is not None:
+                query += " AND evaluated_at >= ?"
+                params.append(since)
+
+            query += " ORDER BY evaluated_at DESC LIMIT ?"
+            params.append(limit)
+
+            cursor = await db.execute(query, params)
+            rows = await cursor.fetchall()
+
+            evaluations = []
+            for row in rows:
+                # Handle both dict-like and tuple rows
+                if hasattr(row, "keys"):
+                    row_data = dict(row)
+                else:
+                    columns = [
+                        "id",
+                        "source",
+                        "brier_score",
+                        "brier_score_calibrated",
+                        "improvement_ratio",
+                        "expected_calibration_error",
+                        "samples_evaluated",
+                        "bins_json",
+                        "calibration_version",
+                        "evaluated_at",
+                        "created_at",
+                    ]
+                    row_data = dict(zip(columns, row, strict=False))
+
+                evaluations.append(
+                    {
+                        "evaluation_id": row_data["id"],
+                        "source": row_data["source"],
+                        "brier_score": row_data["brier_score"],
+                        "brier_score_calibrated": row_data["brier_score_calibrated"],
+                        "improvement_ratio": row_data["improvement_ratio"] or 0.0,
+                        "expected_calibration_error": row_data["expected_calibration_error"],
+                        "samples_evaluated": row_data["samples_evaluated"],
+                        "calibration_version": row_data["calibration_version"],
+                        "evaluated_at": row_data["evaluated_at"],
+                    }
+                )
+
+            # Count total evaluations
+            count_query = "SELECT COUNT(*) FROM calibration_evaluations"
+            count_params: list[Any] = []
+            if source is not None:
+                count_query += " WHERE source = ?"
+                count_params.append(source)
+
+            count_cursor = await db.execute(count_query, count_params)
+            count_row = await count_cursor.fetchone()
+            total_count = int(count_row[0]) if count_row else 0
+
+            return {
+                "ok": True,
+                "action": "get_evaluations",
+                "evaluations": evaluations,
+                "total_count": total_count,
+                "filter_source": source,
+                "filter_since": since,
+                "returned_count": len(evaluations),
+            }
 
         else:
             return {
                 "ok": False,
                 "error": "INVALID_PARAMS",
-                "message": f"Unknown action: {action}. Valid actions: get_stats, evaluate, get_evaluations, get_diagram_data",
+                "message": f"Unknown action: {action}. Valid actions: get_stats, get_evaluations",
             }
 
     except Exception as e:

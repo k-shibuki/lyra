@@ -1211,10 +1211,10 @@ Phase 4.B で先送りした「max_tabs を増やして並列化」の検証準�
 - [x] キャッシュが `serp_max_pages` 別に分離
 - [x] `serp_items.page_number` カラムが追加されている
 - [x] テストが追加されている（`test_pagination_strategy.py`: 17テストケース）
-- [ ] テストパス
-- [ ] R_SERP_ENHANCEMENT.md 更新
+- [x] テストパス
+- [x] R_SERP_ENHANCEMENT.md 更新
 
-### Phase 6: calibration_metrics action削除 🆕 PLANNED
+### Phase 6: calibration_metrics action削除 ✅ DONE
 
 > **依存**: Phase 3完了後（LoRA設計確定後）
 > **関連**: [S_LORA.md](S_LORA.md) §7.5 MCPツール化の検討結果
@@ -1240,11 +1240,11 @@ Q_ASYNC_ARCHITECTUREの設計原則（関心の分離）に基づき、`calibrat
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
-| 6.1 | `calibration_metrics`から`evaluate`/`get_diagram_data`削除 | 未着手 |
-| 6.2 | `calibration_metrics_action`関数の該当分岐削除 | 未着手 |
-| 6.3 | MCPスキーマ更新（`src/mcp/schemas/calibration_metrics.json`） | 未着手 |
-| 6.4 | 関連するMCP integration テスト削除/更新 | 未着手 |
-| 6.5 | `src/utils/calibration.py`の不要関数削除（evaluate系） | 未着手 |
+| 6.1 | `calibration_metrics`から`evaluate`/`get_diagram_data`削除 | ✅ 完了 |
+| 6.2 | `calibration_metrics_action`関数の該当分岐削除 | ✅ 完了 |
+| 6.3 | MCPスキーマ更新（`src/mcp/schemas/calibration_metrics.json`） | ✅ 完了 |
+| 6.4 | 関連するMCP integration テスト削除/更新 | ✅ 完了 |
+| 6.5 | `src/utils/calibration.py`の不要関数削除（evaluate系） | ✅ 完了 |
 | 6.6 | スキーマ変更: `adapters`テーブル + `nli_corrections.trained_adapter_id`追加（※1） | ✅ 完了 |
 
 **※1**: S_LORA.md v2増分学習の準備。S着手が遅れても問題ないよう、先にスキーマを用意しておく。
@@ -1273,12 +1273,12 @@ ALTER TABLE nli_corrections ADD COLUMN trained_adapter_id INTEGER
 
 **6.4 完了チェックリスト**
 
-- [ ] `calibration_metrics` が2 actionsのみ（`get_stats`, `get_evaluations`）
-- [ ] 削除した関数・分岐のコードが残っていない
+- [x] `calibration_metrics` が2 actionsのみ（`get_stats`, `get_evaluations`）
+- [x] 削除した関数・分岐のコードが残っていない
 - [x] `adapters`テーブルが作成済み
 - [x] `nli_corrections.trained_adapter_id`カラムが追加済み
-- [ ] 既存テストがパスする
-- [ ] ADR-0011, S_LORA.mdが更新済み
+- [x] 既存テストがパスする
+- [x] ADR-0011, S_LORA.mdが更新済み
 
 **Note**: スクリプト作成（`scripts/evaluate_calibration.py`等）はS_LORA.md Phase 2で実施。
 
