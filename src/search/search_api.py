@@ -585,6 +585,7 @@ async def _search_with_provider(
     time_range: str = "all",
     task_id: str | None = None,
     search_job_id: str | None = None,
+    serp_max_pages: int = 1,
 ) -> list[dict[str, Any]]:
     """
     Execute search using the provider abstraction layer.
@@ -598,6 +599,7 @@ async def _search_with_provider(
         time_range: Time filter.
         task_id: Task ID for CAPTCHA queue association (ADR-0007).
         search_job_id: Search job ID for auto-requeue on resolve (ADR-0007).
+        serp_max_pages: Maximum SERP pages to fetch (pagination).
 
     Returns:
         List of normalized result dicts.
@@ -627,6 +629,7 @@ async def _search_with_provider(
         limit=limit,
         task_id=task_id,
         search_job_id=search_job_id,
+        serp_max_pages=serp_max_pages,
     )
 
     # Search via registry (with fallback support)
@@ -678,13 +681,19 @@ def _normalize_query(query: str) -> str:
     return " ".join(query.lower().split())
 
 
-def _get_cache_key(query: str, engines: list[str] | None, time_range: str) -> str:
+def _get_cache_key(
+    query: str,
+    engines: list[str] | None,
+    time_range: str,
+    serp_max_pages: int = 1,
+) -> str:
     """Generate cache key for SERP results.
 
     Args:
         query: Normalized query.
         engines: Engine list.
         time_range: Time range.
+        serp_max_pages: Maximum SERP pages to fetch.
 
     Returns:
         Cache key hash.
@@ -693,6 +702,7 @@ def _get_cache_key(query: str, engines: list[str] | None, time_range: str) -> st
         _normalize_query(query),
         ",".join(sorted(engines)) if engines else "default",
         time_range or "all",
+        f"serp_max_pages={serp_max_pages}",
     ]
     key_str = "|".join(key_parts)
     return hashlib.sha256(key_str.encode()).hexdigest()[:32]
@@ -707,6 +717,7 @@ async def search_serp(
     use_cache: bool = True,
     transform_operators: bool = True,
     search_job_id: str | None = None,
+    serp_max_pages: int = 1,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
 
@@ -721,6 +732,7 @@ async def search_serp(
         use_cache: Whether to use cache.
         transform_operators: Whether to transform query operators for engines.
         search_job_id: Search job ID for CAPTCHA queue auto-requeue (ADR-0007).
+        serp_max_pages: Maximum SERP pages to fetch (pagination, 1-10).
 
     Returns:
         List of normalized SERP result dicts.
@@ -736,7 +748,7 @@ async def search_serp(
 
     with CausalTrace() as trace:
         # Check cache (use original query for cache key to ensure consistency)
-        cache_key = _get_cache_key(query, engines, time_range)
+        cache_key = _get_cache_key(query, engines, time_range, serp_max_pages)
 
         if use_cache:
             cached = await db.fetch_one(
@@ -779,6 +791,7 @@ async def search_serp(
             time_range=time_range,
             task_id=task_id,
             search_job_id=search_job_id,
+            serp_max_pages=serp_max_pages,
         )
 
         # Store in database

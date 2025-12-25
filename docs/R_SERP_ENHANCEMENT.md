@@ -92,10 +92,10 @@ results = [r.to_search_result(engine) for r in parse_result.results[: options.li
 - 実装: `src/search/provider.py` の `SearchOptions.serp_page` は `default=1, ge=1` で定義済み
 - offset計算の基本式: `offset = (serp_page - 1) * results_per_page`
 
-**複数エンジン指定時の挙動:**
-- **全エンジンに対してページネーションを適用**する
-- 各エンジン独立で `serp_max_pages` まで取得し、結果をマージ
-- キャッシュは**エンジン単位**で管理（後述）
+**エンジン選択とページネーション:**
+- 1回の検索リクエストに対して**1つのエンジンが選択**される（重み付き選択）
+- 選択されたエンジンで `serp_max_pages` まで取得
+- **どのエンジンが選択されてもページネーションが機能**する設計
 
 | エンジン | パラメータ形式 | 計算式（serp_page=N） | 例（2ページ目） | 結果数/ページ |
 |---------|---------------|----------------------|-----------------|---------------|
@@ -267,14 +267,14 @@ ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
 # 現在のキャッシュキー
 cache_key = f"{normalized_query}|{engines}|{time_range}"
 
-# 変更後（SERPページ番号を追加、エンジン単位でキャッシュ）
-cache_key = f"{normalized_query}|{engine}|{time_range}|serp_page={page}"
+# 変更後（serp_max_pages を追加）
+cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={max_pages}"
 ```
 
 **キャッシュキー設計:**
-- `engine` は**単一エンジン単位**（複数エンジン指定時は各エンジン毎にキャッシュエントリを作成）
-- `serp_max_pages` / `pagination_type` / `results_per_page` は**キャッシュキーに含めない**
-  - これらの設定変更時は、キャッシュ無効化（TTL経過 or 手動クリア）で対応
+- `serp_max_pages` をキャッシュキーに含める（異なるページ設定は異なるキャッシュエントリ）
+- 1検索=1エンジン選択のため、結果はそのエンジンの全ページをマージしたものがキャッシュされる
+- `pagination_type` / `results_per_page` は**キャッシュキーに含めない**（設定変更時はTTL経過 or 手動クリア）
 
 ### 7.2.1 ページ上限パラメータの意味の分離（重要）
 
@@ -287,10 +287,10 @@ cache_key = f"{normalized_query}|{engine}|{time_range}|serp_page={page}"
 
 ### 7.3 結果のマージ
 
-複数ページの結果をマージする際:
-- URL重複排除が必要
-- rank の再計算が必要
-- エンジン間の結果混合に注意
+同一エンジンの複数ページ結果をマージする際:
+- URL重複排除が必要（ページ間で同じURLが出現する場合あり）
+- rank は取得順で決定（ページ1の結果が先、ページ2が後）
+- 1検索=1エンジンのため、エンジン間混合の考慮は不要
 
 ### 7.4 非同期アーキテクチャとの統合
 

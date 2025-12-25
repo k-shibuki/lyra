@@ -283,6 +283,7 @@ class BaseSearchParser(ABC):
         self,
         query: str,
         time_range: str = "all",
+        serp_page: int = 1,
         **kwargs: str,
     ) -> str:
         """
@@ -291,6 +292,7 @@ class BaseSearchParser(ABC):
         Args:
             query: Search query (will be URL-encoded).
             time_range: Time range filter.
+            serp_page: SERP page number (1-indexed).
             **kwargs: Additional URL parameters.
 
         Returns:
@@ -302,6 +304,7 @@ class BaseSearchParser(ABC):
         return self.config.build_search_url(
             query=encoded_query,
             time_range=time_range,
+            serp_page=serp_page,
             **kwargs,
         )
 

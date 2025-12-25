@@ -74,6 +74,11 @@ class EngineParserSchema(BaseModel):
     time_ranges: dict[str, str] = Field(default_factory=dict)
     selectors: dict[str, SelectorSchema] = Field(default_factory=dict)
     captcha_patterns: list[CaptchaPatternSchema] = Field(default_factory=list)
+    # Pagination settings
+    results_per_page: int | None = Field(default=None, description="Number of results per page")
+    pagination_type: str | None = Field(default=None, description="offset or page")
+    page_zero_indexed: bool | None = Field(default=None, description="Whether page parameter is 0-indexed")
+    offset_one_indexed: bool | None = Field(default=None, description="Whether offset parameter is 1-indexed")
 
     @field_validator("selectors", mode="before")
     @classmethod
@@ -168,6 +173,16 @@ class SelectorConfig:
 
 
 @dataclass
+class PaginationConfig:
+    """Pagination configuration for a search engine."""
+
+    results_per_page: int = 10
+    pagination_type: str = "offset"  # "offset" or "page"
+    page_zero_indexed: bool = False  # For page type: true if p=0 is page 1
+    offset_one_indexed: bool = False  # For offset type: true if offset=1 is page 1
+
+
+@dataclass
 class EngineParserConfig:
     """Resolved parser configuration for a search engine."""
 
@@ -178,6 +193,7 @@ class EngineParserConfig:
     time_ranges: dict[str, str] = field(default_factory=dict)
     selectors: dict[str, SelectorConfig] = field(default_factory=dict)
     captcha_patterns: list[CaptchaPatternSchema] = field(default_factory=list)
+    pagination: PaginationConfig = field(default_factory=lambda: PaginationConfig())
 
     def get_selector(self, name: str) -> SelectorConfig | None:
         """Get selector config by name."""
@@ -197,8 +213,20 @@ class EngineParserConfig:
         time_range: str = "all",
         region: str | None = None,
         language: str | None = None,
+        serp_page: int = 1,
     ) -> str:
-        """Build search URL from template."""
+        """Build search URL from template.
+
+        Args:
+            query: Search query (URL-encoded).
+            time_range: Time range filter.
+            region: Region code.
+            language: Language code.
+            serp_page: SERP page number (1-indexed).
+
+        Returns:
+            Complete search URL with pagination parameters.
+        """
         url = self.search_url
 
         # Replace placeholders
@@ -206,6 +234,24 @@ class EngineParserConfig:
         url = url.replace("{time_range}", self.get_time_range(time_range))
         url = url.replace("{region}", region or self.default_region or "")
         url = url.replace("{language}", language or self.default_language or "")
+
+        # Calculate pagination parameter
+        if self.pagination.pagination_type == "offset":
+            # Calculate offset: (serp_page - 1) * results_per_page
+            offset = (serp_page - 1) * self.pagination.results_per_page
+            if self.pagination.offset_one_indexed:
+                # For Bing: first=1 is page 1, first=11 is page 2
+                offset = offset + 1
+            url = url.replace("{offset}", str(offset))
+        elif self.pagination.pagination_type == "page":
+            # Calculate page number
+            if self.pagination.page_zero_indexed:
+                # For Ecosia: p=0 is page 1, p=1 is page 2
+                page = serp_page - 1
+            else:
+                # For Startpage: page=1 is page 1, page=2 is page 2
+                page = serp_page
+            url = url.replace("{page}", str(page))
 
         # Clean up empty parameters
         url = re.sub(r"[&?][a-z_]+=(?=&|$)", "", url)
@@ -475,6 +521,14 @@ class ParserConfigManager:
                 diagnostic_message=sel_schema.diagnostic_message,
             )
 
+        # Build pagination config
+        pagination = PaginationConfig(
+            results_per_page=engine_schema.results_per_page or 10,
+            pagination_type=engine_schema.pagination_type or "offset",
+            page_zero_indexed=engine_schema.page_zero_indexed or False,
+            offset_one_indexed=engine_schema.offset_one_indexed or False,
+            )
+
         engine_config = EngineParserConfig(
             name=name_lower,
             search_url=engine_schema.search_url,
@@ -483,6 +537,7 @@ class ParserConfigManager:
             time_ranges=dict(engine_schema.time_ranges),
             selectors=selectors,
             captcha_patterns=list(engine_schema.captcha_patterns),
+            pagination=pagination,
         )
 
         # Cache and return

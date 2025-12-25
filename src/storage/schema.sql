@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS serp_items (
     snippet TEXT,
     published_date TEXT,
     source_tag TEXT,  -- academic, government, news, blog, etc.
+    page_number INTEGER DEFAULT 1,  -- SERP page number (1-indexed) for audit/reproducibility
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     clicked BOOLEAN DEFAULT 0,
     fetch_status TEXT,  -- pending, success, failed, skipped
