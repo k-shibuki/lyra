@@ -1156,16 +1156,20 @@ Phase 4.B で先送りした「max_tabs を増やして並列化」の検証準�
 - [x] ADR-0015 の Implementation Status を更新
 - [x] ADR-0007統合: CAPTCHA検出→InterventionQueue登録→`awaiting_auth`状態→`resolve_auth`後の自動再キュー
 
-### Phase 5: SERP Enhancement（ページネーション）🚧 IN PROGRESS
+### Phase 5: SERP Enhancement（ページネーション）✅ DONE
 
 > **依存**: Phase 4完了後に開始
 > **詳細設計**: [R_SERP_ENHANCEMENT.md](R_SERP_ENHANCEMENT.md)
 >
-> **実装状況**: 2025-12-25
+> **実装状況**: 2025-12-25完了
 > - [x] `SearchOptions.serp_max_pages` 追加
 > - [x] `config/search_parsers.yaml` にページネーション設定（pagination_type, results_per_page）追加
-> - [ ] URL構築ロジック実装
-> - [ ] 停止判断ロジック実装
+> - [x] URL構築ロジック実装（`parser_config.py`, `search_parsers.py`）
+> - [x] 停止判断ロジック実装（`pagination_strategy.py`）
+> - [x] ページネーションループ実装（`browser_search_provider.py`）
+> - [x] キャッシュキーに`serp_max_pages`追加（`search_api.py`）
+> - [x] DBスキーマ更新（`serp_items.page_number`カラム追加）
+> - [x] テスト追加（`test_pagination_strategy.py`）
 
 **5.1 背景**
 
@@ -1193,19 +1197,20 @@ Phase 4.B で先送りした「max_tabs を増やして並列化」の検証準�
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
 | 5.1 | `config/search_parsers.yaml` にページネーションURLテンプレ/結果数設定を追加 | ✅ 完了 |
-| 5.2 | `build_search_url()` にoffset/page対応 | 未着手 |
-| 5.3 | `browser_search_provider.py` で `options.serp_page` 活用 | 未着手 |
-| 5.4 | `pagination_strategy.py` 新規作成 | 未着手 |
-| 5.5 | キャッシュキー拡張（SERPページ番号を含める） | 未着手 |
-| 5.6 | `serp_items.page_number` カラム追加（必須: 監査/再現性担保） | 未着手 |
-| 5.7 | テスト追加 | 未着手 |
+| 5.2 | `build_search_url()` にoffset/page対応 | ✅ 完了 |
+| 5.3 | `browser_search_provider.py` で `options.serp_page` 活用 | ✅ 完了 |
+| 5.4 | `pagination_strategy.py` 新規作成 | ✅ 完了 |
+| 5.5 | キャッシュキー拡張（`serp_max_pages`を含める） | ✅ 完了 |
+| 5.6 | `serp_items.page_number` カラム追加（必須: 監査/再現性担保） | ✅ 完了 |
+| 5.7 | テスト追加 | ✅ 完了 |
 
 **5.4 完了チェックリスト**
 
-- [ ] ページネーションURL構築が全エンジンで動作
-- [ ] 停止判断ロジックが正しく機能（飽和時に停止）
-- [ ] キャッシュが page 別に分離
-- [ ] `serp_items.page_number` カラムが追加されている
+- [x] ページネーションURL構築が全エンジンで動作
+- [x] 停止判断ロジックが正しく機能（飽和時に停止）
+- [x] キャッシュが `serp_max_pages` 別に分離
+- [x] `serp_items.page_number` カラムが追加されている
+- [x] テストが追加されている（`test_pagination_strategy.py`: 17テストケース）
 - [ ] テストパス
 - [ ] R_SERP_ENHANCEMENT.md 更新
 

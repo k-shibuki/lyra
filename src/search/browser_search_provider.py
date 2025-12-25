@@ -36,6 +36,7 @@ from src.search.provider import (
     HealthStatus,
     SearchOptions,
     SearchResponse,
+    SearchResult,
 )
 from src.search.search_api import transform_query_for_engine
 from src.search.search_parsers import (
@@ -897,203 +898,287 @@ class BrowserSearchProvider(BaseSearchProvider):
                     engine=engine,
                 )
 
-            # Build search URL
-            search_url = parser.build_search_url(
-                query=normalized_query,
-                time_range=options.time_range,
+            # Initialize pagination (Phase 5 SERP Enhancement)
+            from src.search.pagination_strategy import (
+                PaginationConfig,
+                PaginationContext,
+                PaginationStrategy,
             )
 
-            logger.debug(
-                "Browser search",
-                engine=engine,
-                query=normalized_query[:50] if normalized_query else "",
-                url=search_url[:100],
+            pagination_config = PaginationConfig(
+                serp_max_pages=options.serp_max_pages,
+                min_novelty_rate=0.1,
+                min_harvest_rate=0.05,
+                strategy="auto",
             )
+            pagination_strategy = PaginationStrategy(pagination_config)
+
+            # Pagination state
+            all_results: list[SearchResult] = []
+            seen_urls: set[str] = set()
+            current_page = options.serp_page
+            max_page = options.serp_page + options.serp_max_pages - 1
 
             # Execute search with TabPool (ADR-0014) and EngineRateLimiter
-            # This ensures:
-            # 1. No concurrent operations on the same Page
-            # 2. Per-engine QPS/concurrency limits are enforced
             await self._ensure_browser()
             assert self._context is not None  # Guaranteed by _ensure_browser
 
-            # Acquire per-engine rate limit slot
+            # Acquire per-engine rate limit slot (held for entire pagination loop)
             await self._engine_rate_limiter.acquire(engine)
             try:
-                # Acquire a tab from the pool (prevents Page sharing)
-                tab = await self._tab_pool.acquire(self._context)
-                try:
-                    # Navigate to search page
-                    await tab.goto(
-                        search_url,
-                        timeout=self._timeout * 1000,
-                        wait_until="domcontentloaded",
+                # Pagination loop: fetch pages until max or stop condition
+                while current_page <= max_page:
+                    # Build search URL for current page
+                    search_url = parser.build_search_url(
+                        query=normalized_query,
+                        time_range=options.time_range,
+                        serp_page=current_page,
                     )
 
-                    # Wait for content to load (with fallback for JS-heavy sites)
+                    logger.debug(
+                        "Browser search (pagination)",
+                        engine=engine,
+                        query=normalized_query[:50] if normalized_query else "",
+                        serp_page=current_page,
+                        url=search_url[:100],
+                    )
+
+                    # Acquire a tab from the pool (prevents Page sharing)
+                    tab = await self._tab_pool.acquire(self._context)
                     try:
-                        await tab.wait_for_load_state("networkidle", timeout=5000)
-                    except Exception:
-                        # Some engines (e.g., Brave) have constant JS activity
-                        # Fall back to a short fixed wait
-                        await asyncio.sleep(2)
+                        # Navigate to search page
+                        await tab.goto(
+                            search_url,
+                            timeout=self._timeout * 1000,
+                            wait_until="domcontentloaded",
+                        )
 
-                    # Get HTML content
-                    html = await tab.content()
-
-                    # Apply human-like behavior to search results page
-                    try:
-                        # Apply inertial scrolling (reading simulation)
-                        await self._human_behavior.simulate_reading(tab, len(html.encode("utf-8")))
-
-                        # Apply mouse trajectory to search result links
+                        # Wait for content to load (with fallback for JS-heavy sites)
                         try:
-                            # Find search result links
-                            result_links = await tab.query_selector_all(
-                                "a[href*='http'], a[href*='https']"
-                            )
-                            if result_links:
-                                # Select random link from first 5 results
-                                target_link = random.choice(result_links[:5])
-                                # Get link selector
-                                link_selector = await target_link.evaluate("""
-                                    (el) => {
-                                        if (el.id) return `#${el.id}`;
-                                        if (el.className) {
-                                            const classes = el.className.split(' ').filter(c => c).join('.');
-                                            if (classes) return `a.${classes}`;
-                                        }
-                                        return 'a';
-                                    }
-                                """)
-                                if link_selector:
-                                    await self._human_behavior.move_mouse_to_element(
-                                        tab, link_selector
-                                    )
-                        except Exception as e:
-                            logger.debug("Mouse movement skipped in search", error=str(e))
-                    except Exception as e:
-                        logger.debug("Human behavior simulation skipped", error=str(e))
+                            await tab.wait_for_load_state("networkidle", timeout=5000)
+                        except Exception:
+                            # Some engines (e.g., Brave) have constant JS activity
+                            await asyncio.sleep(2)
 
-                    # Parse results
-                    parse_result = parser.parse(html, query)
-                finally:
-                    # Always release tab back to pool
-                    self._tab_pool.release(tab)
+                        # Get HTML content
+                        html = await tab.content()
+
+                        # Apply human-like behavior to search results page
+                        try:
+                            await self._human_behavior.simulate_reading(
+                                tab, len(html.encode("utf-8"))
+                            )
+                            try:
+                                result_links = await tab.query_selector_all(
+                                    "a[href*='http'], a[href*='https']"
+                                )
+                                if result_links:
+                                    target_link = random.choice(result_links[:5])
+                                    link_selector = await target_link.evaluate("""
+                                        (el) => {
+                                            if (el.id) return `#${el.id}`;
+                                            if (el.className) {
+                                                const classes = el.className.split(' ').filter(c => c).join('.');
+                                                if (classes) return `a.${classes}`;
+                                            }
+                                            return 'a';
+                                        }
+                                    """)
+                                    if link_selector:
+                                        await self._human_behavior.move_mouse_to_element(
+                                            tab, link_selector
+                                        )
+                            except Exception as e:
+                                logger.debug("Mouse movement skipped", error=str(e))
+                        except Exception as e:
+                            logger.debug("Human behavior skipped", error=str(e))
+
+                        # Parse results
+                        parse_result = parser.parse(html, query)
+                    finally:
+                        # Always release tab back to pool
+                        self._tab_pool.release(tab)
+
+                    # Handle CAPTCHA on current page
+                    if parse_result.is_captcha:
+                        self._captcha_count += 1
+                        self._record_session_captcha(engine)
+                        self._tab_pool.report_captcha()
+
+                        try:
+                            await record_engine_result(
+                                engine=engine,
+                                success=False,
+                                latency_ms=(time.time() - start_time) * 1000,
+                                is_captcha=True,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to record engine result",
+                                engine=engine,
+                                error=str(e),
+                            )
+
+                        # Queue CAPTCHA for batch processing (ADR-0007)
+                        queue_id = None
+                        captcha_queued = False
+                        if options.task_id:
+                            try:
+                                from src.utils.notification import get_intervention_queue
+
+                                queue = get_intervention_queue()
+                                queue_id = await queue.enqueue(
+                                    task_id=options.task_id,
+                                    url=search_url,
+                                    domain=engine,
+                                    auth_type=parse_result.captcha_type or "captcha",
+                                    priority="medium",
+                                    search_job_id=options.search_job_id,
+                                )
+                                captcha_queued = True
+                                logger.info(
+                                    "CAPTCHA queued for intervention",
+                                    queue_id=queue_id,
+                                    engine=engine,
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    "Failed to queue CAPTCHA",
+                                    engine=engine,
+                                    error=str(e),
+                                )
+
+                        # Return partial results if we have any
+                        if all_results:
+                            logger.info(
+                                "CAPTCHA during pagination, returning partial results",
+                                engine=engine,
+                                pages_fetched=current_page - options.serp_page,
+                                result_count=len(all_results),
+                            )
+                            return SearchResponse(
+                                results=all_results[: options.limit],
+                                query=query,
+                                provider=self.name,
+                                total_count=len(all_results),
+                                elapsed_ms=(time.time() - start_time) * 1000,
+                                connection_mode="cdp",
+                                captcha_queued=captcha_queued,
+                                queue_id=queue_id,
+                            )
+                        # No results yet
+                        return SearchResponse(
+                            results=[],
+                            query=query,
+                            provider=self.name,
+                            error=f"CAPTCHA detected: {parse_result.captcha_type}",
+                            elapsed_ms=(time.time() - start_time) * 1000,
+                            connection_mode="cdp",
+                            captcha_queued=captcha_queued,
+                            queue_id=queue_id,
+                        )
+
+                    # Handle parse failure on current page
+                    if not parse_result.ok:
+                        logger.warning(
+                            "Parse failed on page",
+                            engine=engine,
+                            serp_page=current_page,
+                            error=parse_result.error,
+                        )
+                        # If first page fails with no results, return error
+                        if current_page == options.serp_page and not all_results:
+                            self._failure_count += 1
+                            self._last_error = parse_result.error
+
+                            error_msg = parse_result.error or "Parse failed"
+                            if parse_result.selector_errors:
+                                error_msg += (
+                                    f" ({len(parse_result.selector_errors)} selector errors)"
+                                )
+                            if parse_result.html_saved_path:
+                                error_msg += f" [HTML saved: {parse_result.html_saved_path}]"
+
+                            try:
+                                await record_engine_result(
+                                    engine=engine,
+                                    success=False,
+                                    latency_ms=(time.time() - start_time) * 1000,
+                                    is_captcha=False,
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    "Failed to record engine result",
+                                    engine=engine,
+                                    error=str(e),
+                                )
+
+                            return SearchResponse(
+                                results=[],
+                                query=query,
+                                provider=self.name,
+                                error=error_msg,
+                                elapsed_ms=(time.time() - start_time) * 1000,
+                                connection_mode="cdp",
+                            )
+                        # Otherwise stop pagination, return partial results
+                        break
+
+                    # Merge results: deduplicate by URL
+                    page_results = [r.to_search_result(engine) for r in parse_result.results]
+                    new_urls = [r.url for r in page_results]
+
+                    # Calculate novelty rate before merging
+                    novelty_rate = pagination_strategy.calculate_novelty_rate(new_urls, seen_urls)
+
+                    # Add only new (unseen) results
+                    for result in page_results:
+                        if result.url not in seen_urls:
+                            seen_urls.add(result.url)
+                            all_results.append(result)
+
+                    logger.debug(
+                        "Page results merged",
+                        engine=engine,
+                        serp_page=current_page,
+                        page_results=len(page_results),
+                        new_results=len([u for u in new_urls if u not in seen_urls]),
+                        total_results=len(all_results),
+                        novelty_rate=round(novelty_rate, 3),
+                    )
+
+                    # Check stop condition (auto strategy)
+                    context = PaginationContext(
+                        current_page=current_page,
+                        novelty_rate=novelty_rate,
+                        harvest_rate=None,  # TODO: implement harvest rate
+                    )
+
+                    if not pagination_strategy.should_fetch_next(context):
+                        logger.info(
+                            "Pagination stopped by strategy",
+                            engine=engine,
+                            serp_page=current_page,
+                            novelty_rate=round(novelty_rate, 3),
+                            total_results=len(all_results),
+                        )
+                        break
+
+                    # Move to next page
+                    current_page += 1
+
+                    # Add delay between pages to avoid rate limiting
+                    if current_page <= max_page:
+                        await asyncio.sleep(1.0)
+
             finally:
                 # Always release engine rate limit slot
                 self._engine_rate_limiter.release(engine)
 
             elapsed_ms = (time.time() - start_time) * 1000
 
-            # Handle CAPTCHA
-            if parse_result.is_captcha:
-                self._captcha_count += 1
-                self._record_session_captcha(engine)
-
-                # Report CAPTCHA to TabPool for auto-backoff (ADR-0015)
-                self._tab_pool.report_captcha()
-
-                # Record engine health (CAPTCHA)
-                try:
-                    await record_engine_result(
-                        engine=engine,
-                        success=False,
-                        latency_ms=elapsed_ms,
-                        is_captcha=True,
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "Failed to record engine result",
-                        engine=engine,
-                        error=str(e),
-                    )
-
-                # ADR-0007: Queue CAPTCHA for batch processing
-                queue_id = None
-                captcha_queued = False
-                if options.task_id:
-                    try:
-                        from src.utils.notification import get_intervention_queue
-
-                        queue = get_intervention_queue()
-                        queue_id = await queue.enqueue(
-                            task_id=options.task_id,
-                            url=search_url,
-                            domain=engine,
-                            auth_type=parse_result.captcha_type or "captcha",
-                            priority="medium",
-                            search_job_id=options.search_job_id,
-                        )
-                        captcha_queued = True
-                        logger.info(
-                            "CAPTCHA queued for intervention",
-                            queue_id=queue_id,
-                            engine=engine,
-                            search_job_id=options.search_job_id,
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to queue CAPTCHA",
-                            engine=engine,
-                            error=str(e),
-                        )
-
-                return SearchResponse(
-                    results=[],
-                    query=query,
-                    provider=self.name,
-                    error=f"CAPTCHA detected: {parse_result.captcha_type}",
-                    elapsed_ms=elapsed_ms,
-                    connection_mode="cdp",
-                    captcha_queued=captcha_queued,
-                    queue_id=queue_id,
-                )
-
-            # Handle parse failure
-            if not parse_result.ok:
-                self._failure_count += 1
-                self._last_error = parse_result.error
-
-                error_msg = parse_result.error or "Parse failed"
-                if parse_result.selector_errors:
-                    error_msg += f" ({len(parse_result.selector_errors)} selector errors)"
-                if parse_result.html_saved_path:
-                    error_msg += f" [HTML saved: {parse_result.html_saved_path}]"
-
-                logger.error(
-                    "Search parse failed",
-                    engine=engine,
-                    query=query[:50],
-                    error=error_msg,
-                )
-
-                # Record engine health (failure)
-                try:
-                    await record_engine_result(
-                        engine=engine,
-                        success=False,
-                        latency_ms=elapsed_ms,
-                        is_captcha=parse_result.is_captcha,
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "Failed to record engine result",
-                        engine=engine,
-                        error=str(e),
-                    )
-
-                return SearchResponse(
-                    results=[],
-                    query=query,
-                    provider=self.name,
-                    error=error_msg,
-                    elapsed_ms=elapsed_ms,
-                    connection_mode="cdp",
-                )
-
-            # Convert results
-            results = [r.to_search_result(engine) for r in parse_result.results[: options.limit]]
+            # Limit results to requested limit
+            results = all_results[: options.limit]
 
             # Save session cookies (uses context, not tab)
             await self._save_session(engine)
@@ -1106,6 +1191,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 engine=engine,
                 query=query[:50],
                 result_count=len(results),
+                pages_fetched=current_page - options.serp_page + 1,
                 elapsed_ms=round(elapsed_ms, 1),
             )
 
@@ -1131,7 +1217,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                 results=results,
                 query=query,
                 provider=self.name,
-                total_count=len(parse_result.results),
+                total_count=len(all_results),
                 elapsed_ms=elapsed_ms,
                 connection_mode="cdp",
             )

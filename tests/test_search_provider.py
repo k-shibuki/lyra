@@ -639,6 +639,73 @@ class TestSearchOptions:
         with pytest.raises(ValidationError):
             SearchOptions(serp_page=0)
 
+    def test_serp_max_pages_default(self) -> None:
+        """TC-W-04a: Wiring test - serp_max_pages default value.
+
+        // Given: Default SearchOptions
+        // When: Creating options
+        // Then: serp_max_pages is 1 (default)
+        """
+        # Given/When: Default SearchOptions
+        options = SearchOptions()
+
+        # Then: serp_max_pages is 1
+        assert options.serp_max_pages == 1
+
+    def test_serp_max_pages_custom(self) -> None:
+        """TC-W-04b: Wiring test - serp_max_pages custom value.
+
+        // Given: Custom serp_max_pages=5
+        // When: Creating SearchOptions
+        // Then: serp_max_pages is 5
+        """
+        # Given/When: Custom SearchOptions
+        options = SearchOptions(serp_max_pages=5)
+
+        # Then: serp_max_pages is 5
+        assert options.serp_max_pages == 5
+
+    def test_serp_max_pages_boundary_max(self) -> None:
+        """TC-W-04c: Boundary test - serp_max_pages max value (10).
+
+        // Given: serp_max_pages=10 (max allowed)
+        // When: Creating SearchOptions
+        // Then: serp_max_pages is 10
+        """
+        # Given/When: Max serp_max_pages
+        options = SearchOptions(serp_max_pages=10)
+
+        # Then: serp_max_pages is 10
+        assert options.serp_max_pages == 10
+
+    def test_serp_max_pages_boundary_exceeds_max(self) -> None:
+        """TC-A-04: Abnormal test - serp_max_pages exceeds max (11).
+
+        // Given: serp_max_pages=11 (exceeds max)
+        // When: Creating SearchOptions
+        // Then: ValidationError raised
+        """
+        from pydantic import ValidationError
+
+        # Given: serp_max_pages = 11 (exceeds max)
+        # When/Then: ValidationError raised
+        with pytest.raises(ValidationError):
+            SearchOptions(serp_max_pages=11)
+
+    def test_serp_page_and_max_pages_combined(self) -> None:
+        """TC-E-03: Effect test - serp_page and serp_max_pages propagation.
+
+        // Given: Custom serp_page=2, serp_max_pages=3
+        // When: Creating SearchOptions
+        // Then: Both values are stored correctly
+        """
+        # Given/When: Custom pagination options
+        options = SearchOptions(serp_page=2, serp_max_pages=3)
+
+        # Then: Both values stored correctly
+        assert options.serp_page == 2
+        assert options.serp_max_pages == 3
+
 
 # ============================================================================
 # HealthStatus Tests

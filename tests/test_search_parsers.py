@@ -346,6 +346,45 @@ class TestDuckDuckGoParser:
         assert "AI" in url, f"Expected 'AI' in URL: {url}"
         assert "regulations" in url, f"Expected 'regulations' in URL: {url}"
 
+    def test_build_search_url_serp_page_wiring(self) -> None:
+        """TC-W-01: Wiring test - serp_page is passed to URL building.
+
+        // Given: DuckDuckGo parser
+        // When: build_search_url called with serp_page=2
+        // Then: URL contains offset parameter for page 2 (s=30 for DuckDuckGo)
+        """
+        # Given: DuckDuckGo parser (30 results per page, offset-based)
+        parser = DuckDuckGoParser()
+
+        # When: Build URL for page 2
+        url_page2 = parser.build_search_url("test", serp_page=2)
+
+        # Then: URL contains offset for page 2 (30 results/page * (2-1) = 30)
+        assert "s=30" in url_page2, f"Expected 's=30' in URL: {url_page2}"
+
+    def test_build_search_url_serp_page_effect(self) -> None:
+        """TC-E-01: Effect test - different serp_page values produce different URLs.
+
+        // Given: DuckDuckGo parser
+        // When: build_search_url called with different serp_page values
+        // Then: URLs differ by offset parameter
+        """
+        # Given: DuckDuckGo parser
+        parser = DuckDuckGoParser()
+
+        # When: Build URLs for page 1 and page 2
+        url_page1 = parser.build_search_url("test", serp_page=1)
+        url_page2 = parser.build_search_url("test", serp_page=2)
+
+        # Then: URLs differ
+        assert url_page1 != url_page2, "URLs for different pages should differ"
+
+        # And: Page 1 has offset 0
+        assert "s=0" in url_page1, f"Page 1 should have s=0: {url_page1}"
+
+        # And: Page 2 has offset 30
+        assert "s=30" in url_page2, f"Page 2 should have s=30: {url_page2}"
+
 
 # ============================================================================
 # Mojeek Parser Tests
@@ -388,6 +427,45 @@ class TestMojeekParser:
         url = parser.build_search_url("test query")
 
         assert "mojeek.com" in url
+
+    def test_build_search_url_serp_page_wiring(self) -> None:
+        """TC-W-02: Wiring test - serp_page is passed to Mojeek URL building.
+
+        // Given: Mojeek parser
+        // When: build_search_url called with serp_page=2
+        // Then: URL contains offset parameter for page 2 (s=10 for Mojeek)
+        """
+        # Given: Mojeek parser (10 results per page, offset-based)
+        parser = MojeekParser()
+
+        # When: Build URL for page 2
+        url_page2 = parser.build_search_url("test", serp_page=2)
+
+        # Then: URL contains offset for page 2 (10 results/page * (2-1) = 10)
+        assert "s=10" in url_page2, f"Expected 's=10' in URL: {url_page2}"
+
+    def test_build_search_url_serp_page_effect(self) -> None:
+        """TC-E-01b: Effect test - different serp_page values produce different Mojeek URLs.
+
+        // Given: Mojeek parser
+        // When: build_search_url called with different serp_page values
+        // Then: URLs differ by offset parameter
+        """
+        # Given: Mojeek parser
+        parser = MojeekParser()
+
+        # When: Build URLs for page 1 and page 3
+        url_page1 = parser.build_search_url("test", serp_page=1)
+        url_page3 = parser.build_search_url("test", serp_page=3)
+
+        # Then: URLs differ
+        assert url_page1 != url_page3, "URLs for different pages should differ"
+
+        # And: Page 1 has offset 0
+        assert "s=0" in url_page1, f"Page 1 should have s=0: {url_page1}"
+
+        # And: Page 3 has offset 20 (10 results/page * (3-1) = 20)
+        assert "s=20" in url_page3, f"Page 3 should have s=20: {url_page3}"
 
 
 # ============================================================================
