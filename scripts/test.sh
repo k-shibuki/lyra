@@ -1123,7 +1123,7 @@ show_help() {
     echo "  debug [run_id]          Show detailed debug info about test run"
     echo "  env                     Show environment detection info"
     echo ""
-    echo "Global Options (AI-friendly):"
+    echo "Global Options:"
     echo "  --json        Output in JSON format (machine-readable)"
     echo "  --dry-run     Simulate operations without executing"
     echo "  --quiet, -q   Suppress non-essential output"

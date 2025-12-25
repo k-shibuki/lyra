@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lyra Chrome Manager (AI-friendly)
+# Lyra Chrome Manager
 #
 # Start Chrome with remote debugging for Lyra.
 # Designed to coexist with existing Chrome sessions by using separate user-data-dir.
@@ -746,7 +746,7 @@ run_fix() {
 # =============================================================================
 
 show_help() {
-    echo "Lyra Chrome Manager (AI-friendly)"
+    echo "Lyra Chrome Manager"
     echo ""
     echo "Usage: $0 [global-options] {check|start|stop|diagnose|fix} [port]"
     echo ""
@@ -757,7 +757,7 @@ show_help() {
     echo "  diagnose  Troubleshoot connection issues (WSL only)"
     echo "  fix       Auto-generate fix commands for WSL2 mirrored networking"
     echo ""
-    echo "Global Options (AI-friendly):"
+    echo "Global Options:"
     echo "  --json        Output in JSON format (machine-readable)"
     echo "  --dry-run     Simulate operations without executing"
     echo "  --quiet, -q   Suppress non-essential output"
