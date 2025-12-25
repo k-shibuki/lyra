@@ -4,21 +4,23 @@
 2025-12-25
 
 ## Status
-Proposed
+Accepted (2025-12-25: 方針承認、基盤整備済み)
 
 ## Context
 
-Lyra は `SearchQueueWorker` により複数ジョブを並列処理する（ADR-0010）。一方で、検索パイプライン内の外部/共有リソースには異なる制約があり、ワーカー数や内部fan-outを増やすと次の問題が顕在化する：
+Lyra は `SearchQueueWorker` により複数ジョブを並列処理する（ADR-0010）。検索パイプライン内の外部/共有リソースには異なる制約があり、ワーカー数や内部fan-outを増やす場合に対応が必要である。
+
+**ADR-0013/0014の実装で導入された基盤:**
 
 - **学術API（Semantic Scholar / OpenAlex）**:
   - `AcademicSearchProvider` / citation graph で `asyncio.gather()` による並列呼び出しが起きる
-  - `config/academic_apis.yaml` に rate_limit 設定はあるが、現実装は「超過後に429でバックオフ」中心で、**超過を予防する全ワーカー横断の制御が弱い**
+  - **ADR-0013 で `AcademicAPIRateLimiter` を導入済み**: リクエスト直前にグローバルQPS制限を強制し、超過を予防
 - **ブラウザSERP（Playwright/CDP）**:
-  - `BrowserSearchProvider` は歴史的に Page を共有しやすく、並列度を上げると **同一Pageの同時操作**が発生し得る
+  - **ADR-0014 で `TabPool(max_tabs=1)` を導入済み**: Page 共有による競合を構造的に排除
 - **ワーカー並列**:
-  - ワーカー数を増やすと、上記の外部制約にぶつかりやすい（特にAPIのQPSとブラウザ資源）
+  - 現状2ワーカー固定。上記の制御により外部制約は遵守される
 
-ユーザー要望として、並列度を **configで調整可能**にしたい。また、可能なら **自動で最適化**したい。
+**本ADRの目的**: 上記の基盤を前提に、並列度を **configで調整可能**にし、可能なら **自動で最適化**する方針を定める。
 
 ## Decision
 
