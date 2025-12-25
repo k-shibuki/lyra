@@ -208,9 +208,7 @@ class TestNormalCases:
         assert result.sanitized_response["ok"] is False
         assert result.sanitized_response["error_code"] == "TASK_NOT_FOUND"
 
-    def test_calibration_metrics_one_of_schema_matching(
-        self, sanitizer: ResponseSanitizer
-    ) -> None:
+    def test_calibration_metrics_one_of_schema_matching(self, sanitizer: ResponseSanitizer) -> None:
         """
         TC-N-05: oneOf schema (calibration_metrics) matches correct variant
 

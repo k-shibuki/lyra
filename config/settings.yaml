@@ -37,7 +37,7 @@ search:
   novelty_threshold: 0.10  # 10%未満で2サイクル継続→停止
   novelty_cycles_to_stop: 2
 
-  # Phase 3: citation graph integration
+  # Citation graph integration
   citation_graph_top_n_papers: 5
   citation_graph_depth: 1
   citation_graph_direction: "both"  # references, citations, both
@@ -62,7 +62,7 @@ search:
     llm_timeout_seconds: 60.0
     llm_max_tokens: 16
 
-  # Phase 3b: general web citation detection (LLM YES/NO classification for outbound links)
+  # General web citation detection (LLM YES/NO classification for outbound links)
   # Controls LLM cost and DB growth. Set max_* to 0 for "no limit".
   web_citation_detection:
     enabled: true

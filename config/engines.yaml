@@ -1,5 +1,6 @@
 # Lyra - Search Engine Configuration
 # allowlist/denylist and per-engine settings
+# Per ADR-0014: Browser SERP Resource Control
 
 # === Engine Selection Policy ===
 # Default engines to enable for general searches
@@ -18,6 +19,9 @@ lastmile_engines:
   - bing
 
 # === Engine Definitions ===
+# Per ADR-0014: Each engine has qps (legacy) and new fields:
+#   - min_interval: Minimum seconds between requests (QPS control)
+#   - concurrency: Maximum concurrent requests to this engine (default: 1)
 engines:
   # === High Priority (Block-resistant) ===
   wikipedia:
@@ -25,6 +29,8 @@ engines:
     weight: 1.0
     categories: [general, knowledge]
     qps: 0.5
+    min_interval: 2.0
+    concurrency: 1
     block_resistant: true
     
   wikidata:
@@ -32,6 +38,8 @@ engines:
     weight: 0.9
     categories: [knowledge, structured]
     qps: 0.5
+    min_interval: 2.0
+    concurrency: 1
     block_resistant: true
     
   mojeek:
@@ -39,6 +47,8 @@ engines:
     weight: 0.85
     categories: [general]
     qps: 0.25
+    min_interval: 4.0  # Conservative: 0.25 req/s
+    concurrency: 1
     block_resistant: true
     
   marginalia:
@@ -46,6 +56,8 @@ engines:
     weight: 0.8
     categories: [general, technical]
     qps: 0.25
+    min_interval: 4.0
+    concurrency: 1
     block_resistant: true
     
   duckduckgo:
@@ -53,6 +65,8 @@ engines:
     weight: 0.7
     categories: [general]
     qps: 0.2
+    min_interval: 2.0  # Slightly more lenient
+    concurrency: 1
     block_resistant: false
   
   # === Additional Engines ===
@@ -61,6 +75,8 @@ engines:
     weight: 0.5
     categories: [general]
     qps: 0.15
+    min_interval: 3.0
+    concurrency: 1
     block_resistant: false
     description: "Bing-based, relatively lenient, privacy-focused"
     
@@ -69,6 +85,8 @@ engines:
     weight: 0.3
     categories: [general]
     qps: 0.1
+    min_interval: 5.0
+    concurrency: 1
     block_resistant: false
     description: "Google-based, privacy-focused"
     
@@ -78,6 +96,8 @@ engines:
     weight: 1.0
     categories: [academic, technical]
     qps: 0.25
+    min_interval: 4.0
+    concurrency: 1
     block_resistant: true
     
   pubmed:
@@ -85,6 +105,8 @@ engines:
     weight: 1.0
     categories: [academic, medical]
     qps: 0.25
+    min_interval: 4.0
+    concurrency: 1
     block_resistant: true
     
   # === Last-mile (Strict Limits) ===
@@ -94,6 +116,8 @@ engines:
     weight: 0.3
     categories: [general]
     qps: 0.1
+    min_interval: 10.0  # Very conservative for lastmile
+    concurrency: 1
     block_resistant: false
     daily_limit: 50
     
@@ -102,6 +126,8 @@ engines:
     weight: 0.1
     categories: [general]
     qps: 0.05
+    min_interval: 20.0  # Very strict for Google
+    concurrency: 1
     block_resistant: false
     daily_limit: 10
     
@@ -110,6 +136,8 @@ engines:
     weight: 0.1
     categories: [general]
     qps: 0.05
+    min_interval: 20.0  # Very strict for Bing
+    concurrency: 1
     block_resistant: false
     daily_limit: 10
 

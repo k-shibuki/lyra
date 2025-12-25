@@ -639,6 +639,7 @@ class TestSearchOptions:
         with pytest.raises(ValidationError):
             SearchOptions(serp_page=0)
 
+
 # ============================================================================
 # HealthStatus Tests
 # ============================================================================

@@ -1,13 +1,18 @@
 # Academic API Configuration for Lyra
 # See docs/J2_ACADEMIC_API_INTEGRATION.md §8.1
+# Rate limiting per ADR-0013: Worker Resource Contention Control
 
 apis:
   semantic_scholar:
     enabled: true
     base_url: "https://api.semanticscholar.org/graph/v1"
     rate_limit:
+      # API limit: 100 requests per 5 minutes = 0.33 req/s
       requests_per_interval: 100
       interval_seconds: 300  # 5 minutes
+      # Explicit rate control (conservative)
+      min_interval_seconds: 3.0  # ~0.33 req/s with margin
+      max_parallel: 1  # Provider-level concurrency cap (global across all workers)
     timeout_seconds: 30
     priority: 1  # Highest priority (best citation graph coverage)
 
@@ -15,7 +20,10 @@ apis:
     enabled: true
     base_url: "https://api.openalex.org"
     rate_limit:
+      # OpenAlex polite pool: 10 req/s for identified users
       requests_per_day: 100000
+      min_interval_seconds: 0.1  # 10 req/s
+      max_parallel: 2  # More lenient than S2
     timeout_seconds: 30
     priority: 2
     headers:

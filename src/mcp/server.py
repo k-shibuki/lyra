@@ -4,7 +4,7 @@ Provides tools for research operations that can be called by Cursor/LLM.
 
 Provides 10 MCP tools per ADR-0010 async architecture:
 - Removed: search (replaced by queue_searches), notify_user, wait_for_user
-- Added: queue_searches (Phase 1)
+- Added: queue_searches (ADR-0010)
 - Modified: get_status (long polling with wait parameter)
 """
 
@@ -128,7 +128,7 @@ TOOLS = [
             "required": ["task_id", "queries"],
         },
     ),
-    # NOTE: search tool removed in Phase 2 (ADR-0010).
+    # NOTE: search tool removed (ADR-0010: async search queue).
     # Use queue_searches + get_status(wait=N) instead.
     Tool(
         name="stop_task",
@@ -287,7 +287,7 @@ TOOLS = [
     # ============================================================
     # 6. Feedback (1 tool - ADR-0012)
     # ============================================================
-    # NOTE: notify_user and wait_for_user removed in Phase 2 (ADR-0010).
+    # NOTE: notify_user and wait_for_user removed (ADR-0010: async search queue).
     # Use get_status(wait=N) for long polling instead.
     Tool(
         name="feedback",
@@ -417,7 +417,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Task Management
         "create_task": _handle_create_task,
         "get_status": _handle_get_status,
-        # Research Execution (search removed in Phase 2, use queue_searches)
+        # Research Execution (search removed per ADR-0010, use queue_searches)
         "queue_searches": _handle_queue_searches,
         "stop_task": _handle_stop_task,
         # Materials
@@ -428,7 +428,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Authentication Queue
         "get_auth_queue": _handle_get_auth_queue,
         "resolve_auth": _handle_resolve_auth,
-        # Feedback (notify_user, wait_for_user removed in Phase 2)
+        # Feedback (notify_user, wait_for_user removed per ADR-0010)
         "feedback": _handle_feedback,
     }
 
@@ -1008,7 +1008,7 @@ async def _check_chrome_cdp_ready() -> bool:
         return False
 
 
-# NOTE: _handle_search removed in Phase 2 (ADR-0010).
+# NOTE: _handle_search removed (ADR-0010: async search queue).
 # Use queue_searches + get_status(wait=N) instead.
 # search_action is still used internally by SearchQueueWorker.
 
@@ -1605,7 +1605,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================
-# NOTE: Notification Handlers removed in Phase 2 (ADR-0010)
+# NOTE: Notification Handlers removed (ADR-0010: async search queue)
 # _handle_notify_user and _handle_wait_for_user were removed.
 # Use get_status(wait=N) for long polling instead.
 # ============================================================

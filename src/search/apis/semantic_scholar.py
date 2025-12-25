@@ -38,8 +38,11 @@ class SemanticScholarClient(BaseAcademicClient):
 
         super().__init__("semantic_scholar", base_url=base_url, timeout=timeout, headers=headers)
 
-    async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
-        """Search for papers."""
+    async def _search_impl(self, query: str, limit: int = 10) -> AcademicSearchResult:
+        """Search for papers (internal implementation).
+
+        Rate limiting is handled by the base class search() method.
+        """
         session = await self._get_session()
 
         async def _search() -> dict[str, Any]:

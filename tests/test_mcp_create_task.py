@@ -41,5 +41,3 @@ class TestCreateTaskValidation:
         assert "task_id" in result
         assert result["budget"]["budget_pages"] == 10
         assert result["budget"]["max_seconds"] == 60
-
-

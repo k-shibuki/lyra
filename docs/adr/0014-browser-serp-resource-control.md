@@ -4,7 +4,7 @@
 2025-12-25
 
 ## Status
-Proposed
+Accepted (2025-12-25: TabPool + EngineRateLimiter implemented)
 
 ## Context
 

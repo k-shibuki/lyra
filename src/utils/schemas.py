@@ -331,9 +331,7 @@ class DomainDailyBudget(BaseModel):
     max_requests_per_day: int = Field(
         ..., ge=0, description="Maximum requests allowed per day (0 = unlimited)"
     )
-    budget_pages_per_day: int = Field(
-        ..., ge=0, description="Page budget per day (0 = unlimited)"
-    )
+    budget_pages_per_day: int = Field(..., ge=0, description="Page budget per day (0 = unlimited)")
     date: str = Field(..., description="Date in YYYY-MM-DD format for reset detection")
 
     @property

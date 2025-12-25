@@ -129,6 +129,10 @@ class SearchResponse(BaseModel):
 class SearchOptions(BaseModel):
     """
     Options for search requests.
+
+    Pagination fields:
+    - serp_page: Current SERP page number (1-indexed)
+    - serp_max_pages: Maximum SERP pages to fetch (pagination limit)
     """
 
     model_config = ConfigDict(frozen=False, extra="forbid")
@@ -137,8 +141,14 @@ class SearchOptions(BaseModel):
     categories: list[str] | None = Field(default=None, description="Search categories")
     language: str = Field(default="ja", description="Search language code")
     time_range: str = Field(default="all", description="Time filter (all, day, week, month, year)")
-    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
+    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results per page")
     serp_page: int = Field(default=1, ge=1, description="SERP page number (pagination)")
+    serp_max_pages: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        description="Maximum SERP pages to fetch for pagination",
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -149,6 +159,7 @@ class SearchOptions(BaseModel):
             "time_range": self.time_range,
             "limit": self.limit,
             "serp_page": self.serp_page,
+            "serp_max_pages": self.serp_max_pages,
         }
 
 

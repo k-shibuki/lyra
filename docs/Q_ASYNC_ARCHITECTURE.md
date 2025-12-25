@@ -967,12 +967,18 @@ status = await call_tool("get_status", {
 - [ ] 全テストがパスする（互換なしのため、旧入力は失敗する）
 - [ ] 実行コマンド/カバレッジ手順をPR本文末尾に記載
 
-### Phase 4: Search Resource Control 🆕 PLANNED
+### Phase 4: Search Resource Control 🚧 IN PROGRESS
 
 > **依存**: Phase 3完了後に開始
 > **ADR**: 
 > - [ADR-0013: Worker Resource Contention Control](adr/0013-worker-resource-contention.md) - 学術API
 > - [ADR-0014: Browser SERP Resource Control](adr/0014-browser-serp-resource-control.md) - ブラウザSERP
+> - [ADR-0015: Adaptive Concurrency Control](adr/0015-adaptive-concurrency-control.md) - 適応的並行性制御
+>
+> **実装状況**: 2025-12-25
+> - [x] Phase 4.A: `AcademicAPIRateLimiter` 実装完了
+> - [x] Phase 4.B: `TabPool` + `EngineRateLimiter` 実装完了（max_tabs=1）
+> - [ ] 統合テスト、実環境検証
 
 **4.1 問題の特定**
 
@@ -1043,10 +1049,16 @@ Worker-1: search_action → BrowserSearchProvider.search(engine="mojeek")
 - [ ] Worker数 / Academic API並列 / SERP max_tabs を **configで上限設定**できるようにする（デフォルトは現状維持）
 - [ ] 自動最適化は「上げる」より「下げる（バックオフ）」中心にし、暴走を防ぐ
 
-### Phase 5: SERP Enhancement（ページネーション）🆕 PLANNED
+### Phase 5: SERP Enhancement（ページネーション）🚧 IN PROGRESS
 
 > **依存**: Phase 4完了後に開始
 > **詳細設計**: [R_SERP_ENHANCEMENT.md](R_SERP_ENHANCEMENT.md)
+>
+> **実装状況**: 2025-12-25
+> - [x] `SearchOptions.serp_max_pages` 追加
+> - [x] `config/search_parsers.yaml` にページネーション設定（pagination_type, results_per_page）追加
+> - [ ] URL構築ロジック実装
+> - [ ] 停止判断ロジック実装
 
 **5.1 背景**
 
@@ -1414,11 +1426,11 @@ await resolve_auth(
 
 ---
 
-**文書バージョン:** 1.4
+**文書バージョン:** 1.5
 **作成日:** 2025-12-21
-**最終更新:** 2025-12-25（Phase 5 追加: calibration_metrics簡素化計画）
+**最終更新:** 2025-12-25（Phase 4/5 実装: リソース制御 + SERP設定）
 **著者:** Claude (Sonnet 4.5 / Opus 4.5)
-**レビュー状態:** ✅ 全フェーズ実装完了
+**レビュー状態:** 🚧 Phase 4/5 実装中
 
 **関連ドキュメント:**
 - `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR

@@ -681,6 +681,23 @@ CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_evaluated_at ON calibrati
 -- Feedback & Override Tables ( / , 20)
 -- ============================================================
 
+-- LoRA adapter management (ADR-0011: LoRA fine-tuning)
+-- Tracks trained adapters, their metrics, and which adapter is currently active
+CREATE TABLE IF NOT EXISTS adapters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_name TEXT NOT NULL,           -- "v1", "v1.1", "v2" etc.
+    adapter_path TEXT NOT NULL,           -- Path to adapter weights (e.g., "adapters/lora-v1/")
+    base_model TEXT NOT NULL,             -- Base model name (e.g., "cross-encoder/nli-deberta-v3-xsmall")
+    samples_used INTEGER NOT NULL,        -- Number of training samples used
+    brier_before REAL,                    -- Brier score before training
+    brier_after REAL,                     -- Brier score after training
+    shadow_accuracy REAL,                 -- Shadow evaluation accuracy
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT 0           -- Whether this adapter is currently loaded in ML Server
+);
+CREATE INDEX IF NOT EXISTS idx_adapters_active ON adapters(is_active);
+CREATE INDEX IF NOT EXISTS idx_adapters_created ON adapters(created_at);
+
 -- NLI correction samples for ground-truth collection (ADR-0011: LoRA fine-tuning, ADR-0012: feedback)
 CREATE TABLE IF NOT EXISTS nli_corrections (
     id TEXT PRIMARY KEY,
@@ -693,11 +710,14 @@ CREATE TABLE IF NOT EXISTS nli_corrections (
     correct_label TEXT NOT NULL,         -- Human-provided ground-truth: supports/refutes/neutral
     reason TEXT,                         -- Correction reason (audit)
     corrected_at TEXT NOT NULL,
-    FOREIGN KEY (edge_id) REFERENCES edges(id)
+    trained_adapter_id INTEGER,          -- NULL = not yet used for training, else = adapters.id
+    FOREIGN KEY (edge_id) REFERENCES edges(id),
+    FOREIGN KEY (trained_adapter_id) REFERENCES adapters(id)
 );
 CREATE INDEX IF NOT EXISTS idx_nli_corrections_edge ON nli_corrections(edge_id);
 CREATE INDEX IF NOT EXISTS idx_nli_corrections_task ON nli_corrections(task_id);
 CREATE INDEX IF NOT EXISTS idx_nli_corrections_corrected_at ON nli_corrections(corrected_at);
+CREATE INDEX IF NOT EXISTS idx_nli_corrections_trained ON nli_corrections(trained_adapter_id);
 
 -- Domain override rules (source of truth for feedback domain_block/unblock)
 CREATE TABLE IF NOT EXISTS domain_override_rules (
