@@ -59,6 +59,7 @@ class JobState(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    AWAITING_AUTH = "awaiting_auth"  # ADR-0007: Paused for CAPTCHA/auth resolution
 
 
 # Job kind to slot mapping

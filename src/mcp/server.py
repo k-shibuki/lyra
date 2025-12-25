@@ -558,6 +558,65 @@ async def _get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
         }
 
 
+async def _get_pending_auth_info(db: Any, task_id: str) -> dict[str, Any]:
+    """Get pending authentication info for a task.
+
+    Per ADR-0007: Returns info about CAPTCHAs awaiting human intervention.
+
+    Args:
+        db: Database connection.
+        task_id: Task ID.
+
+    Returns:
+        Pending auth info dict.
+    """
+    try:
+        # Count awaiting_auth jobs
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*) as count FROM jobs
+            WHERE task_id = ? AND kind = 'search_queue' AND state = 'awaiting_auth'
+            """,
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        awaiting_count = row["count"] if row else 0
+
+        # Get pending intervention queue items for this task
+        cursor = await db.execute(
+            """
+            SELECT domain, auth_type, queued_at FROM intervention_queue
+            WHERE task_id = ? AND status = 'pending'
+            ORDER BY queued_at ASC
+            """,
+            (task_id,),
+        )
+        pending_rows = await cursor.fetchall()
+
+        # Group by domain
+        by_domain: dict[str, list[str]] = {}
+        for row in pending_rows:
+            domain = row["domain"] if isinstance(row, dict) else row[0]
+            auth_type = row["auth_type"] if isinstance(row, dict) else row[1]
+            by_domain.setdefault(domain, []).append(auth_type)
+
+        return {
+            "awaiting_auth_jobs": awaiting_count,
+            "pending_captchas": len(pending_rows),
+            "domains": [
+                {"domain": d, "auth_types": list(set(t)), "count": len(t)}
+                for d, t in by_domain.items()
+            ],
+        }
+    except Exception as e:
+        logger.warning("Failed to get pending auth info", error=str(e))
+        return {
+            "awaiting_auth_jobs": 0,
+            "pending_captchas": 0,
+            "domains": [],
+        }
+
+
 async def _get_domain_overrides() -> list[dict[str, Any]]:
     """Get active domain override rules from DB.
 
@@ -789,6 +848,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get search queue status (ADR-0010)
             queue_info = await _get_search_queue_status(db, task_id)
 
+            # Get pending auth info (ADR-0007)
+            pending_auth = await _get_pending_auth_info(db, task_id)
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -796,6 +858,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "query": task_query,
                 "searches": searches,
                 "queue": queue_info,  # ADR-0010: Search queue status
+                "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
                 "metrics": {
                     "total_searches": len(searches),
                     "satisfied_count": metrics.get("satisfied_count", 0),
@@ -832,6 +895,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get search queue status (ADR-0010)
             queue_info = await _get_search_queue_status(db, task_id)
 
+            # Get pending auth info (ADR-0007)
+            pending_auth = await _get_pending_auth_info(db, task_id)
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -839,6 +905,7 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "query": task_query,
                 "searches": [],
                 "queue": queue_info,  # ADR-0010: Search queue status
+                "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
                 "metrics": {
                     "total_searches": 0,
                     "satisfied_count": 0,
@@ -1584,9 +1651,16 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
 
             result = await queue.complete_domain(domain, success=success, session_data=session_data)
             count = result.get("resolved_count", 0)
+
+            # ADR-0007: Auto-requeue awaiting_auth jobs and reset circuit breaker
+            requeued_count = 0
+            if success:
+                requeued_count = await _requeue_awaiting_auth_jobs(domain)
+                await _reset_circuit_breaker_for_engine(domain)
         else:  # skip
             result = await queue.skip(domain=domain)
             count = result.get("skipped", 0)
+            requeued_count = 0
 
         return {
             "ok": True,
@@ -1594,6 +1668,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             "domain": domain,
             "action": action,
             "resolved_count": count,
+            "requeued_count": requeued_count,  # ADR-0007
         }
 
     else:
@@ -1601,6 +1676,81 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             f"Invalid target: {target}",
             param_name="target",
             expected="one of: item, domain",
+        )
+
+
+# ============================================================
+# ADR-0007: Auto-requeue helpers for resolve_auth
+# ============================================================
+
+
+async def _requeue_awaiting_auth_jobs(domain: str) -> int:
+    """Requeue jobs that were awaiting authentication for a domain.
+
+    Per ADR-0007: When CAPTCHA is resolved, automatically requeue
+    the associated search jobs so they are retried.
+
+    Args:
+        domain: The domain/engine that was authenticated.
+
+    Returns:
+        Number of jobs requeued.
+    """
+    from datetime import UTC, datetime
+
+    db = await get_database()
+
+    # Find and requeue awaiting_auth jobs linked to this domain
+    now = datetime.now(UTC).isoformat()
+    cursor = await db.execute(
+        """
+        UPDATE jobs
+        SET state = 'queued', queued_at = ?, error_message = NULL
+        WHERE id IN (
+            SELECT search_job_id FROM intervention_queue
+            WHERE domain = ? AND status = 'completed' AND search_job_id IS NOT NULL
+        ) AND state = 'awaiting_auth'
+        """,
+        (now, domain),
+    )
+
+    requeued_count = getattr(cursor, "rowcount", 0)
+
+    if requeued_count > 0:
+        logger.info(
+            "Requeued awaiting_auth jobs after auth resolution",
+            domain=domain,
+            requeued_count=requeued_count,
+        )
+
+    return requeued_count
+
+
+async def _reset_circuit_breaker_for_engine(engine: str) -> None:
+    """Reset circuit breaker for an engine after auth resolution.
+
+    Per ADR-0007: When auth is resolved, reset the circuit breaker
+    so the engine becomes available immediately.
+
+    Args:
+        engine: The engine/domain to reset.
+    """
+    try:
+        from src.search.circuit_breaker import get_circuit_breaker_manager
+
+        manager = await get_circuit_breaker_manager()
+        breaker = await manager.get_breaker(engine)
+        breaker.force_close()
+
+        logger.info(
+            "Circuit breaker reset after auth resolution",
+            engine=engine,
+        )
+    except Exception as e:
+        logger.warning(
+            "Failed to reset circuit breaker",
+            engine=engine,
+            error=str(e),
         )
 
 

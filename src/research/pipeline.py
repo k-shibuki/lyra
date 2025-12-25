@@ -109,6 +109,9 @@ class SearchOptions:
     budget_pages: int | None = None
     seek_primary: bool = False  # Prioritize primary sources
     refute: bool = False  # Enable refutation mode
+    # ADR-0007: CAPTCHA queue integration
+    task_id: str | None = None  # Task ID for CAPTCHA queue association
+    search_job_id: str | None = None  # Search job ID for auto-requeue on resolve
 
 
 class SearchPipeline:
@@ -310,6 +313,7 @@ class SearchPipeline:
             priority="high" if options.seek_primary else "medium",
             budget_pages=budget_pages,
             engines=options.engines,
+            search_job_id=options.search_job_id,  # ADR-0007
         )
 
         # Map executor result to SearchResult
@@ -1322,6 +1326,9 @@ async def search_action(
         search_options.budget_pages = options.get("budget_pages")
         search_options.seek_primary = options.get("seek_primary", False)
         search_options.refute = options.get("refute", False)
+        # ADR-0007: Pass job identifiers for CAPTCHA queue integration
+        search_options.task_id = options.get("task_id")
+        search_options.search_job_id = options.get("search_job_id")
 
     pipeline = SearchPipeline(task_id, state)
     result = await pipeline.execute(query, search_options)

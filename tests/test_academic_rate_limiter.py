@@ -235,8 +235,6 @@ class TestAcademicAPIRateLimiter:
             wraps=limiter._get_provider_config,
         ):
             # Force config loading to fail by patching the import inside the method
-            original_method = limiter._get_provider_config
-
             def failing_config(provider: str) -> ProviderRateLimitConfig:
                 # Just return default without trying to load
                 default_config = ProviderRateLimitConfig()
@@ -345,4 +343,3 @@ class TestProviderRateLimitConfig:
         # Then: Custom values
         assert config.min_interval_seconds == 3.0
         assert config.max_parallel == 2
-

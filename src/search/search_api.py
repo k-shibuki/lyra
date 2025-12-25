@@ -583,6 +583,8 @@ async def _search_with_provider(
     engines: list[str] | None = None,
     limit: int = 10,
     time_range: str = "all",
+    task_id: str | None = None,
+    search_job_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Execute search using the provider abstraction layer.
@@ -594,6 +596,8 @@ async def _search_with_provider(
         engines: Engines to use.
         limit: Maximum results.
         time_range: Time filter.
+        task_id: Task ID for CAPTCHA queue association (ADR-0007).
+        search_job_id: Search job ID for auto-requeue on resolve (ADR-0007).
 
     Returns:
         List of normalized result dicts.
@@ -616,11 +620,13 @@ async def _search_with_provider(
         if registry.get("browser_search"):
             registry.set_default("browser_search")
 
-    # Build options
+    # Build options (ADR-0007: include job identifiers for CAPTCHA queue)
     options = SearchOptions(
         engines=engines,
         time_range=time_range,
         limit=limit,
+        task_id=task_id,
+        search_job_id=search_job_id,
     )
 
     # Search via registry (with fallback support)
@@ -700,6 +706,7 @@ async def search_serp(
     task_id: str | None = None,
     use_cache: bool = True,
     transform_operators: bool = True,
+    search_job_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
 
@@ -713,6 +720,7 @@ async def search_serp(
         task_id: Associated task ID.
         use_cache: Whether to use cache.
         transform_operators: Whether to transform query operators for engines.
+        search_job_id: Search job ID for CAPTCHA queue auto-requeue (ADR-0007).
 
     Returns:
         List of normalized SERP result dicts.
@@ -763,12 +771,14 @@ async def search_serp(
                 operators=operator_types,
             )
 
-        # Execute search via provider abstraction
+        # Execute search via provider abstraction (ADR-0007: pass job IDs)
         results = await _search_with_provider(
             query=search_query,
             engines=engines,
             limit=limit,
             time_range=time_range,
+            task_id=task_id,
+            search_job_id=search_job_id,
         )
 
         # Store in database

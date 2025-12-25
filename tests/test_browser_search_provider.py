@@ -157,12 +157,62 @@ def mock_human_behavior_simulator() -> Generator[Any, None, None]:
         yield mock_simulator
 
 
+@pytest.fixture
+def mock_tab_pool_and_rate_limiter(mock_page: AsyncMock) -> Generator[Any, None, None]:
+    """Mock TabPool and EngineRateLimiter for browser search provider tests.
+
+    Per ADR-0014: BrowserSearchProvider uses TabPool and EngineRateLimiter.
+    These need to be mocked to avoid actual browser operations.
+
+    Note: This fixture is NOT autouse - tests that need it should request it explicitly.
+    The TabPool.acquire() mock returns the mock_page from the test fixture,
+    so tests that set up mock_page behavior will work correctly.
+    """
+    mock_tab_pool = MagicMock()
+    # acquire() should return the mock_page (simulating borrowing a tab)
+    mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+    mock_tab_pool.release = MagicMock()
+    mock_tab_pool.report_captcha = MagicMock()
+    mock_tab_pool.report_403 = MagicMock()
+    mock_tab_pool.get_stats = MagicMock(
+        return_value={"max_tabs": 2, "effective_max_tabs": 2, "backoff_active": False}
+    )
+
+    mock_engine_limiter = MagicMock()
+    mock_engine_limiter.acquire = AsyncMock()
+    mock_engine_limiter.release = MagicMock()
+
+    with (
+        patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+        patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+    ):
+        yield {"tab_pool": mock_tab_pool, "engine_limiter": mock_engine_limiter}
+
+
 @pytest.fixture(autouse=True)
 def reset_provider() -> Generator[None, None, None]:
-    """Reset provider before each test."""
+    """Reset provider and tab pool/rate limiter before each test."""
+    import asyncio
+
+    from src.search.tab_pool import reset_engine_rate_limiter, reset_tab_pool
+
     reset_browser_search_provider()
+    reset_engine_rate_limiter()
+    # Reset tab pool synchronously if possible
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(reset_tab_pool())
+        else:
+            loop.run_until_complete(reset_tab_pool())
+    except RuntimeError:
+        # No event loop, create one temporarily
+        asyncio.run(reset_tab_pool())
+
     yield
+
     reset_browser_search_provider()
+    reset_engine_rate_limiter()
 
 
 @pytest.fixture
@@ -501,10 +551,26 @@ class TestBrowserSearchProvider:
         mock_page.is_closed = MagicMock(return_value=False)
         mock_context.new_page = AsyncMock(return_value=mock_page)
 
+        # Mock TabPool to return the timeout-raising mock_page
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
         with patch("playwright.async_api.async_playwright") as mock_async_pw:
             mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
 
-            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+            with (
+                patch("src.search.browser_search_provider.get_parser") as mock_get_parser,
+                patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+                patch(
+                    "src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter
+                ),
+            ):
                 mock_parser = MagicMock()
                 mock_parser.build_search_url = MagicMock(
                     return_value="https://duckduckgo.com/?q=test"
@@ -1599,81 +1665,97 @@ class TestBrowserSearchProviderHumanBehavior:
         When: search() completes successfully
         Then: record_engine_result(success=True) is called
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            # Mock engine selection components
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0  # Per-engine QPS
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        # Note: TabPool/RateLimiter patches must be active BEFORE provider creation
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            # Mock _ensure_browser to set up context without real browser
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0  # Per-engine QPS
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                # Given: record_engine_result mock
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ) as mock_record:
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_ensure_browser", AsyncMock()):
+                            # When: Search succeeds
+                            await provider.search("test query")
 
-                    # Given: record_engine_result mock
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ) as mock_record:
-                        # Mock page with all required methods
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
-
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                # When: Search succeeds
-                                await provider.search("test query")
-
-                                # Then: record_engine_result is called with success=True
-                                assert mock_record.called
-                                call_args = mock_record.call_args
-                                assert call_args is not None
-                                assert call_args.kwargs.get("success") is True
-                                # is_captcha is not specified for success case (defaults to False)
-                                assert call_args.kwargs.get("is_captcha", False) is False
+                            # Then: record_engine_result is called with success=True
+                            assert mock_record.called
+                            call_args = mock_record.call_args
+                            assert call_args is not None
+                            assert call_args.kwargs.get("success") is True
+                            # is_captcha is not specified for success case (defaults to False)
+                            assert call_args.kwargs.get("is_captcha", False) is False
 
         await provider.close()
 
@@ -1685,74 +1767,89 @@ class TestBrowserSearchProviderHumanBehavior:
         When: search() encounters parse failure
         Then: record_engine_result(success=False) is called
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            # Mock engine selection components
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0  # Per-engine QPS
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        # Mock engine selection components
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0  # Per-engine QPS
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                # Given: Parse failure
+                mock_parse_result = ParseResult(
+                    ok=False,
+                    is_captcha=False,
+                    error="Parse failed",
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    # Given: Parse failure
-                    mock_parse_result = ParseResult(
-                        ok=False,
-                        is_captcha=False,
-                        error="Parse failed",
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                # Given: record_engine_result mock
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ) as mock_record:
+                    with patch.object(provider, "_ensure_browser", AsyncMock()):
+                        # When: Parse fails
+                        response = await provider.search("test query")
 
-                    # Given: record_engine_result mock
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ) as mock_record:
-                        # Mock page with all required methods
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
-
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            # When: Parse fails
-                            response = await provider.search("test query")
-
-                            # Then: record_engine_result is called with success=False
-                            assert mock_record.called
-                            call_args = mock_record.call_args
-                            assert call_args is not None
-                            assert call_args.kwargs.get("success") is False
-                            assert call_args.kwargs.get("is_captcha") is False
-                            assert response.ok is False
+                        # Then: record_engine_result is called with success=False
+                        assert mock_record.called
+                        call_args = mock_record.call_args
+                        assert call_args is not None
+                        assert call_args.kwargs.get("success") is False
+                        assert call_args.kwargs.get("is_captcha") is False
+                        assert response.ok is False
 
         await provider.close()
 
@@ -1764,80 +1861,92 @@ class TestBrowserSearchProviderHumanBehavior:
         When: search() detects CAPTCHA
         Then: record_engine_result(is_captcha=True) is called
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            # Mock engine selection components
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0  # Per-engine QPS
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        # Mock engine selection components
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0  # Per-engine QPS
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                # Given: CAPTCHA detected
+                mock_parse_result = ParseResult(
+                    ok=False,
+                    is_captcha=True,
+                    captcha_type="turnstile",
+                    error="CAPTCHA detected",
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    # Given: CAPTCHA detected
-                    mock_parse_result = ParseResult(
-                        ok=False,
-                        is_captcha=True,
-                        captcha_type="turnstile",
-                        error="CAPTCHA detected",
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                # Given: record_engine_result mock
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ) as mock_record:
+                    with patch.object(provider, "_ensure_browser", AsyncMock()):
+                        # When: CAPTCHA is detected
+                        response = await provider.search("test query")
 
-                    # Given: record_engine_result mock
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ) as mock_record:
-                        # Mock page with all required methods
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
-
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(
-                                provider,
-                                "_request_intervention",
-                                AsyncMock(return_value=False),
-                            ):
-                                # When: CAPTCHA is detected
-                                response = await provider.search("test query")
-
-                                # Then: record_engine_result is called with is_captcha=True
-                                assert mock_record.called
-                                call_args = mock_record.call_args
-                                assert call_args is not None
-                                assert call_args.kwargs.get("success") is False
-                                assert call_args.kwargs.get("is_captcha") is True
-                                assert response.ok is False
+                        # Then: record_engine_result is called with is_captcha=True
+                        assert mock_record.called
+                        call_args = mock_record.call_args
+                        assert call_args is not None
+                        assert call_args.kwargs.get("success") is False
+                        assert call_args.kwargs.get("is_captcha") is True
+                        assert response.ok is False
+                        # Verify report_captcha was called on TabPool for auto-backoff
+                        mock_tab_pool.report_captcha.assert_called_once()
 
         await provider.close()
 
@@ -1849,78 +1958,93 @@ class TestBrowserSearchProviderHumanBehavior:
         When: search() tries to record health
         Then: Exception is caught, logged, and search result is returned normally
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            # Mock engine selection components
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0  # Per-engine QPS
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        # Mock engine selection components
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0  # Per-engine QPS
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                # Given: record_engine_result raises exception
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(side_effect=Exception("Database error")),
+                ) as mock_record:
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_ensure_browser", AsyncMock()):
+                            # When: Search succeeds but recording fails
+                            response = await provider.search("test query")
 
-                    # Given: record_engine_result raises exception
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(side_effect=Exception("Database error")),
-                    ) as mock_record:
-                        # Mock page with all required methods
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
-
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                # When: Search succeeds but recording fails
-                                response = await provider.search("test query")
-
-                                # Then: Exception is caught and search result is returned normally
-                                assert mock_record.called
-                                assert response.ok is True  # Search result is not affected
-                                assert len(response.results) == 1
+                            # Then: Exception is caught and search result is returned normally
+                            assert mock_record.called
+                            assert response.ok is True  # Search result is not affected
+                            assert len(response.results) == 1
 
         await provider.close()
 
@@ -2276,91 +2400,106 @@ class TestPerEngineQPSRateLimiting:
             assert "unknown_engine" in provider._last_search_times
 
     @pytest.mark.asyncio
-    async def test_search_calls_rate_limit_with_engine(self) -> None:
+    async def test_search_calls_rate_limit_with_engine(self, mock_page: AsyncMock) -> None:
         """Test search() calls _rate_limit() with selected engine.
 
         Given: Mock setup for search execution
         When: search() is called
         Then: _rate_limit() is called with the selected engine name
         """
-        provider = BrowserSearchProvider()
+        # Setup mock page for the search
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_ensure_browser", AsyncMock()):
+                            # Spy on _rate_limit
+                            rate_limit_calls: list[str | None] = []
 
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
+                            async def track_rate_limit(engine: str | None = None) -> None:
+                                rate_limit_calls.append(engine)
+                                # Don't actually sleep
+                                provider._last_search_times[engine or "default"] = 1.0
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                # Spy on _rate_limit
-                                rate_limit_calls = []
+                            with patch.object(provider, "_rate_limit", track_rate_limit):
+                                # When: search() is called
+                                response = await provider.search("test query")
 
-                                async def track_rate_limit(engine: str | None = None) -> None:
-                                    rate_limit_calls.append(engine)
-                                    # Don't actually sleep
-                                    provider._last_search_times[engine or "default"] = 1.0
-
-                                with patch.object(provider, "_rate_limit", track_rate_limit):
-                                    # When: search() is called
-                                    response = await provider.search("test query")
-
-                                    # Then: _rate_limit was called with engine name
-                                    assert len(rate_limit_calls) == 1
-                                    assert rate_limit_calls[0] == "duckduckgo"
-                                    assert response.ok is True
+                                # Then: _rate_limit was called with engine name
+                                assert len(rate_limit_calls) == 1
+                                assert rate_limit_calls[0] == "duckduckgo"
+                                assert response.ok is True
 
         await provider.close()
 
@@ -2395,83 +2534,99 @@ class TestQueryNormalization:
         When: search() is called with a query containing operators
         Then: transform_query_for_engine() is called with query and engine
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                # Given: Query with site: operator
+                                query = "AI site:go.jp"
 
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
+                                # Mock transform_query_for_engine
+                                with patch(
+                                    "src.search.browser_search_provider.transform_query_for_engine",
+                                    return_value="AI site:go.jp",
+                                ) as mock_transform:
+                                    # When: search() is called
+                                    response = await provider.search(query)
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    # Given: Query with site: operator
-                                    query = "AI site:go.jp"
-
-                                    # Mock transform_query_for_engine
-                                    with patch(
-                                        "src.search.browser_search_provider.transform_query_for_engine",
-                                        return_value="AI site:go.jp",
-                                    ) as mock_transform:
-                                        # When: search() is called
-                                        response = await provider.search(query)
-
-                                        # Then: transform_query_for_engine was called
-                                        mock_transform.assert_called_once_with(query, "duckduckgo")
-                                        assert response.ok is True
+                                    # Then: transform_query_for_engine was called
+                                    mock_transform.assert_called_once_with(query, "duckduckgo")
+                                    assert response.ok is True
 
         await provider.close()
 
@@ -2483,81 +2638,97 @@ class TestQueryNormalization:
         When: search() is called
         Then: normalized_query contains site:go.jp
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                # Given: Query with site: operator
+                                query = "AI site:go.jp"
 
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
+                                # When: search() is called
+                                response = await provider.search(query)
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    # Given: Query with site: operator
-                                    query = "AI site:go.jp"
-
-                                    # When: search() is called
-                                    response = await provider.search(query)
-
-                                    # Then: parser.build_search_url was called with normalized query
-                                    # containing site:go.jp (DuckDuckGo supports site:)
-                                    call_args = mock_parser.build_search_url.call_args
-                                    normalized_query = call_args.kwargs.get("query")
-                                    assert "site:go.jp" in normalized_query
-                                    assert response.ok is True
+                                # Then: parser.build_search_url was called with normalized query
+                                # containing site:go.jp (DuckDuckGo supports site:)
+                                call_args = mock_parser.build_search_url.call_args
+                                normalized_query = call_args.kwargs.get("query")
+                                assert "site:go.jp" in normalized_query
+                                assert response.ok is True
 
         await provider.close()
 
@@ -2569,82 +2740,98 @@ class TestQueryNormalization:
         When: search() is called
         Then: normalized_query does NOT contain after:
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                # Given: Query with after: operator
+                                query = "AI after:2024-01-01"
 
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
+                                # When: search() is called
+                                response = await provider.search(query)
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    # Given: Query with after: operator
-                                    query = "AI after:2024-01-01"
-
-                                    # When: search() is called
-                                    response = await provider.search(query)
-
-                                    # Then: parser.build_search_url was called with normalized query
-                                    # NOT containing after: (DuckDuckGo doesn't support after:)
-                                    call_args = mock_parser.build_search_url.call_args
-                                    normalized_query = call_args.kwargs.get("query")
-                                    assert "after:" not in normalized_query
-                                    assert "AI" in normalized_query
-                                    assert response.ok is True
+                                # Then: parser.build_search_url was called with normalized query
+                                # NOT containing after: (DuckDuckGo doesn't support after:)
+                                call_args = mock_parser.build_search_url.call_args
+                                normalized_query = call_args.kwargs.get("query")
+                                assert "after:" not in normalized_query
+                                assert "AI" in normalized_query
+                                assert response.ok is True
 
         await provider.close()
 
@@ -2656,82 +2843,98 @@ class TestQueryNormalization:
         When: search() is called
         Then: normalized_query contains after:2024-01-01
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "google"
-                mock_engine_config.weight = 1.0
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 20.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "google"
+            mock_engine_config.weight = 1.0
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 20.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://google.com/search?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://google.com/search?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                # Given: Query with after: operator, google engine
+                                query = "AI after:2024-01-01"
+                                options = SearchOptions(engines=["google"])
 
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
+                                # When: search() is called
+                                response = await provider.search(query, options)
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    # Given: Query with after: operator, google engine
-                                    query = "AI after:2024-01-01"
-                                    options = SearchOptions(engines=["google"])
-
-                                    # When: search() is called
-                                    response = await provider.search(query, options)
-
-                                    # Then: parser.build_search_url was called with normalized query
-                                    # containing after:2024-01-01 (Google supports after:)
-                                    call_args = mock_parser.build_search_url.call_args
-                                    normalized_query = call_args.kwargs.get("query")
-                                    assert "after:2024-01-01" in normalized_query
-                                    assert response.ok is True
+                                # Then: parser.build_search_url was called with normalized query
+                                # containing after:2024-01-01 (Google supports after:)
+                                call_args = mock_parser.build_search_url.call_args
+                                normalized_query = call_args.kwargs.get("query")
+                                assert "after:2024-01-01" in normalized_query
+                                assert response.ok is True
 
         await provider.close()
 
@@ -2743,80 +2946,96 @@ class TestQueryNormalization:
         When: search() is called
         Then: normalized_query == "plain query"
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                # Given: Plain query without operators
+                                query = "plain query"
 
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
+                                # When: search() is called
+                                response = await provider.search(query)
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    # Given: Plain query without operators
-                                    query = "plain query"
-
-                                    # When: search() is called
-                                    response = await provider.search(query)
-
-                                    # Then: parser.build_search_url was called with unchanged query
-                                    call_args = mock_parser.build_search_url.call_args
-                                    normalized_query = call_args.kwargs.get("query")
-                                    assert normalized_query == "plain query"
-                                    assert response.ok is True
+                                # Then: parser.build_search_url was called with unchanged query
+                                call_args = mock_parser.build_search_url.call_args
+                                normalized_query = call_args.kwargs.get("query")
+                                assert normalized_query == "plain query"
+                                assert response.ok is True
 
         await provider.close()
 
@@ -2905,90 +3124,104 @@ class TestQueryNormalization:
         When: search() is called
         Then: All supported operators are transformed correctly
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_async_pw.return_value.start = AsyncMock(return_value=MagicMock())
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-            ):
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
+
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
+                with patch(
+                    "src.search.browser_search_provider.record_engine_result",
+                    AsyncMock(),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                # Given: Query with multiple operators
+                                query = "AI site:go.jp filetype:pdf intitle:重要 after:2024-01-01"
 
-                    with patch(
-                        "src.search.browser_search_provider.record_engine_result",
-                        AsyncMock(),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
+                                # When: search() is called
+                                response = await provider.search(query)
 
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    # Given: Query with multiple operators
-                                    query = (
-                                        "AI site:go.jp filetype:pdf intitle:重要 after:2024-01-01"
-                                    )
+                                # Then: parser.build_search_url was called with normalized query
+                                call_args = mock_parser.build_search_url.call_args
+                                normalized_query = call_args.kwargs.get("query")
 
-                                    # When: search() is called
-                                    response = await provider.search(query)
+                                # DuckDuckGo supports site:, filetype:, intitle:
+                                assert "site:go.jp" in normalized_query
+                                assert "filetype:pdf" in normalized_query
+                                assert "intitle:" in normalized_query
 
-                                    # Then: parser.build_search_url was called with normalized query
-                                    call_args = mock_parser.build_search_url.call_args
-                                    normalized_query = call_args.kwargs.get("query")
+                                # DuckDuckGo does NOT support after:
+                                assert "after:" not in normalized_query
 
-                                    # DuckDuckGo supports site:, filetype:, intitle:
-                                    assert "site:go.jp" in normalized_query
-                                    assert "filetype:pdf" in normalized_query
-                                    assert "intitle:" in normalized_query
-
-                                    # DuckDuckGo does NOT support after:
-                                    assert "after:" not in normalized_query
-
-                                    assert response.ok is True
+                                assert response.ok is True
 
         await provider.close()
 
@@ -3021,115 +3254,120 @@ class TestDynamicWeightUsage:
         When: search() is called
         Then: PolicyEngine.get_dynamic_engine_weight() is called for each engine
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_pw = MagicMock()
-            mock_async_pw.return_value.start = AsyncMock(return_value=mock_pw)
-            mock_browser = MagicMock()
-            mock_pw.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
-            mock_browser.contexts = []
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            mock_context = MagicMock()
-            mock_browser.new_context = AsyncMock(return_value=mock_context)
-            mock_context.route = AsyncMock()
-            mock_context.cookies = AsyncMock(return_value=[])
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-                patch(
-                    "src.search.browser_search_provider.get_policy_engine"
-                ) as mock_get_policy_engine,
-            ):
-                # Setup engine config mock
-                mock_config_manager = MagicMock()
-                mock_engine_config = MagicMock()
-                mock_engine_config.name = "duckduckgo"
-                mock_engine_config.weight = 0.7
-                mock_engine_config.is_available = True
-                mock_engine_config.min_interval = 5.0
-                mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
-                mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
+
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.browser_search_provider.get_policy_engine") as mock_get_policy_engine,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
+
+            # Setup engine config mock
+            mock_config_manager = MagicMock()
+            mock_engine_config = MagicMock()
+            mock_engine_config.name = "duckduckgo"
+            mock_engine_config.weight = 0.7
+            mock_engine_config.is_available = True
+            mock_engine_config.min_interval = 5.0
+            mock_config_manager.get_default_engines.return_value = ["duckduckgo"]
+            mock_config_manager.get_engines_for_category.return_value = [mock_engine_config]
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_config_manager.get_engine.return_value = mock_engine_config
+            mock_get_config_manager.return_value = mock_config_manager
+
+            # Setup policy engine mock
+            mock_policy_engine = AsyncMock()
+            mock_policy_engine.get_dynamic_engine_weight = AsyncMock(return_value=0.65)
+            mock_get_policy_engine.return_value = mock_policy_engine
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_config_manager.get_engine.return_value = mock_engine_config
-                mock_get_config_manager.return_value = mock_config_manager
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
+                )
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                # Setup policy engine mock
-                mock_policy_engine = AsyncMock()
-                mock_policy_engine.get_dynamic_engine_weight = AsyncMock(return_value=0.65)
-                mock_get_policy_engine.return_value = mock_policy_engine
-
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
-
-                    with (
-                        patch(
-                            "src.search.browser_search_provider.record_engine_result",
-                            AsyncMock(),
-                        ),
-                        patch(
-                            "src.search.browser_search_provider.transform_query_for_engine",
-                            return_value="test query",
-                        ),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
-
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    with patch.object(provider, "_human_behavior"):
+                with (
+                    patch(
+                        "src.search.browser_search_provider.record_engine_result",
+                        AsyncMock(),
+                    ),
+                    patch(
+                        "src.search.browser_search_provider.transform_query_for_engine",
+                        return_value="test query",
+                    ),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                with patch.object(provider, "_human_behavior"):
+                                    with patch.object(
+                                        provider._human_behavior,
+                                        "simulate_reading",
+                                        AsyncMock(),
+                                    ):
                                         with patch.object(
                                             provider._human_behavior,
-                                            "simulate_reading",
+                                            "move_mouse_to_element",
                                             AsyncMock(),
                                         ):
-                                            with patch.object(
-                                                provider._human_behavior,
-                                                "move_mouse_to_element",
-                                                AsyncMock(),
-                                            ):
-                                                # When: search() is called
-                                                response = await provider.search("test query")
+                                            # When: search() is called
+                                            response = await provider.search("test query")
 
-                                                # Then: get_dynamic_engine_weight was called
-                                                mock_policy_engine.get_dynamic_engine_weight.assert_called()
+                                            # Then: get_dynamic_engine_weight was called
+                                            mock_policy_engine.get_dynamic_engine_weight.assert_called()
 
-                                                # Verify engine and category were passed
-                                                call_args = mock_policy_engine.get_dynamic_engine_weight.call_args
-                                                assert call_args[0][0] == "duckduckgo"  # engine
+                                            # Verify engine and category were passed
+                                            call_args = mock_policy_engine.get_dynamic_engine_weight.call_args
+                                            assert call_args[0][0] == "duckduckgo"  # engine
 
-                                                assert response.ok is True
+                                            assert response.ok is True
 
         await provider.close()
 
@@ -3141,143 +3379,148 @@ class TestDynamicWeightUsage:
         When: search() is called
         Then: Engine with highest dynamic weight is selected
         """
-        provider = BrowserSearchProvider()
+        # Mock page with all required methods
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
+        mock_page.wait_for_load_state = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
+        mock_page.query_selector_all = AsyncMock(return_value=[])
+        mock_page.is_closed = MagicMock(return_value=False)
 
-        with patch("playwright.async_api.async_playwright") as mock_async_pw:
-            mock_pw = MagicMock()
-            mock_async_pw.return_value.start = AsyncMock(return_value=mock_pw)
-            mock_browser = MagicMock()
-            mock_pw.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
-            mock_browser.contexts = []
+        # Mock context for _ensure_browser
+        mock_context = AsyncMock()
+        mock_context.cookies = AsyncMock(return_value=[])
 
-            mock_context = MagicMock()
-            mock_browser.new_context = AsyncMock(return_value=mock_context)
-            mock_context.route = AsyncMock()
-            mock_context.cookies = AsyncMock(return_value=[])
+        # Mock TabPool and EngineRateLimiter
+        mock_tab_pool = MagicMock()
+        mock_tab_pool.acquire = AsyncMock(return_value=mock_page)
+        mock_tab_pool.release = MagicMock()
+        mock_tab_pool.report_captcha = MagicMock()
 
-            with (
-                patch(
-                    "src.search.browser_search_provider.check_engine_available",
-                    AsyncMock(return_value=True),
-                ),
-                patch(
-                    "src.search.browser_search_provider.get_engine_config_manager"
-                ) as mock_get_config_manager,
-                patch(
-                    "src.search.browser_search_provider.get_policy_engine"
-                ) as mock_get_policy_engine,
-            ):
-                # Setup multiple engine configs
-                mock_config_manager = MagicMock()
+        mock_engine_limiter = MagicMock()
+        mock_engine_limiter.acquire = AsyncMock()
+        mock_engine_limiter.release = MagicMock()
 
-                mock_engine1 = MagicMock()
-                mock_engine1.name = "duckduckgo"
-                mock_engine1.weight = 0.7
-                mock_engine1.is_available = True
-                mock_engine1.min_interval = 5.0
+        with (
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "src.search.browser_search_provider.get_engine_config_manager"
+            ) as mock_get_config_manager,
+            patch("src.search.browser_search_provider.get_policy_engine") as mock_get_policy_engine,
+            patch("src.search.tab_pool.get_tab_pool", return_value=mock_tab_pool),
+            patch("src.search.tab_pool.get_engine_rate_limiter", return_value=mock_engine_limiter),
+        ):
+            # Create provider INSIDE the patch context
+            provider = BrowserSearchProvider()
+            provider._context = mock_context
 
-                mock_engine2 = MagicMock()
-                mock_engine2.name = "mojeek"
-                mock_engine2.weight = 0.85
-                mock_engine2.is_available = True
-                mock_engine2.min_interval = 4.0
+            # Setup multiple engine configs
+            mock_config_manager = MagicMock()
 
-                mock_config_manager.get_default_engines.return_value = []  # Fallback to category
-                mock_config_manager.get_engines_for_category.return_value = [
-                    mock_engine1,
-                    mock_engine2,
-                ]
+            mock_engine1 = MagicMock()
+            mock_engine1.name = "duckduckgo"
+            mock_engine1.weight = 0.7
+            mock_engine1.is_available = True
+            mock_engine1.min_interval = 5.0
 
-                def get_engine_side_effect(name: str) -> MagicMock | None:
-                    if name == "duckduckgo":
-                        return mock_engine1
-                    elif name == "mojeek":
-                        return mock_engine2
-                    return None
+            mock_engine2 = MagicMock()
+            mock_engine2.name = "mojeek"
+            mock_engine2.weight = 0.85
+            mock_engine2.is_available = True
+            mock_engine2.min_interval = 4.0
 
-                mock_config_manager.get_engine.side_effect = get_engine_side_effect
-                # Mock get_engines_with_parsers to return engines as-is (for testing)
-                mock_config_manager.get_engines_with_parsers = MagicMock(
-                    side_effect=lambda engines: engines if engines else []
+            mock_config_manager.get_default_engines.return_value = []  # Fallback to category
+            mock_config_manager.get_engines_for_category.return_value = [
+                mock_engine1,
+                mock_engine2,
+            ]
+
+            def get_engine_side_effect(name: str) -> MagicMock | None:
+                if name == "duckduckgo":
+                    return mock_engine1
+                elif name == "mojeek":
+                    return mock_engine2
+                return None
+
+            mock_config_manager.get_engine.side_effect = get_engine_side_effect
+            # Mock get_engines_with_parsers to return engines as-is (for testing)
+            mock_config_manager.get_engines_with_parsers = MagicMock(
+                side_effect=lambda engines: engines if engines else []
+            )
+            mock_get_config_manager.return_value = mock_config_manager
+
+            # Setup policy engine to return different dynamic weights
+            mock_policy_engine = AsyncMock()
+
+            # duckduckgo has higher dynamic weight (0.8) than mojeek (0.6)
+            # even though mojeek has higher base weight
+            async def get_dynamic_weight_side_effect(engine: str, category: str) -> float:
+                if engine == "duckduckgo":
+                    return 0.8  # Higher due to better health metrics
+                elif engine == "mojeek":
+                    return 0.6  # Lower due to worse health metrics
+                return 1.0
+
+            mock_policy_engine.get_dynamic_engine_weight = AsyncMock(
+                side_effect=get_dynamic_weight_side_effect
+            )
+            mock_get_policy_engine.return_value = mock_policy_engine
+
+            with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
+                mock_parser = MagicMock()
+                mock_parser.build_search_url = MagicMock(
+                    return_value="https://duckduckgo.com/?q=test"
                 )
-                mock_get_config_manager.return_value = mock_config_manager
-
-                # Setup policy engine to return different dynamic weights
-                mock_policy_engine = AsyncMock()
-
-                # duckduckgo has higher dynamic weight (0.8) than mojeek (0.6)
-                # even though mojeek has higher base weight
-                async def get_dynamic_weight_side_effect(engine: str, category: str) -> float:
-                    if engine == "duckduckgo":
-                        return 0.8  # Higher due to better health metrics
-                    elif engine == "mojeek":
-                        return 0.6  # Lower due to worse health metrics
-                    return 1.0
-
-                mock_policy_engine.get_dynamic_engine_weight = AsyncMock(
-                    side_effect=get_dynamic_weight_side_effect
+                mock_parse_result = ParseResult(
+                    ok=True,
+                    is_captcha=False,
+                    results=[
+                        ParsedResult(
+                            title="Test",
+                            url="https://example.com",
+                            snippet="Test snippet",
+                            rank=1,
+                        )
+                    ],
                 )
-                mock_get_policy_engine.return_value = mock_policy_engine
+                mock_parser.parse = MagicMock(return_value=mock_parse_result)
+                mock_get_parser.return_value = mock_parser
 
-                with patch("src.search.browser_search_provider.get_parser") as mock_get_parser:
-                    mock_parser = MagicMock()
-                    mock_parser.build_search_url = MagicMock(
-                        return_value="https://duckduckgo.com/?q=test"
-                    )
-                    mock_parse_result = ParseResult(
-                        ok=True,
-                        is_captcha=False,
-                        results=[
-                            ParsedResult(
-                                title="Test",
-                                url="https://example.com",
-                                snippet="Test snippet",
-                                rank=1,
-                            )
-                        ],
-                    )
-                    mock_parser.parse = MagicMock(return_value=mock_parse_result)
-                    mock_get_parser.return_value = mock_parser
-
-                    with (
-                        patch(
-                            "src.search.browser_search_provider.record_engine_result",
-                            AsyncMock(),
-                        ),
-                        patch(
-                            "src.search.browser_search_provider.transform_query_for_engine",
-                            return_value="test query",
-                        ),
-                    ):
-                        mock_page = AsyncMock()
-                        mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
-                        mock_page.wait_for_load_state = AsyncMock()
-                        mock_page.content = AsyncMock(return_value="<html><body>Test</body></html>")
-                        mock_page.query_selector_all = AsyncMock(return_value=[])
-                        mock_page.is_closed = MagicMock(return_value=False)
-
-                        with patch.object(provider, "_get_page", AsyncMock(return_value=mock_page)):
-                            with patch.object(provider, "_save_session", AsyncMock()):
-                                with patch.object(provider, "_rate_limit", AsyncMock()):
-                                    with patch.object(provider, "_human_behavior"):
+                with (
+                    patch(
+                        "src.search.browser_search_provider.record_engine_result",
+                        AsyncMock(),
+                    ),
+                    patch(
+                        "src.search.browser_search_provider.transform_query_for_engine",
+                        return_value="test query",
+                    ),
+                ):
+                    with patch.object(provider, "_save_session", AsyncMock()):
+                        with patch.object(provider, "_rate_limit", AsyncMock()):
+                            with patch.object(provider, "_ensure_browser", AsyncMock()):
+                                with patch.object(provider, "_human_behavior"):
+                                    with patch.object(
+                                        provider._human_behavior,
+                                        "simulate_reading",
+                                        AsyncMock(),
+                                    ):
                                         with patch.object(
                                             provider._human_behavior,
-                                            "simulate_reading",
+                                            "move_mouse_to_element",
                                             AsyncMock(),
                                         ):
-                                            with patch.object(
-                                                provider._human_behavior,
-                                                "move_mouse_to_element",
-                                                AsyncMock(),
-                                            ):
-                                                # When: search() is called
-                                                response = await provider.search("test query")
+                                            # When: search() is called
+                                            response = await provider.search("test query")
 
-                                                # Then: duckduckgo should be selected (higher dynamic weight)
-                                                # Verify by checking which parser was requested
-                                                mock_get_parser.assert_called_with("duckduckgo")
+                                            # Then: duckduckgo should be selected (higher dynamic weight)
+                                            # Verify by checking which parser was requested
+                                            mock_get_parser.assert_called_with("duckduckgo")
 
-                                                assert response.ok is True
+                                            assert response.ok is True
 
         await provider.close()
 

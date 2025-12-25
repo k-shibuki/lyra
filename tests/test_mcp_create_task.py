@@ -8,14 +8,21 @@ Tests create_task handler behavior per ADR-0003.
 | TC-CT-N-01 | Valid query, budget_pages provided | Equivalence – normal | ok=True, budget.budget_pages returned | - |
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 
 class TestCreateTaskValidation:
     """Tests for create_task validation (breaking changes)."""
 
     @pytest.mark.asyncio
-    async def test_create_task_happy_path(self, test_database) -> None:
+    async def test_create_task_happy_path(self, test_database: Database) -> None:
         """
         TC-CT-N-01: create_task returns budget_pages in response.
 

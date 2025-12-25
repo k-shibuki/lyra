@@ -549,6 +549,38 @@ filter_node_errors() {
     grep -v -E "^(node:|Node\.js|Error: write EPIPE|    at |Emitted|  errno:|  code:|  syscall:|\{$|\}$)"
 }
 
+# Fatal error patterns that indicate test run should terminate immediately
+# These errors typically crash pytest without producing a summary line
+FATAL_ERROR_PATTERNS=(
+    "sqlite3.OperationalError: disk I/O error"
+    "sqlite3.OperationalError: database disk image is malformed"
+    "MemoryError"
+    "Segmentation fault"
+    "SIGKILL"
+    "killed"
+    "out of memory"
+    "OSError: \\[Errno 28\\] No space left on device"
+)
+
+# Function: check_fatal_errors
+# Description: Check if result file contains fatal error patterns
+# Arguments:
+#   $1: result content (last N lines)
+# Returns:
+#   0: Fatal error found
+#   1: No fatal error found
+# Output: Prints the matched error pattern if found
+check_fatal_errors() {
+    local content="$1"
+    for pattern in "${FATAL_ERROR_PATTERNS[@]}"; do
+        if echo "$content" | grep -qE "$pattern"; then
+            echo "$pattern"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Function: cmd_check
 # Description: Wait until tests are completed and print a concise result tail
 # Arguments:
@@ -624,6 +656,31 @@ cmd_check() {
         local result_content
         result_content=$(runtime_tail "$runtime" 50 "$result_file" | filter_node_errors || echo "")
         last_line=$(runtime_tail "$runtime" 1 "$result_file" | filter_node_errors || echo "waiting...")
+
+        # DONE condition 0: Fatal error detected (e.g., disk I/O error, OOM)
+        # Check this first to fail fast on catastrophic errors
+        local fatal_error=""
+        if fatal_error=$(check_fatal_errors "$result_content"); then
+            echo "FATAL_ERROR"
+            echo "=== Fatal Error Detected ==="
+            echo "Pattern matched: $fatal_error"
+            echo ""
+            echo "=== Artifact ==="
+            echo "result_file: ${result_file}"
+            local total_lines
+            total_lines="$(runtime_line_count "$runtime" "$result_file")"
+            if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
+                if (( total_lines <= CHECK_TAIL_LINES )); then
+                    echo "=== Tail (full output: ${total_lines} lines) ==="
+                else
+                    echo "=== Tail (last ${CHECK_TAIL_LINES}/${total_lines} lines) ==="
+                fi
+            else
+                echo "=== Tail ==="
+            fi
+            runtime_tail "$runtime" "$CHECK_TAIL_LINES" "$result_file" | filter_node_errors || echo "No output"
+            return 1
+        fi
 
         # DONE condition 1: pytest summary line exists
         # Check this BEFORE pid_alive to handle cases where pytest outputs summary

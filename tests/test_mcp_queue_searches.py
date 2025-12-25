@@ -20,17 +20,23 @@ Tests the async search queue tool per ADR-0010.
 | TC-QS-05 | get_status wait=61 | Boundary – invalid | InvalidParamsError | Validation |
 """
 
+from __future__ import annotations
+
 import json
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 
 class TestQueueSearchesValidation:
     """Tests for queue_searches parameter validation."""
 
     @pytest.mark.asyncio
-    async def test_missing_task_id(self, test_database) -> None:
+    async def test_missing_task_id(self, test_database: Database) -> None:
         """
         TC-Q-02: Missing task_id raises InvalidParamsError.
 
@@ -51,7 +57,7 @@ class TestQueueSearchesValidation:
         assert "task_id" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_empty_queries(self, test_database) -> None:
+    async def test_empty_queries(self, test_database: Database) -> None:
         """
         TC-Q-03: Empty queries array raises InvalidParamsError.
 
@@ -73,7 +79,7 @@ class TestQueueSearchesValidation:
         assert "queries" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_nonexistent_task(self, test_database) -> None:
+    async def test_nonexistent_task(self, test_database: Database) -> None:
         """
         TC-Q-04: Non-existent task_id raises TaskNotFoundError.
 
@@ -99,7 +105,7 @@ class TestQueueSearchesExecution:
     """Tests for queue_searches execution."""
 
     @pytest.mark.asyncio
-    async def test_queue_single_query(self, test_database) -> None:
+    async def test_queue_single_query(self, test_database: Database) -> None:
         """
         TC-Q-01: Queue single search query.
 
@@ -140,7 +146,7 @@ class TestQueueSearchesExecution:
         assert row["priority"] == 50  # default medium
 
     @pytest.mark.asyncio
-    async def test_queue_multiple_queries(self, test_database) -> None:
+    async def test_queue_multiple_queries(self, test_database: Database) -> None:
         """
         TC-Q-07: Queue multiple search queries.
 
@@ -171,7 +177,7 @@ class TestQueueSearchesExecution:
         assert len(set(result["search_ids"])) == 3  # All unique
 
     @pytest.mark.asyncio
-    async def test_queue_with_high_priority(self, test_database) -> None:
+    async def test_queue_with_high_priority(self, test_database: Database) -> None:
         """
         TC-Q-05: Queue with priority="high" sets priority=10.
 
@@ -200,10 +206,11 @@ class TestQueueSearchesExecution:
             "SELECT priority FROM jobs WHERE id = ?",
             (result["search_ids"][0],),
         )
+        assert row is not None
         assert row["priority"] == 10
 
     @pytest.mark.asyncio
-    async def test_queue_with_low_priority(self, test_database) -> None:
+    async def test_queue_with_low_priority(self, test_database: Database) -> None:
         """
         TC-Q-06: Queue with priority="low" sets priority=90.
 
@@ -232,6 +239,7 @@ class TestQueueSearchesExecution:
             "SELECT priority FROM jobs WHERE id = ?",
             (result["search_ids"][0],),
         )
+        assert row is not None
         assert row["priority"] == 90
 
 
@@ -239,7 +247,7 @@ class TestGetStatusWithWait:
     """Tests for get_status wait parameter (long polling)."""
 
     @pytest.mark.asyncio
-    async def test_get_status_wait_validation_negative(self, test_database) -> None:
+    async def test_get_status_wait_validation_negative(self, test_database: Database) -> None:
         """
         TC-QS-04: get_status with wait=-1 raises InvalidParamsError.
 
@@ -268,7 +276,7 @@ class TestGetStatusWithWait:
         assert "wait" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_get_status_wait_validation_too_large(self, test_database) -> None:
+    async def test_get_status_wait_validation_too_large(self, test_database: Database) -> None:
         """
         TC-QS-05: get_status with wait=61 raises InvalidParamsError.
 
@@ -297,7 +305,7 @@ class TestGetStatusWithWait:
         assert "wait" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_get_status_wait_zero_returns_immediately(self, test_database) -> None:
+    async def test_get_status_wait_zero_returns_immediately(self, test_database: Database) -> None:
         """
         TC-QS-02: get_status with wait=0 returns immediately.
 
@@ -333,7 +341,7 @@ class TestGetStatusQueueField:
     """Tests for get_status queue field."""
 
     @pytest.mark.asyncio
-    async def test_get_status_shows_queue_status(self, test_database) -> None:
+    async def test_get_status_shows_queue_status(self, test_database: Database) -> None:
         """
         TC-QS-01: get_status shows queued search count.
 
@@ -383,7 +391,7 @@ class TestGetStatusQueueField:
         assert len(result["queue"]["items"]) == 3
 
     @pytest.mark.asyncio
-    async def test_get_status_empty_queue(self, test_database) -> None:
+    async def test_get_status_empty_queue(self, test_database: Database) -> None:
         """
         Test get_status with no queued searches.
 

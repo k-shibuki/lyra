@@ -85,7 +85,15 @@ async def _search_queue_worker(worker_id: int) -> None:
             )
 
             if row is None:
-                # Queue is empty - wait before checking again
+                # Queue is empty - notify batch notification manager (ADR-0007)
+                try:
+                    from src.utils.notification import notify_search_queue_empty
+
+                    await notify_search_queue_empty()
+                except Exception as e:
+                    logger.debug("Batch notification failed", error=str(e))
+
+                # Wait before checking again
                 await asyncio.sleep(EMPTY_QUEUE_POLL_INTERVAL)
                 continue
 
@@ -161,13 +169,19 @@ async def _search_queue_worker(worker_id: int) -> None:
                 # Execute search with job tracking for cancellation support
                 # Wrap search_action in a separate task so we can cancel it
                 # without killing the worker itself (ADR-0010 mode=immediate)
+                # ADR-0007: Pass search_job_id for CAPTCHA queue integration
+                options_with_job = {
+                    **options,
+                    "task_id": task_id,
+                    "search_job_id": search_id,
+                }
                 manager = get_worker_manager()
                 search_task = asyncio.create_task(
                     search_action(
                         task_id=task_id,
                         query=query,
                         state=state,
-                        options=options,
+                        options=options_with_job,
                     ),
                     name=f"search_action_{search_id}",
                 )
@@ -176,39 +190,62 @@ async def _search_queue_worker(worker_id: int) -> None:
                 try:
                     result = await search_task
 
-                    # Success - update state to 'completed' with race condition protection
-                    # Only update if state is still 'running' (prevents overwriting 'cancelled')
-                    cursor = await db.execute(
-                        """
-                        UPDATE jobs
-                        SET state = 'completed', finished_at = ?, output_json = ?
-                        WHERE id = ? AND state = 'running'
-                        """,
-                        (
-                            datetime.now(UTC).isoformat(),
-                            json.dumps(result, ensure_ascii=False),
-                            search_id,
-                        ),
-                    )
-
-                    if getattr(cursor, "rowcount", 0) == 0:
-                        # Job was cancelled while we were processing - don't log as completed
-                        logger.info(
-                            "Search completion skipped (job already cancelled)",
-                            search_id=search_id,
-                            task_id=task_id,
+                    # ADR-0007: Check if CAPTCHA was queued - set awaiting_auth state
+                    if result.get("captcha_queued"):
+                        cursor = await db.execute(
+                            """
+                            UPDATE jobs
+                            SET state = 'awaiting_auth', finished_at = ?, output_json = ?
+                            WHERE id = ? AND state = 'running'
+                            """,
+                            (
+                                datetime.now(UTC).isoformat(),
+                                json.dumps(result, ensure_ascii=False),
+                                search_id,
+                            ),
                         )
+                        if getattr(cursor, "rowcount", 0) > 0:
+                            state.notify_status_change()
+                            logger.info(
+                                "Search awaiting auth (CAPTCHA queued)",
+                                search_id=search_id,
+                                task_id=task_id,
+                                queue_id=result.get("queue_id"),
+                            )
                     else:
-                        # Notify long polling clients
-                        state.notify_status_change()
-
-                        logger.info(
-                            "Search completed from queue",
-                            search_id=search_id,
-                            task_id=task_id,
-                            status=result.get("status"),
-                            pages_fetched=result.get("pages_fetched"),
+                        # Success - update state to 'completed' with race condition protection
+                        # Only update if state is still 'running' (prevents overwriting 'cancelled')
+                        cursor = await db.execute(
+                            """
+                            UPDATE jobs
+                            SET state = 'completed', finished_at = ?, output_json = ?
+                            WHERE id = ? AND state = 'running'
+                            """,
+                            (
+                                datetime.now(UTC).isoformat(),
+                                json.dumps(result, ensure_ascii=False),
+                                search_id,
+                            ),
                         )
+
+                        if getattr(cursor, "rowcount", 0) == 0:
+                            # Job was cancelled while we were processing - don't log as completed
+                            logger.info(
+                                "Search completion skipped (job already cancelled)",
+                                search_id=search_id,
+                                task_id=task_id,
+                            )
+                        else:
+                            # Notify long polling clients
+                            state.notify_status_change()
+
+                            logger.info(
+                                "Search completed from queue",
+                                search_id=search_id,
+                                task_id=task_id,
+                                status=result.get("status"),
+                                pages_fetched=result.get("pages_fetched"),
+                            )
 
                 except asyncio.CancelledError:
                     # stop_task(mode=immediate) cancelled this search_task

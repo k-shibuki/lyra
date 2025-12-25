@@ -19,17 +19,23 @@ Tests the stop_task tool's graceful/immediate mode per ADR-0010.
 | TC-ST-11 | cancel then complete race | Equivalence – race | completed not overwritten | race prevention |
 """
 
+from __future__ import annotations
+
 import json
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 
 class TestStopTaskModeValidation:
     """Tests for stop_task mode parameter validation."""
 
     @pytest.mark.asyncio
-    async def test_missing_task_id_raises_error(self, test_database) -> None:
+    async def test_missing_task_id_raises_error(self, test_database: Database) -> None:
         """
         TC-ST-08: Missing task_id raises InvalidParamsError.
 
@@ -46,7 +52,7 @@ class TestStopTaskModeValidation:
         assert exc_info.value.details.get("param_name") == "task_id"
 
     @pytest.mark.asyncio
-    async def test_nonexistent_task_raises_error(self, test_database) -> None:
+    async def test_nonexistent_task_raises_error(self, test_database: Database) -> None:
         """
         TC-ST-09: Non-existent task_id raises TaskNotFoundError.
 
@@ -63,7 +69,7 @@ class TestStopTaskModeValidation:
         assert "nonexistent_task" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_invalid_mode_raises_error(self, test_database) -> None:
+    async def test_invalid_mode_raises_error(self, test_database: Database) -> None:
         """
         TC-ST-05: Invalid mode value raises InvalidParamsError.
 
@@ -97,7 +103,7 @@ class TestStopTaskGracefulMode:
     """Tests for stop_task with mode=graceful."""
 
     @pytest.mark.asyncio
-    async def test_graceful_cancels_queued_jobs(self, test_database) -> None:
+    async def test_graceful_cancels_queued_jobs(self, test_database: Database) -> None:
         """
         TC-ST-01: mode=graceful cancels queued jobs.
 
@@ -154,7 +160,7 @@ class TestStopTaskGracefulMode:
             assert row["state"] == "cancelled"
 
     @pytest.mark.asyncio
-    async def test_graceful_does_not_cancel_running_jobs(self, test_database) -> None:
+    async def test_graceful_does_not_cancel_running_jobs(self, test_database: Database) -> None:
         """
         TC-ST-07: mode=graceful does NOT cancel running jobs.
 
@@ -204,10 +210,11 @@ class TestStopTaskGracefulMode:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_st07_running",),
         )
+        assert row is not None
         assert row["state"] == "running"
 
     @pytest.mark.asyncio
-    async def test_default_mode_is_graceful(self, test_database) -> None:
+    async def test_default_mode_is_graceful(self, test_database: Database) -> None:
         """
         TC-ST-04: Default mode is graceful when not specified.
 
@@ -275,6 +282,7 @@ class TestStopTaskGracefulMode:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_st04_queued",),
         )
+        assert queued_row is not None
         assert queued_row["state"] == "cancelled"
 
         # Running should be preserved
@@ -282,6 +290,7 @@ class TestStopTaskGracefulMode:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_st04_running",),
         )
+        assert running_row is not None
         assert running_row["state"] == "running"
 
 
@@ -289,7 +298,7 @@ class TestStopTaskImmediateMode:
     """Tests for stop_task with mode=immediate."""
 
     @pytest.mark.asyncio
-    async def test_immediate_cancels_queued_jobs(self, test_database) -> None:
+    async def test_immediate_cancels_queued_jobs(self, test_database: Database) -> None:
         """
         TC-ST-02: mode=immediate cancels queued jobs.
 
@@ -346,7 +355,7 @@ class TestStopTaskImmediateMode:
             assert row["state"] == "cancelled"
 
     @pytest.mark.asyncio
-    async def test_immediate_cancels_running_jobs(self, test_database) -> None:
+    async def test_immediate_cancels_running_jobs(self, test_database: Database) -> None:
         """
         TC-ST-03: mode=immediate cancels running jobs.
 
@@ -399,6 +408,7 @@ class TestStopTaskImmediateMode:
             "SELECT state, finished_at FROM jobs WHERE id = ?",
             ("s_st03_running",),
         )
+        assert row is not None
         assert row["state"] == "cancelled"
         assert row["finished_at"] is not None
 
@@ -407,7 +417,7 @@ class TestStopTaskEmptyQueue:
     """Tests for stop_task with empty queue."""
 
     @pytest.mark.asyncio
-    async def test_empty_queue_completes_normally(self, test_database) -> None:
+    async def test_empty_queue_completes_normally(self, test_database: Database) -> None:
         """
         TC-ST-06: Empty queue completes normally.
 
@@ -466,7 +476,7 @@ class TestStopTaskRealCancellation:
     """
 
     @pytest.mark.asyncio
-    async def test_immediate_cancels_running_search_task(self, test_database) -> None:
+    async def test_immediate_cancels_running_search_task(self, test_database: Database) -> None:
         """
         TC-ST-10: mode=immediate cancels running search_action task.
 
@@ -493,7 +503,7 @@ class TestStopTaskRealCancellation:
 
         # Create a mock search_action task (not the worker itself)
         # The worker wraps search_action in create_task() and registers that task
-        async def mock_search_action():
+        async def mock_search_action() -> None:
             try:
                 await asyncio.sleep(60)  # Long sleep
             except asyncio.CancelledError:
@@ -520,7 +530,7 @@ class TestStopTaskRealCancellation:
         assert manager.running_job_count == 0
 
     @pytest.mark.asyncio
-    async def test_cancel_does_not_affect_other_tasks(self, test_database) -> None:
+    async def test_cancel_does_not_affect_other_tasks(self, test_database: Database) -> None:
         """
         TC-ST-10b: Cancellation only affects the specified task's search_action tasks.
 
@@ -553,7 +563,7 @@ class TestStopTaskRealCancellation:
         search_id_b = "s_task_b"
 
         # Mock search_action tasks (worker wraps these in create_task)
-        async def search_action_a():
+        async def search_action_a() -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -562,7 +572,7 @@ class TestStopTaskRealCancellation:
             finally:
                 manager.unregister_job(search_id_a)
 
-        async def search_action_b():
+        async def search_action_b() -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -607,7 +617,7 @@ class TestStopTaskRaceCondition:
     """
 
     @pytest.mark.asyncio
-    async def test_completed_not_overwritten_after_cancel(self, test_database) -> None:
+    async def test_completed_not_overwritten_after_cancel(self, test_database: Database) -> None:
         """
         TC-ST-11: Completed state is not written if job was already cancelled.
 
@@ -665,10 +675,11 @@ class TestStopTaskRaceCondition:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_st11_cancelled",),
         )
+        assert row is not None
         assert row["state"] == "cancelled"
 
     @pytest.mark.asyncio
-    async def test_failed_not_overwritten_after_cancel(self, test_database) -> None:
+    async def test_failed_not_overwritten_after_cancel(self, test_database: Database) -> None:
         """
         TC-ST-11b: Failed state is not written if job was already cancelled.
 
@@ -726,4 +737,5 @@ class TestStopTaskRaceCondition:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_st11b_cancelled",),
         )
+        assert row is not None
         assert row["state"] == "cancelled"

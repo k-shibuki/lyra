@@ -19,9 +19,13 @@ import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+if TYPE_CHECKING:
+    from src.storage.database import Database
 
 
 async def main() -> None:
@@ -56,13 +60,13 @@ async def main() -> None:
         print("=" * 60)
 
 
-async def _initialize_schema(db) -> None:
+async def _initialize_schema(db: Database) -> None:
     """Initialize database schema."""
     await db.initialize_schema()
     print("✓ Schema initialized")
 
 
-async def verify_queue_searches_flow(db) -> None:
+async def verify_queue_searches_flow(db: Database) -> None:
     """Verify queue_searches tool flow."""
     print()
     print("--- Verify: queue_searches flow ---")
@@ -108,7 +112,7 @@ async def verify_queue_searches_flow(db) -> None:
     print("  ✓ All jobs correctly queued with high priority (10)")
 
 
-async def verify_get_status_long_polling(db) -> None:
+async def verify_get_status_long_polling(db: Database) -> None:
     """Verify get_status with wait parameter (long polling)."""
     print()
     print("--- Verify: get_status long polling ---")
@@ -164,7 +168,7 @@ async def verify_get_status_long_polling(db) -> None:
     print("  ✓ Long polling behaves correctly")
 
 
-async def verify_stop_task_graceful(db) -> None:
+async def verify_stop_task_graceful(db: Database) -> None:
     """Verify stop_task with mode=graceful."""
     print()
     print("--- Verify: stop_task mode=graceful ---")
@@ -240,7 +244,7 @@ async def verify_stop_task_graceful(db) -> None:
     print("  ✓ Graceful mode cancels queued but preserves running")
 
 
-async def verify_stop_task_immediate(db) -> None:
+async def verify_stop_task_immediate(db: Database) -> None:
     """Verify stop_task with mode=immediate."""
     print()
     print("--- Verify: stop_task mode=immediate ---")
