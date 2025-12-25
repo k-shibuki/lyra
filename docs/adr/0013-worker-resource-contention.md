@@ -224,12 +224,11 @@ def get_academic_client(name: str) -> BaseAcademicClient:
 
 ## Implementation Status
 
-- [ ] ADR承認
-- [ ] `src/search/apis/rate_limiter.py` 実装
-- [ ] `BaseAcademicClient` 統合
-- [ ] テスト追加 (`tests/test_academic_api_rate_limiter.py`)
-- [ ] `config/academic_apis.yaml` 更新
-- [ ] シーケンス図更新
+**Status**: ✅ Implemented (2025-12-25)
+
+- `src/search/apis/rate_limiter.py`: `AcademicAPIRateLimiter` 実装済み
+- `src/search/apis/base.py`: `BaseAcademicClient` 統合済み
+- `config/academic_apis.yaml`: rate_limit 設定追加済み
 
 ## Related
 

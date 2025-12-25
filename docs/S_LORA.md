@@ -1,6 +1,10 @@
 # LoRA ファインチューニング設計書
 
 > **Status**: DESIGN PROPOSAL（未実装）
+>
+> **Related ADRs**:
+> - [ADR-0011: LoRA Fine-tuning Strategy](adr/0011-lora-fine-tuning.md) - LoRA採用決定、MCPツール化却下
+> - [ADR-0012: Feedback Tool Design](adr/0012-feedback-tool-design.md) - `feedback(edge_correct)` による訂正サンプル蓄積
 
 ## 1. ドキュメントの位置づけ
 
@@ -11,6 +15,8 @@
 | `docs/archive/P_EVIDENCE_SYSTEM.md` | エビデンス評価システム設計（アーカイブ） | Phase 6（決定17）で `edge_correct`→`nli_corrections` 蓄積、計測は `calibration_metrics` |
 | **`docs/S_LORA.md`**（本文書） | **LoRAファインチューニング設計** | Phase S |
 | `docs/archive/IMPLEMENTATION_PLAN.md` | 実装計画書（アーカイブ） | Phase R概要 |
+| [ADR-0011](adr/0011-lora-fine-tuning.md) | LoRAファインチューニング戦略（ADR） | LoRA採用理由、MCPツール化却下 |
+| [ADR-0012](adr/0012-feedback-tool-design.md) | フィードバックツール設計（ADR） | `feedback(edge_correct)` 設計 |
 
 ---
 
