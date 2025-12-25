@@ -221,6 +221,9 @@ class TabPool:
 
         Triggers backoff: reduces effective_max_tabs (ADR-0015).
         Note: No auto-increase for browser SERP (manual only per ADR-0015).
+
+        When already at floor (effective_max_tabs=1), logs warning to alert operator
+        that CAPTCHAs are continuing despite minimum concurrency.
         """
         # Load backoff config
         from src.utils.config import get_settings
@@ -238,6 +241,7 @@ class TabPool:
         backoff.captcha_count += 1
 
         if new_max < backoff.effective_max_tabs:
+            # Actual reduction
             backoff.effective_max_tabs = new_max
             backoff.backoff_active = True
 
@@ -247,12 +251,26 @@ class TabPool:
                 config_max=backoff.config_max_tabs,
                 captcha_count=backoff.captcha_count,
             )
+        else:
+            # Already at floor (effective_max_tabs=1)
+            # Still mark as backoff active and warn operator
+            backoff.backoff_active = True
+
+            logger.warning(
+                "TabPool at floor (CAPTCHA): already at minimum concurrency",
+                effective_max_tabs=backoff.effective_max_tabs,
+                captcha_count=backoff.captcha_count,
+                hint="Consider increasing cooldown or checking profile health",
+            )
 
     def report_403(self) -> None:
         """Report 403 error.
 
         Triggers backoff: reduces effective_max_tabs (ADR-0015).
         Note: No auto-increase for browser SERP (manual only per ADR-0015).
+
+        When already at floor (effective_max_tabs=1), logs warning to alert operator
+        that 403 errors are continuing despite minimum concurrency.
         """
         # Load backoff config
         from src.utils.config import get_settings
@@ -270,6 +288,7 @@ class TabPool:
         backoff.error_403_count += 1
 
         if new_max < backoff.effective_max_tabs:
+            # Actual reduction
             backoff.effective_max_tabs = new_max
             backoff.backoff_active = True
 
@@ -278,6 +297,17 @@ class TabPool:
                 new_effective_max=new_max,
                 config_max=backoff.config_max_tabs,
                 error_403_count=backoff.error_403_count,
+            )
+        else:
+            # Already at floor (effective_max_tabs=1)
+            # Still mark as backoff active and warn operator
+            backoff.backoff_active = True
+
+            logger.warning(
+                "TabPool at floor (403): already at minimum concurrency",
+                effective_max_tabs=backoff.effective_max_tabs,
+                error_403_count=backoff.error_403_count,
+                hint="Consider increasing cooldown or checking profile health",
             )
 
     def reset_backoff(self) -> None:

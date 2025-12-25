@@ -404,7 +404,8 @@ CREATE TABLE IF NOT EXISTS intervention_log (
 );
 CREATE INDEX IF NOT EXISTS idx_intervention_task ON intervention_log(task_id);
 
--- Intervention Queue: 認証待ちキュー（半自動運用）
+-- Intervention Queue: Authentication queue (semi-automated operation)
+-- Per ADR-0007: Human-in-the-Loop Authentication with Phase 4 integration
 CREATE TABLE IF NOT EXISTS intervention_queue (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL,
@@ -416,14 +417,17 @@ CREATE TABLE IF NOT EXISTS intervention_queue (
     queued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     started_at DATETIME,
     completed_at DATETIME,
-    expires_at DATETIME,  -- キュー有効期限
-    session_data TEXT,  -- 認証成功時のセッション情報（JSON）
+    expires_at DATETIME,  -- Queue item expiration time
+    session_data TEXT,  -- Session data after successful auth (JSON)
     notes TEXT,
-    FOREIGN KEY (task_id) REFERENCES tasks(id)
+    search_job_id TEXT,  -- Related search job ID (auto-requeue after resolve_auth)
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (search_job_id) REFERENCES jobs(id)
 );
 CREATE INDEX IF NOT EXISTS idx_intervention_queue_task ON intervention_queue(task_id);
 CREATE INDEX IF NOT EXISTS idx_intervention_queue_status ON intervention_queue(status);
 CREATE INDEX IF NOT EXISTS idx_intervention_queue_domain ON intervention_queue(domain);
+CREATE INDEX IF NOT EXISTS idx_intervention_queue_job ON intervention_queue(search_job_id);
 
 -- ============================================================
 -- Full-Text Search (FTS5)

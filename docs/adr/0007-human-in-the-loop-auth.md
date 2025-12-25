@@ -1,7 +1,7 @@
 # ADR-0007: Human-in-the-Loop Authentication
 
 ## Date
-2025-11-25
+2025-11-25 (Updated: 2025-12-25)
 
 ## Context
 
@@ -29,98 +29,120 @@
 
 **認証はユーザーに委ね、認証済みセッションを再利用する（Human-in-the-Loop方式）。**
 
-### アーキテクチャ
+### アーキテクチャ（Phase 4統合版）
 
+```mermaid
+sequenceDiagram
+    participant W as SearchWorker
+    participant BP as BrowserSearchProvider
+    participant TP as TabPool
+    participant IQ as InterventionQueue
+    participant CB as CircuitBreaker
+    participant DB as Database
+    participant User as User/AI
+
+    W->>BP: search(query, options)
+    BP->>TP: acquire()
+    BP-->>BP: CAPTCHA検出!
+    BP->>TP: report_captcha()
+    BP->>IQ: enqueue(search_job_id)
+    BP->>CB: record_failure(is_captcha)
+    BP-->>W: SearchResponse(captcha_queued=True)
+    W->>DB: state=awaiting_auth
+
+    Note over IQ: 30秒後 or キュー空時
+    IQ-->>User: バッチ通知
+
+    User->>User: ブラウザでCAPTCHA解決
+    User->>MCP: resolve_auth(domain)
+    MCP->>DB: UPDATE state=queued
+    MCP->>CB: force_close(engine)
+    W->>BP: search(query) [retry]
 ```
-[認証が必要なURL検出]
-         │
-         ▼
-[認証キューに追加]
-         │
-         ▼
-[ユーザーに通知] ──────────────────┐
-         │                         │
-         ▼                         │ ユーザー操作
-[ユーザーがブラウザで認証] ◄───────┘
-         │
-         ▼
-[認証済みCookieを取得]
-         │
-         ▼
-[バッチ処理で未取得ページを処理]
-```
+
+### コンポーネント統合
+
+| コンポーネント | 役割 | ADR |
+|---------------|------|-----|
+| TabPool | タブ管理、auto-backoff | ADR-0014, ADR-0015 |
+| InterventionQueue | CAPTCHA待ちキュー | ADR-0007 |
+| CircuitBreaker | エンジン可用性管理 | - |
+| BatchNotificationManager | バッチ通知 | ADR-0007 |
 
 ### 認証キューの設計
 
 ```python
-@dataclass
-class AuthRequest:
-    url: str
-    domain: str
-    reason: str  # "login_required", "captcha", "paywall"
-    created_at: datetime
-    status: str  # "pending", "authenticated", "skipped"
-
-# MCPツール: 認証待ちリストを取得
-@server.tool()
-async def get_pending_auth() -> List[AuthRequest]:
-    """認証が必要なURLのリストを返す"""
-    return await db.get_pending_auth_requests()
+# intervention_queue テーブル
+CREATE TABLE intervention_queue (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    auth_type TEXT NOT NULL,
+    priority TEXT DEFAULT 'medium',
+    status TEXT DEFAULT 'pending',
+    queued_at DATETIME,
+    search_job_id TEXT,  -- 関連する検索ジョブID
+    FOREIGN KEY (search_job_id) REFERENCES jobs(id)
+);
 ```
 
 ### ユーザーワークフロー
 
-1. **調査開始**: ユーザーがLyraで調査を開始
-2. **認証検出**: 認証が必要なページを検出、キューに追加
-3. **通知**: MCPクライアント経由で「認証が必要」と通知
-4. **手動認証**: ユーザーが通常のブラウザで認証
-5. **Cookie取得**: Lyraが認証済みCookieを取得
-6. **再取得**: 認証後、ページを再クロール
+1. **検索キュー実行**: 複数の検索がバックグラウンドで並列実行
+2. **CAPTCHA検出**: CAPTCHAを検出したら：
+   - `TabPool.report_captcha()` でauto-backoff
+   - `InterventionQueue.enqueue()` でキューに追加
+   - ジョブを `awaiting_auth` 状態に設定
+   - **他のドメインの検索は継続**
+3. **バッチ通知**: 30秒経過 or 検索キュー空になったら通知
+4. **手動認証**: ユーザーがまとめてCAPTCHAを解決
+5. **resolve_auth**: AIに「解決した」と伝えると：
+   - `resolve_auth(domain)` が呼ばれる
+   - 関連ジョブが `queued` に戻る
+   - CircuitBreakerがリセット
+6. **自動リトライ**: SearchWorkerがジョブを再実行
 
-### Cookie取得方法
-
-```python
-# Playwrightでユーザーのブラウザプロファイルを参照
-async def get_authenticated_session(domain: str) -> BrowserContext:
-    # ユーザーのChrome/Firefoxプロファイルからcookieを読み取り
-    user_data_dir = get_user_browser_profile()
-    context = await browser.new_context(
-        storage_state=f"{user_data_dir}/cookies.json"
-    )
-    return context
-```
-
-### バッチ処理
-
-認証後、同じドメインの未取得ページをまとめて処理：
+### 通知タイミング（ハイブリッド方式）
 
 ```python
-async def process_authenticated_domain(domain: str):
-    pending_pages = await db.get_pending_pages(domain)
-    auth_context = await get_authenticated_session(domain)
+# BatchNotificationManager
+class BatchNotificationManager:
+    BATCH_TIMEOUT_SECONDS = 30
 
-    for page_url in pending_pages:
-        content = await fetch_with_context(page_url, auth_context)
-        await process_page(content)
+    async def on_captcha_queued(self, queue_id, domain):
+        # タイマー開始（30秒後に通知）
+        ...
+
+    async def on_search_queue_empty(self):
+        # キュー空時に即座に通知
+        ...
 ```
+
+| トリガー | 条件 | メリット |
+|---------|------|---------|
+| タイムアウト | 最初のCAPTCHAから30秒後 | 溜め込み防止 |
+| キュー空 | 検索キューが空になった | 効率的なバッチ処理 |
 
 ### CAPTCHAの扱い
 
 | 状況 | 対応 |
 |------|------|
-| 初回CAPTCHA | ユーザーに解決を依頼 |
-| 頻繁なCAPTCHA | リクエスト間隔を広げる |
-| 常時CAPTCHA | そのサイトを警告付きでスキップ |
+| CAPTCHA検出 | キューに追加、バックオフ、他ドメイン継続 |
+| 同一ドメインで繰り返し | CircuitBreakerで一時停止 |
+| resolve_auth後 | 自動再キュー、CircuitBreakerリセット |
 
-```python
-if captcha_detected(response):
-    await add_to_auth_queue(
-        url=url,
-        reason="captcha",
-        message="CAPTCHAが検出されました。手動で解決してください。"
-    )
-    return PendingResult(status="awaiting_human")
-```
+### 実装ファイル
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/storage/schema.sql` | `intervention_queue.search_job_id` 追加 |
+| `src/scheduler/jobs.py` | `JobState.AWAITING_AUTH` 追加 |
+| `src/utils/notification.py` | `BatchNotificationManager`, `enqueue()` 拡張 |
+| `src/search/browser_search_provider.py` | CAPTCHA時にキュー登録 |
+| `src/scheduler/search_worker.py` | `awaiting_auth` 状態処理 |
+| `src/mcp/server.py` | `resolve_auth` 自動再キュー、`get_status` pending_auth |
+| `src/search/provider.py` | `SearchOptions.task_id/search_job_id` 追加 |
 
 ## Consequences
 
@@ -129,9 +151,11 @@ if captcha_detected(response):
 - **Zero OpEx**: 有償サービス不使用
 - **確実性**: 人間が解決するので確実
 - **透明性**: ユーザーが何にアクセスしているか把握
+- **並列性維持**: CAPTCHA発生中も他ドメインは継続
+- **バッチ処理**: 複数CAPTCHAをまとめて解決可能
 
 ### Negative
-- **待機時間**: ユーザー操作まで進行停止
+- **待機時間**: ユーザー操作まで該当ドメインは停止
 - **UX負荷**: ユーザーに認証作業が発生
 - **完全自動化不可**: 人間介入が必須
 
@@ -142,11 +166,14 @@ if captcha_detected(response):
 | CAPTCHA解決サービス | 自動化 | 有料、倫理的問題 | 却下 |
 | ヘッドレスブラウザ偽装 | 一部成功 | 検出リスク、いたちごっこ | 却下 |
 | 認証スキップ | シンプル | 重要リソースにアクセス不可 | 却下 |
-| プロキシサービス | 自動化 | 有料、規約違反リスク | 却下 |
+| 即時通知 | シンプル | 作業中断が頻繁 | 却下 |
 
 ## References
 - `src/storage/schema.sql` - `intervention_queue`テーブル（認証キュー）
-- `src/crawler/session_transfer.py` - セッション転送
+- `src/utils/notification.py` - `InterventionQueue`, `BatchNotificationManager`
 - `src/mcp/server.py` - `get_auth_queue`, `resolve_auth` MCPツール
+- `src/search/tab_pool.py` - TabPool, auto-backoff
 - ADR-0001: Local-First / Zero OpEx
 - ADR-0006: 8-Layer Security Model
+- ADR-0014: Browser SERP Resource Control
+- ADR-0015: Adaptive Concurrency Control

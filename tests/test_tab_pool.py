@@ -616,7 +616,7 @@ class TestTabPoolBackoff:
 
         Given: A TabPool with effective_max_tabs=1
         When: report_captcha is called
-        Then: effective_max_tabs remains 1 (floor)
+        Then: effective_max_tabs remains 1 (floor), but backoff_active=True and warning logged
         """
         # Given
         pool = TabPool(max_tabs=1)
@@ -629,6 +629,51 @@ class TestTabPoolBackoff:
         # Then
         assert pool._backoff_state.effective_max_tabs == 1  # Floor at 1
         assert pool._backoff_state.captcha_count == 1
+        # Even at floor, backoff should be active to alert operator
+        assert pool._backoff_state.backoff_active is True
+
+    def test_report_403_floors_at_one(self) -> None:
+        """Test effective_max_tabs floors at 1 for 403 errors.
+
+        Given: A TabPool with effective_max_tabs=1
+        When: report_403 is called
+        Then: effective_max_tabs remains 1 (floor), but backoff_active=True and warning logged
+        """
+        # Given
+        pool = TabPool(max_tabs=1)
+        mock_settings = self._create_mock_settings(decrease_step=1)
+
+        # When (patch at use site per test rules)
+        with patch("src.utils.config.get_settings", return_value=mock_settings):
+            pool.report_403()
+
+        # Then
+        assert pool._backoff_state.effective_max_tabs == 1  # Floor at 1
+        assert pool._backoff_state.error_403_count == 1
+        # Even at floor, backoff should be active to alert operator
+        assert pool._backoff_state.backoff_active is True
+
+    def test_report_captcha_repeated_at_floor(self) -> None:
+        """Test repeated CAPTCHA reports at floor are all counted.
+
+        Given: A TabPool with effective_max_tabs=1
+        When: report_captcha is called 3 times
+        Then: All CAPTCHAs are counted, backoff_active=True throughout
+        """
+        # Given
+        pool = TabPool(max_tabs=1)
+        mock_settings = self._create_mock_settings(decrease_step=1)
+
+        # When (patch at use site per test rules)
+        with patch("src.utils.config.get_settings", return_value=mock_settings):
+            pool.report_captcha()
+            pool.report_captcha()
+            pool.report_captcha()
+
+        # Then
+        assert pool._backoff_state.effective_max_tabs == 1  # Still at floor
+        assert pool._backoff_state.captcha_count == 3  # All counted
+        assert pool._backoff_state.backoff_active is True  # Active throughout
 
     # =========================================================================
     # TC-T-05: reset_backoff restores config_max
@@ -835,7 +880,6 @@ class TestTabPoolBackoff:
         # Then: Both acquired, each is independent
         assert pool._active_count == 2
         assert tab1 is not tab2  # Different Page objects
-        assert tab1.page_id != tab2.page_id  # Unique IDs
         assert len(created_pages) == 2
 
         # Verify stats

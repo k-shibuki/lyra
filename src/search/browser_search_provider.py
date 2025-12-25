@@ -809,61 +809,79 @@ class BrowserSearchProvider(BaseSearchProvider):
                 url=search_url[:100],
             )
 
-            # Execute search
-            page = await self._get_page()
+            # Execute search with TabPool (ADR-0014) and EngineRateLimiter
+            # This ensures:
+            # 1. No concurrent operations on the same Page
+            # 2. Per-engine QPS/concurrency limits are enforced
+            await self._ensure_browser()
+            assert self._context is not None  # Guaranteed by _ensure_browser
 
-            # Navigate to search page
-            await page.goto(
-                search_url,
-                timeout=self._timeout * 1000,
-                wait_until="domcontentloaded",
-            )
-
-            # Wait for content to load (with fallback for JS-heavy sites)
+            # Acquire per-engine rate limit slot
+            await self._engine_rate_limiter.acquire(engine)
             try:
-                await page.wait_for_load_state("networkidle", timeout=5000)
-            except Exception:
-                # Some engines (e.g., Brave) have constant JS activity
-                # Fall back to a short fixed wait
-                await asyncio.sleep(2)
-
-            # Get HTML content
-            html = await page.content()
-
-            # Apply human-like behavior to search results page
-            try:
-                # Apply inertial scrolling (reading simulation)
-                await self._human_behavior.simulate_reading(page, len(html.encode("utf-8")))
-
-                # Apply mouse trajectory to search result links
+                # Acquire a tab from the pool (prevents Page sharing)
+                tab = await self._tab_pool.acquire(self._context)
                 try:
-                    # Find search result links
-                    result_links = await page.query_selector_all(
-                        "a[href*='http'], a[href*='https']"
+                    # Navigate to search page
+                    await tab.goto(
+                        search_url,
+                        timeout=self._timeout * 1000,
+                        wait_until="domcontentloaded",
                     )
-                    if result_links:
-                        # Select random link from first 5 results
-                        target_link = random.choice(result_links[:5])
-                        # Get link selector
-                        link_selector = await target_link.evaluate("""
-                            (el) => {
-                                if (el.id) return `#${el.id}`;
-                                if (el.className) {
-                                    const classes = el.className.split(' ').filter(c => c).join('.');
-                                    if (classes) return `a.${classes}`;
-                                }
-                                return 'a';
-                            }
-                        """)
-                        if link_selector:
-                            await self._human_behavior.move_mouse_to_element(page, link_selector)
-                except Exception as e:
-                    logger.debug("Mouse movement skipped in search", error=str(e))
-            except Exception as e:
-                logger.debug("Human behavior simulation skipped", error=str(e))
 
-            # Parse results
-            parse_result = parser.parse(html, query)
+                    # Wait for content to load (with fallback for JS-heavy sites)
+                    try:
+                        await tab.wait_for_load_state("networkidle", timeout=5000)
+                    except Exception:
+                        # Some engines (e.g., Brave) have constant JS activity
+                        # Fall back to a short fixed wait
+                        await asyncio.sleep(2)
+
+                    # Get HTML content
+                    html = await tab.content()
+
+                    # Apply human-like behavior to search results page
+                    try:
+                        # Apply inertial scrolling (reading simulation)
+                        await self._human_behavior.simulate_reading(tab, len(html.encode("utf-8")))
+
+                        # Apply mouse trajectory to search result links
+                        try:
+                            # Find search result links
+                            result_links = await tab.query_selector_all(
+                                "a[href*='http'], a[href*='https']"
+                            )
+                            if result_links:
+                                # Select random link from first 5 results
+                                target_link = random.choice(result_links[:5])
+                                # Get link selector
+                                link_selector = await target_link.evaluate("""
+                                    (el) => {
+                                        if (el.id) return `#${el.id}`;
+                                        if (el.className) {
+                                            const classes = el.className.split(' ').filter(c => c).join('.');
+                                            if (classes) return `a.${classes}`;
+                                        }
+                                        return 'a';
+                                    }
+                                """)
+                                if link_selector:
+                                    await self._human_behavior.move_mouse_to_element(
+                                        tab, link_selector
+                                    )
+                        except Exception as e:
+                            logger.debug("Mouse movement skipped in search", error=str(e))
+                    except Exception as e:
+                        logger.debug("Human behavior simulation skipped", error=str(e))
+
+                    # Parse results
+                    parse_result = parser.parse(html, query)
+                finally:
+                    # Always release tab back to pool
+                    self._tab_pool.release(tab)
+            finally:
+                # Always release engine rate limit slot
+                self._engine_rate_limiter.release(engine)
 
             elapsed_ms = (time.time() - start_time) * 1000
 
@@ -871,6 +889,9 @@ class BrowserSearchProvider(BaseSearchProvider):
             if parse_result.is_captcha:
                 self._captcha_count += 1
                 self._record_session_captcha(engine)
+
+                # Report CAPTCHA to TabPool for auto-backoff (ADR-0015)
+                self._tab_pool.report_captcha()
 
                 # Record engine health (CAPTCHA)
                 try:
@@ -887,27 +908,46 @@ class BrowserSearchProvider(BaseSearchProvider):
                         error=str(e),
                     )
 
-                # Trigger intervention queue
-                intervention_result = await self._request_intervention(
-                    url=search_url,
-                    engine=engine,
-                    captcha_type=parse_result.captcha_type,
-                    page=page,
-                )
+                # ADR-0007: Queue CAPTCHA for batch processing
+                queue_id = None
+                captcha_queued = False
+                if options.task_id:
+                    try:
+                        from src.utils.notification import get_intervention_queue
 
-                if intervention_result:
-                    # Retry after intervention
-                    html = await page.content()
-                    parse_result = parser.parse(html, query)
-                else:
-                    return SearchResponse(
-                        results=[],
-                        query=query,
-                        provider=self.name,
-                        error=f"CAPTCHA detected: {parse_result.captcha_type}",
-                        elapsed_ms=elapsed_ms,
-                        connection_mode="cdp",
-                    )
+                        queue = get_intervention_queue()
+                        queue_id = await queue.enqueue(
+                            task_id=options.task_id,
+                            url=search_url,
+                            domain=engine,
+                            auth_type=parse_result.captcha_type or "captcha",
+                            priority="medium",
+                            search_job_id=options.search_job_id,
+                        )
+                        captcha_queued = True
+                        logger.info(
+                            "CAPTCHA queued for intervention",
+                            queue_id=queue_id,
+                            engine=engine,
+                            search_job_id=options.search_job_id,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to queue CAPTCHA",
+                            engine=engine,
+                            error=str(e),
+                        )
+
+                return SearchResponse(
+                    results=[],
+                    query=query,
+                    provider=self.name,
+                    error=f"CAPTCHA detected: {parse_result.captcha_type}",
+                    elapsed_ms=elapsed_ms,
+                    connection_mode="cdp",
+                    captcha_queued=captcha_queued,
+                    queue_id=queue_id,
+                )
 
             # Handle parse failure
             if not parse_result.ok:
@@ -954,8 +994,8 @@ class BrowserSearchProvider(BaseSearchProvider):
             # Convert results
             results = [r.to_search_result(engine) for r in parse_result.results[: options.limit]]
 
-            # Save session cookies
-            await self._save_session(engine, page)
+            # Save session cookies (uses context, not tab)
+            await self._save_session(engine)
 
             self._success_count += 1
             self._total_latency += elapsed_ms
@@ -1107,8 +1147,12 @@ class BrowserSearchProvider(BaseSearchProvider):
             logger.error("Intervention request failed", error=str(e))
             return False
 
-    async def _save_session(self, engine: str, page: Any) -> None:
-        """Save session cookies for engine."""
+    async def _save_session(self, engine: str) -> None:
+        """Save session cookies for engine.
+
+        Note: Uses self._context to get cookies. Tab is not needed because
+        cookies are stored at the context level.
+        """
         if self._context is None:
             return  # No context to save from
         try:

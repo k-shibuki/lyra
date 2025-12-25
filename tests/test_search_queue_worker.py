@@ -25,13 +25,19 @@ Tests the background worker that processes search queue jobs per ADR-0010.
 | TC-WK-CANCEL-02 | run_server() stops | Equivalence – shutdown | Worker exits loop | Worker shutdown |
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from src.research.state import ExplorationState
+    from src.storage.database import Database
 
 
 class TestJobKindSearchQueue:
@@ -90,7 +96,7 @@ class TestSearchQueueWorker:
 
     @pytest.mark.asyncio
     async def test_worker_processes_queued_job(
-        self, test_database, mock_search_result: dict[str, Any]
+        self, test_database: Database, mock_search_result: dict[str, Any]
     ) -> None:
         """
         TC-WK-01: Worker processes single queued job.
@@ -167,7 +173,7 @@ class TestSearchQueueWorker:
         mock_state.notify_status_change.assert_called()
 
     @pytest.mark.asyncio
-    async def test_worker_priority_order(self, test_database) -> None:
+    async def test_worker_priority_order(self, test_database: Database) -> None:
         """
         TC-WK-02: Worker processes jobs in priority order.
 
@@ -223,7 +229,7 @@ class TestSearchQueueWorker:
         assert rows[2]["id"] == "s_low"
 
     @pytest.mark.asyncio
-    async def test_worker_handles_search_failure(self, test_database) -> None:
+    async def test_worker_handles_search_failure(self, test_database: Database) -> None:
         """
         TC-WK-04: Worker handles search_action failure.
 
@@ -339,7 +345,7 @@ class TestSearchQueueWorkerManager:
         manager = SearchQueueWorkerManager()
 
         # Create dummy worker tasks
-        async def dummy_worker():
+        async def dummy_worker() -> None:
             try:
                 await asyncio.sleep(30)
             except asyncio.CancelledError:
@@ -406,7 +412,7 @@ class TestJobTracking:
 
         manager = SearchQueueWorkerManager()
 
-        async def dummy_task():
+        async def dummy_task() -> None:
             await asyncio.sleep(60)
 
         task = asyncio.create_task(dummy_task())
@@ -439,7 +445,7 @@ class TestJobTracking:
 
         manager = SearchQueueWorkerManager()
 
-        async def dummy_task():
+        async def dummy_task() -> None:
             await asyncio.sleep(60)
 
         task = asyncio.create_task(dummy_task())
@@ -492,7 +498,7 @@ class TestJobTracking:
 
         cancel_flags = {"task_a_1": False, "task_a_2": False, "task_b": False}
 
-        async def make_job(flag_key: str):
+        async def make_job(flag_key: str) -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -541,7 +547,7 @@ class TestJobTracking:
 
         cancel_flag = {"cancelled": False}
 
-        async def make_job():
+        async def make_job() -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -579,7 +585,7 @@ class TestJobTracking:
 
         manager = SearchQueueWorkerManager()
 
-        async def dummy_task():
+        async def dummy_task() -> None:
             await asyncio.sleep(60)
 
         tasks = []
@@ -616,7 +622,7 @@ class TestWorkerCancellationBehavior:
     """
 
     @pytest.mark.asyncio
-    async def test_worker_survives_search_task_cancellation(self, test_database) -> None:
+    async def test_worker_survives_search_task_cancellation(self, test_database: Database) -> None:
         """
         TC-WK-CANCEL-01: Worker continues after search_action task is cancelled.
 
@@ -670,7 +676,12 @@ class TestWorkerCancellationBehavior:
         jobs_processed = {"first": False, "second": False}
         first_job_started = asyncio.Event()
 
-        async def mock_search_action(task_id: str, query: str, state: Any, options: dict) -> dict:
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
             """Mock search_action that signals when first job starts."""
             if "first" in query:
                 first_job_started.set()
@@ -707,6 +718,7 @@ class TestWorkerCancellationBehavior:
                     "SELECT state FROM jobs WHERE id = ?",
                     ("search_first",),
                 )
+                assert first_job is not None
                 assert first_job["state"] == "cancelled"
 
                 # The worker should still be running (not broken by cancellation)
@@ -736,14 +748,14 @@ class TestWorkerCancellationBehavior:
         # Create mock worker tasks directly
         worker_cancelled = [False, False]
 
-        async def mock_worker_0():
+        async def mock_worker_0() -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 worker_cancelled[0] = True
                 raise
 
-        async def mock_worker_1():
+        async def mock_worker_1() -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -847,7 +859,7 @@ class TestExplorationStateEvent:
 
         state = ExplorationState("task_test", enable_ucb_allocation=False)
 
-        async def delayed_notify():
+        async def delayed_notify() -> None:
             await asyncio.sleep(0.1)
             state.notify_status_change()
 
@@ -884,7 +896,7 @@ class TestSearchQueuePerformance:
     """
 
     @pytest.mark.asyncio
-    async def test_large_queue_processing(self, test_database) -> None:
+    async def test_large_queue_processing(self, test_database: Database) -> None:
         """
         TC-PF-01: Large queue (10+ jobs) is processed correctly.
 
@@ -929,6 +941,7 @@ class TestSearchQueuePerformance:
             "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'queued'",
             ("task_pf01",),
         )
+        assert count is not None
         assert count["cnt"] == num_jobs
 
         # Simulate worker processing by updating states
@@ -962,6 +975,7 @@ class TestSearchQueuePerformance:
                         "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'queued'",
                         ("task_pf01",),
                     )
+                    assert remaining is not None
                     if remaining["cnt"] == 0:
                         break
 
@@ -976,10 +990,11 @@ class TestSearchQueuePerformance:
             "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'completed'",
             ("task_pf01",),
         )
+        assert completed is not None
         assert completed["cnt"] == num_jobs
 
     @pytest.mark.asyncio
-    async def test_worker_error_recovery(self, test_database) -> None:
+    async def test_worker_error_recovery(self, test_database: Database) -> None:
         """
         TC-PF-02: Worker continues after handling error.
 
@@ -1038,7 +1053,12 @@ class TestSearchQueuePerformance:
 
         call_count = 0
 
-        async def mock_search_action(**kwargs):
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -1064,6 +1084,7 @@ class TestSearchQueuePerformance:
                         "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state IN ('queued', 'running')",
                         ("task_pf02",),
                     )
+                    assert remaining is not None
                     if remaining["cnt"] == 0:
                         break
 
@@ -1078,6 +1099,7 @@ class TestSearchQueuePerformance:
             "SELECT state, error_message FROM jobs WHERE id = ?",
             ("s_pf02_fail",),
         )
+        assert fail_row is not None
         assert fail_row["state"] == "failed"
         assert "Simulated search failure" in fail_row["error_message"]
 
@@ -1085,10 +1107,11 @@ class TestSearchQueuePerformance:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_pf02_ok",),
         )
+        assert ok_row is not None
         assert ok_row["state"] == "completed"
 
     @pytest.mark.asyncio
-    async def test_two_workers_parallel_processing(self, test_database) -> None:
+    async def test_two_workers_parallel_processing(self, test_database: Database) -> None:
         """
         TC-PF-03: Two workers process queue in parallel.
 
@@ -1131,7 +1154,12 @@ class TestSearchQueuePerformance:
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
-        async def mock_search_action_with_delay(**kwargs):
+        async def mock_search_action_with_delay(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
             # Simulate some work (allows interleaving)
             await asyncio.sleep(0.05)
             return {"ok": True, "status": "satisfied", "pages_fetched": 1}
@@ -1139,7 +1167,7 @@ class TestSearchQueuePerformance:
         # Patch to track worker assignments
         original_worker = None
 
-        async def patched_worker(worker_id: int):
+        async def patched_worker(worker_id: int) -> None:
             nonlocal original_worker
             from src.scheduler.search_worker import _search_queue_worker
 
@@ -1168,6 +1196,7 @@ class TestSearchQueuePerformance:
                         "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state IN ('queued', 'running')",
                         ("task_pf03_parallel",),
                     )
+                    assert remaining is not None
                     if remaining["cnt"] == 0:
                         break
 
@@ -1188,6 +1217,7 @@ class TestSearchQueuePerformance:
             "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND kind = 'search_queue' AND state = 'completed'",
             ("task_pf03_parallel",),
         )
+        assert completed is not None
         assert completed["cnt"] == num_jobs, (
             f"Expected {num_jobs} completed, got {completed['cnt']}"
         )
@@ -1197,7 +1227,7 @@ class TestSearchQueuePerformance:
         # The CAS mechanism ensures no double-processing.
 
     @pytest.mark.asyncio
-    async def test_concurrent_worker_claim_exclusivity(self, test_database) -> None:
+    async def test_concurrent_worker_claim_exclusivity(self, test_database: Database) -> None:
         """
         TC-PF-04: Multiple workers don't process same job (CAS).
 
@@ -1240,8 +1270,13 @@ class TestSearchQueuePerformance:
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
-        async def mock_search_action(**kwargs):
-            search_calls.append(kwargs.get("query"))
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            search_calls.append(query)
             await asyncio.sleep(0.05)  # Simulate work
             return {"ok": True, "status": "satisfied", "pages_fetched": 1}
 
@@ -1266,6 +1301,7 @@ class TestSearchQueuePerformance:
                         "SELECT state FROM jobs WHERE id = ?",
                         ("s_pf03",),
                     )
+                    assert row is not None
                     if row["state"] == "completed":
                         break
 
@@ -1289,10 +1325,11 @@ class TestSearchQueuePerformance:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_pf03",),
         )
+        assert row is not None
         assert row["state"] == "completed"
 
     @pytest.mark.asyncio
-    async def test_priority_ordering_high_medium_low(self, test_database) -> None:
+    async def test_priority_ordering_high_medium_low(self, test_database: Database) -> None:
         """
         TC-PF-05: Jobs are processed in priority order (high→medium→low).
 
@@ -1342,8 +1379,13 @@ class TestSearchQueuePerformance:
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
-        async def mock_search_action(**kwargs):
-            processing_order.append(kwargs.get("query", ""))
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            processing_order.append(query)
             return {"ok": True, "status": "satisfied", "pages_fetched": 1}
 
         with patch(
@@ -1364,6 +1406,7 @@ class TestSearchQueuePerformance:
                         "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state = 'queued'",
                         ("task_pf05",),
                     )
+                    assert remaining is not None
                     if remaining["cnt"] == 0:
                         break
 
@@ -1384,7 +1427,7 @@ class TestSearchQueuePerformance:
         assert processing_order[2] == "low priority", f"Expected low last, got {processing_order}"
 
     @pytest.mark.asyncio
-    async def test_fifo_within_same_priority(self, test_database) -> None:
+    async def test_fifo_within_same_priority(self, test_database: Database) -> None:
         """
         TC-PF-06: Jobs with same priority are processed FIFO (by queued_at).
 
@@ -1428,8 +1471,13 @@ class TestSearchQueuePerformance:
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
-        async def mock_search_action(**kwargs):
-            processing_order.append(kwargs.get("query", ""))
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            processing_order.append(query)
             return {"ok": True, "status": "satisfied", "pages_fetched": 1}
 
         with patch(
@@ -1450,6 +1498,7 @@ class TestSearchQueuePerformance:
                         "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state = 'queued'",
                         ("task_pf06",),
                     )
+                    assert remaining is not None
                     if remaining["cnt"] == 0:
                         break
 
@@ -1463,7 +1512,7 @@ class TestSearchQueuePerformance:
         assert processing_order == ["query_0", "query_1", "query_2", "query_3", "query_4"]
 
     @pytest.mark.asyncio
-    async def test_variable_processing_times(self, test_database) -> None:
+    async def test_variable_processing_times(self, test_database: Database) -> None:
         """
         TC-PF-07: Jobs with variable processing times are handled correctly.
 
@@ -1511,8 +1560,12 @@ class TestSearchQueuePerformance:
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
-        async def mock_search_action(**kwargs):
-            query = kwargs.get("query", "")
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
             # Slow query takes longer
             if "slow" in query:
                 await asyncio.sleep(0.2)
@@ -1541,6 +1594,7 @@ class TestSearchQueuePerformance:
                         "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state IN ('queued', 'running')",
                         ("task_pf07",),
                     )
+                    assert remaining is not None
                     if remaining["cnt"] == 0:
                         break
 
@@ -1562,7 +1616,7 @@ class TestSearchQueuePerformance:
         assert slow_idx == 2, f"Slow job should finish last, but order was: {completion_order}"
 
     @pytest.mark.asyncio
-    async def test_two_workers_respect_priority(self, test_database) -> None:
+    async def test_two_workers_respect_priority(self, test_database: Database) -> None:
         """
         TC-PF-08: Two workers both respect priority ordering.
 
@@ -1613,8 +1667,13 @@ class TestSearchQueuePerformance:
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
-        async def mock_search_action(**kwargs):
-            processing_order.append(kwargs.get("query", ""))
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            processing_order.append(query)
             await asyncio.sleep(0.02)  # Small delay to allow interleaving
             return {"ok": True, "status": "satisfied", "pages_fetched": 1}
 
@@ -1637,6 +1696,7 @@ class TestSearchQueuePerformance:
                         "SELECT COUNT(*) as cnt FROM jobs WHERE task_id = ? AND state IN ('queued', 'running')",
                         ("task_pf08",),
                     )
+                    assert remaining is not None
                     if remaining["cnt"] == 0:
                         break
 
@@ -1666,7 +1726,7 @@ class TestSearchQueuePerformance:
         assert len(low_jobs) == 2, f"Last 2 should be low priority: {processing_order}"
 
     @pytest.mark.asyncio
-    async def test_empty_queue_worker_waits(self, test_database) -> None:
+    async def test_empty_queue_worker_waits(self, test_database: Database) -> None:
         """
         TC-PF-09: Worker waits gracefully when queue is empty.
 
@@ -1708,7 +1768,7 @@ class TestSearchQueuePerformance:
         # Worker handled empty queue gracefully
 
     @pytest.mark.asyncio
-    async def test_single_job_two_workers(self, test_database) -> None:
+    async def test_single_job_two_workers(self, test_database: Database) -> None:
         """
         TC-PF-10: Single job with two workers - only one processes.
 
@@ -1748,7 +1808,12 @@ class TestSearchQueuePerformance:
         mock_state = MagicMock()
         mock_state.notify_status_change = MagicMock()
 
-        async def mock_search_action(**kwargs):
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
             nonlocal call_count
             call_count += 1
             await asyncio.sleep(0.05)
@@ -1773,6 +1838,7 @@ class TestSearchQueuePerformance:
                         "SELECT state FROM jobs WHERE id = ?",
                         ("s_pf10",),
                     )
+                    assert row is not None
                     if row["state"] == "completed":
                         break
 
@@ -1794,4 +1860,5 @@ class TestSearchQueuePerformance:
             "SELECT state FROM jobs WHERE id = ?",
             ("s_pf10",),
         )
+        assert row is not None
         assert row["state"] == "completed"

@@ -106,6 +106,13 @@ class SearchResponse(BaseModel):
         default=0.0, ge=0.0, description="Time taken for search in milliseconds"
     )
     connection_mode: str | None = Field(default=None, description="Browser connection mode used")
+    # ADR-0007: CAPTCHA queue integration
+    captcha_queued: bool = Field(
+        default=False, description="True if CAPTCHA was queued for intervention"
+    )
+    queue_id: str | None = Field(
+        default=None, description="Intervention queue ID if CAPTCHA was queued"
+    )
 
     @property
     def ok(self) -> bool:
@@ -114,7 +121,7 @@ class SearchResponse(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return {
+        result = {
             "results": [r.to_dict() for r in self.results],
             "query": self.query,
             "provider": self.provider,
@@ -124,6 +131,11 @@ class SearchResponse(BaseModel):
             "ok": self.ok,
             "connection_mode": self.connection_mode,
         }
+        # Only include CAPTCHA fields if relevant
+        if self.captcha_queued:
+            result["captcha_queued"] = self.captcha_queued
+            result["queue_id"] = self.queue_id
+        return result
 
 
 class SearchOptions(BaseModel):
@@ -133,6 +145,10 @@ class SearchOptions(BaseModel):
     Pagination fields:
     - serp_page: Current SERP page number (1-indexed)
     - serp_max_pages: Maximum SERP pages to fetch (pagination limit)
+
+    ADR-0007 fields:
+    - task_id: For CAPTCHA queue association
+    - search_job_id: For auto-requeue on resolve_auth
     """
 
     model_config = ConfigDict(frozen=False, extra="forbid")
@@ -149,6 +165,9 @@ class SearchOptions(BaseModel):
         le=10,
         description="Maximum SERP pages to fetch for pagination",
     )
+    # ADR-0007: CAPTCHA queue integration
+    task_id: str | None = Field(default=None, description="Task ID for CAPTCHA queue association")
+    search_job_id: str | None = Field(default=None, description="Search job ID for auto-requeue")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

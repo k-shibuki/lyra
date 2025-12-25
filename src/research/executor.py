@@ -200,6 +200,7 @@ class SearchExecutor:
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
         engines: list[str] | None = None,
+        search_job_id: str | None = None,
     ) -> SearchResult:
         """
         Execute a search query designed by Cursor AI.
@@ -209,12 +210,14 @@ class SearchExecutor:
             priority: Execution priority (high/medium/low).
             budget_pages: Optional page budget for this search.
             budget_time_seconds: Optional time budget for this search.
+            search_job_id: Search job ID for CAPTCHA queue auto-requeue (ADR-0007).
 
         Returns:
             SearchResult with execution results.
         """
-        # Store engines for use in _execute_search
+        # Store engines and job ID for use in _execute_search
         self._engines = engines
+        self._search_job_id = search_job_id  # ADR-0007
 
         await self._ensure_db()
 
@@ -409,12 +412,13 @@ class SearchExecutor:
         )
 
         try:
-            # Pass engines if specified
+            # Pass engines and job ID if specified (ADR-0007)
             results = await search_serp(
                 query=query,
                 limit=10,
                 task_id=self.task_id,
                 engines=getattr(self, "_engines", None),
+                search_job_id=getattr(self, "_search_job_id", None),
             )
             return results, None, {}
         except ParserNotAvailableSearchError as e:
