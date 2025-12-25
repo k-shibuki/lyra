@@ -59,8 +59,8 @@ class TestMCPIdleWarning:
                     "elapsed_seconds": 0,
                 },
                 "budget": {
-                    "pages_used": 0,
-                    "pages_limit": 120,
+                    "budget_pages_used": 0,
+                    "budget_pages_limit": 120,
                     "time_used_seconds": 0,
                     "time_limit_seconds": 1200,
                 },
@@ -173,8 +173,8 @@ class TestMCPIdleWarning:
                     "elapsed_seconds": 0,
                 },
                 "budget": {
-                    "pages_used": 0,
-                    "pages_limit": 120,
+                    "budget_pages_used": 0,
+                    "budget_pages_limit": 120,
                     "time_used_seconds": 0,
                     "time_limit_seconds": 1200,
                 },

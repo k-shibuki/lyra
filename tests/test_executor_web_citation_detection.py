@@ -76,7 +76,7 @@ async def test_executor_web_citation_detection_happy_path() -> None:
         min_text_chars=10,
         max_candidates_per_page=7,
         max_edges_per_page=0,
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         create_placeholder_pages=True,
     )
 
@@ -133,7 +133,7 @@ async def test_executor_web_citation_detection_no_placeholder_skips_missing_targ
         min_text_chars=10,
         max_candidates_per_page=10,
         max_edges_per_page=0,
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         create_placeholder_pages=False,
     )
 
@@ -180,7 +180,7 @@ async def test_executor_web_citation_detection_max_candidates_zero_is_unlimited(
         min_text_chars=10,
         max_candidates_per_page=0,  # boundary: no limit
         max_edges_per_page=0,
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         create_placeholder_pages=False,
     )
 
@@ -234,7 +234,7 @@ async def test_executor_web_citation_detection_caps_edges_per_page() -> None:
         min_text_chars=10,
         max_candidates_per_page=10,
         max_edges_per_page=1,  # cap
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         create_placeholder_pages=True,
     )
 

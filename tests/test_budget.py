@@ -29,8 +29,8 @@ Test quality: Follows .1 test code quality standards.
 | TC-TB-16 | Record LLM time | Equivalence – mutation | llm_time_seconds adds up | - |
 | TC-TB-17 | Stop budget | Equivalence – termination | is_active=False, exceeded_reason set | - |
 | TC-TB-18 | Serialize TaskBudget | Equivalence – serialization | to_dict returns all fields | - |
-| TC-TB-BC-01 | max_pages=0 | Boundary – zero limit | Cannot fetch, cannot continue | - |
-| TC-TB-BC-02 | max_pages=1 | Boundary – single page | One fetch allowed, then blocked | - |
+| TC-TB-BC-01 | budget_pages=0 | Boundary – zero limit | Cannot fetch, cannot continue | - |
+| TC-TB-BC-02 | budget_pages=1 | Boundary – single page | One fetch allowed, then blocked | - |
 | TC-TB-BC-03 | max_llm_ratio=0 | Boundary – zero ratio | No LLM allowed | - |
 | TC-TB-BC-04 | max_time_seconds=1 (expired) | Boundary – short time | Cannot continue | - |
 | TC-TB-BC-05 | Inactive budget operations | Abnormal – inactive | All operations rejected | - |
@@ -90,7 +90,7 @@ class TestTaskBudget:
         """Test default initialization matches ADR-0010 requirements.
 
         Verifies default values:
-        - max_pages=120 (ADR-0010: Total pages ≤120/task)
+        - budget_pages=120 (ADR-0010: Total pages ≤120/task)
         - max_llm_ratio=0.30 (ADR-0010: LLM processing ≤30%)
         """
         # Given: No specific configuration
@@ -100,7 +100,7 @@ class TestTaskBudget:
 
         assert budget.task_id == "test-1", "task_id should be set"
         assert budget.pages_fetched == 0, "pages_fetched should start at 0"
-        assert budget.max_pages == 120, "default max_pages should be 120 (ADR-0010)"
+        assert budget.budget_pages == 120, "default budget_pages should be 120 (ADR-0010)"
         assert budget.llm_time_seconds == 0.0, "llm_time should start at 0"
         assert budget.max_llm_ratio == 0.30, "default max_llm_ratio should be 0.30 (ADR-0010)"
         assert budget.is_active is True, "new budget should be active"
@@ -108,8 +108,8 @@ class TestTaskBudget:
 
     def test_remaining_pages(self) -> None:
         """Test remaining pages calculation."""
-        # Given: TaskBudget with max_pages=100
-        budget = TaskBudget(task_id="test-1", max_pages=100)
+        # Given: TaskBudget with budget_pages=100
+        budget = TaskBudget(task_id="test-1", budget_pages=100)
 
         # When/Then: remaining_pages reflects fetched count
         assert budget.remaining_pages == 100
@@ -172,8 +172,8 @@ class TestTaskBudget:
 
     def test_can_fetch_page(self) -> None:
         """Test page fetch check."""
-        # Given: TaskBudget with max_pages=3
-        budget = TaskBudget(task_id="test-1", max_pages=3)
+        # Given: TaskBudget with budget_pages=3
+        budget = TaskBudget(task_id="test-1", budget_pages=3)
 
         # When: No pages fetched
         # Then: Can fetch
@@ -197,8 +197,8 @@ class TestTaskBudget:
 
     def test_can_continue_page_limit(self) -> None:
         """Test can_continue with page limit exceeded (ADR-0010: Total pages ≤120)."""
-        # Given: TaskBudget with max_pages=10
-        budget = TaskBudget(task_id="test-1", max_pages=10)
+        # Given: TaskBudget with budget_pages=10
+        budget = TaskBudget(task_id="test-1", budget_pages=10)
 
         # When: Under limit
         can_continue, reason = budget.can_continue()
@@ -311,7 +311,7 @@ class TestTaskBudget:
     def test_to_dict(self) -> None:
         """Test serialization to dict contains all required fields with correct values."""
         # Given: TaskBudget with some activity
-        budget = TaskBudget(task_id="test-1", max_pages=100)
+        budget = TaskBudget(task_id="test-1", budget_pages=100)
         budget.pages_fetched = 5
         budget.llm_time_seconds = 2.5
 
@@ -321,7 +321,7 @@ class TestTaskBudget:
         # Then: All fields present with correct values
         assert result["task_id"] == "test-1", "task_id mismatch"
         assert result["pages_fetched"] == 5, "pages_fetched mismatch"
-        assert result["max_pages"] == 100, "max_pages mismatch"
+        assert result["budget_pages"] == 100, "budget_pages mismatch"
         assert result["is_active"] is True, "is_active mismatch"
         assert result["remaining_pages"] == 95, "remaining_pages should be max-fetched"
         assert result["llm_time_seconds"] == 2.5, "llm_time_seconds mismatch"
@@ -337,24 +337,24 @@ class TestTaskBudget:
 class TestTaskBudgetBoundaryConditions:
     """Boundary condition tests for TaskBudget (.1.2)."""
 
-    def test_zero_max_pages(self) -> None:
-        """Test budget with max_pages=0 (edge case)."""
-        # Given: TaskBudget with max_pages=0
-        budget = TaskBudget(task_id="test-1", max_pages=0)
+    def test_zero_budget_pages(self) -> None:
+        """Test budget with budget_pages=0 (edge case)."""
+        # Given: TaskBudget with budget_pages=0
+        budget = TaskBudget(task_id="test-1", budget_pages=0)
 
         # When/Then: Cannot fetch, remaining is 0
-        assert budget.can_fetch_page() is False, "cannot fetch with max_pages=0"
+        assert budget.can_fetch_page() is False, "cannot fetch with budget_pages=0"
         assert budget.remaining_pages == 0, "remaining should be 0"
 
         # When/Then: Cannot continue
         can_continue, reason = budget.can_continue()
-        assert can_continue is False, "cannot continue with max_pages=0"
+        assert can_continue is False, "cannot continue with budget_pages=0"
         assert reason == BudgetExceededReason.PAGE_LIMIT
 
     def test_single_page_budget(self) -> None:
-        """Test budget with max_pages=1."""
-        # Given: TaskBudget with max_pages=1
-        budget = TaskBudget(task_id="test-1", max_pages=1)
+        """Test budget with budget_pages=1."""
+        # Given: TaskBudget with budget_pages=1
+        budget = TaskBudget(task_id="test-1", budget_pages=1)
 
         # When: Before fetching
         # Then: Can fetch
@@ -409,7 +409,7 @@ class TestBudgetManager:
         """Mock settings for budget manager."""
         return SimpleNamespace(
             task_limits=SimpleNamespace(
-                max_pages_per_task=100,
+                budget_pages_per_task=100,
                 max_time_minutes_gpu=15,
                 max_time_minutes_cpu=20,
                 llm_time_ratio_max=0.25,
@@ -432,7 +432,7 @@ class TestBudgetManager:
 
         # Then: Budget created with settings values
         assert budget.task_id == "task-1"
-        assert budget.max_pages == 100
+        assert budget.budget_pages == 100
         assert budget.max_llm_ratio == 0.25
         assert budget.is_active is True
 
@@ -677,7 +677,7 @@ class TestConvenienceFunctions:
         """Mock settings."""
         return SimpleNamespace(
             task_limits=SimpleNamespace(
-                max_pages_per_task=50,
+                budget_pages_per_task=50,
                 max_time_minutes_gpu=10,
                 max_time_minutes_cpu=15,
                 llm_time_ratio_max=0.30,
@@ -694,7 +694,7 @@ class TestConvenienceFunctions:
 
         # Then: Budget created with settings values
         assert budget.task_id == "task-1"
-        assert budget.max_pages == 50
+        assert budget.budget_pages == 50
 
     @pytest.mark.asyncio
     async def test_check_budget(self, mock_settings: SimpleNamespace) -> None:
@@ -762,7 +762,7 @@ class TestBudgetManagerGPUDetection:
         # Given: Settings with different GPU/CPU time limits
         settings = SimpleNamespace(
             task_limits=SimpleNamespace(
-                max_pages_per_task=100,
+                budget_pages_per_task=100,
                 max_time_minutes_gpu=60,
                 max_time_minutes_cpu=75,
                 llm_time_ratio_max=0.30,
@@ -796,7 +796,7 @@ class TestBudgetIntegrationScenarios:
         """
         return SimpleNamespace(
             task_limits=SimpleNamespace(
-                max_pages_per_task=10,
+                budget_pages_per_task=10,
                 max_time_minutes_gpu=1,  # 1 minute for quick tests
                 max_time_minutes_cpu=1,
                 llm_time_ratio_max=0.30,
@@ -813,10 +813,10 @@ class TestBudgetIntegrationScenarios:
         3. Records LLM processing time
         4. Hits page limit and stops
 
-        Verifies ADR-0010 requirement: Total pages ≤max_pages.
+        Verifies ADR-0010 requirement: Total pages ≤budget_pages.
         """
         with patch("src.scheduler.budget.get_settings", return_value=mock_settings):
-            # Given: BudgetManager with max_pages=10
+            # Given: BudgetManager with budget_pages=10
             manager = BudgetManager()
 
             # When: Creating budget

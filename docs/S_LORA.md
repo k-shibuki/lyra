@@ -250,12 +250,11 @@ from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassif
 import sqlite3
 
 def load_corrections_from_db(db_path: str) -> list[dict]:
-    """DBからNLI訂正サンプルを取得"""
+    """DBからNLI訂正サンプルを取得（v1: 全訂正履歴を使用）"""
     conn = sqlite3.connect(db_path)
     cursor = conn.execute("""
         SELECT premise, hypothesis, correct_label 
         FROM nli_corrections
-        WHERE used_for_training = 0
     """)
     corrections = [
         {"premise": row[0], "hypothesis": row[1], "label": row[2]}
@@ -340,6 +339,55 @@ response:
   base_model: string
 ```
 
+### 7.5 MCPツール化の検討結果
+
+**決定: MCPツール化は却下。スクリプト運用を採用。**
+
+#### 却下理由
+
+| 観点 | MCPツール | スクリプト |
+|------|----------|-----------|
+| **処理時間** | 数十分〜1時間（タイムアウトリスク） | 問題なし |
+| **GPU占有** | 推論との競合 | 専有可能 |
+| **手動確認** | 困難 | シャドー評価の結果を人間が確認 |
+| **試行錯誤** | パラメータ固定 | ハイパラ調整が柔軟 |
+
+#### 採用アーキテクチャ
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      LoRA運用フロー                              │
+├─────────────────────────────────────────────────────────────────┤
+│  【スクリプト（計算処理）】                                        │
+│    scripts/train_lora.py                                        │
+│      ├─ nli_correctionsからデータ取得                            │
+│      ├─ 品質フィルタ・バリデーション分割（§9.1-9.2）              │
+│      ├─ LoRA学習                                                │
+│      ├─ シャドー評価（§9.5）                                     │
+│      └─ アダプタ保存                                             │
+│                                                                   │
+│  【手動確認】                                                     │
+│    シャドー評価の結果を確認（2%以上劣化なら不採用）                │
+│                                                                   │
+│  【アダプタ適用】                                                 │
+│    ML Server再起動 or /nli/adapter/load                          │
+│                                                                   │
+│  【効果確認（任意）】                                              │
+│    calibration_metrics(get_stats) で精度監視                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### calibration_metricsとの関係
+
+| 用途 | 担当 | 説明 |
+|------|------|------|
+| **学習実行** | `scripts/train_lora.py` | LoRA学習（オフライン） |
+| **評価実行** | `scripts/evaluate_calibration.py` | Brier/ECE計算（オフライン） |
+| **状態確認** | `calibration_metrics(get_stats)` | MCPツール（軽量） |
+| **履歴参照** | `calibration_metrics(get_evaluations)` | MCPツール（軽量） |
+
+**注**: `calibration_metrics`の`evaluate`および`get_diagram_data`アクションは、Q_ASYNC_ARCHITECTURE.md Phase 5でスクリプト化・削除予定。
+
 ---
 
 ## 8. 運用フロー
@@ -380,9 +428,144 @@ ML Server再起動 or /nli/adapter/load
 
 ---
 
-## 9. 実装タスクリスト
+## 9. ML実験設計の詳細
 
-### 9.1 Phase R.1: 基盤実装
+### 9.1 訂正サンプルの品質フィルタ
+
+高確信度で誤った明確なケースを優先的に使用し、学習効率を高める：
+
+```sql
+-- 高確信度で誤った明確なケースのみ使用
+SELECT * FROM nli_corrections
+WHERE predicted_confidence > 0.8
+  AND predicted_label != correct_label
+```
+
+**注**: `nli_corrections`には正しい予測もground-truthとして蓄積されるため、学習時はフィルタが必要。
+
+### 9.2 バリデーション分割
+
+```python
+from sklearn.model_selection import train_test_split
+
+train, val = train_test_split(
+    corrections,
+    test_size=0.2,
+    stratify=[c["correct_label"] for c in corrections],
+    random_state=42
+)
+```
+
+- **分割比率**: 80/20
+- **層化**: ラベル別（supports/refutes/neutralの比率を維持）
+- **リーク防止**: 同一ページ由来のサンプルは同一セットに配置
+  - JOIN経路: `nli_corrections.edge_id → edges.source_id → fragments.page_id`
+
+```sql
+-- リーク防止用: サンプルごとのpage_id取得
+SELECT nc.*, f.page_id
+FROM nli_corrections nc
+JOIN edges e ON nc.edge_id = e.id
+JOIN fragments f ON e.source_id = f.id
+WHERE e.source_type = 'fragment'
+```
+
+### 9.3 target_modulesの確認
+
+S_LORA.md §7.3では `["query", "value"]` と記載。DeBERTa-v3の実際のモジュール名はPhase R実装時に確認すること：
+
+```python
+from transformers import AutoModel
+model = AutoModel.from_pretrained("cross-encoder/nli-deberta-v3-xsmall")
+print([n for n, m in model.named_modules() if "Linear" in str(type(m))])
+```
+
+### 9.4 継続学習方針
+
+#### v1方針（初期）: 全履歴で毎回学習
+
+データ量が少ないうちは計算コストも小さいため、毎回全訂正履歴で学習し直す。
+
+```sql
+-- v1: 全サンプルを使用
+SELECT premise, hypothesis, correct_label FROM nli_corrections
+```
+
+#### v2方針（将来）: 増分学習
+
+訂正サンプルが数千件を超えた場合、増分学習に移行する。
+
+```sql
+-- v2: 未学習サンプルのみ使用
+SELECT premise, hypothesis, correct_label 
+FROM nli_corrections
+WHERE trained_adapter_version IS NULL
+   OR trained_adapter_version < ?  -- 現在のアダプタバージョン
+```
+
+**v2に必要なスキーマ変更**（Q_ASYNC_ARCHITECTURE.md Phase 5で実施）:
+
+```sql
+-- アダプタ管理テーブル（新規）
+CREATE TABLE IF NOT EXISTS adapters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_name TEXT NOT NULL,           -- "v1", "v1.1", "v2" 等
+    adapter_path TEXT NOT NULL,           -- "adapters/lora-v1/"
+    base_model TEXT NOT NULL,             -- "cross-encoder/nli-deberta-v3-xsmall"
+    samples_used INTEGER NOT NULL,        -- 学習に使用したサンプル数
+    brier_before REAL,                    -- 学習前Brierスコア
+    brier_after REAL,                     -- 学習後Brierスコア
+    shadow_accuracy REAL,                 -- シャドー評価精度
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT 0           -- 現在ML Serverで使用中か
+);
+
+-- nli_corrections に学習済みアダプタIDを追加
+ALTER TABLE nli_corrections ADD COLUMN trained_adapter_id INTEGER 
+    REFERENCES adapters(id);
+-- NULL = 未学習、数値 = adapters.id
+```
+
+**使用例**:
+```sql
+-- v2増分学習: 未学習 or 古いアダプタで学習済みのサンプルのみ取得
+SELECT nc.premise, nc.hypothesis, nc.correct_label
+FROM nli_corrections nc
+WHERE nc.trained_adapter_id IS NULL
+   OR nc.trained_adapter_id < ?;  -- 現在のアダプタIDより小さい
+
+-- 学習完了後: サンプルに学習済みフラグを設定
+UPDATE nli_corrections 
+SET trained_adapter_id = ? 
+WHERE id IN (...);
+```
+
+| 方針 | トリガー条件 | 計算コスト | スキーマ変更 |
+|------|-------------|-----------|-------------|
+| v1 | サンプル数 < 1000 | 低 | 不要（adaptersテーブルは使用） |
+| v2 | サンプル数 ≥ 1000 | 中 | `trained_adapter_id`を活用 |
+
+### 9.5 シャドー推論（事前検証）
+
+本番投入前にオフラインで新旧アダプタを比較し、劣化がないことを確認する：
+
+```python
+def shadow_evaluation(val_set, old_adapter, new_adapter):
+    """新アダプタの事前評価。2%以上の劣化は不可。"""
+    old_acc = accuracy(predict(val_set, old_adapter), val_set)
+    new_acc = accuracy(predict(val_set, new_adapter), val_set)
+    return {
+        "old_accuracy": old_acc,
+        "new_accuracy": new_acc,
+        "recommend_deploy": new_acc >= old_acc - 0.02  # 2%劣化閾値
+    }
+```
+
+---
+
+## 10. 実装タスクリスト
+
+### 10.1 Phase 1: 基盤実装
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
@@ -391,16 +574,21 @@ ML Server再起動 or /nli/adapter/load
 | R.1.3 | アダプタ管理エンドポイント実装 | 未着手 |
 | R.1.4 | 設定ファイル拡張（アダプタパス） | 未着手 |
 
-### 9.2 Phase R.2: 学習スクリプト
+### 10.2 Phase 2: 学習・評価スクリプト
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
 | R.2.1 | `scripts/train_lora.py` 作成 | 未着手 |
-| R.2.2 | DB → Dataset 変換ロジック | 未着手 |
+| R.2.2 | DB → Dataset 変換ロジック（§9.1-9.2） | 未着手 |
 | R.2.3 | 検証セット分割・評価ロジック | 未着手 |
 | R.2.4 | 学習ログ・メトリクス出力 | 未着手 |
+| R.2.5 | `scripts/evaluate_calibration.py` 作成（※1） | 未着手 |
 
-### 9.3 Phase R.3: 運用機能
+**※1**: Q_ASYNC_ARCHITECTURE.md Phase 5で`calibration_metrics`から`evaluate`/`get_diagram_data`を削除した後、このスクリプトが評価機能を担う。
+
+**※スキーマ変更**: `adapters`テーブルおよび`nli_corrections.trained_adapter_id`はQ_ASYNC_ARCHITECTURE.md Phase 5で追加済みの前提。
+
+### 10.3 Phase 3: 運用機能
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
@@ -408,7 +596,7 @@ ML Server再起動 or /nli/adapter/load
 | R.3.2 | ロールバック機能 | 未着手 |
 | R.3.3 | 精度監視ダッシュボード（オプション） | 未着手 |
 
-### 9.4 Phase R.4: テスト・検証
+### 10.4 Phase 4: テスト・検証
 
 | タスク | 説明 | 状態 |
 |--------|------|:----:|
@@ -418,19 +606,7 @@ ML Server再起動 or /nli/adapter/load
 
 ---
 
-## 10. 前提条件
-
-### 10.1 Phase 6との依存関係
-
-Phase Rを開始する前に、以下がPhase 6で完了している必要がある：
-
-| 依存項目 | 説明 | Phase 6 タスク |
-|----------|------|---------------|
-| `nli_corrections` テーブル | 訂正サンプルの蓄積先（premise/hypothesisスナップショットを含み、学習の再現性を担保） | Task 6.7 |
-| `feedback` ツール | 訂正入力のMCPインターフェース（3レベル対応） | Task 6.1 |
-| `edge_correct` アクション | NLIラベル訂正の実装 | Task 6.4 |
-
-### 10.2 最低要件
+## 11. 前提条件
 
 | 要件 | 値 | 備考 |
 |------|-----|------|
@@ -440,7 +616,7 @@ Phase Rを開始する前に、以下がPhase 6で完了している必要があ
 
 ---
 
-## 11. リスクと対策
+## 12. リスクと対策
 
 | リスク | 影響 | 対策 |
 |--------|------|------|
@@ -451,7 +627,7 @@ Phase Rを開始する前に、以下がPhase 6で完了している必要があ
 
 ---
 
-## 12. `calibration_metrics`（計測）との関係（Phase 6 → Phase R）
+## 13. `calibration_metrics`（計測）との関係（Phase 6 → Phase R）
 
 `feedback(edge_correct)` により蓄積される ground-truth は、用途が2つに分岐する（§決定17参照）:
 
@@ -460,7 +636,7 @@ Phase Rを開始する前に、以下がPhase 6で完了している必要があ
 
 ---
 
-## 13. 関連ドキュメント
+## 14. 関連ドキュメント
 
 | ドキュメント | 関連 |
 |-------------|------|

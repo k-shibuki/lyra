@@ -126,7 +126,7 @@ class MCPIntegrationVerifier:
                 "query": "E2E test: MCP integration verification",
                 "config": {
                     "budget": {
-                        "max_pages": 10,
+                        "budget_pages": 10,
                         "max_seconds": 300,
                     },
                     "language": "ja",
@@ -323,7 +323,7 @@ class MCPIntegrationVerifier:
                 "task_id": self.test_task_id,
                 "options": {
                     "engines": ["mojeek"],  # Less blocking-prone (optional)
-                    "max_pages": 3,
+                    "budget_pages": 3,
                 },
                 "queries": ["Python programming best practices", "Python typing best practices"],
             }

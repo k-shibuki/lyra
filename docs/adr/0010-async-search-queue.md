@@ -213,7 +213,7 @@ class StatusResult:
 
 ## Implementation Status
 
-**Status**: Phase 1-3 ✅ 完了 / Phase 4 🔜 計画中
+**Status**: Phase 1-3 ✅ 完了 / Phase 4-6 🔜 計画中
 
 詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
 
@@ -224,7 +224,9 @@ class StatusResult:
 | Phase 1 | `queue_searches` ツール追加、`get_status` に `wait` パラメータ追加 | ✅ 完了 (2025-12-24) |
 | Phase 2 | `search`, `notify_user`, `wait_for_user` ツール削除 | ✅ 完了 (2025-12-24) |
 | Phase 3 | 一次検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加 | ✅ 完了 (2025-12-24) |
-| Phase 4 | リソース競合制御（学術APIグローバルレート制限） | 🔜 計画中 ([ADR-0013](0013-worker-resource-contention.md)) |
+| Phase 4 | Search Resource Control（学術API + ブラウザSERP） | 🔜 計画中 ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
+| Phase 5 | SERP Enhancement（ページネーション） | 🔜 計画中 ([R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md)) |
+| Phase 6 | calibration_metrics action削除 | 🔜 計画中 |
 
 ### Phase 1-3 実装サマリー
 
@@ -280,17 +282,22 @@ Cleanup note: For hard cleanup, follow ADR-0005 (Evidence Graph Structure) and u
 
 When running multiple queue workers, external rate limits must still be respected globally:
 
-| Resource | Control | Status |
-|----------|---------|--------|
-| **Browser (SERP)** | `BrowserSearchProvider` singleton + `Semaphore(1)` | ✅ Implemented |
-| **Academic APIs** | Global rate limiter per provider | 🔜 Phase 4 ([ADR-0013](0013-worker-resource-contention.md)) |
-| **HTTP fetch** | `RateLimiter` per domain | ✅ Implemented |
+| Resource | Control | Status | ADR |
+|----------|---------|--------|-----|
+| **Browser (SERP)** | TabPool (max_tabs=1) + per-engine policy | 🔜 Phase 4 | [ADR-0014](0014-browser-serp-resource-control.md) |
+| **Academic APIs** | Global rate limiter per provider | 🔜 Phase 4 | [ADR-0013](0013-worker-resource-contention.md) |
+| **HTTP fetch** | `RateLimiter` per domain | ✅ Implemented | - |
 
-**Note**: Academic API rate limiting is tracked as **Phase 4** in [Q_ASYNC_ARCHITECTURE.md](../Q_ASYNC_ARCHITECTURE.md). See [ADR-0013](0013-worker-resource-contention.md) for design details.
+**Note**: 
+- Academic API rate limiting is tracked as **Phase 4.A** in [Q_ASYNC_ARCHITECTURE.md](../Q_ASYNC_ARCHITECTURE.md).
+- Browser SERP resource control is tracked as **Phase 4.B**. See [ADR-0014](0014-browser-serp-resource-control.md) for design details.
+- SERP Enhancement (pagination) is tracked as **Phase 5**. See [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md).
 
 ## References
 - `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計
-- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4 リソース競合制御
+- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4.A 学術APIリソース競合制御
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Phase 4.B ブラウザSERPリソース制御
+- [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md) - Phase 5 ページネーション詳細設計
 - `src/mcp/server.py` - MCPツール定義
 - `src/research/executor.py` - 検索実行
 - `src/research/pipeline.py` - パイプラインオーケストレーション

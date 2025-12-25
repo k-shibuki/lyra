@@ -464,7 +464,7 @@ MCPツールは「Cursor AIが何を考え、何を指示すべきか」に焦�
 - 入力:
   - `query`: リサーチクエスチョン（文字列）
   - `config`: オプション設定
-    - `budget`: `{max_pages: 120, max_seconds: 1200}`
+    - `budget`: `{budget_pages: 120, max_seconds: 1200}`
     - `priority_domains`: 優先ドメインリスト
     - `language`: 主要言語（"ja", "en"等）
 
@@ -475,7 +475,7 @@ MCPツールは「Cursor AIが何を考え、何を指示すべきか」に焦�
     "task_id": "task_abc123",
     "query": "元の問い",
     "created_at": "2024-01-15T10:00:00Z",
-    "budget": {"max_pages": 120, "max_seconds": 1200}
+    "budget": {"budget_pages": 120, "max_seconds": 1200}
   }
   ```
 
@@ -510,8 +510,8 @@ MCPツールは「Cursor AIが何を考え、何を指示すべきか」に焦�
       "elapsed_seconds": 480
     },
     "budget": {
-      "pages_used": 78,
-      "pages_limit": 120,
+      "budget_pages_used": 78,
+      "budget_pages_limit": 120,
       "time_used_seconds": 480,
       "time_limit_seconds": 1200,
       "remaining_percent": 35
@@ -535,7 +535,7 @@ Cursor AIが設計したクエリを受け取り、検索→取得→抽出→�
   - `query`: 検索クエリ（Cursor AIが設計）
   - `options`:
     - `engines`: 使用エンジン（省略時はLyraが選択）
-    - `max_pages`: このクエリの最大ページ数
+    - `budget_pages`: このクエリのページ予算
     - `seek_primary`: 一次資料を優先探索するか
     - `refute`: trueなら反証モードで検索
 

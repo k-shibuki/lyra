@@ -418,7 +418,7 @@ class SecurityE2EVerifier:
             args = {
                 "query": "Security E2E test: L5 metadata verification",
                 "config": {
-                    "budget": {"max_pages": 5, "max_seconds": 60},
+                    "budget": {"budget_pages": 5, "max_seconds": 60},
                 },
             }
 

@@ -214,7 +214,7 @@ class BudgetExhaustedError(MCPError):
         self,
         task_id: str,
         *,
-        budget_type: str = "pages",
+        budget_type: str = "budget_pages",
         limit: int | None = None,
         used: int | None = None,
     ):

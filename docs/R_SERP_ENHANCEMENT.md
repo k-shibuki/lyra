@@ -1,10 +1,10 @@
-# 検索ページネーション機能
+# SERP Enhancement（ブラウザ検索強化）
 
 > **Status**: 🔜 PLANNED（実装待ち）
 
 > **Scope / Assumptions**:
-> - Q_ASYNC_ARCHITECTURE.md Phase 3 完了後に着手
-> - ADR-0013 への追記で対応（ブラウザリソース制御の拡張として）
+> - Q_ASYNC_ARCHITECTURE.md Phase 4 完了後に着手（Phase 5 で実装）
+> - ADR-0014（Browser SERP Resource Control）を前提
 > - 既存コード資産の拡張で実装可能
 
 ## Executive Summary
@@ -12,11 +12,13 @@
 **問題の本質:** 現在の検索機能は結果の1ページ目のみ取得可能。2ページ目以降の結果には到達できない。
 
 **解決策:** ページネーション機能を追加し、複数ページの結果を取得可能にする
-- `SearchOptions.page` パラメータを実際に使用
+- `SearchOptions.serp_page` パラメータを実際に使用（旧 `SearchOptions.page` は削除済み / 互換なし）
 - 各エンジンのページネーションURL構築対応
 - 自動停止判断ロジック（飽和検知・収穫率ベース）
 
-**工数見積:** 約14時間（2日）
+**前提条件:** ADR-0014 で定義された TabPool（max_tabs=1）導入により、ブラウザSERPが「Page競合なし」で実行できること
+
+**工数見積:** 約10時間（1.5日）※ADR-0014（TabPool導入）完了後
 
 ---
 
@@ -39,7 +41,7 @@
 results = [r.to_search_result(engine) for r in parse_result.results[: options.limit]]
 ```
 
-- `SearchOptions.page` パラメータは定義済みだが**未使用**
+- `SearchOptions.serp_page` パラメータは定義済みだが**未使用**
 - 最大取得件数: 1ページあたり10〜100件
 - 次ページ取得手段なし
 
@@ -75,7 +77,9 @@ results = [r.to_search_result(engine) for r in parse_result.results[: options.li
 | `page` パラメータ | `SearchOptions` (provider.py:141) | 定義済み・未使用 |
 | URL構築基盤 | `build_search_url()` | 実装済み |
 | 結果パーサー | `search_parsers.py` | 7エンジン対応済み |
-| 設定外部化 | `config/search_parsers.yaml` | 実装済み |
+| 設定外部化 | `config/search_parsers.yaml` | 実装済み（URLテンプレ/selector） |
+| エンジンpolicy | `config/engines.yaml` | 実装済み（QPS/利用可否/重み等） |
+| **TabPool（Page競合排除）** | `BrowserSearchProvider` | **ADR-0014で実装予定** |
 
 ### 2.2 各エンジンのページネーションパラメータ
 
@@ -108,7 +112,7 @@ results = [r.to_search_result(engine) for r in parse_result.results[: options.li
 
 ```python
 class PaginationStrategy:
-    max_pages: int = 5           # 絶対上限
+    serp_max_pages: int = 5        # 絶対上限（SERPページ数）
     min_novelty_rate: float = 0.2  # 新規URL率の下限
     min_harvest_rate: float = 0.05 # 収穫率の下限
 
@@ -118,7 +122,7 @@ class PaginationStrategy:
         novelty_rate: float,
         harvest_rate: float,
     ) -> bool:
-        if current_page >= self.max_pages:
+        if current_page >= self.serp_max_pages:
             return False
         if novelty_rate < self.min_novelty_rate:
             return False
@@ -144,7 +148,7 @@ class PaginationStrategy:
 
 ### 4.1 設定ファイル変更
 
-**ファイル**: `config/search_parsers.yaml`
+**ファイル**: `config/search_parsers.yaml`（ページネーションのURL/結果数）
 
 ```yaml
 # 各エンジンに追加
@@ -175,7 +179,7 @@ mojeek:
 ```python
 @dataclass
 class PaginationConfig:
-    max_pages: int = 5
+    serp_max_pages: int = 5
     min_novelty_rate: float = 0.2
     min_harvest_rate: float = 0.05
     strategy: Literal["fixed", "auto", "exhaustive"] = "auto"
@@ -201,42 +205,29 @@ ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
 |------|--------|------|
 | search_parsers.yaml 更新 | 低 | 0.5h |
 | parser_config.py 更新 | 低 | 1h |
-| browser_search_provider.py 更新（エンジン別Semaphore含む） | 中 | 3h |
+| browser_search_provider.py 更新 | 中 | 2h |
 | pagination_strategy.py 新規作成 | 中 | 2h |
 | 非同期キューとの統合 | 中 | 1.5h |
 | エラーハンドリング・ロールバック | 低 | 1h |
-| テスト追加（モック戦略含む） | 中 | 3h |
-| 結合テスト・デバッグ | 中 | 2h |
-| **合計** | | **14h（約2日）** |
+| テスト追加（モック戦略含む） | 中 | 2h |
+| **合計** | | **10h（約1.5日）** |
+
+**Note**: ADR-0014 Phase 1（TabPool: max_tabs=1）は別工数（Phase 4で実装）。
 
 ---
 
 ## 6. ADR判断
 
-### 結論: ADR-0013への追記で対応
+### 結論: ADR-0014を前提として本ドキュメントで詳細設計
 
-**理由:**
-- ページネーションはブラウザリソース制御（ADR-0013）の拡張
-- `Semaphore(1)` の制約をエンジン別に細分化する提案と関連
-- 既存の `BrowserSearchProvider` 内で閉じた変更
-
-### ADR-0013への追記案
-
-```markdown
-### Pagination Strategy
-
-検索結果のページネーション制御:
-
-| パラメータ | デフォルト | 説明 |
-|-----------|-----------|------|
-| max_pages | 3 | 取得する最大ページ数 |
-| stop_strategy | "auto" | 停止戦略 (fixed/auto/exhaustive) |
-
-**自動停止条件** (strategy="auto"):
-- 新規URL率 < 20%
-- 収穫率 < 5%
-- max_pages到達
-```
+**構造:**
+- **ADR-0014**: Browser SERP Resource Control（アーキテクチャ決定）
+  - TabPool（Phase 1: max_tabs=1）
+  - max_tabs>1 の段階的解放（将来）
+- **本ドキュメント（R_）**: SERP Enhancement（機能詳細設計）
+  - ページネーションURL構築
+  - 停止判断ロジック
+  - キャッシュ/マージ戦略
 
 ---
 
@@ -257,9 +248,18 @@ ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
 # 現在のキャッシュキー
 cache_key = f"{normalized_query}|{engines}|{time_range}"
 
-# 変更後（page追加）
-cache_key = f"{normalized_query}|{engines}|{time_range}|page={page}"
+# 変更後（SERPページ番号/ページネーション設定を追加）
+cache_key = f"{normalized_query}|{engines}|{time_range}|serp_page={page}"
 ```
+
+### 7.2.1 ページ上限パラメータの意味の分離（重要）
+
+本プロジェクトには「ページ上限」が複数の意味で登場するため、実装時に混線しやすい：
+
+- **クロール予算（budget）**: 研究パイプライン側の `budget_pages`
+- **SERPページネーション**: `serp_page` / `serp_max_pages`（本機能）
+
+**方針**: **互換なし**でSERP用パラメータを `serp_page` / `serp_max_pages` に統一し、旧 `SearchOptions.page` は削除する。
 
 ### 7.3 結果のマージ
 
@@ -274,36 +274,14 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|page={page}"
 
 **対応方針**:
 - 1クエリ = 1ジョブ（複数ページは同一ジョブ内で逐次取得）
-- `jobs.input_json` に `max_pages` を含める
+- `jobs.input_json` に `budget_pages` / `serp_page` / `serp_max_pages` を含める
 - 進捗通知は最初のページ取得完了時点で行う
 - `stop_task(mode=immediate)` 時は取得済みページの結果を保持
 
-### 7.5 ワーカーリソース制約
+### 7.5 リソース制御（ADR-0014参照）
 
-**現状の制約**: `BrowserSearchProvider` は `Semaphore(1)` で保護（同時1リクエスト）
-
-```python
-# browser_search_provider.py:159
-self._rate_limiter = asyncio.Semaphore(1)  # グローバル1並列
-```
-
-**問題**: 複数ページ取得時、他タスクのSERP取得がブロックされる時間が増大。
-
-**改善提案**: エンジン別 Semaphore + タブプール
-
-```python
-class BrowserSearchProvider:
-    def __init__(self, ...):
-        # エンジン別 Semaphore（同一エンジンへの同時リクエストは1つ）
-        self._engine_locks: dict[str, asyncio.Semaphore] = {}
-
-    def _get_engine_lock(self, engine: str) -> asyncio.Semaphore:
-        if engine not in self._engine_locks:
-            self._engine_locks[engine] = asyncio.Semaphore(1)
-        return self._engine_locks[engine]
-```
-
-**効果**: DuckDuckGo と Mojeek への同時リクエストが可能になり、ブロックリスクを増やさずに並列度が向上。
+> **Note**: TabPool（max_tabs=1）および段階的な並列化の設計は [ADR-0014](adr/0014-browser-serp-resource-control.md) を参照。
+> 本ドキュメントはADR-0014のリソース制御が実装済みであることを前提とする。
 
 ### 7.6 エラーハンドリング
 
@@ -315,7 +293,7 @@ class BrowserSearchProvider:
 
 ### 7.7 ロールバック手順
 
-1. **即時無効化**: `config/search_parsers.yaml` で `max_pages: 1` を設定
+1. **即時無効化**: `serp_max_pages: 1`（または `pagination_enabled: false`）を設定
 2. **DBロールバック**: `ALTER TABLE serp_items DROP COLUMN page_number;`
 3. **部分無効化**: エンジン別に `pagination_enabled: false` を設定
 
@@ -329,7 +307,7 @@ class BrowserSearchProvider:
 - [ ] `build_search_url()` にoffset/page引数追加
 
 ### Phase 2: 検索プロバイダー対応
-- [ ] `browser_search_provider.py` で `options.page` を使用
+- [ ] `browser_search_provider.py` で `options.serp_page` を使用
 - [ ] キャッシュキーにページ番号含める
 - [ ] `SearchResponse` にページ情報追加（任意）
 
@@ -342,7 +320,7 @@ class BrowserSearchProvider:
 ### Phase 4: 統合・テスト
 - [ ] 単体テスト追加
 - [ ] 結合テスト（実エンジン）
-- [ ] ADR-0010への追記
+- [ ] Q_ASYNC / ADR更新
 
 ### Phase 5: DB拡張（任意）
 - [ ] `serp_items.page_number` カラム追加
@@ -357,5 +335,7 @@ class BrowserSearchProvider:
 - `src/search/search_parsers.py` - 各エンジンのパーサー
 - `config/search_parsers.yaml` - パーサー設定
 - `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR
-- `docs/adr/0013-worker-resource-contention.md` - ワーカーリソース競合制御ADR
+- `docs/adr/0014-browser-serp-resource-control.md` - ブラウザSERPリソース制御ADR
+- `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ（Phase 5で本機能実装）
 - `src/storage/schema.sql` - DBスキーマ
+

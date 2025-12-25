@@ -6,11 +6,11 @@ This module focuses on the pure decision logic in SearchExecutor to avoid I/O.
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|----------------------|---------------------------------------|-----------------|-------|
-| TC-WCD-N-01 | enabled=True, primary=True, useful=True, max_pages=0 | Equivalence – normal | returns True | Default behavior (unlimited pages) |
+| TC-WCD-N-01 | enabled=True, primary=True, useful=True, budget_pages=0 | Equivalence – normal | returns True | Default behavior (unlimited pages) |
 | TC-WCD-N-02 | enabled=True, primary=False, primary_only=True | Equivalence – normal | returns False | Enforces primary-only |
 | TC-WCD-N-03 | enabled=True, useful=False, require_useful=True | Equivalence – normal | returns False | Enforces usefulness gate |
-| TC-WCD-B-01 | max_pages=1, processed=0 | Boundary – min/0 | returns True | First page allowed |
-| TC-WCD-B-02 | max_pages=1, processed=1 | Boundary – max | returns False | Budget exhausted |
+| TC-WCD-B-01 | budget_pages=1, processed=0 | Boundary – min/0 | returns True | First page allowed |
+| TC-WCD-B-02 | budget_pages=1, processed=1 | Boundary – max | returns False | Budget exhausted |
 | TC-WCD-A-01 | enabled=False | Abnormal – disabled | returns False | Global off switch |
 """
 
@@ -32,7 +32,7 @@ def test_wcd_allows_default_case() -> None:
     # When
     ok = ex._should_run_web_citation_detection(
         enabled=True,
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         run_on_primary_sources_only=True,
         require_useful_text=True,
         is_primary=True,
@@ -50,7 +50,7 @@ def test_wcd_blocks_non_primary_when_primary_only() -> None:
     # When
     ok = ex._should_run_web_citation_detection(
         enabled=True,
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         run_on_primary_sources_only=True,
         require_useful_text=False,
         is_primary=False,
@@ -68,7 +68,7 @@ def test_wcd_blocks_non_useful_when_required() -> None:
     # When
     ok = ex._should_run_web_citation_detection(
         enabled=True,
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         run_on_primary_sources_only=False,
         require_useful_text=True,
         is_primary=True,
@@ -87,7 +87,7 @@ def test_wcd_budget_allows_first_page() -> None:
     # When
     ok = ex._should_run_web_citation_detection(
         enabled=True,
-        max_pages_per_task=1,
+        budget_pages_per_task=1,
         run_on_primary_sources_only=False,
         require_useful_text=False,
         is_primary=False,
@@ -106,7 +106,7 @@ def test_wcd_budget_blocks_after_exhausted() -> None:
     # When
     ok = ex._should_run_web_citation_detection(
         enabled=True,
-        max_pages_per_task=1,
+        budget_pages_per_task=1,
         run_on_primary_sources_only=False,
         require_useful_text=False,
         is_primary=True,
@@ -124,7 +124,7 @@ def test_wcd_disabled_returns_false() -> None:
     # When
     ok = ex._should_run_web_citation_detection(
         enabled=False,
-        max_pages_per_task=0,
+        budget_pages_per_task=0,
         run_on_primary_sources_only=False,
         require_useful_text=False,
         is_primary=True,

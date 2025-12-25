@@ -181,7 +181,7 @@ Tool(
                         "type": "array",
                         "items": {"type": "string"}
                     },
-                    "max_pages": {"type": "integer"},
+                    "budget_pages": {"type": "integer"},
                     "priority": {
                         "type": "string",
                         "enum": ["high", "medium", "low"],
@@ -710,7 +710,7 @@ await call_tool("queue_searches", {
     ],
     "options": {
         "priority": "high",
-        "max_pages": 10
+        "budget_pages": 10
     }
 })
 # 応答: {ok: true, queued_count: 3, search_ids: ["s_1", "s_2", "s_3"]}
@@ -811,8 +811,8 @@ await call_tool("queue_searches", {
     "total_fragments": 15
   },
   "budget": {
-    "pages_used": 8,
-    "pages_limit": 120,
+    "budget_pages_used": 8,
+    "budget_pages_limit": 120,
     "remaining_percent": 93
   }
 }
@@ -950,21 +950,42 @@ status = await call_tool("get_status", {
 - [x] 全テストがパスする
 - [x] ADR-0010のImplementation Statusを「実装完了」に更新
 
-### Phase 4: リソース競合制御 🆕 PLANNED
+### Phase 3b: 用語・パラメータ衝突のクリーンアップ（Breaking / 互換なし）🆕 PLANNED
+
+> **目的**: ページ数上限など、意味が衝突している用語を、コード/設定/ドキュメント/テストで一括置換し、以降のPhaseで並列度ガバナンスを安全に拡張できる土台を作る。
+>
+> **方針**: **aliasや後方互換は一切なし**。古いフィールド/キーは完全削除し、テストも新用語に完全移行する。
+
+**代表例（抜粋）:**
+- MCP: `budget_pages`
+- Task budget: `budget_pages_per_task`
+- Domain daily budget: `budget_pages_per_day`
+- SERP pagination: `serp_page`（`SearchOptions.page` は削除）
+
+**完了条件:**
+- [ ] `src/`, `config/`, `docs/`, `tests/` から旧用語が消える（grepで残骸ゼロ）
+- [ ] 全テストがパスする（互換なしのため、旧入力は失敗する）
+- [ ] 実行コマンド/カバレッジ手順をPR本文末尾に記載
+
+### Phase 4: Search Resource Control 🆕 PLANNED
 
 > **依存**: Phase 3完了後に開始
-> **ADR**: [ADR-0013: Worker Resource Contention Control](../adr/0013-worker-resource-contention.md)
+> **ADR**: 
+> - [ADR-0013: Worker Resource Contention Control](adr/0013-worker-resource-contention.md) - 学術API
+> - [ADR-0014: Browser SERP Resource Control](adr/0014-browser-serp-resource-control.md) - ブラウザSERP
 
 **4.1 問題の特定**
 
 2ワーカー並列実行時に、以下のリソース競合リスクが存在する：
 
-| リソース | 現状の制御 | リスク |
-|----------|-----------|--------|
-| ブラウザSERP | `BrowserSearchProvider`シングルトン + `Semaphore(1)` | ✅ 保護済み |
-| 学術API (Semantic Scholar) | インスタンス毎に独立 | ❌ **グローバルQPS制限なし** |
-| 学術API (OpenAlex) | インスタンス毎に独立 | ❌ **グローバルQPS制限なし** |
-| HTTPフェッチ | `RateLimiter`（ドメイン別） | ✅ ドメイン単位で保護 |
+| リソース | 現状の制御 | リスク | 対応ADR |
+|----------|-----------|--------|---------|
+| ブラウザSERP | `Semaphore(1)` グローバル | ⚠️ **過剰制限** | ADR-0014 |
+| 学術API (Semantic Scholar) | インスタンス毎に独立 | ❌ **グローバルQPS制限なし** | ADR-0013 |
+| 学術API (OpenAlex) | インスタンス毎に独立 | ❌ **グローバルQPS制限なし** | ADR-0013 |
+| HTTPフェッチ | `RateLimiter`（ドメイン別） | ✅ ドメイン単位で保護 | - |
+
+#### 4.A 学術APIレート制限（ADR-0013）
 
 **問題シナリオ:**
 ```
@@ -973,26 +994,167 @@ Worker-1: search_action → AcademicSearchProvider() → SemanticScholarClient()
                           ↑ 各ワーカーで別インスタンス → QPS制限なし
 ```
 
-**4.2 解決策**
-
+**解決策:**
 - [ ] 学術APIクライアントにグローバルレートリミッター追加
 - [ ] `src/search/apis/rate_limiter.py` 新規作成
 - [ ] プロバイダー別（semantic_scholar, openalex）のQPS制限
 - [ ] 設定は `config/academic_apis.yaml` から読み込み
+- [ ] **max_parallel（同時数）もprovider別に制御**（`asyncio.gather()` 由来のfan-out対策）
 
-**4.3 テスト**
-
+**テスト:**
 - [ ] 2ワーカー同時学術API呼び出しでQPS遵守確認
 - [ ] 異なるAPI（S2 + OA）は並列OK確認
 - [ ] 高負荷（5+ワーカー）でのレート制限動作確認
 
-**4.4 完了チェックリスト**
+#### 4.B ブラウザSERPリソース制御（ADR-0014）
 
-- [ ] ADR-0013作成・レビュー完了
-- [ ] グローバルレートリミッター実装
-- [ ] テスト追加（`tests/test_academic_api_rate_limiter.py`）
-- [ ] シーケンス図更新 (`docs/sequences/search_queue_worker_concurrency.md`)
+**問題シナリオ:**
+```
+Worker-0: search_action → BrowserSearchProvider.search(engine="duckduckgo")
+Worker-1: search_action → BrowserSearchProvider.search(engine="mojeek")
+                          ↑ グローバルSemaphore(1)で直列化 → 過剰制限
+```
+
+**解決策（Phase 4.Bの主目的 = 正しさ）:**
+- [ ] **TabPool導入（max_tabs=1）**で「同一Pageの同時操作」を構造的に排除（挙動は現状維持）
+- [ ] 検索1回を「借りたタブ（Page）」に閉じる（Page共有を廃止）
+- [ ] エンジン別の **QPS/並列（concurrency）** は `config/engines.yaml` に集約（engine policy）
+- [ ] `max_tabs>1` による並列化は Phase 4.B 完了後に段階的に解放（実測ベース）
+
+**テスト:**
+- [ ] 2ワーカー同時実行時に、ブラウザSERPが **Page競合せず**安定して完了すること（正しさ）
+- [ ] `max_tabs=1` のときに現状挙動（実質シリアル）と整合していること（回帰防止）
+- [ ] （将来）`max_tabs>1` で並列化した場合のCAPTCHA率/成功率/メモリ影響の観測
+
+**4.2 完了チェックリスト**
+
+- [ ] ADR-0013 承認・実装完了
+- [ ] ADR-0014 承認・実装完了
+- [ ] グローバルレートリミッター実装（学術API）
+- [ ] TabPool(max_tabs=1) 実装（ブラウザSERP: Page競合排除）
+- [ ] テスト追加（`tests/test_academic_api_rate_limiter.py`, `tests/test_browser_search_concurrency.py`）
+- [ ] シーケンス図更新
 - [ ] 全テストパス
+
+#### 4.C Config-driven concurrency + Safe Auto-Backoff（任意 / 推奨）
+
+> **ADR**: [ADR-0015: Adaptive Concurrency Control](adr/0015-adaptive-concurrency-control.md)
+
+- [ ] Worker数 / Academic API並列 / SERP max_tabs を **configで上限設定**できるようにする（デフォルトは現状維持）
+- [ ] 自動最適化は「上げる」より「下げる（バックオフ）」中心にし、暴走を防ぐ
+
+### Phase 5: SERP Enhancement（ページネーション）🆕 PLANNED
+
+> **依存**: Phase 4完了後に開始
+> **詳細設計**: [R_SERP_ENHANCEMENT.md](R_SERP_ENHANCEMENT.md)
+
+**5.1 背景**
+
+現在のSERP取得は「1ページ目のみ」。`SearchOptions.serp_page` は定義済みだが未使用（旧 `SearchOptions.page` は Phase 3b で削除）。
+
+> **注意（不整合になりやすい点）**: 研究パイプライン側の `budget_pages` は **クロール予算** の意味で使われており、\
+> SERPのページネーション（SERPページ数）とは別概念。Phase 5 では **入力パラメータを分離**する。
+
+**5.2 解決策**
+
+| 機能 | 説明 |
+|------|------|
+| ページネーションURL構築 | 各エンジンのoffset/pageパラメータ対応 |
+| 停止判断ロジック | 飽和検知 + 収穫率ベース |
+| キャッシュ拡張 | SERPのページ番号/ページネーション設定をキャッシュキーに含める |
+| 結果マージ | URL重複排除、rank再計算 |
+
+#### 5.2.1 パラメータ分離（提案）
+
+- **クロール予算**: `budget_pages`（互換なし）
+- **SERPページネーション**: `serp_page` / `serp_max_pages`（互換なしで旧`page`を削除）
+
+**5.3 タスクリスト**
+
+| タスク | 説明 | 状態 |
+|--------|------|:----:|
+| 5.1 | `config/search_parsers.yaml` にページネーションURLテンプレ/結果数設定を追加 | 未着手 |
+| 5.2 | `build_search_url()` にoffset/page対応 | 未着手 |
+| 5.3 | `browser_search_provider.py` で `options.page` 活用 | 未着手 |
+| 5.4 | `pagination_strategy.py` 新規作成 | 未着手 |
+| 5.5 | キャッシュキー拡張（SERPページ番号を含める） | 未着手 |
+| 5.6 | テスト追加 | 未着手 |
+
+**5.4 完了チェックリスト**
+
+- [ ] ページネーションURL構築が全エンジンで動作
+- [ ] 停止判断ロジックが正しく機能（飽和時に停止）
+- [ ] キャッシュが page 別に分離
+- [ ] テストパス
+- [ ] R_SERP_ENHANCEMENT.md 更新
+
+### Phase 6: calibration_metrics action削除 🆕 PLANNED
+
+> **依存**: Phase 3完了後（LoRA設計確定後）
+> **関連**: [S_LORA.md](S_LORA.md) §7.5 MCPツール化の検討結果
+
+**6.1 背景**
+
+Q_ASYNC_ARCHITECTUREの設計原則（関心の分離）に基づき、`calibration_metrics`ツールから不要なactionを削除する。
+
+**判断基準**: MCPツールは「状態参照」のみ。計算・可視化はスクリプト（S_LORA.md管轄）。
+
+**6.2 変更内容**
+
+| Action | 変更 | 理由 |
+|--------|------|------|
+| `get_stats` | **維持** | 軽量な状態確認 |
+| `get_evaluations` | **維持** | 履歴参照（計算なし） |
+| `evaluate` | **削除** | 計算処理はスクリプトへ（S_LORA.md） |
+| `get_diagram_data` | **削除** | 可視化はスクリプトへ（S_LORA.md） |
+
+**後方互換性**: 不要（開発フェーズ）。ゴミコードを残さず完全削除する。
+
+**6.3 タスクリスト**
+
+| タスク | 説明 | 状態 |
+|--------|------|:----:|
+| 6.1 | `calibration_metrics`から`evaluate`/`get_diagram_data`削除 | 未着手 |
+| 6.2 | `calibration_metrics_action`関数の該当分岐削除 | 未着手 |
+| 6.3 | MCPスキーマ更新（`src/mcp/schemas/calibration_metrics.json`） | 未着手 |
+| 6.4 | 関連するMCP integration テスト削除/更新 | 未着手 |
+| 6.5 | `src/utils/calibration.py`の不要関数削除（evaluate系） | 未着手 |
+| 6.6 | スキーマ変更: `adapters`テーブル + `nli_corrections.trained_adapter_id`追加（※1） | 未着手 |
+
+**※1**: S_LORA.md v2増分学習の準備。S着手が遅れても問題ないよう、先にスキーマを用意しておく。
+
+```sql
+-- Phase 6で追加（src/storage/schema.sql）
+
+-- アダプタ管理テーブル（新規）
+CREATE TABLE IF NOT EXISTS adapters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_name TEXT NOT NULL,           -- "v1", "v1.1", "v2" 等
+    adapter_path TEXT NOT NULL,
+    base_model TEXT NOT NULL,
+    samples_used INTEGER NOT NULL,
+    brier_before REAL,
+    brier_after REAL,
+    shadow_accuracy REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT 0
+);
+
+-- nli_corrections に学習済みアダプタIDを追加
+ALTER TABLE nli_corrections ADD COLUMN trained_adapter_id INTEGER 
+    REFERENCES adapters(id);
+```
+
+**6.4 完了チェックリスト**
+
+- [ ] `calibration_metrics` が2 actionsのみ（`get_stats`, `get_evaluations`）
+- [ ] 削除した関数・分岐のコードが残っていない
+- [ ] `adapters`テーブルが作成済み
+- [ ] `nli_corrections.trained_adapter_id`カラムが追加済み
+- [ ] 既存テストがパスする
+- [ ] ADR-0011, S_LORA.mdが更新済み
+
+**Note**: スクリプト作成（`scripts/evaluate_calibration.py`等）はS_LORA.md Phase 2で実施。
 
 ---
 
@@ -1252,9 +1414,9 @@ await resolve_auth(
 
 ---
 
-**文書バージョン:** 1.3
+**文書バージョン:** 1.4
 **作成日:** 2025-12-21
-**最終更新:** 2025-12-24（Phase 3 完了: stop_task mode追加、パフォーマンステスト、E2E検証）
+**最終更新:** 2025-12-25（Phase 5 追加: calibration_metrics簡素化計画）
 **著者:** Claude (Sonnet 4.5 / Opus 4.5)
 **レビュー状態:** ✅ 全フェーズ実装完了
 

@@ -122,8 +122,8 @@ class TestGetStatusWithExplorationState:
                 "elapsed_seconds": 300,
             },
             "budget": {
-                "pages_used": 25,
-                "pages_limit": 120,
+                "budget_pages_used": 25,
+                "budget_pages_limit": 120,
                 "time_used_seconds": 300,
                 "time_limit_seconds": 3600,
             },
@@ -161,7 +161,7 @@ class TestGetStatusWithExplorationState:
         assert len(result["searches"]) == 2
         assert result["metrics"]["total_searches"] == 2
         assert result["metrics"]["satisfied_count"] == 1
-        assert result["budget"]["pages_used"] == 25
+        assert result["budget"]["budget_pages_used"] == 25
 
     @pytest.mark.asyncio
     async def test_subquery_to_search_field_mapping(
@@ -316,8 +316,8 @@ class TestGetStatusWithoutExplorationState:
         assert result["metrics"]["total_searches"] == 0
         assert result["metrics"]["total_pages"] == 0
         # Budget is now always populated with defaults
-        assert result["budget"]["pages_used"] == 0
-        assert result["budget"]["pages_limit"] == 120
+        assert result["budget"]["budget_pages_used"] == 0
+        assert result["budget"]["budget_pages_limit"] == 120
         assert result["budget"]["remaining_percent"] == 100
         assert result["auth_queue"] is None
         assert result["warnings"] == []

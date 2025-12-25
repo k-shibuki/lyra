@@ -120,7 +120,7 @@ class TestSettings:
 
         config = TaskLimitsConfig()
 
-        assert config.max_pages_per_task == 120
+        assert config.budget_pages_per_task == 120
         assert config.max_time_minutes_gpu == 60
         assert config.llm_time_ratio_max == 0.30
 

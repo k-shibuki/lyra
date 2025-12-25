@@ -2070,7 +2070,7 @@ Wikipedia は `LOW` (0.40) として設定済み（`config/domains.yaml:108-113`
   qps: 0.5
   headful_ratio: 0
   max_requests_per_day: 500
-  max_pages_per_day: 250
+  budget_pages_per_day: 250
 ```
 
 出典追跡機能は実装しない（通常ドメインとして扱う）。
@@ -2908,7 +2908,7 @@ class CitationDetector:
 **5.2 `user_overrides` セクション追加**
 
 - `config/domains.yaml` に `user_overrides` を追加する（**完全一致のみ**）
-- `user_overrides` は **DomainPolicyの上書き**（例: `domain_category`, `qps`, `max_pages_per_day` 等）に限定する
+- `user_overrides` は **DomainPolicyの上書き**（例: `domain_category`, `qps`, `budget_pages_per_day` 等）に限定する
 - **ブロック/解除（denylist・危険パターン含む）は Phase 6のDB override（決定20）で統一**する
 
 例:

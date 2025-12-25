@@ -24,7 +24,7 @@
     "budget": {
       "type": "object",
       "properties": {
-        "max_pages": {"type": "integer"},
+        "budget_pages": {"type": "integer"},
         "max_seconds": {"type": "integer"}
       },
       "additionalProperties": false

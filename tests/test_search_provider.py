@@ -37,7 +37,7 @@ BrowserSearchProvider tests are in test_browser_search_provider.py.
 | TC-SO-N-02 | Custom SearchOptions | Equivalence – normal | Custom values stored | - |
 | TC-SO-B-01 | limit = 0 | Boundary – zero | Validation error | - |
 | TC-SO-B-02 | limit = -1 | Boundary – negative | Validation error | - |
-| TC-SO-B-03 | page = 0 | Boundary – zero | Validation error | - |
+| TC-SO-B-03 | serp_page = 0 | Boundary – zero | Validation error | - |
 | TC-HS-N-01 | Healthy status | Equivalence – normal | HEALTHY state | - |
 | TC-HS-N-02 | Degraded status | Equivalence – normal | DEGRADED state | - |
 | TC-HS-N-03 | Unhealthy status | Equivalence – normal | UNHEALTHY state | - |
@@ -565,7 +565,7 @@ class TestSearchOptions:
         assert options.language == "ja"
         assert options.time_range == "all"
         assert options.limit == 10
-        assert options.page == 1
+        assert options.serp_page == 1
 
     def test_custom_options(self) -> None:
         """TC-SO-N-02: Test custom option values.
@@ -582,7 +582,7 @@ class TestSearchOptions:
             language="en",
             time_range="week",
             limit=20,
-            page=2,
+            serp_page=2,
         )
 
         # Then: Custom values stored
@@ -591,7 +591,7 @@ class TestSearchOptions:
         assert options.language == "en"
         assert options.time_range == "week"
         assert options.limit == 20
-        assert options.page == 2
+        assert options.serp_page == 2
 
     def test_limit_zero_raises_error(self) -> None:
         """TC-SO-B-01: Test limit = 0 raises validation error.
@@ -625,20 +625,19 @@ class TestSearchOptions:
         with pytest.raises(ValidationError):
             SearchOptions(limit=-1)
 
-    def test_page_zero_raises_error(self) -> None:
-        """TC-SO-B-03: Test page = 0 raises validation error.
+    def test_serp_page_zero_raises_error(self) -> None:
+        """TC-SO-B-03: Test serp_page = 0 raises validation error.
 
-        // Given: page = 0
+        // Given: serp_page = 0
         // When: Creating SearchOptions
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
 
-        # Given: page = 0
+        # Given: serp_page = 0
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SearchOptions(page=0)
-
+            SearchOptions(serp_page=0)
 
 # ============================================================================
 # HealthStatus Tests

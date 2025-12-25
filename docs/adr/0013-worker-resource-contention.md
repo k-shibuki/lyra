@@ -10,12 +10,14 @@ Proposed
 
 ADR-0010 により `SearchQueueWorker` が2並列で検索を処理する。しかし、検索処理が内部で使用するリソースには**異なる同時実行制約**がある：
 
-| リソース | 制約 | 理由 |
-|----------|------|------|
-| ブラウザSERP | 同時1 | CDPプロファイル競合、フィンガープリント一貫性 |
-| Semantic Scholar API | グローバルQPS | API利用規約、レート制限 |
-| OpenAlex API | グローバルQPS | 同上 |
-| HTTPフェッチ | ドメイン別QPS | ADR-0006 ステルス要件 |
+| リソース | 制約 | 理由 | 対応ADR |
+|----------|------|------|---------|
+| ブラウザSERP | TabPool(max_tabs=1) | Page共有競合の排除（正しさ担保） | **ADR-0014** |
+| Semantic Scholar API | グローバルQPS | API利用規約、レート制限 | 本ADR |
+| OpenAlex API | グローバルQPS | 同上 | 本ADR |
+| HTTPフェッチ | ドメイン別QPS | ADR-0006 ステルス要件 | - |
+
+**Note**: ブラウザSERPリソース制御は [ADR-0014](0014-browser-serp-resource-control.md) で詳細設計。本ADRは学術APIに焦点を当てる。
 
 ### 現状の問題
 
@@ -52,12 +54,15 @@ sequenceDiagram
 
 ### 現状で問題ないリソース
 
-1. **ブラウザSERP**: `get_browser_search_provider()` がシングルトンを返し、内部 `Semaphore(1)` で保護済み
+1. **ブラウザSERP**: `get_browser_search_provider()` がシングルトンを返す
+   - **Note**: Phase 4.B で TabPool(max_tabs=1) を導入し、まず Page競合を排除（[ADR-0014](0014-browser-serp-resource-control.md)）
 2. **HTTPフェッチ**: `RateLimiter` がドメイン別にロックを取得し、QPS制限を遵守
 
 ## Decision
 
-**学術APIクライアントにグローバルレートリミッターを追加する。**
+**学術APIクライアントに「全ワーカー横断のグローバル制御」を追加する。**
+
+目的は「429が出てからバックオフ」ではなく、**超過を予防**して安定稼働させること。
 
 ### 設計方針
 
@@ -72,6 +77,10 @@ sequenceDiagram
 3. **設定駆動**
    - `config/academic_apis.yaml` からQPS設定を読み込み
    - ハードコードを避ける
+
+4. **並列度も制御する（重要）**
+   - `AcademicSearchProvider` / citation graph で `asyncio.gather()` による fan-out が起きる
+   - そのため「QPS」だけでなく **max_parallel（同時数）** も provider ごとに制御する
 
 ### 実装
 
@@ -133,10 +142,9 @@ def get_academic_rate_limiter() -> AcademicAPIRateLimiter:
 ```python
 class BaseAcademicClient(ABC):
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
-        # Acquire global rate limit before API call
+        # Acquire global limits before API call (QPS + concurrency)
         limiter = get_academic_rate_limiter()
         await limiter.acquire(self.name)
-        
         return await self._search_impl(query, limit)
     
     @abstractmethod
@@ -153,14 +161,19 @@ apis:
     rate_limit:
       requests_per_interval: 100
       interval_seconds: 300  # 100 req/5min = 0.33 req/s
-      min_interval_seconds: 3.0  # Conservative
+      min_interval_seconds: 3.0  # Conservative (override; if omitted, derive from requests/interval)
+      max_parallel: 1            # Provider-level concurrency cap (global)
   
   openalex:
     rate_limit:
       requests_per_interval: 10
       interval_seconds: 1  # 10 req/s (polite pool)
       min_interval_seconds: 0.1
+      max_parallel: 2
 ```
+
+> Note: `requests_per_day` のような日次制限しかない場合は、\
+> まず `max_parallel` を低め（1〜2）にし、必要なら `min_interval_seconds` を明示する（保守的運用）。
 
 ## Consequences
 
@@ -221,5 +234,7 @@ def get_academic_client(name: str) -> BaseAcademicClient:
 ## Related
 
 - [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - ワーカー並列実行の基盤
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - ブラウザSERPリソース制御（TabPool: max_tabs=1）
 - [ADR-0006: 8-Layer Security Model](0006-8-layer-security-model.md) - ステルス要件
 - [Q_ASYNC_ARCHITECTURE.md](../Q_ASYNC_ARCHITECTURE.md) - Phase 4 実装計画
+- [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md) - Phase 5 ページネーション詳細設計

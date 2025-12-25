@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 
 # Default daily budget limits (used when not specified in domain policy)
 DEFAULT_MAX_REQUESTS_PER_DAY = 200
-DEFAULT_MAX_PAGES_PER_DAY = 100
+DEFAULT_BUDGET_PAGES_PER_DAY = 100
 
 
 class DomainDailyBudgetManager:
@@ -63,7 +63,7 @@ class DomainDailyBudgetManager:
         logger.info(
             "Domain daily budget manager initialized",
             default_max_requests=DEFAULT_MAX_REQUESTS_PER_DAY,
-            default_max_pages=DEFAULT_MAX_PAGES_PER_DAY,
+            default_budget_pages=DEFAULT_BUDGET_PAGES_PER_DAY,
         )
 
     @classmethod
@@ -110,7 +110,7 @@ class DomainDailyBudgetManager:
             domain: Domain name.
 
         Returns:
-            Tuple of (max_requests_per_day, max_pages_per_day).
+            Tuple of (max_requests_per_day, budget_pages_per_day).
         """
         try:
             policy_manager = get_domain_policy_manager()
@@ -118,14 +118,14 @@ class DomainDailyBudgetManager:
 
             # Use domain policy limits if available, otherwise defaults
             max_requests = getattr(policy, "max_requests_per_day", None)
-            max_pages = getattr(policy, "max_pages_per_day", None)
+            budget_pages = getattr(policy, "budget_pages_per_day", None)
 
             if max_requests is None:
                 max_requests = DEFAULT_MAX_REQUESTS_PER_DAY
-            if max_pages is None:
-                max_pages = DEFAULT_MAX_PAGES_PER_DAY
+            if budget_pages is None:
+                budget_pages = DEFAULT_BUDGET_PAGES_PER_DAY
 
-            return max_requests, max_pages
+            return max_requests, budget_pages
 
         except Exception as e:
             logger.warning(
@@ -133,7 +133,7 @@ class DomainDailyBudgetManager:
                 domain=domain,
                 error=str(e),
             )
-            return DEFAULT_MAX_REQUESTS_PER_DAY, DEFAULT_MAX_PAGES_PER_DAY
+            return DEFAULT_MAX_REQUESTS_PER_DAY, DEFAULT_BUDGET_PAGES_PER_DAY
 
     def _get_or_create_budget(self, domain: str) -> DomainDailyBudget:
         """
@@ -152,14 +152,14 @@ class DomainDailyBudgetManager:
 
         with self._data_lock:
             if domain not in self._budgets:
-                max_requests, max_pages = self._get_domain_limits(domain)
+                max_requests, budget_pages = self._get_domain_limits(domain)
 
                 self._budgets[domain] = DomainDailyBudget(
                     domain=domain,
                     requests_today=0,
                     pages_today=0,
                     max_requests_per_day=max_requests,
-                    max_pages_per_day=max_pages,
+                    budget_pages_per_day=budget_pages,
                     date=self._current_date,
                 )
 
@@ -167,7 +167,7 @@ class DomainDailyBudgetManager:
                     "Created domain budget",
                     domain=domain,
                     max_requests=max_requests,
-                    max_pages=max_pages,
+                    budget_pages=budget_pages,
                 )
 
             return self._budgets[domain]
@@ -205,17 +205,17 @@ class DomainDailyBudgetManager:
                     )
 
             # Check if page limit exceeded (0 = unlimited)
-            if budget.max_pages_per_day > 0:
-                if budget.pages_today >= budget.max_pages_per_day:
+            if budget.budget_pages_per_day > 0:
+                if budget.pages_today >= budget.budget_pages_per_day:
                     logger.debug(
                         "Domain page budget exceeded",
                         domain=domain,
                         pages_today=budget.pages_today,
-                        max_pages=budget.max_pages_per_day,
+                        budget_pages=budget.budget_pages_per_day,
                     )
                     return DomainBudgetCheckResult(
                         allowed=False,
-                        reason=f"page_limit_exceeded: {budget.pages_today}/{budget.max_pages_per_day}",
+                        reason=f"page_limit_exceeded: {budget.pages_today}/{budget.budget_pages_per_day}",
                         requests_remaining=budget.requests_remaining,
                         pages_remaining=0,
                     )
@@ -239,7 +239,7 @@ class DomainDailyBudgetManager:
                 allowed=True,
                 reason=f"check_error_failopen: {str(e)}",
                 requests_remaining=DEFAULT_MAX_REQUESTS_PER_DAY,
-                pages_remaining=DEFAULT_MAX_PAGES_PER_DAY,
+                pages_remaining=DEFAULT_BUDGET_PAGES_PER_DAY,
             )
 
     def record_domain_request(self, domain: str, is_page: bool = False) -> None:
@@ -317,7 +317,10 @@ class DomainDailyBudgetManager:
                     budget.max_requests_per_day > 0
                     and budget.requests_today >= budget.max_requests_per_day
                 )
-                or (budget.max_pages_per_day > 0 and budget.pages_today >= budget.max_pages_per_day)
+                or (
+                    budget.budget_pages_per_day > 0
+                    and budget.pages_today >= budget.budget_pages_per_day
+                )
             ]
 
             return {

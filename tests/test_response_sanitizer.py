@@ -86,7 +86,7 @@ class TestNormalCases:
             "query": "What is Python?",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {
-                "max_pages": 120,
+                "budget_pages": 120,
                 "max_seconds": 1200,
             },
         }
@@ -131,8 +131,8 @@ class TestNormalCases:
                 "elapsed_seconds": 30.5,
             },
             "budget": {
-                "pages_used": 10,
-                "pages_limit": 120,
+                "budget_pages_used": 10,
+                "budget_pages_limit": 120,
                 "time_used_seconds": 30.5,
                 "time_limit_seconds": 1200,
                 "remaining_percent": 92,
@@ -258,7 +258,7 @@ class TestAbnormalCases:
             "task_id": "task_abc123",
             "query": "Test query",
             "created_at": "2024-01-01T00:00:00Z",
-            "budget": {"max_pages": 120, "max_seconds": 1200},
+            "budget": {"budget_pages": 120, "max_seconds": 1200},
             # Unknown fields
             "secret_data": "should be removed",
             "internal_path": "/home/user/secret",
@@ -450,8 +450,8 @@ class TestAbnormalCases:
                 "elapsed_seconds": 0,
             },
             "budget": {
-                "pages_used": 0,
-                "pages_limit": 120,
+                "budget_pages_used": 0,
+                "budget_pages_limit": 120,
                 "time_used_seconds": 0,
                 "time_limit_seconds": 1200,
                 "remaining_percent": 100,
@@ -487,7 +487,7 @@ class TestBoundaryCases:
             "query": "test",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {
-                "max_pages": 120,
+                "budget_pages": 120,
                 "max_seconds": 1200,
                 # Unknown nested field
                 "secret_nested": {"deep": "value"},
@@ -536,8 +536,8 @@ class TestBoundaryCases:
                 "elapsed_seconds": 300,
             },
             "budget": {
-                "pages_used": 100,
-                "pages_limit": 120,
+                "budget_pages_used": 100,
+                "budget_pages_limit": 120,
                 "time_used_seconds": 300,
                 "time_limit_seconds": 1200,
                 "remaining_percent": 17,
@@ -639,7 +639,7 @@ class TestConvenienceFunctions:
             "task_id": "task_abc",
             "query": "test",
             "created_at": "2024-01-01T00:00:00Z",
-            "budget": {"max_pages": 120, "max_seconds": 1200},
+            "budget": {"budget_pages": 120, "max_seconds": 1200},
         }
 
         result = sanitize_response(response, "create_task")
@@ -752,7 +752,7 @@ class TestIntegration:
             "task_id": "task_test",
             "query": "integration test",
             "created_at": "2024-01-01T00:00:00Z",
-            "budget": {"max_pages": 100, "max_seconds": 600},
+            "budget": {"budget_pages": 100, "max_seconds": 600},
             # Simulated unknown field that might leak
             "_internal_debug": {"secret": "value"},
         }
@@ -828,8 +828,8 @@ class TestSecurityCases:
                 "elapsed_seconds": 10,
             },
             "budget": {
-                "pages_used": 1,
-                "pages_limit": 120,
+                "budget_pages_used": 1,
+                "budget_pages_limit": 120,
                 "time_used_seconds": 10,
                 "time_limit_seconds": 1200,
                 "remaining_percent": 99,
@@ -881,8 +881,8 @@ class TestSecurityCases:
                 "elapsed_seconds": 30,
             },
             "budget": {
-                "pages_used": 5,
-                "pages_limit": 120,
+                "budget_pages_used": 5,
+                "budget_pages_limit": 120,
                 "time_used_seconds": 30,
                 "time_limit_seconds": 1200,
                 "remaining_percent": 96,

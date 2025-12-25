@@ -12,7 +12,7 @@ default_policy:
   domain_category: "unverified"  # primary, government, academic, trusted, low, unverified, blocked
   # Daily budget limits (§4.3 - IP block prevention)
   max_requests_per_day: 200  # Maximum requests per domain per day (0=unlimited)
-  max_pages_per_day: 100     # Maximum pages per domain per day (0=unlimited)
+  budget_pages_per_day: 100  # Page budget per domain per day (0=unlimited)
 
 # === Search Engine Settings ===
 search_engine_policy:
@@ -110,7 +110,7 @@ allowlist:
     qps: 0.5
     headful_ratio: 0
     max_requests_per_day: 500
-    max_pages_per_day: 250
+    budget_pages_per_day: 250
     
   - domain: "wikidata.org"
     domain_category: "trusted"

@@ -177,8 +177,8 @@ for claim in exec_result.new_claims:
     "elapsed_seconds": 480
   },
   "budget": {
-    "pages_used": 78,
-    "pages_limit": 120,
+    "budget_pages_used": 78,
+    "budget_pages_limit": 120,
     "time_used_seconds": 480,
     "time_limit_seconds": 1200,
     "remaining_percent": 35
