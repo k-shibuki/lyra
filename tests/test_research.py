@@ -907,7 +907,9 @@ class TestExplorationStateBoundaryValues:
     """
 
     @pytest.mark.asyncio
-    async def test_zero_budget_pages_limit_immediately_exceeded(self, test_database: Database) -> None:
+    async def test_zero_budget_pages_limit_immediately_exceeded(
+        self, test_database: Database
+    ) -> None:
         """TC-ES-B-01: Zero budget_pages_limit is immediately exceeded.
 
         // Given: budget_pages_limit = 0

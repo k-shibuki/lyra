@@ -46,7 +46,9 @@ class WebCitationDetectionConfig(BaseModel):
     # Candidate selection / LLM cost control
     max_candidates_per_page: int = 10  # max outbound links evaluated per page
     max_edges_per_page: int = 0  # max CITES edges created per page (0 = unlimited)
-    budget_pages_per_task: int = 0  # max pages to run citation detection on per task (0 = unlimited)
+    budget_pages_per_task: int = (
+        0  # max pages to run citation detection on per task (0 = unlimited)
+    )
 
     # Storage behavior for targets:
     # - True: create placeholder pages rows for newly discovered citation URLs.
@@ -307,13 +309,25 @@ class MetricsConfig(BaseModel):
 
 
 class AcademicAPIRateLimitConfig(BaseModel):
-    """Academic API rate limit configuration."""
+    """Academic API rate limit configuration.
+
+    Per ADR-0013: Worker Resource Contention Control.
+
+    Attributes:
+        requests_per_interval: Max requests allowed per interval.
+        interval_seconds: Duration of rate limit window in seconds.
+        requests_per_day: Daily request limit (alternative to interval-based).
+        polite_pool: Whether to use polite/identified request pool.
+        min_interval_seconds: Minimum seconds between requests (QPS control).
+        max_parallel: Maximum concurrent requests (concurrency control).
+    """
 
     requests_per_interval: int | None = None
     interval_seconds: int | None = None
     requests_per_day: int | None = None
     polite_pool: bool | None = None
-    min_interval_seconds: int | None = None
+    min_interval_seconds: float | None = None  # Changed to float for sub-second precision
+    max_parallel: int | None = None  # ADR-0013: Provider-level concurrency cap
 
 
 class AcademicAPIConfig(BaseModel):

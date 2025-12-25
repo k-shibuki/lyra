@@ -155,7 +155,13 @@ class BrowserSearchProvider(BaseSearchProvider):
         self._context: BrowserContext | None = None
         self._page: Any = None
 
-        # Rate limiting
+        # Rate limiting (ADR-0014: Browser SERP Resource Control)
+        # TabPool manages browser tabs; EngineRateLimiter enforces per-engine QPS
+        from src.search.tab_pool import TabPool, get_engine_rate_limiter
+
+        self._tab_pool = TabPool(max_tabs=1)  # max_tabs=1 ensures correctness (no Page contention)
+        self._engine_rate_limiter = get_engine_rate_limiter()
+        # Legacy semaphore kept for transition period
         self._rate_limiter = asyncio.Semaphore(1)
         self._last_search_times: dict[str, float] = {}  # Per-engine tracking
 

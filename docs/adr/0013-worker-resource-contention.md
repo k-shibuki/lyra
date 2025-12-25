@@ -4,7 +4,7 @@
 2025-12-24
 
 ## Status
-Proposed
+Accepted (2025-12-25: Implementation complete)
 
 ## Context
 

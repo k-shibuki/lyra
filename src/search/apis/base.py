@@ -1,5 +1,9 @@
 """
 Base class for academic API clients.
+
+Per ADR-0013: Worker Resource Contention Control, all academic API
+clients use a global rate limiter to enforce per-provider QPS limits
+across all worker instances.
 """
 
 from __future__ import annotations
@@ -15,7 +19,11 @@ logger = get_logger(__name__)
 
 
 class BaseAcademicClient(ABC):
-    """Base class for academic API clients."""
+    """Base class for academic API clients.
+
+    All subclasses should use the rate-limited search method which
+    automatically enforces global QPS and concurrency limits per ADR-0013.
+    """
 
     def __init__(
         self,
@@ -27,7 +35,7 @@ class BaseAcademicClient(ABC):
         """Initialize client.
 
         Args:
-            name: Client name
+            name: Client name (used for rate limiting key)
             base_url: Base URL for API (if None, will try to load from config)
             timeout: Timeout in seconds (if None, will try to load from config)
             headers: HTTP headers (if None, will use default)
@@ -71,9 +79,34 @@ class BaseAcademicClient(ABC):
             self._session = httpx.AsyncClient(timeout=self.timeout, headers=self.default_headers)
         return self._session
 
-    @abstractmethod
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
-        """Search for papers.
+        """Search for papers with global rate limiting.
+
+        This method enforces per-provider QPS and concurrency limits
+        per ADR-0013: Worker Resource Contention Control.
+
+        Args:
+            query: Search query
+            limit: Maximum number of results
+
+        Returns:
+            AcademicSearchResult
+        """
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+
+        limiter = get_academic_rate_limiter()
+        await limiter.acquire(self.name)
+        try:
+            return await self._search_impl(query, limit)
+        finally:
+            limiter.release(self.name)
+
+    @abstractmethod
+    async def _search_impl(self, query: str, limit: int = 10) -> AcademicSearchResult:
+        """Actual search implementation (subclass).
+
+        Subclasses should implement this method instead of search().
+        Rate limiting is handled by the base class search() method.
 
         Args:
             query: Search query

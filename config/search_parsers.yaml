@@ -31,11 +31,16 @@ settings:
 # DuckDuckGo Parser
 # =============================================================================
 duckduckgo:
-  # Search URL template
-  search_url: "https://duckduckgo.com/?q={query}&kl={region}&df={time_range}"
+  # Search URL template (with pagination support via offset 's' parameter)
+  # {offset} is calculated as (serp_page - 1) * results_per_page
+  search_url: "https://duckduckgo.com/?q={query}&kl={region}&df={time_range}&s={offset}"
   
   # Default region (wt-wt = worldwide)
   default_region: "wt-wt"
+  
+  # Pagination settings
+  results_per_page: 30
+  pagination_type: "offset"  # offset (s=30) or page (p=2)
   
   # Time range mapping
   time_ranges:
@@ -111,7 +116,12 @@ duckduckgo:
 # Mojeek Parser
 # =============================================================================
 mojeek:
-  search_url: "https://www.mojeek.com/search?q={query}&t={time_range}"
+  # Pagination via 's' offset parameter
+  search_url: "https://www.mojeek.com/search?q={query}&t={time_range}&s={offset}"
+  
+  # Pagination settings
+  results_per_page: 10
+  pagination_type: "offset"
   
   time_ranges:
     all: ""
@@ -164,9 +174,14 @@ mojeek:
 # Google Parser (optional, high block risk)
 # =============================================================================
 google:
-  search_url: "https://www.google.com/search?q={query}&hl={language}&tbs={time_range}"
+  # Pagination via 'start' offset parameter
+  search_url: "https://www.google.com/search?q={query}&hl={language}&tbs={time_range}&start={offset}"
   
   default_language: "ja"
+  
+  # Pagination settings
+  results_per_page: 10
+  pagination_type: "offset"
   
   time_ranges:
     all: ""
@@ -217,7 +232,12 @@ google:
 # Brave Search Parser (optional)
 # =============================================================================
 brave:
-  search_url: "https://search.brave.com/search?q={query}&tf={time_range}"
+  # Pagination via 'offset' parameter
+  search_url: "https://search.brave.com/search?q={query}&tf={time_range}&offset={offset}"
+  
+  # Pagination settings
+  results_per_page: 10
+  pagination_type: "offset"
   
   time_ranges:
     all: ""
@@ -270,7 +290,13 @@ brave:
 # Ecosia Parser (Bing-based, relatively lenient)
 # =============================================================================
 ecosia:
-  search_url: "https://www.ecosia.org/search?q={query}&tt={time_range}"
+  # Pagination via 'p' page parameter (0-indexed)
+  search_url: "https://www.ecosia.org/search?q={query}&tt={time_range}&p={page}"
+  
+  # Pagination settings
+  results_per_page: 10
+  pagination_type: "page"  # p=0, p=1, p=2 (0-indexed)
+  page_zero_indexed: true
   
   time_ranges:
     all: ""
@@ -322,7 +348,13 @@ ecosia:
 # Startpage Parser (Google-based, privacy-focused)
 # =============================================================================
 startpage:
-  search_url: "https://www.startpage.com/do/search?q={query}&with_date={time_range}"
+  # Pagination via 'page' parameter (1-indexed)
+  search_url: "https://www.startpage.com/do/search?q={query}&with_date={time_range}&page={page}"
+  
+  # Pagination settings
+  results_per_page: 10
+  pagination_type: "page"  # page=1, page=2, page=3 (1-indexed)
+  page_zero_indexed: false
   
   time_ranges:
     all: ""
@@ -379,9 +411,15 @@ startpage:
 # Bing Parser (optional, high block risk)
 # =============================================================================
 bing:
-  search_url: "https://www.bing.com/search?q={query}&setlang={language}&filters={time_range}"
+  # Pagination via 'first' offset parameter (1-indexed: first=1, first=11, first=21)
+  search_url: "https://www.bing.com/search?q={query}&setlang={language}&filters={time_range}&first={offset}"
   
   default_language: "ja"
+  
+  # Pagination settings
+  results_per_page: 10
+  pagination_type: "offset"
+  offset_one_indexed: true  # first=1 is page 1, first=11 is page 2
   
   time_ranges:
     all: ""

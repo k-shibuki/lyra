@@ -70,18 +70,22 @@ async def verify_queue_searches_flow(db) -> None:
     from src.mcp.server import _handle_create_task, _handle_queue_searches
 
     # Create task
-    task_result = await _handle_create_task({
-        "query": "Test async queue flow",
-    })
+    task_result = await _handle_create_task(
+        {
+            "query": "Test async queue flow",
+        }
+    )
     task_id = task_result["task_id"]
     print(f"  Created task: {task_id}")
 
     # Queue searches
-    queue_result = await _handle_queue_searches({
-        "task_id": task_id,
-        "queries": ["query 1", "query 2", "query 3"],
-        "options": {"priority": "high"},
-    })
+    queue_result = await _handle_queue_searches(
+        {
+            "task_id": task_id,
+            "queries": ["query 1", "query 2", "query 3"],
+            "options": {"priority": "high"},
+        }
+    )
 
     assert queue_result["ok"] is True
     assert queue_result["queued_count"] == 3
@@ -112,24 +116,30 @@ async def verify_get_status_long_polling(db) -> None:
     from src.mcp.server import _handle_create_task, _handle_get_status, _handle_queue_searches
 
     # Create task with queued searches
-    task_result = await _handle_create_task({
-        "query": "Test long polling",
-    })
+    task_result = await _handle_create_task(
+        {
+            "query": "Test long polling",
+        }
+    )
     task_id = task_result["task_id"]
 
-    await _handle_queue_searches({
-        "task_id": task_id,
-        "queries": ["polling test"],
-    })
+    await _handle_queue_searches(
+        {
+            "task_id": task_id,
+            "queries": ["polling test"],
+        }
+    )
 
     # Test immediate return (wait=0)
     import time
 
     start = time.time()
-    status = await _handle_get_status({
-        "task_id": task_id,
-        "wait": 0,
-    })
+    status = await _handle_get_status(
+        {
+            "task_id": task_id,
+            "wait": 0,
+        }
+    )
     elapsed = time.time() - start
 
     assert status["ok"] is True
@@ -140,10 +150,12 @@ async def verify_get_status_long_polling(db) -> None:
 
     # Test short wait with timeout (wait=1, no change expected)
     start = time.time()
-    status = await _handle_get_status({
-        "task_id": task_id,
-        "wait": 1,
-    })
+    status = await _handle_get_status(
+        {
+            "task_id": task_id,
+            "wait": 1,
+        }
+    )
     elapsed = time.time() - start
 
     # Should wait approximately 1 second then return
@@ -160,16 +172,20 @@ async def verify_stop_task_graceful(db) -> None:
     from src.mcp.server import _handle_create_task, _handle_queue_searches, _handle_stop_task
 
     # Create task with queued and "running" jobs
-    task_result = await _handle_create_task({
-        "query": "Test graceful stop",
-    })
+    task_result = await _handle_create_task(
+        {
+            "query": "Test graceful stop",
+        }
+    )
     task_id = task_result["task_id"]
 
     # Queue a job
-    await _handle_queue_searches({
-        "task_id": task_id,
-        "queries": ["graceful test"],
-    })
+    await _handle_queue_searches(
+        {
+            "task_id": task_id,
+            "queries": ["graceful test"],
+        }
+    )
 
     # Manually set one job to running (simulating worker picked it up)
     now = datetime.now(UTC).isoformat()
@@ -192,10 +208,12 @@ async def verify_stop_task_graceful(db) -> None:
     )
 
     # Stop with graceful mode
-    stop_result = await _handle_stop_task({
-        "task_id": task_id,
-        "mode": "graceful",
-    })
+    stop_result = await _handle_stop_task(
+        {
+            "task_id": task_id,
+            "mode": "graceful",
+        }
+    )
 
     assert stop_result["ok"] is True
     assert stop_result["mode"] == "graceful"
@@ -211,7 +229,9 @@ async def verify_stop_task_graceful(db) -> None:
         (task_id,),
     )
 
-    queued_cancelled = sum(1 for r in rows if r["state"] == "cancelled" and r["id"] != "s_graceful_running")
+    queued_cancelled = sum(
+        1 for r in rows if r["state"] == "cancelled" and r["id"] != "s_graceful_running"
+    )
     running_preserved = sum(1 for r in rows if r["state"] == "running")
 
     assert queued_cancelled >= 1
@@ -228,16 +248,20 @@ async def verify_stop_task_immediate(db) -> None:
     from src.mcp.server import _handle_create_task, _handle_queue_searches, _handle_stop_task
 
     # Create task with queued and "running" jobs
-    task_result = await _handle_create_task({
-        "query": "Test immediate stop",
-    })
+    task_result = await _handle_create_task(
+        {
+            "query": "Test immediate stop",
+        }
+    )
     task_id = task_result["task_id"]
 
     # Queue a job
-    await _handle_queue_searches({
-        "task_id": task_id,
-        "queries": ["immediate test"],
-    })
+    await _handle_queue_searches(
+        {
+            "task_id": task_id,
+            "queries": ["immediate test"],
+        }
+    )
 
     # Manually set one job to running
     now = datetime.now(UTC).isoformat()
@@ -260,10 +284,12 @@ async def verify_stop_task_immediate(db) -> None:
     )
 
     # Stop with immediate mode
-    stop_result = await _handle_stop_task({
-        "task_id": task_id,
-        "mode": "immediate",
-    })
+    stop_result = await _handle_stop_task(
+        {
+            "task_id": task_id,
+            "mode": "immediate",
+        }
+    )
 
     assert stop_result["ok"] is True
     assert stop_result["mode"] == "immediate"
@@ -286,4 +312,3 @@ async def verify_stop_task_immediate(db) -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

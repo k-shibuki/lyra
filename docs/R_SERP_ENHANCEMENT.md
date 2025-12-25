@@ -1,11 +1,15 @@
 # SERP Enhancement（ブラウザ検索強化）
 
-> **Status**: 🔜 PLANNED（実装待ち）
+> **Status**: 🚧 IN PROGRESS（実装中）
+>
+> **Phase Mapping**: Q_ASYNC_ARCHITECTURE.md **Phase 5** として実装
+> **Related ADRs**: ADR-0014（Browser SERP Resource Control）, ADR-0015（Adaptive Concurrency）
 
 > **Scope / Assumptions**:
 > - Q_ASYNC_ARCHITECTURE.md Phase 4 完了後に着手（Phase 5 で実装）
 > - ADR-0014（Browser SERP Resource Control）を前提
 > - 既存コード資産の拡張で実装可能
+> - **実装開始**: 2025-12-25（設定ファイル追加完了）
 
 ## Executive Summary
 
