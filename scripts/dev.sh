@@ -48,7 +48,7 @@ _show_help() {
     echo "  status    Show container status"
     echo "  clean     Remove containers and images"
     echo ""
-    echo "Global Options (AI-friendly):"
+    echo "Global Options:"
     echo "  --json        Output in JSON format (machine-readable)"
     echo "  --dry-run     Simulate operations without executing"
     echo "  --quiet, -q   Suppress non-essential output"
@@ -165,7 +165,7 @@ show_logs() {
     if [ "$follow_flag" = "-f" ]; then
         $COMPOSE logs -f "${service:-}"
     else
-        # AI-friendly: no -f by default, use --tail
+        # Default: show last 50 lines without following
         $COMPOSE logs --tail=50 "${follow_flag:-}"
     fi
 }

@@ -12,7 +12,7 @@
 #   - Common constants with .env overrides
 #   - Debug mode support
 #   - Error handling utilities
-#   - Standardized exit codes (AI-friendly)
+#   - Standardized exit codes
 #   - JSON output support (--json flag)
 #   - Dry-run mode support (--dry-run flag)
 #
@@ -32,7 +32,7 @@
 # before it has a chance to set its own error handling
 
 # =============================================================================
-# STANDARDIZED EXIT CODES (AI-friendly)
+# STANDARDIZED EXIT CODES
 # =============================================================================
 # These exit codes provide machine-readable status for AI agents and CI systems.
 # Exit codes follow a semantic convention for easy parsing.

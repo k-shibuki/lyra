@@ -3,7 +3,7 @@
 # Usage: make [target]
 # Run 'make help' for available targets
 #
-# AI-Friendly Features:
+# Features:
 #   - JSON output: make test-env-json, make dev-status-json, make chrome-json
 #   - Dry-run mode: make dev-clean-dry, make dev-rebuild-dry
 #   - Standardized exit codes (see scripts/common.sh)
@@ -216,7 +216,7 @@ help: ## Show this help
 	@grep -E '^test[a-zA-Z0-9_-]*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "AI-Friendly (JSON/dry-run):"
+	@echo "Machine-Readable:"
 	@grep -E '^(test|dev|chrome)[a-zA-Z0-9_-]*-(json|dry):.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
