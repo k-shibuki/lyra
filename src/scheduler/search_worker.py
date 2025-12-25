@@ -16,15 +16,13 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from src.storage.database import get_database
+from src.utils.config import get_settings
 from src.utils.logging import LogContext, get_logger
 
 if TYPE_CHECKING:
     from src.research.state import ExplorationState
 
 logger = get_logger(__name__)
-
-# Number of parallel workers (ADR-0010)
-NUM_WORKERS = 2
 
 # Polling interval when queue is empty
 EMPTY_QUEUE_POLL_INTERVAL = 1.0
@@ -64,7 +62,7 @@ async def _search_queue_worker(worker_id: int) -> None:
     - Uses conditional UPDATE (WHERE state='running') to prevent overwriting cancelled state
 
     Args:
-        worker_id: Unique identifier for this worker (0 to NUM_WORKERS-1).
+        worker_id: Unique identifier for this worker (0 to num_workers-1).
     """
     from src.research.pipeline import search_action
 
@@ -396,7 +394,11 @@ class SearchQueueWorkerManager:
         self._workers = []
         self._running_jobs = {}
 
-        for i in range(NUM_WORKERS):
+        # Read num_workers from config (ADR-0015)
+        settings = get_settings()
+        num_workers = settings.concurrency.search_queue.num_workers
+
+        for i in range(num_workers):
             task = asyncio.create_task(
                 _search_queue_worker(i),
                 name=f"search_queue_worker_{i}",
@@ -405,7 +407,7 @@ class SearchQueueWorkerManager:
 
         logger.info(
             "Search queue workers started",
-            num_workers=NUM_WORKERS,
+            num_workers=num_workers,
         )
 
     async def stop(self) -> None:

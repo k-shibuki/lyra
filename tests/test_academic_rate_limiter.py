@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from src.search.apis.rate_limiter import (
     AcademicAPIRateLimiter,
+    BackoffState,
     ProviderRateLimitConfig,
     get_academic_rate_limiter,
     reset_academic_rate_limiter,
@@ -27,6 +28,14 @@ def _setup_limiter_with_config(
     limiter._configs[provider] = config
     limiter._qps_locks[provider] = asyncio.Lock()
     limiter._concurrency_semaphores[provider] = asyncio.Semaphore(config.max_parallel)
+    # ADR-0015: Initialize backoff-related state
+    limiter._active_counts[provider] = 0
+    limiter._slot_events[provider] = asyncio.Event()
+    limiter._slot_events[provider].set()  # Initially available
+    limiter._backoff_states[provider] = BackoffState(
+        effective_max_parallel=config.max_parallel,
+        config_max_parallel=config.max_parallel,
+    )
 
 
 class TestAcademicAPIRateLimiter:

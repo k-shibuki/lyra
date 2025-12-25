@@ -12,7 +12,7 @@ ADR-0010 により `SearchQueueWorker` が2並列で検索を処理する。し�
 
 | リソース | 制約 | 理由 | 対応ADR |
 |----------|------|------|---------|
-| ブラウザSERP | TabPool(max_tabs=1) | Page共有競合の排除（正しさ担保） | **ADR-0014** |
+| ブラウザSERP | TabPool(max_tabs=2) | Page共有競合の排除（正しさ担保） | **ADR-0014** |
 | Semantic Scholar API | グローバルQPS | API利用規約、レート制限 | 本ADR |
 | OpenAlex API | グローバルQPS | 同上 | 本ADR |
 | HTTPフェッチ | ドメイン別QPS | ADR-0006 ステルス要件 | - |
@@ -233,7 +233,7 @@ def get_academic_client(name: str) -> BaseAcademicClient:
 ## Related
 
 - [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - ワーカー並列実行の基盤
-- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - ブラウザSERPリソース制御（TabPool: max_tabs=1）
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - ブラウザSERPリソース制御（TabPool: max_tabs=2）
 - [ADR-0006: 8-Layer Security Model](0006-8-layer-security-model.md) - ステルス要件
 - [Q_ASYNC_ARCHITECTURE.md](../Q_ASYNC_ARCHITECTURE.md) - Phase 4 実装計画
 - [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md) - Phase 5 ページネーション詳細設計

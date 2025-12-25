@@ -308,6 +308,95 @@ class MetricsConfig(BaseModel):
     hysteresis_min_interval: int = 300
 
 
+# === Concurrency Configuration (ADR-0015) ===
+
+
+class SearchQueueConcurrencyConfig(BaseModel):
+    """Search queue worker concurrency configuration.
+
+    Per ADR-0010/ADR-0015: Config-driven worker count.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    num_workers: int = Field(default=2, ge=1, description="Number of parallel search queue workers")
+
+
+class BrowserSerpConcurrencyConfig(BaseModel):
+    """Browser SERP tab pool concurrency configuration.
+
+    Per ADR-0014/ADR-0015: Config-driven max_tabs.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_tabs: int = Field(
+        default=1, ge=1, description="Maximum concurrent browser tabs for SERP fetching"
+    )
+
+
+class AcademicAPIBackoffConfig(BaseModel):
+    """Academic API auto-backoff configuration.
+
+    Per ADR-0015: Safe auto-backoff for academic APIs.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    recovery_stable_seconds: int = Field(
+        default=60,
+        ge=1,
+        description="Seconds of stability before attempting to increase max_parallel",
+    )
+    decrease_step: int = Field(
+        default=1, ge=1, description="Amount to decrease max_parallel on 429 error"
+    )
+
+
+class BrowserSerpBackoffConfig(BaseModel):
+    """Browser SERP auto-backoff configuration.
+
+    Per ADR-0015: Safe auto-backoff for browser SERP (decrease only, no auto-increase).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    decrease_step: int = Field(
+        default=1, ge=1, description="Amount to decrease max_tabs on CAPTCHA/403 detection"
+    )
+    # Note: No auto_increase for browser SERP (manual only per ADR-0015)
+
+
+class BackoffConfig(BaseModel):
+    """Auto-backoff configuration for concurrency control.
+
+    Per ADR-0015: Automatically reduce concurrency on errors.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    academic_api: AcademicAPIBackoffConfig = Field(default_factory=AcademicAPIBackoffConfig)
+    browser_serp: BrowserSerpBackoffConfig = Field(default_factory=BrowserSerpBackoffConfig)
+
+
+class ConcurrencyConfig(BaseModel):
+    """Concurrency control configuration.
+
+    Per ADR-0015: Config-driven concurrency + Safe Auto-Backoff.
+
+    Attributes:
+        search_queue: Search queue worker settings (num_workers).
+        browser_serp: Browser SERP tab pool settings (max_tabs).
+        backoff: Auto-backoff settings for error recovery.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    search_queue: SearchQueueConcurrencyConfig = Field(default_factory=SearchQueueConcurrencyConfig)
+    browser_serp: BrowserSerpConcurrencyConfig = Field(default_factory=BrowserSerpConcurrencyConfig)
+    backoff: BackoffConfig = Field(default_factory=BackoffConfig)
+
+
 class AcademicAPIRateLimitConfig(BaseModel):
     """Academic API rate limit configuration.
 
@@ -416,6 +505,7 @@ class Settings(BaseModel):
     quality: QualityConfig = Field(default_factory=QualityConfig)
     circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
     metrics: MetricsConfig = Field(default_factory=MetricsConfig)
+    concurrency: ConcurrencyConfig = Field(default_factory=ConcurrencyConfig)
 
 
 def _deep_merge(base: dict, override: dict) -> dict:

@@ -78,6 +78,29 @@ bot検出・CAPTCHAはレート制限では防げない。エンジン側のヒ�
 - ブラウザSERPは TabPool(max_tabs=1) を先に導入し、Page競合を排除してから並列度を上げる（ADR-0014）
 - Auto-backoff の観測シグナルは既存メトリクス（`HTTP_ERROR_429_RATE`, `CAPTCHA_RATE` 等）を再利用し、API/SERP側の計測点を追加する
 
+## Implementation Status
+
+**Status**: ✅ Implementation Complete (2025-12-25)
+
+### Phase 4.C.1: Config化 ✅
+- [x] `config/settings.yaml` に `concurrency` セクション追加
+- [x] `src/utils/config.py` に `ConcurrencyConfig` 追加
+- [x] Worker数・max_tabs を config から読み込み
+- [x] テスト追加（`test_concurrency_config.py`, `test_concurrency_wiring.py`）
+
+### Phase 4.C.2: 自動バックオフ ✅
+- [x] `AcademicAPIRateLimiter` にバックオフ機能追加（429検知 → effective_max_parallel減少、安定後回復）
+- [x] `TabPool` にバックオフ機能追加（report_captcha/report_403 → effective_max_tabs減少、手動リセットのみ）
+- [x] `get_stats()` で backoff 状態を返す
+- [x] テスト追加（`test_academic_rate_limiter_backoff.py`, `test_tab_pool.py::TestTabPoolBackoff`）
+
+### Phase 4.C.3: max_tabs>1 検証準備
+- [ ] 観測スクリプト作成（将来タスク）
+- [x] 検証手順ドキュメント化（Q_ASYNC_ARCHITECTURE.md）
+
+### テスト結果
+- 42 tests passed (config + backoff + wiring)
+
 ## Related
 
 - [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md)

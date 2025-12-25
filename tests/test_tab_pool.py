@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import time
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -508,3 +508,379 @@ class TestGlobalEngineRateLimiterFunctions:
         limiter2 = get_engine_rate_limiter()
         assert limiter1 is not limiter2
 
+
+# =============================================================================
+# TabPool Backoff Tests (ADR-0015)
+# =============================================================================
+
+
+class TestTabPoolBackoff:
+    """Tests for TabPool backoff functionality.
+
+    Per ADR-0015: Adaptive Concurrency Control.
+
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result |
+    |---------|----------------------|-------------|-----------------|
+    | TC-T-01 | Initial state | Equivalence | backoff_active=False |
+    | TC-T-02 | report_captcha once | Equivalence | effective_max_tabs decreases |
+    | TC-T-03 | report_403 once | Equivalence | effective_max_tabs decreases |
+    | TC-T-04 | report_captcha at effective=1 | Boundary | effective=1 (floor) |
+    | TC-T-05 | reset_backoff | Equivalence | restore to config_max |
+    | TC-T-06 | get_stats with backoff | Equivalence | contains backoff state |
+    | TC-T-07 | max_tabs=2, backoff blocks | Boundary | 2nd acquire blocks |
+    """
+
+    @pytest.fixture(autouse=True)
+    async def reset_pool(self) -> None:
+        """Reset global tab pool before each test."""
+        await reset_tab_pool()
+
+    def _create_mock_settings(self, decrease_step: int = 1) -> MagicMock:
+        """Create mock settings for backoff config."""
+        mock_settings = MagicMock()
+        mock_settings.concurrency.backoff.browser_serp.decrease_step = decrease_step
+        return mock_settings
+
+    # =========================================================================
+    # TC-T-01: Initial backoff state
+    # =========================================================================
+    def test_initial_backoff_state(self) -> None:
+        """Test initial backoff state.
+
+        Given: A newly created TabPool
+        When: Checking backoff state
+        Then: backoff_active=False, effective_max_tabs=config_max
+        """
+        # Given/When
+        pool = TabPool(max_tabs=3)
+
+        # Then
+        assert pool._backoff_state.backoff_active is False
+        assert pool._backoff_state.effective_max_tabs == 3
+        assert pool._backoff_state.config_max_tabs == 3
+        assert pool._backoff_state.captcha_count == 0
+        assert pool._backoff_state.error_403_count == 0
+
+    # =========================================================================
+    # TC-T-02: report_captcha triggers backoff
+    # =========================================================================
+    def test_report_captcha_triggers_backoff(self) -> None:
+        """Test report_captcha triggers backoff.
+
+        Given: A TabPool with max_tabs=3
+        When: report_captcha is called
+        Then: effective_max_tabs decreases, backoff_active=True
+        """
+        # Given
+        pool = TabPool(max_tabs=3)
+        mock_settings = self._create_mock_settings(decrease_step=1)
+
+        # When (patch at use site per test rules)
+        with patch("src.utils.config.get_settings", return_value=mock_settings):
+            pool.report_captcha()
+
+        # Then
+        assert pool._backoff_state.effective_max_tabs == 2  # 3 - 1 = 2
+        assert pool._backoff_state.backoff_active is True
+        assert pool._backoff_state.captcha_count == 1
+
+    # =========================================================================
+    # TC-T-03: report_403 triggers backoff
+    # =========================================================================
+    def test_report_403_triggers_backoff(self) -> None:
+        """Test report_403 triggers backoff.
+
+        Given: A TabPool with max_tabs=3
+        When: report_403 is called
+        Then: effective_max_tabs decreases, backoff_active=True
+        """
+        # Given
+        pool = TabPool(max_tabs=3)
+        mock_settings = self._create_mock_settings(decrease_step=1)
+
+        # When (patch at use site per test rules)
+        with patch("src.utils.config.get_settings", return_value=mock_settings):
+            pool.report_403()
+
+        # Then
+        assert pool._backoff_state.effective_max_tabs == 2  # 3 - 1 = 2
+        assert pool._backoff_state.backoff_active is True
+        assert pool._backoff_state.error_403_count == 1
+
+    # =========================================================================
+    # TC-T-04: report_captcha floors at 1
+    # =========================================================================
+    def test_report_captcha_floors_at_one(self) -> None:
+        """Test effective_max_tabs floors at 1.
+
+        Given: A TabPool with effective_max_tabs=1
+        When: report_captcha is called
+        Then: effective_max_tabs remains 1 (floor)
+        """
+        # Given
+        pool = TabPool(max_tabs=1)
+        mock_settings = self._create_mock_settings(decrease_step=1)
+
+        # When (patch at use site per test rules)
+        with patch("src.utils.config.get_settings", return_value=mock_settings):
+            pool.report_captcha()
+
+        # Then
+        assert pool._backoff_state.effective_max_tabs == 1  # Floor at 1
+        assert pool._backoff_state.captcha_count == 1
+
+    # =========================================================================
+    # TC-T-05: reset_backoff restores config_max
+    # =========================================================================
+    def test_reset_backoff_restores_config_max(self) -> None:
+        """Test reset_backoff restores effective_max_tabs to config_max.
+
+        Given: A TabPool in backoff state
+        When: reset_backoff is called
+        Then: effective_max_tabs restored, backoff_active=False, counters reset
+        """
+        # Given
+        pool = TabPool(max_tabs=3)
+        pool._backoff_state.effective_max_tabs = 1
+        pool._backoff_state.backoff_active = True
+        pool._backoff_state.captcha_count = 5
+        pool._backoff_state.error_403_count = 3
+
+        # When
+        pool.reset_backoff()
+
+        # Then
+        assert pool._backoff_state.effective_max_tabs == 3  # Restored
+        assert pool._backoff_state.backoff_active is False
+        assert pool._backoff_state.captcha_count == 0
+        assert pool._backoff_state.error_403_count == 0
+
+    # =========================================================================
+    # TC-T-06: get_stats includes backoff state
+    # =========================================================================
+    def test_get_stats_includes_backoff_state(self) -> None:
+        """Test get_stats includes backoff state.
+
+        Given: A TabPool with backoff active
+        When: get_stats is called
+        Then: Stats include effective_max_tabs, captcha_count, etc.
+        """
+        # Given
+        pool = TabPool(max_tabs=3)
+        pool._backoff_state.effective_max_tabs = 2
+        pool._backoff_state.backoff_active = True
+        pool._backoff_state.captcha_count = 3
+        pool._backoff_state.error_403_count = 1
+        pool._backoff_state.last_captcha_time = 12345.0
+        pool._backoff_state.last_403_time = 12346.0
+
+        # When
+        stats = pool.get_stats()
+
+        # Then
+        assert stats["effective_max_tabs"] == 2
+        assert stats["backoff_active"] is True
+        assert stats["captcha_count"] == 3
+        assert stats["error_403_count"] == 1
+        assert stats["last_captcha_time"] == 12345.0
+        assert stats["last_403_time"] == 12346.0
+        assert stats["max_tabs"] == 3  # Config value
+
+    # =========================================================================
+    # TC-T-07: Backoff limits acquire
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_backoff_limits_acquire(self) -> None:
+        """Test backoff limits concurrent acquires.
+
+        Given: A TabPool with max_tabs=2 but effective_max_tabs=1
+        When: Second acquire is attempted while first is held
+        Then: Second acquire blocks/times out
+        """
+        # Given
+        pool = TabPool(max_tabs=2, acquire_timeout=0.2)
+
+        # Set effective to 1 (backoff state)
+        pool._backoff_state.effective_max_tabs = 1
+
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+        mock_page.is_closed.return_value = False
+
+        async def new_page() -> MagicMock:
+            return mock_page
+
+        mock_context.new_page = new_page
+
+        # When: First acquire succeeds
+        tab1 = await pool.acquire(mock_context)
+        assert pool._active_count == 1
+
+        # When: Second acquire should timeout (effective=1)
+        with pytest.raises(TimeoutError) as exc_info:
+            await pool.acquire(mock_context)
+
+        # Then: Error mentions backoff
+        assert "backoff" in str(exc_info.value).lower() or "effective_max_tabs" in str(
+            exc_info.value
+        )
+
+        # Cleanup
+        pool.release(tab1)
+        assert pool._active_count == 0
+
+    # =========================================================================
+    # Effect test: decrease_step affects backoff amount
+    # =========================================================================
+    def test_decrease_step_effect(self) -> None:
+        """Test decrease_step affects backoff amount.
+
+        Given: A TabPool with max_tabs=5 and decrease_step=2
+        When: report_captcha is called
+        Then: effective_max_tabs decreases by 2
+        """
+        # Given
+        pool = TabPool(max_tabs=5)
+        mock_settings = self._create_mock_settings(decrease_step=2)
+
+        # When (patch at use site per test rules)
+        with patch("src.utils.config.get_settings", return_value=mock_settings):
+            pool.report_captcha()
+
+        # Then
+        assert pool._backoff_state.effective_max_tabs == 3  # 5 - 2 = 3
+
+    # =========================================================================
+    # Test release signals slot availability
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_release_signals_slot_available(self) -> None:
+        """Test release signals slot availability for waiting acquires.
+
+        Given: A TabPool with effective_max_tabs=1 and one tab held
+        When: Tab is released
+        Then: Waiting acquire can proceed
+        """
+        # Given
+        pool = TabPool(max_tabs=2, acquire_timeout=1.0)
+        pool._backoff_state.effective_max_tabs = 1
+
+        mock_context = MagicMock()
+        mock_pages: list[MagicMock] = []
+
+        async def new_page() -> MagicMock:
+            mock_page = MagicMock()
+            mock_page.is_closed.return_value = False
+            mock_pages.append(mock_page)
+            return mock_page
+
+        mock_context.new_page = new_page
+
+        # Acquire first tab
+        tab1 = await pool.acquire(mock_context)
+        assert pool._active_count == 1
+
+        # Start second acquire in background (will block)
+        async def delayed_acquire() -> Any:
+            return await pool.acquire(mock_context)
+
+        acquire_task = asyncio.create_task(delayed_acquire())
+
+        # Give it time to start waiting
+        await asyncio.sleep(0.05)
+
+        # When: Release first tab
+        pool.release(tab1)
+
+        # Then: Second acquire should complete
+        tab2 = await asyncio.wait_for(acquire_task, timeout=0.5)
+        assert tab2 is not None
+
+        # Cleanup
+        pool.release(tab2)
+
+    # =========================================================================
+    # TC-T-08: max_tabs=2 parallel operation (production default)
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_max_tabs_2_parallel_operation(self) -> None:
+        """Test max_tabs=2 allows parallel tab operations.
+
+        Given: A TabPool with max_tabs=2 (production default)
+        When: Two tabs are acquired simultaneously
+        Then: Both acquire without blocking, each gets independent Page
+        """
+        # Given
+        pool = TabPool(max_tabs=2, acquire_timeout=1.0)
+
+        mock_context = MagicMock()
+        created_pages: list[MagicMock] = []
+
+        async def new_page() -> MagicMock:
+            mock_page = MagicMock()
+            mock_page.is_closed.return_value = False
+            mock_page.close = AsyncMock()
+            # Give each page a unique ID to verify independence
+            mock_page.page_id = len(created_pages)
+            created_pages.append(mock_page)
+            return mock_page
+
+        mock_context.new_page = new_page
+
+        # When: Acquire two tabs simultaneously
+        tab1 = await pool.acquire(mock_context)
+        tab2 = await pool.acquire(mock_context)
+
+        # Then: Both acquired, each is independent
+        assert pool._active_count == 2
+        assert tab1 is not tab2  # Different Page objects
+        assert tab1.page_id != tab2.page_id  # Unique IDs
+        assert len(created_pages) == 2
+
+        # Verify stats
+        stats = pool.get_stats()
+        assert stats["max_tabs"] == 2
+        assert stats["active_tabs"] == 2
+        assert stats["effective_max_tabs"] == 2
+
+        # Cleanup
+        pool.release(tab1)
+        pool.release(tab2)
+        assert pool._active_count == 0
+
+    # =========================================================================
+    # TC-T-09: max_tabs=2 blocks third acquire
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_max_tabs_2_blocks_third_acquire(self) -> None:
+        """Test max_tabs=2 blocks third acquire.
+
+        Given: A TabPool with max_tabs=2 and both tabs held
+        When: Third acquire is attempted
+        Then: Third acquire times out
+        """
+        # Given
+        pool = TabPool(max_tabs=2, acquire_timeout=0.2)
+
+        mock_context = MagicMock()
+
+        async def new_page() -> MagicMock:
+            mock_page = MagicMock()
+            mock_page.is_closed.return_value = False
+            return mock_page
+
+        mock_context.new_page = new_page
+
+        # Acquire both tabs
+        tab1 = await pool.acquire(mock_context)
+        tab2 = await pool.acquire(mock_context)
+        assert pool._active_count == 2
+
+        # When: Third acquire should timeout
+        with pytest.raises(TimeoutError):
+            await pool.acquire(mock_context)
+
+        # Cleanup
+        pool.release(tab1)
+        pool.release(tab2)
