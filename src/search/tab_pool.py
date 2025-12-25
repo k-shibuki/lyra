@@ -2,18 +2,22 @@
 Tab pool for browser-based SERP fetching.
 
 Per ADR-0014: Browser SERP Resource Control.
+Per ADR-0015: Adaptive Concurrency Control (auto-backoff on CAPTCHA/403).
 
 Design:
 - Manages a pool of browser tabs (Page objects) for parallel SERP fetching
 - Prevents simultaneous operations on the same Page
 - Supports configurable max_tabs for gradual parallelization
 - Default max_tabs=1 ensures correctness (no Page contention)
+- Auto-backoff: reduces effective_max_tabs on CAPTCHA/403 (no auto-increase per ADR-0015)
 - Increase max_tabs for parallelization after stability validation
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from src.utils.logging import get_logger
@@ -24,11 +28,25 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+@dataclass
+class TabPoolBackoffState:
+    """Tracks backoff state for TabPool (ADR-0015)."""
+
+    effective_max_tabs: int = 1  # Current effective limit (may be < config max)
+    config_max_tabs: int = 1  # Original config limit (upper bound)
+    last_captcha_time: float = 0.0  # Timestamp of last CAPTCHA detection
+    last_403_time: float = 0.0  # Timestamp of last 403 error
+    backoff_active: bool = False  # Whether backoff is currently active
+    captcha_count: int = 0  # Total CAPTCHA count since last reset
+    error_403_count: int = 0  # Total 403 count since last reset
+
+
 class TabPool:
     """Manages browser tabs for parallel SERP fetching.
 
     Prevents Page sharing between concurrent operations per ADR-0014.
     Each search operation borrows a tab, uses it exclusively, then returns it.
+    Implements auto-backoff on CAPTCHA/403 (ADR-0015).
 
     Example:
         pool = TabPool(max_tabs=1)
@@ -36,6 +54,9 @@ class TabPool:
         try:
             await tab.goto(url)
             # ... search operations ...
+        except CaptchaError:
+            pool.report_captcha()  # Triggers backoff
+            raise
         finally:
             pool.release(tab)
 
@@ -58,8 +79,21 @@ class TabPool:
         self._max_tabs = max_tabs
         self._acquire_timeout = acquire_timeout
 
+        # Backoff state (ADR-0015)
+        self._backoff_state = TabPoolBackoffState(
+            effective_max_tabs=max_tabs,
+            config_max_tabs=max_tabs,
+        )
+
         # Semaphore controls how many tabs can be acquired simultaneously
+        # Note: Uses config max_tabs; backoff is enforced via _active_count
         self._semaphore = asyncio.Semaphore(max_tabs)
+
+        # Active count for backoff enforcement
+        self._active_count = 0
+        # Event to signal when a slot becomes available
+        self._slot_available = asyncio.Event()
+        self._slot_available.set()  # Initially available
 
         # Track created tabs for cleanup
         self._tabs: list[Page] = []
@@ -76,7 +110,8 @@ class TabPool:
     async def acquire(self, context: BrowserContext) -> Page:
         """Acquire a tab from the pool.
 
-        Blocks until a tab is available or creates a new one if under max_tabs.
+        Blocks until a tab is available or creates a new one if under effective_max_tabs.
+        Respects backoff state (ADR-0015).
 
         Args:
             context: Browser context to create new tabs in.
@@ -91,16 +126,39 @@ class TabPool:
         if self._closed:
             raise RuntimeError("TabPool is closed")
 
-        # Acquire semaphore slot (blocks if max_tabs reached)
-        try:
-            await asyncio.wait_for(
-                self._semaphore.acquire(),
-                timeout=self._acquire_timeout,
+        # Wait for backoff slot if necessary (ADR-0015)
+        start_time = time.time()
+        poll_interval = 0.1  # Check every 100ms
+
+        while True:
+            if self._active_count < self._backoff_state.effective_max_tabs:
+                self._active_count += 1
+                break
+
+            # Check timeout
+            elapsed = time.time() - start_time
+            if elapsed >= self._acquire_timeout:
+                raise TimeoutError(
+                    f"Failed to acquire tab within {self._acquire_timeout}s "
+                    f"(backoff: effective_max_tabs={self._backoff_state.effective_max_tabs})"
+                )
+
+            logger.debug(
+                "Backoff limiting: waiting for tab slot",
+                active=self._active_count,
+                effective_max=self._backoff_state.effective_max_tabs,
             )
-        except TimeoutError as e:
-            raise TimeoutError(
-                f"Failed to acquire tab within {self._acquire_timeout}s (max_tabs={self._max_tabs})"
-            ) from e
+
+            # Wait for slot to become available or timeout
+            self._slot_available.clear()
+            try:
+                await asyncio.wait_for(
+                    self._slot_available.wait(),
+                    timeout=min(poll_interval, self._acquire_timeout - elapsed),
+                )
+            except TimeoutError:
+                # Continue polling
+                pass
 
         # Try to get an existing available tab
         try:
@@ -112,22 +170,24 @@ class TabPool:
 
         # Create a new tab
         async with self._lock:
-            if len(self._tabs) < self._max_tabs:
+            if len(self._tabs) < self._backoff_state.effective_max_tabs:
                 tab = await context.new_page()
                 self._tabs.append(tab)
                 logger.debug("Created new tab", tabs_count=len(self._tabs))
                 return tab
 
-        # This shouldn't happen if semaphore is working correctly
-        # But as a safety measure, wait for an available tab
+        # Wait for an available tab from the queue
         try:
+            remaining = self._acquire_timeout - (time.time() - start_time)
             tab = await asyncio.wait_for(
                 self._available_tabs.get(),
-                timeout=self._acquire_timeout,
+                timeout=max(0.1, remaining),
             )
             return tab
         except TimeoutError as e:
-            self._semaphore.release()
+            # Release the backoff slot
+            self._active_count -= 1
+            self._slot_available.set()
             raise TimeoutError("No tab available after waiting") from e
 
     def release(self, tab: Page) -> None:
@@ -149,9 +209,93 @@ class TabPool:
             # Should never happen, but log if it does
             logger.warning("Available tabs queue full, tab not returned")
 
-        # Release semaphore slot
-        self._semaphore.release()
+        # Release backoff slot (ADR-0015)
+        if self._active_count > 0:
+            self._active_count -= 1
+        self._slot_available.set()  # Signal that a slot is available
+
         logger.debug("Tab released", available=self._available_tabs.qsize())
+
+    def report_captcha(self) -> None:
+        """Report CAPTCHA detection.
+
+        Triggers backoff: reduces effective_max_tabs (ADR-0015).
+        Note: No auto-increase for browser SERP (manual only per ADR-0015).
+        """
+        # Load backoff config
+        from src.utils.config import get_settings
+
+        settings = get_settings()
+        decrease_step = settings.concurrency.backoff.browser_serp.decrease_step
+
+        backoff = self._backoff_state
+        now = time.time()
+
+        # Reduce effective_max_tabs (floor at 1)
+        new_max = max(1, backoff.effective_max_tabs - decrease_step)
+
+        backoff.last_captcha_time = now
+        backoff.captcha_count += 1
+
+        if new_max < backoff.effective_max_tabs:
+            backoff.effective_max_tabs = new_max
+            backoff.backoff_active = True
+
+            logger.warning(
+                "TabPool backoff triggered (CAPTCHA): reducing effective_max_tabs",
+                new_effective_max=new_max,
+                config_max=backoff.config_max_tabs,
+                captcha_count=backoff.captcha_count,
+            )
+
+    def report_403(self) -> None:
+        """Report 403 error.
+
+        Triggers backoff: reduces effective_max_tabs (ADR-0015).
+        Note: No auto-increase for browser SERP (manual only per ADR-0015).
+        """
+        # Load backoff config
+        from src.utils.config import get_settings
+
+        settings = get_settings()
+        decrease_step = settings.concurrency.backoff.browser_serp.decrease_step
+
+        backoff = self._backoff_state
+        now = time.time()
+
+        # Reduce effective_max_tabs (floor at 1)
+        new_max = max(1, backoff.effective_max_tabs - decrease_step)
+
+        backoff.last_403_time = now
+        backoff.error_403_count += 1
+
+        if new_max < backoff.effective_max_tabs:
+            backoff.effective_max_tabs = new_max
+            backoff.backoff_active = True
+
+            logger.warning(
+                "TabPool backoff triggered (403): reducing effective_max_tabs",
+                new_effective_max=new_max,
+                config_max=backoff.config_max_tabs,
+                error_403_count=backoff.error_403_count,
+            )
+
+    def reset_backoff(self) -> None:
+        """Manually reset backoff state.
+
+        Call this after manual config adjustment to restore effective_max_tabs
+        to config value (ADR-0015: no auto-increase for browser SERP).
+        """
+        backoff = self._backoff_state
+        backoff.effective_max_tabs = backoff.config_max_tabs
+        backoff.backoff_active = False
+        backoff.captcha_count = 0
+        backoff.error_403_count = 0
+
+        logger.info(
+            "TabPool backoff reset",
+            effective_max_tabs=backoff.effective_max_tabs,
+        )
 
     async def close(self) -> None:
         """Close all tabs and cleanup resources.
@@ -198,14 +342,22 @@ class TabPool:
         """Get pool statistics.
 
         Returns:
-            Dict with pool stats for monitoring.
+            Dict with pool stats for monitoring, including backoff state (ADR-0015).
         """
+        backoff = self._backoff_state
         return {
             "max_tabs": self._max_tabs,
             "total_tabs": len(self._tabs),
             "available_tabs": self._available_tabs.qsize(),
-            "active_tabs": self.active_count,
+            "active_tabs": self._active_count,
             "closed": self._closed,
+            # Backoff state (ADR-0015)
+            "effective_max_tabs": backoff.effective_max_tabs,
+            "backoff_active": backoff.backoff_active,
+            "captcha_count": backoff.captcha_count,
+            "error_403_count": backoff.error_403_count,
+            "last_captcha_time": backoff.last_captcha_time,
+            "last_403_time": backoff.last_403_time,
         }
 
 
@@ -317,17 +469,24 @@ _tab_pool: TabPool | None = None
 _engine_rate_limiter: EngineRateLimiter | None = None
 
 
-def get_tab_pool(max_tabs: int = 1) -> TabPool:
+def get_tab_pool(max_tabs: int | None = None) -> TabPool:
     """Get or create the global tab pool.
 
     Args:
         max_tabs: Maximum concurrent tabs (only used on first call).
+                  If None, reads from config (ADR-0015).
 
     Returns:
         Global TabPool instance.
     """
     global _tab_pool
     if _tab_pool is None:
+        if max_tabs is None:
+            # Read from config (ADR-0015)
+            from src.utils.config import get_settings
+
+            settings = get_settings()
+            max_tabs = settings.concurrency.browser_serp.max_tabs
         _tab_pool = TabPool(max_tabs=max_tabs)
     return _tab_pool
 

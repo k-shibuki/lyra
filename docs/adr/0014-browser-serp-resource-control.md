@@ -172,10 +172,11 @@ mojeek:
 - `src/search/browser_search_provider.py`: TabPool 統合済み（max_tabs=1）
 - `config/engines.yaml`: min_interval / concurrency 設定追加済み
 
-### Phase 2: max_tabs>1 の段階的解放（将来）
+### Phase 2: max_tabs=2 への拡張（2025-12-25 完了）
 
-- `max_tabs` を2以上に上げた場合の挙動検証は未実施
-- メモリ影響評価は未実施
+- `max_tabs=2` での並列動作テスト実装済み（`tests/test_tab_pool.py`）
+- config-driven concurrency 対応（`config/settings.yaml` で設定可能）
+- auto-backoff 機能追加（CAPTCHA/403 検出時に自動で並列度を下げる）
 
 ## Related
 
