@@ -9,7 +9,7 @@ Models can be updated by:
    - LYRA_ML__RERANKER_MODEL
    - LYRA_ML__NLI_MODEL
 2. Or editing the MODEL_* variables below directly
-3. Then running: ./scripts/dev.sh rebuild
+3. Then running: make dev-rebuild
 
 Default models:
 - BAAI/bge-m3 (embedding, ~1.2GB)

@@ -10,7 +10,7 @@
 # Model paths are saved to /app/models/model_paths.json for
 # true offline loading (no HuggingFace API calls at runtime).
 #
-# To update models: edit .env and run ./scripts/dev.sh rebuild
+# To update models: edit .env and run make dev-rebuild
 
 ARG PYTHON_IMAGE=python:3.13-slim-bookworm
 ARG TORCH_BACKEND=cu124

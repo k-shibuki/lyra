@@ -145,6 +145,27 @@ test_dev() {
         # Status may fail if containers aren't running, which is OK
         test_info "dev.sh status failed (containers may not be running - this is OK)"
     fi
+    
+    # Test 4: JSON output mode works
+    local json_output
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/dev.sh" status 2>&1 || true)
+    if echo "$json_output" | grep -qE '"status"|"container_running"'; then
+        test_pass "dev.sh JSON output mode works"
+    else
+        test_fail "dev.sh JSON output mode works" "JSON output not detected"
+    fi
+    
+    # Test 5: Dev modules can be sourced (dependency-free modules first)
+    if source "${SCRIPT_DIR}/lib/dev/help.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/dev/dispatch_precheck.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/dev/shell.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/dev/logs.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/dev/clean.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/dev/commands.sh" 2>&1; then
+        test_pass "dev.sh modules can be sourced"
+    else
+        test_fail "dev.sh modules can be sourced" "Failed to source dev modules"
+    fi
 }
 
 # =============================================================================

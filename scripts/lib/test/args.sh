@@ -21,6 +21,7 @@ parse_common_flags() {
                 shift
                 ;;
             --auto)
+                # shellcheck disable=SC2034
                 RUNTIME_MODE="auto"
                 shift
                 ;;
@@ -45,6 +46,7 @@ parse_common_flags() {
     # The remainder are command args
     # - run: pytest args (optional; default handled in cmd_run)
     # - check/kill: run_id (optional; default handled in cmd_check/cmd_kill via state file)
+    # shellcheck disable=SC2034
     PYTEST_ARGS=("$@")
 }
 
