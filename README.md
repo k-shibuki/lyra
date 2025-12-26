@@ -740,8 +740,8 @@ lyra/
 | Document | Description |
 |----------|-------------|
 | [ADRs](docs/adr/) | Architecture Decision Records |
-| [Q_ASYNC_ARCHITECTURE.md](docs/Q_ASYNC_ARCHITECTURE.md) | Async architecture design (planned) |
-| [R_LORA.md](docs/R_LORA.md) | LoRA fine-tuning design (planned) |
+| [S_LORA.md](docs/S_LORA.md) | LoRA fine-tuning design (planned) |
+| [R_SERP_ENHANCEMENT.md](docs/R_SERP_ENHANCEMENT.md) | SERP Enhancement design (in progress) |
 | [archive/](docs/archive/) | Historical snapshots (not maintained) |
 
 ### Directory Structure
@@ -750,8 +750,8 @@ lyra/
 docs/
 ├── adr/           # Architecture Decision Records (12 ADRs)
 ├── archive/       # Historical snapshots (not maintained)
-├── Q_ASYNC_ARCHITECTURE.md
-└── R_LORA.md
+├── S_LORA.md
+└── R_SERP_ENHANCEMENT.md
 ```
 
 ---

@@ -2,11 +2,11 @@
 
 > **Status**: 🚧 IN PROGRESS（実装中）
 >
-> **Phase Mapping**: Q_ASYNC_ARCHITECTURE.md **Phase 5** として実装
+> **Phase Mapping**: [ADR-0010](adr/0010-async-search-queue.md) **Phase 5** として実装
 > **Related ADRs**: ADR-0014（Browser SERP Resource Control）, ADR-0015（Adaptive Concurrency）
 
 > **Scope / Assumptions**:
-> - Q_ASYNC_ARCHITECTURE.md Phase 4 完了後に着手（Phase 5 で実装）
+> - ADR-0010 Phase 4 完了後に着手（Phase 5 で実装）
 > - ADR-0014（Browser SERP Resource Control）を前提
 > - 既存コード資産の拡張で実装可能
 > - **実装開始**: 2025-12-25（設定ファイル追加完了）
@@ -358,8 +358,7 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={max_page
 - `src/search/provider.py` - SearchOptions, SearchResponse定義
 - `src/search/search_parsers.py` - 各エンジンのパーサー
 - `config/search_parsers.yaml` - パーサー設定
-- `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR
+- `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR（Phase 5で本機能実装）
 - `docs/adr/0014-browser-serp-resource-control.md` - ブラウザSERPリソース制御ADR
-- `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ（Phase 5で本機能実装）
 - `src/storage/schema.sql` - DBスキーマ
 

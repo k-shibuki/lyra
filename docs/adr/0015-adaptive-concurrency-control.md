@@ -96,7 +96,7 @@ bot検出・CAPTCHAはレート制限では防げない。エンジン側のヒ�
 
 ### Phase 4.C.3: max_tabs>1 検証準備
 - [ ] 観測スクリプト作成（将来タスク）
-- [x] 検証手順ドキュメント化（Q_ASYNC_ARCHITECTURE.md）
+- [x] 検証手順ドキュメント化
 
 ### テスト結果
 - 42 tests passed (config + backoff + wiring)
