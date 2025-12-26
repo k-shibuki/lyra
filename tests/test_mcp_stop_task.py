@@ -17,6 +17,8 @@ Tests the stop_task tool's graceful/immediate mode per ADR-0010.
 | TC-ST-09 | nonexistent task_id | Equivalence – error | TaskNotFoundError | validation |
 | TC-ST-10 | immediate + running worker | Equivalence – cancel | Worker task cancelled | real cancellation |
 | TC-ST-11 | cancel then complete race | Equivalence – race | completed not overwritten | race prevention |
+| TC-ST-12 | stop_task with pending auth | Equivalence – normal | Auth items cancelled | Auth queue cancellation |
+| TC-ST-13 | stop_task with no auth items | Boundary – empty | No error, 0 cancelled | Empty auth queue |
 """
 
 from __future__ import annotations
@@ -741,3 +743,161 @@ class TestStopTaskRaceCondition:
         )
         assert row is not None
         assert row["state"] == "cancelled"
+
+
+class TestStopTaskAuthQueueCancellation:
+    """Tests for stop_task auth queue cancellation per ADR-0007."""
+
+    @pytest.mark.asyncio
+    async def test_stop_task_cancels_pending_auth_items(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-ST-12: stop_task cancels pending auth queue items.
+
+        // Given: Task with pending authentication queue items
+        // When: stop_task is called
+        // Then: Auth queue items are marked as cancelled
+        """
+        from src.mcp.server import _handle_stop_task
+        from src.utils.notification import get_intervention_queue
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st12", "Test task", "exploring"),
+        )
+
+        # Add pending auth queue items
+        queue = get_intervention_queue()
+        queue._db = db  # Use test database
+
+        queue_id1 = await queue.enqueue(
+            task_id="task_st12",
+            url="https://example.com/page1",
+            domain="example.com",
+            auth_type="captcha",
+        )
+        queue_id2 = await queue.enqueue(
+            task_id="task_st12",
+            url="https://test.org/page1",
+            domain="test.org",
+            auth_type="cloudflare",
+        )
+
+        # Verify items are pending
+        pending = await queue.get_pending(task_id="task_st12")
+        assert len(pending) == 2
+
+        # When: stop_task is called
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st12",
+                "mode": "graceful",
+            }
+        )
+
+        # Then: Auth items should be cancelled
+        assert result["ok"] is True
+
+        # Verify items are cancelled
+        item1 = await queue.get_item(queue_id1)
+        item2 = await queue.get_item(queue_id2)
+        assert item1 is not None
+        assert item2 is not None
+        assert item1["status"] == "cancelled", f"Item 1 status should be cancelled, got {item1['status']}"
+        assert item2["status"] == "cancelled", f"Item 2 status should be cancelled, got {item2['status']}"
+
+        # Verify no pending items remain
+        pending_after = await queue.get_pending(task_id="task_st12")
+        assert len(pending_after) == 0
+
+    @pytest.mark.asyncio
+    async def test_stop_task_with_no_auth_items(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-ST-13: stop_task with no auth items completes normally.
+
+        // Given: Task with no auth queue items
+        // When: stop_task is called
+        // Then: Completes without error
+        """
+        from src.mcp.server import _handle_stop_task
+
+        db = test_database
+
+        # Create task with no auth items
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st13", "Test task", "exploring"),
+        )
+
+        # When: stop_task is called
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st13",
+                "mode": "graceful",
+            }
+        )
+
+        # Then: Should complete normally
+        assert result["ok"] is True
+        assert result["task_id"] == "task_st13"
+
+    @pytest.mark.asyncio
+    async def test_stop_task_cancels_in_progress_auth_items(
+        self, test_database: Database
+    ) -> None:
+        """
+        Test that stop_task cancels in_progress auth items as well.
+
+        // Given: Task with in_progress auth queue items
+        // When: stop_task is called
+        // Then: In-progress items are also cancelled
+        """
+        from src.mcp.server import _handle_stop_task
+        from src.utils.notification import get_intervention_queue
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_st12b", "Test task", "exploring"),
+        )
+
+        # Add auth queue items and mark as in_progress
+        queue = get_intervention_queue()
+        queue._db = db
+
+        queue_id = await queue.enqueue(
+            task_id="task_st12b",
+            url="https://example.com/page",
+            domain="example.com",
+            auth_type="captcha",
+        )
+
+        # Mark as in_progress
+        await queue.start_session(task_id="task_st12b")
+
+        # Verify item is in_progress
+        item = await queue.get_item(queue_id)
+        assert item is not None
+        assert item["status"] == "in_progress"
+
+        # When: stop_task is called
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_st12b",
+                "mode": "graceful",
+            }
+        )
+
+        # Then: Item should be cancelled
+        assert result["ok"] is True
+        item_after = await queue.get_item(queue_id)
+        assert item_after is not None
+        assert item_after["status"] == "cancelled"

@@ -253,13 +253,13 @@ TOOLS = [
     ),
     Tool(
         name="resolve_auth",
-        description="Report authentication completion or skip. Per ADR-0003: Supports single item or domain-batch operations.",
+        description="Report authentication completion or skip. Per ADR-0003: Supports single item, domain-batch, or task-batch operations.",
         inputSchema={
             "type": "object",
             "properties": {
                 "target": {
                     "type": "string",
-                    "enum": ["item", "domain"],
+                    "enum": ["item", "domain", "task"],
                     "description": "Resolution target type",
                     "default": "item",
                 },
@@ -267,6 +267,10 @@ TOOLS = [
                 "domain": {
                     "type": "string",
                     "description": "Domain to resolve (when target=domain)",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to resolve (when target=task)",
                 },
                 "action": {
                     "type": "string",
@@ -857,6 +861,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "searches": searches,
                 "queue": queue_info,  # ADR-0010: Search queue status
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
+                # Convenience field for agents/clients: quick check without parsing nested structures
+                "pending_auth_count": int(pending_auth.get("pending_captchas", 0)),
                 "metrics": {
                     "total_searches": len(searches),
                     "satisfied_count": metrics.get("satisfied_count", 0),
@@ -904,6 +910,8 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "searches": [],
                 "queue": queue_info,  # ADR-0010: Search queue status
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
+                # Convenience field for agents/clients: quick check without parsing nested structures
+                "pending_auth_count": int(pending_auth.get("pending_captchas", 0)),
                 "metrics": {
                     "total_searches": 0,
                     "satisfied_count": 0,
@@ -1130,6 +1138,9 @@ async def _handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
         # Handle search queue jobs based on mode (ADR-0010)
         await _cancel_search_queue_jobs(task_id, mode, db)
 
+        # Cancel pending auth queue items for this task
+        await _cancel_auth_queue_for_task(task_id, db)
+
         # Execute stop through unified API
         result = await stop_task_action(
             task_id=task_id,
@@ -1221,6 +1232,39 @@ async def _cancel_search_queue_jobs(
     )
 
     return counts
+
+
+async def _cancel_auth_queue_for_task(task_id: str, db: Any) -> int:
+    """Cancel pending auth queue items for a stopped task.
+
+    Per ADR-0007: When a task is stopped, all pending authentication
+    queue items for that task should be marked as cancelled.
+
+    Args:
+        task_id: The task ID.
+        db: Database connection.
+
+    Returns:
+        Number of auth queue items cancelled.
+    """
+    cursor = await db.execute(
+        """
+        UPDATE intervention_queue
+        SET status = 'cancelled', completed_at = datetime('now')
+        WHERE task_id = ? AND status IN ('pending', 'in_progress')
+        """,
+        (task_id,),
+    )
+    cancelled_count = getattr(cursor, "rowcount", 0)
+
+    if cancelled_count > 0:
+        logger.info(
+            "Auth queue items cancelled for stopped task",
+            task_id=task_id,
+            cancelled_count=cancelled_count,
+        )
+
+    return cancelled_count
 
 
 # ============================================================
@@ -1569,7 +1613,7 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
 
     Implements ADR-0003: Report authentication completion or skip.
     Per ADR-0007: Captures session cookies on completion for reuse.
-    Supports single item or domain-batch operations.
+    Supports single item, domain-batch, or task-batch operations.
     """
     from src.mcp.errors import InvalidParamsError
     from src.utils.notification import get_intervention_queue
@@ -1593,12 +1637,12 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             expected="one of: complete, skip",
         )
 
-    valid_targets = {"item", "domain"}
+    valid_targets = {"item", "domain", "task"}
     if target not in valid_targets:
         raise InvalidParamsError(
             f"Invalid target: {target}",
             param_name="target",
-            expected="one of: item, domain",
+            expected="one of: item, domain, task",
         )
 
     queue = get_intervention_queue()
@@ -1670,11 +1714,79 @@ async def _handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             "requeued_count": requeued_count,  # ADR-0007
         }
 
+    elif target == "task":
+        task_id = args.get("task_id")
+        if not task_id:
+            raise InvalidParamsError(
+                "task_id is required when target=task",
+                param_name="task_id",
+                expected="non-empty string",
+            )
+
+        if action == "complete":
+            # Get all pending items for this task
+            pending_items = await queue.get_pending(task_id=task_id)
+            if not pending_items:
+                return {
+                    "ok": True,
+                    "target": "task",
+                    "task_id": task_id,
+                    "action": action,
+                    "resolved_count": 0,
+                    "requeued_count": 0,
+                }
+
+            # Complete each item individually to capture session data per domain
+            completed_count = 0
+            domains_processed: set[str] = set()
+            for item in pending_items:
+                queue_id = item.get("id")
+                domain = item.get("domain")
+                if not queue_id:
+                    continue
+
+                # Capture session data only once per domain
+                session_data = None
+                if success and domain and domain not in domains_processed:
+                    session_data = await _capture_auth_session_cookies(domain)
+                    domains_processed.add(domain)
+
+                await queue.complete(queue_id, success=success, session_data=session_data)
+                completed_count += 1
+
+            # ADR-0007: Auto-requeue awaiting_auth jobs for all affected domains
+            requeued_count = 0
+            if success:
+                for domain in domains_processed:
+                    requeued_count += await _requeue_awaiting_auth_jobs(domain)
+                    await _reset_circuit_breaker_for_engine(domain)
+
+            return {
+                "ok": True,
+                "target": "task",
+                "task_id": task_id,
+                "action": action,
+                "resolved_count": completed_count,
+                "requeued_count": requeued_count,
+            }
+        else:  # skip
+            result = await queue.skip(task_id=task_id)
+            count = result.get("skipped", 0)
+
+            return {
+                "ok": True,
+                "target": "task",
+                "task_id": task_id,
+                "action": action,
+                "resolved_count": count,
+                "requeued_count": 0,
+            }
+
     else:
         raise InvalidParamsError(
             f"Invalid target: {target}",
             param_name="target",
-            expected="one of: item, domain",
+            expected="one of: item, domain, task",
         )
 
 

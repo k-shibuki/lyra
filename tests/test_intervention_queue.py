@@ -27,8 +27,9 @@ Test Quality Standards (.1):
 | TC-EN-N-01 | enqueue | Equivalence – normal | Returns queue_id | - |
 | TC-EN-N-02 | enqueue stores fields | Equivalence – normal | All fields stored | - |
 | TC-EN-N-03 | Default priority | Equivalence – normal | "medium" | - |
-| TC-EN-N-04 | Default expiration | Equivalence – normal | 1 hour | - |
+| TC-EN-N-04 | Default expiration | Equivalence – normal | 3 hours (config default) | - |
 | TC-EN-N-05 | Custom expiration | Equivalence – normal | Custom value used | - |
+| TC-EN-N-06 | Config TTL wiring | Equivalence – wiring | Uses get_settings().task_limits.auth_queue_ttl_hours | Wiring test |
 | TC-GP-B-01 | get_pending empty | Boundary – empty | Empty list | - |
 | TC-GP-N-01 | get_pending items | Equivalence – normal | Returns items | - |
 | TC-GP-N-02 | Order by priority | Equivalence – normal | high > medium > low | - |
@@ -49,6 +50,8 @@ Test Quality Standards (.1):
 | TC-SK-N-01 | Skip all for task | Equivalence – normal | All skipped | - |
 | TC-SK-N-02 | Skip specific IDs | Equivalence – normal | Only those skipped | - |
 | TC-SK-N-03 | Skip in_progress | Equivalence – normal | Works correctly | - |
+| TC-SK-N-04 | Skip with status=cancelled | Equivalence – normal | status set to cancelled | - |
+| TC-SK-N-05 | Skip with status=skipped | Equivalence – normal | status set to skipped | Default behavior |
 | TC-GS-A-01 | No session | Equivalence – abnormal | Returns None | - |
 | TC-GS-N-01 | Returns session | Equivalence – normal | Correct data | - |
 | TC-GS-N-02 | Most recent | Equivalence – normal | Latest returned | - |
@@ -247,9 +250,9 @@ class TestEnqueue:
     async def test_enqueue_sets_default_expiration_one_hour(
         self, queue_with_db: InterventionQueue, sample_task_id: str
     ) -> None:
-        """Test enqueue sets default expiration to 1 hour from now.
+        """Test enqueue sets default expiration to 3 hours from now.
 
-        Per design: Default expiration: 1 hour from now
+        Per design: Default expiration: 3 hours from now (configurable via auth_queue_ttl_hours)
         """
         # Given
         before = datetime.now(UTC)
@@ -269,13 +272,13 @@ class TestEnqueue:
         expires_str = items[0]["expires_at"]
         assert expires_str is not None, "expires_at should be set"
 
-        # Parse and verify within 1 hour +/- 1 minute
+        # Parse and verify within 3 hours (default) +/- 1 minute
         expires = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
-        expected_min = before + timedelta(hours=1) - timedelta(minutes=1)
-        expected_max = after + timedelta(hours=1) + timedelta(minutes=1)
+        expected_min = before + timedelta(hours=3) - timedelta(minutes=1)
+        expected_max = after + timedelta(hours=3) + timedelta(minutes=1)
 
         assert expected_min <= expires <= expected_max, (
-            f"expires_at should be ~1 hour from now, got {expires}"
+            f"expires_at should be ~3 hours from now (default), got {expires}"
         )
 
     @pytest.mark.asyncio
@@ -303,6 +306,55 @@ class TestEnqueue:
         # Allow 1 second tolerance for test execution
         delta = abs((expires - custom_expires).total_seconds())
         assert delta < 2, f"expires_at should match custom value, delta was {delta}s"
+
+    @pytest.mark.asyncio
+    async def test_enqueue_uses_config_ttl_hours(
+        self, queue_with_db: InterventionQueue, sample_task_id: str
+    ) -> None:
+        """
+        Test that enqueue uses auth_queue_ttl_hours from config (wiring test).
+
+        // Given: Custom auth_queue_ttl_hours setting
+        // When: Calling enqueue without expires_at
+        // Then: Uses config value for expiration
+        """
+        # Given: Custom TTL setting
+        custom_ttl = 5  # hours
+
+        # When: enqueue is called without expires_at
+        with patch(
+            "src.utils.notification.get_settings",
+            return_value=type(
+                "Settings",
+                (),
+                {
+                    "task_limits": type(
+                        "TaskLimits",
+                        (),
+                        {"auth_queue_ttl_hours": custom_ttl},
+                    )(),
+                },
+            )(),
+        ):
+            before = datetime.now(UTC)
+            await queue_with_db.enqueue(
+                task_id=sample_task_id,
+                url="https://example.com/page",
+                domain="example.com",
+                auth_type="cloudflare",
+            )
+            after = datetime.now(UTC)
+
+        # Then: expires_at should use custom TTL
+        items = await queue_with_db.get_pending(task_id=sample_task_id)
+        expires_str = items[0]["expires_at"]
+        expires = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
+        expected_min = before + timedelta(hours=custom_ttl) - timedelta(minutes=1)
+        expected_max = after + timedelta(hours=custom_ttl) + timedelta(minutes=1)
+
+        assert expected_min <= expires <= expected_max, (
+            f"expires_at should use config TTL ({custom_ttl}h), got {expires}"
+        )
 
 
 # =============================================================================
@@ -929,6 +981,62 @@ class TestSkip:
 
         # Then: Should have skipped the in_progress item
         assert result["ok"] is True, "ok should be True"
+
+    @pytest.mark.asyncio
+    async def test_skip_with_status_cancelled(
+        self, queue_with_db: InterventionQueue, sample_task_id: str
+    ) -> None:
+        """
+        TC-SK-N-04: Skip with status=cancelled.
+
+        // Given: Pending authentication items
+        // When: Calling skip with status='cancelled'
+        // Then: Items are marked as cancelled
+        """
+        # Given
+        queue_id = await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url="https://example.com/page",
+            domain="example.com",
+            auth_type="cloudflare",
+        )
+
+        # When
+        result = await queue_with_db.skip(queue_ids=[queue_id], status="cancelled")
+
+        # Then: Verify status is cancelled
+        assert result["ok"] is True, "ok should be True"
+        item = await queue_with_db.get_item(queue_id)
+        assert item is not None, "Item should exist"
+        assert item["status"] == "cancelled", f"Status should be cancelled, got {item['status']}"
+
+    @pytest.mark.asyncio
+    async def test_skip_with_status_skipped(
+        self, queue_with_db: InterventionQueue, sample_task_id: str
+    ) -> None:
+        """
+        TC-SK-N-05: Skip with status=skipped (default).
+
+        // Given: Pending authentication items
+        // When: Calling skip with status='skipped' (default)
+        // Then: Items are marked as skipped
+        """
+        # Given
+        queue_id = await queue_with_db.enqueue(
+            task_id=sample_task_id,
+            url="https://example.com/page",
+            domain="example.com",
+            auth_type="cloudflare",
+        )
+
+        # When
+        result = await queue_with_db.skip(queue_ids=[queue_id], status="skipped")
+
+        # Then: Verify status is skipped
+        assert result["ok"] is True, "ok should be True"
+        item = await queue_with_db.get_item(queue_id)
+        assert item is not None, "Item should exist"
+        assert item["status"] == "skipped", f"Status should be skipped, got {item['status']}"
 
 
 # =============================================================================

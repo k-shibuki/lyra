@@ -842,9 +842,11 @@ class InterventionQueue:
 
         queue_id = f"iq_{uuid.uuid4().hex[:12]}"
 
-        # Default expiration: 1 hour from now
+        # Default expiration: use config value
         if expires_at is None:
-            expires_at = datetime.now(UTC) + timedelta(hours=1)
+            settings = get_settings()
+            ttl_hours = settings.task_limits.auth_queue_ttl_hours
+            expires_at = datetime.now(UTC) + timedelta(hours=ttl_hours)
 
         await self._db.execute(
             """
@@ -925,17 +927,13 @@ class InterventionQueue:
         await self._ensure_db()
         assert self._db is not None  # Type narrowing after _ensure_db
 
-        # Use ISO format for comparison with stored timestamps
-        now_iso = datetime.now(UTC).isoformat()
-
         query = """
             SELECT id, task_id, url, domain, auth_type, priority, status,
                    queued_at, expires_at
             FROM intervention_queue
             WHERE status = 'pending'
-              AND (expires_at IS NULL OR expires_at > ?)
         """
-        params = [now_iso]
+        params: list[Any] = []
 
         if task_id:
             query += " AND task_id = ?"
@@ -966,18 +964,14 @@ class InterventionQueue:
         await self._ensure_db()
         assert self._db is not None  # Type narrowing after _ensure_db
 
-        # Use ISO format for comparison with stored timestamps
-        now_iso = datetime.now(UTC).isoformat()
-
         rows = await self._db.fetch_all(
             """
             SELECT priority, COUNT(*) as count
             FROM intervention_queue
             WHERE task_id = ? AND status = 'pending'
-              AND (expires_at IS NULL OR expires_at > ?)
             GROUP BY priority
             """,
-            (task_id, now_iso),
+            (task_id,),
         )
 
         counts = {"high": 0, "medium": 0, "low": 0, "total": 0}
@@ -1008,18 +1002,15 @@ class InterventionQueue:
         await self._ensure_db()
         assert self._db is not None  # Type narrowing after _ensure_db
 
-        now_iso = datetime.now(UTC).isoformat()
-
         # Get counts by priority
         priority_rows = await self._db.fetch_all(
             """
             SELECT priority, COUNT(*) as count
             FROM intervention_queue
             WHERE task_id = ? AND status = 'pending'
-              AND (expires_at IS NULL OR expires_at > ?)
             GROUP BY priority
             """,
-            (task_id, now_iso),
+            (task_id,),
         )
 
         pending_count = 0
@@ -1036,10 +1027,9 @@ class InterventionQueue:
             SELECT DISTINCT domain
             FROM intervention_queue
             WHERE task_id = ? AND status = 'pending'
-              AND (expires_at IS NULL OR expires_at > ?)
             ORDER BY domain
             """,
-            (task_id, now_iso),
+            (task_id,),
         )
         domains = [row["domain"] for row in domain_rows]
 
@@ -1049,9 +1039,8 @@ class InterventionQueue:
             SELECT MIN(queued_at) as oldest
             FROM intervention_queue
             WHERE task_id = ? AND status = 'pending'
-              AND (expires_at IS NULL OR expires_at > ?)
             """,
-            (task_id, now_iso),
+            (task_id,),
         )
         oldest_queued_at = oldest_row["oldest"] if oldest_row and oldest_row["oldest"] else None
 
@@ -1061,10 +1050,9 @@ class InterventionQueue:
             SELECT auth_type, COUNT(*) as count
             FROM intervention_queue
             WHERE task_id = ? AND status = 'pending'
-              AND (expires_at IS NULL OR expires_at > ?)
             GROUP BY auth_type
             """,
-            (task_id, now_iso),
+            (task_id,),
         )
         by_auth_type = {row["auth_type"]: row["count"] for row in auth_type_rows}
 
@@ -1117,16 +1105,12 @@ class InterventionQueue:
                 queue_ids,
             )
         else:
-            # Use ISO format for comparison with stored timestamps
-            now_iso = datetime.now(UTC).isoformat()
-
             query = """
                 SELECT id, url, domain, auth_type, priority
                 FROM intervention_queue
                 WHERE task_id = ? AND status = 'pending'
-                  AND (expires_at IS NULL OR expires_at > ?)
             """
-            params = [task_id, now_iso]
+            params: list[Any] = [task_id]
 
             if priority_filter and priority_filter != "all":
                 query += " AND priority = ?"
@@ -1239,20 +1223,17 @@ class InterventionQueue:
         await self._ensure_db()
         assert self._db is not None  # Type narrowing after _ensure_db
 
-        now_iso = datetime.now(UTC).isoformat()
-
         # Get all pending items
         rows = await self._db.fetch_all(
             """
             SELECT id, task_id, url, domain, auth_type, priority
             FROM intervention_queue
             WHERE status = 'pending'
-              AND (expires_at IS NULL OR expires_at > ?)
             ORDER BY domain,
                      CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
                      queued_at
             """,
-            (now_iso,),
+            None,
         )
 
         # Group by domain
@@ -1389,8 +1370,6 @@ class InterventionQueue:
         assert self._db is not None  # Type narrowing after _ensure_db
 
         import json
-
-        now_iso = datetime.now(UTC).isoformat()
         session_json = json.dumps(session_data) if session_data else None
         status = "completed" if success else "skipped"
 
@@ -1400,9 +1379,8 @@ class InterventionQueue:
             SELECT id, task_id, url
             FROM intervention_queue
             WHERE domain = ? AND status IN ('pending', 'in_progress')
-              AND (expires_at IS NULL OR expires_at > ?)
             """,
-            (domain, now_iso),
+            (domain,),
         )
 
         if not affected_rows:
@@ -1449,6 +1427,7 @@ class InterventionQueue:
         queue_ids: list[str] | None = None,
         *,
         domain: str | None = None,
+        status: str = "skipped",
     ) -> dict[str, Any]:
         """Skip authentications.
 
@@ -1461,14 +1440,13 @@ class InterventionQueue:
             task_id: Task ID (optional, used when no queue_ids or domain specified).
             queue_ids: Specific queue IDs to skip (optional).
             domain: Domain to skip all pending items for (optional).
+            status: Status to set ('skipped' or 'cancelled'). Defaults to 'skipped'.
 
         Returns:
             Skip result with affected_tasks for domain-based skips.
         """
         await self._ensure_db()
         assert self._db is not None  # Type narrowing after _ensure_db
-
-        now_iso = datetime.now(UTC).isoformat()
         affected_tasks: list[str] = []
 
         if queue_ids:
@@ -1477,10 +1455,10 @@ class InterventionQueue:
             await self._db.execute(
                 f"""
                 UPDATE intervention_queue
-                SET status = 'skipped', completed_at = datetime('now')
+                SET status = ?, completed_at = datetime('now')
                 WHERE id IN ({placeholders}) AND status IN ('pending', 'in_progress')
                 """,
-                queue_ids,
+                (status, *queue_ids),
             )
             skipped = len(queue_ids)
 
@@ -1497,9 +1475,8 @@ class InterventionQueue:
                 SELECT DISTINCT task_id
                 FROM intervention_queue
                 WHERE domain = ? AND status IN ('pending', 'in_progress')
-                  AND (expires_at IS NULL OR expires_at > ?)
                 """,
-                (domain, now_iso),
+                (domain,),
             )
             affected_tasks = [row["task_id"] for row in affected_rows]
 
@@ -1509,9 +1486,8 @@ class InterventionQueue:
                 SELECT COUNT(*) as count
                 FROM intervention_queue
                 WHERE domain = ? AND status IN ('pending', 'in_progress')
-                  AND (expires_at IS NULL OR expires_at > ?)
                 """,
-                (domain, now_iso),
+                (domain,),
             )
             skipped = count_row["count"] if count_row else 0
 
@@ -1519,10 +1495,10 @@ class InterventionQueue:
             await self._db.execute(
                 """
                 UPDATE intervention_queue
-                SET status = 'skipped', completed_at = datetime('now')
+                SET status = ?, completed_at = datetime('now')
                 WHERE domain = ? AND status IN ('pending', 'in_progress')
                 """,
-                (domain,),
+                (status, domain),
             )
 
             logger.info(
@@ -1536,15 +1512,15 @@ class InterventionQueue:
             await self._db.execute(
                 """
                 UPDATE intervention_queue
-                SET status = 'skipped', completed_at = datetime('now')
+                SET status = ?, completed_at = datetime('now')
                 WHERE task_id = ? AND status IN ('pending', 'in_progress')
                 """,
-                (task_id,),
+                (status, task_id),
             )
             # Get count
             row = await self._db.fetch_one(
-                "SELECT COUNT(*) as count FROM intervention_queue WHERE task_id = ? AND status = 'skipped'",
-                (task_id,),
+                "SELECT COUNT(*) as count FROM intervention_queue WHERE task_id = ? AND status = ?",
+                (task_id, status),
             )
             skipped = row["count"] if row else 0
 
