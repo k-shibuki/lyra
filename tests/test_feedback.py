@@ -29,7 +29,7 @@ Test matrix based on ADR-0012 (feedback tool design):
 | TC-CS-03 | Non-existing claim_id | Abnormal | ResourceNotFoundError | |
 | **edge_correct** | | | | |
 | TC-EC-01 | supports → refutes | Normal | relation updated, nli_corrections accumulated | |
-| TC-EC-02 | Same label (supports → supports) | Normal | No change but sample accumulated | ground-truth collection |
+| TC-EC-02 | Same label (supports → supports) | Normal | Mark reviewed only; no nli_corrections | Review semantics |
 | TC-EC-03 | Non-existing edge_id | Abnormal | ResourceNotFoundError | |
 | TC-EC-04 | Invalid relation `"unknown"` | Abnormal | InvalidParamsError | |
 | TC-EC-05 | 3-class: supports | Normal | | |
