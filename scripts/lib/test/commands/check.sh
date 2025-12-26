@@ -15,6 +15,7 @@ cmd_check() {
     local runtime=""
     local result_file=""
     local pid_file=""
+    local container_name=""
 
     if [[ -n "$run_id" ]]; then
         # Explicit run_id provided.
@@ -24,6 +25,11 @@ cmd_check() {
             runtime="${LYRA_TEST__RUNTIME}"
             result_file="${LYRA_TEST__RESULT_FILE}"
             pid_file="${LYRA_TEST__PID_FILE}"
+            container_name="${LYRA_TEST__CONTAINER_NAME:-}"
+            # Update CONTAINER_NAME_SELECTED for runtime_* functions
+            if [[ -n "$container_name" ]]; then
+                CONTAINER_NAME_SELECTED="$container_name"
+            fi
         else
             runtime="venv"
             result_file=$(get_result_file "$run_id")
@@ -39,7 +45,12 @@ cmd_check() {
         runtime="${LYRA_TEST__RUNTIME}"
         result_file="${LYRA_TEST__RESULT_FILE}"
         pid_file="${LYRA_TEST__PID_FILE}"
+        container_name="${LYRA_TEST__CONTAINER_NAME:-}"
         run_id="${LYRA_TEST__RUN_ID:-}"
+        # Update CONTAINER_NAME_SELECTED for runtime_* functions
+        if [[ -n "$container_name" ]]; then
+            CONTAINER_NAME_SELECTED="$container_name"
+        fi
     fi
 
     if [[ -z "$result_file" ]] || [[ -z "$pid_file" ]]; then
@@ -145,7 +156,8 @@ EOF
   "summary": "${summary_line}",
   "result_file": "${result_file}",
   "total_lines": ${total_lines},
-  "run_id": "${run_id}"
+  "run_id": "${run_id}",
+  "runtime": "${runtime}"
 }
 EOF
             else
@@ -153,7 +165,13 @@ EOF
                 echo "=== Summary ==="
                 echo "$summary_line"
                 echo "=== Artifact ==="
+                echo "runtime:     ${runtime}"
                 echo "result_file: ${result_file}"
+                if [[ "$runtime" == "container" ]]; then
+                    local tool
+                    tool=$(get_container_runtime_cmd 2>/dev/null || echo "podman")
+                    echo "view_cmd:    ${tool} exec ${container_name:-${CONTAINER_NAME_SELECTED:-lyra}} less -R ${result_file}"
+                fi
                 if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
                     if (( total_lines <= CHECK_TAIL_LINES )); then
                         echo "=== Tail (full output: ${total_lines} lines) ==="
@@ -190,7 +208,8 @@ EOF
   "summary": "${summary_line}",
   "result_file": "${result_file}",
   "total_lines": ${total_lines},
-  "run_id": "${run_id}"
+  "run_id": "${run_id}",
+  "runtime": "${runtime}"
 }
 EOF
             else
@@ -198,7 +217,13 @@ EOF
                 echo "=== Summary ==="
                 echo "$summary_line"
                 echo "=== Artifact ==="
+                echo "runtime:     ${runtime}"
                 echo "result_file: ${result_file}"
+                if [[ "$runtime" == "container" ]]; then
+                    local tool
+                    tool=$(get_container_runtime_cmd 2>/dev/null || echo "podman")
+                    echo "view_cmd:    ${tool} exec ${container_name:-${CONTAINER_NAME_SELECTED:-lyra}} less -R ${result_file}"
+                fi
                 if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
                     if (( total_lines <= CHECK_TAIL_LINES )); then
                         echo "=== Tail (full output: ${total_lines} lines) ==="
