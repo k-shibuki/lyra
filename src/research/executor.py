@@ -200,6 +200,7 @@ class SearchExecutor:
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
         engines: list[str] | None = None,
+        serp_max_pages: int = 1,
         search_job_id: str | None = None,
     ) -> SearchResult:
         """
@@ -210,6 +211,7 @@ class SearchExecutor:
             priority: Execution priority (high/medium/low).
             budget_pages: Optional page budget for this search.
             budget_time_seconds: Optional time budget for this search.
+            serp_max_pages: Maximum SERP pages to fetch per query.
             search_job_id: Search job ID for CAPTCHA queue auto-requeue (ADR-0007).
 
         Returns:
@@ -218,6 +220,7 @@ class SearchExecutor:
         # Store engines and job ID for use in _execute_search
         self._engines = engines
         self._search_job_id = search_job_id  # ADR-0007
+        self._serp_max_pages = serp_max_pages
 
         await self._ensure_db()
 
@@ -419,6 +422,7 @@ class SearchExecutor:
                 task_id=self.task_id,
                 engines=getattr(self, "_engines", None),
                 search_job_id=getattr(self, "_search_job_id", None),
+                serp_max_pages=getattr(self, "_serp_max_pages", 1),
             )
             return results, None, {}
         except ParserNotAvailableSearchError as e:

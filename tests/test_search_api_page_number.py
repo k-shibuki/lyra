@@ -1,5 +1,5 @@
 """
-Tests for page_number propagation to serp_items table (R_SERP_ENHANCEMENT Issue 1).
+Tests for page_number propagation to serp_items table.
 
 Validates that page_number is correctly stored in the database when SERP results
 are inserted via search_serp().
@@ -65,7 +65,7 @@ class TestSearchApiPageNumberWiring:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query", return_value=MagicMock(operators=[])),
+            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
         ):
             # When: search_serp() is called
             await search_serp(
@@ -125,7 +125,7 @@ class TestSearchApiPageNumberWiring:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query", return_value=MagicMock(operators=[])),
+            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
         ):
             # When: search_serp() is called
             await search_serp(
@@ -180,7 +180,7 @@ class TestSearchApiPageNumberWiring:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query", return_value=MagicMock(operators=[])),
+            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
         ):
             await search_serp(query="test", task_id="task_123", use_cache=False)
 
@@ -225,7 +225,7 @@ class TestSearchApiPageNumberWiring:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query", return_value=MagicMock(operators=[])),
+            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
         ):
             await search_serp(query="test", task_id="task_123", use_cache=False)
 
@@ -285,7 +285,7 @@ class TestSearchApiPageNumberEffect:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query", return_value=MagicMock(operators=[])),
+            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
         ):
             await search_serp(query="test", task_id="task_123", use_cache=False)
 

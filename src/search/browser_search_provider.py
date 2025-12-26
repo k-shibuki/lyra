@@ -1125,8 +1125,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                         # Otherwise stop pagination, return partial results
                         break
 
-                    # Merge results: deduplicate by URL
-                    # Pass current_page for audit/reproducibility (R_SERP_ENHANCEMENT Issue 1)
+                    # Merge results: deduplicate by URL.
+                    # current_page is recorded into SearchResult.page_number (and persisted to DB) for audit/reproducibility.
                     page_results = [
                         r.to_search_result(engine, serp_page=current_page)
                         for r in parse_result.results
@@ -1152,9 +1152,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                         novelty_rate=round(novelty_rate, 3),
                     )
 
-                    # Check stop condition (auto strategy)
-                    # harvest_rate from search() parameter for pagination decision
-                    # (R_SERP_ENHANCEMENT Issue 2)
+                    # Check stop condition (auto strategy).
+                    # harvest_rate is passed from the caller to influence pagination decision.
                     context = PaginationContext(
                         current_page=current_page,
                         novelty_rate=novelty_rate,

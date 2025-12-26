@@ -182,5 +182,5 @@ mojeek:
 
 - [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - ワーカー並列実行の基盤
 - [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - 学術APIレート制限
-- [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md) - ページネーション機能詳細
+- [archive/R_SERP_ENHANCEMENT.md](../archive/R_SERP_ENHANCEMENT.md) - ページネーション機能詳細（アーカイブ）
 
