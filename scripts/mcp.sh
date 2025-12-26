@@ -4,7 +4,11 @@
 # Launches MCP server on WSL host, with LLM/ML via container proxy.
 # Called by Cursor via .cursor/mcp.json
 #
-# Usage: ./scripts/mcp.sh
+# Usage:
+#   ./scripts/mcp.sh          # Start MCP server (default)
+#   ./scripts/mcp.sh logs     # Show recent logs (tail -100)
+#   ./scripts/mcp.sh logs -f  # Follow logs
+#   ./scripts/mcp.sh logs --grep "pattern"  # Search logs
 #
 # Architecture:
 #   WSL Host:     MCP Server (this script) + Chrome CDP
@@ -16,6 +20,22 @@
 #   - venv: auto-created if not exists
 
 set -euo pipefail
+
+# =============================================================================
+# EARLY INITIALIZATION (for logs subcommand - before STDIO guard)
+# =============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source logs library (standalone, no common.sh dependency)
+# shellcheck source=lib/logs.sh
+source "${SCRIPT_DIR}/lib/logs.sh"
+
+# Handle 'logs' subcommand before STDIO guard (logs go to stdout)
+if [[ "${1:-}" == "logs" ]]; then
+    shift
+    show_lyra_logs "$@"
+fi
 
 # =============================================================================
 # STDIO PROTOCOL GUARD (Cursor MCP)
@@ -34,10 +54,8 @@ exec 1>&2
 export LYRA_LOG_TO_STDERR="true"
 
 # =============================================================================
-# INITIALIZATION
+# COMMON INITIALIZATION
 # =============================================================================
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source common functions and load .env
 # shellcheck source=common.sh

@@ -61,6 +61,9 @@ models/
 .env.local
 .env.*.local
 
+# Local configuration overrides (use local.yaml.example as template)
+config/local.yaml
+
 # SSH keys (security)
 id_rsa
 id_rsa.pub

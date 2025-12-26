@@ -78,6 +78,8 @@ source "${COMMON_DIR}/lib/container.sh"
 source "${COMMON_DIR}/lib/compose.sh"
 # shellcheck source=/dev/null
 source "${COMMON_DIR}/lib/venv.sh"
-        # shellcheck source=/dev/null
+# shellcheck source=/dev/null
 source "${COMMON_DIR}/lib/http.sh"
+# shellcheck source=/dev/null
+source "${COMMON_DIR}/lib/logs.sh"
 

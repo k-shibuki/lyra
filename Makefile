@@ -77,6 +77,15 @@ dev-clean: ## Remove containers and images
 mcp: ## Start MCP server (for Cursor)
 	@$(SCRIPTS)/mcp.sh
 
+mcp-logs: ## Show MCP server logs (tail -100)
+	@$(SCRIPTS)/mcp.sh logs
+
+mcp-logs-f: ## Follow MCP server logs (tail -f)
+	@$(SCRIPTS)/mcp.sh logs -f
+
+mcp-logs-grep: ## Search MCP logs (PATTERN= required)
+	@$(SCRIPTS)/mcp.sh logs --grep "$(PATTERN)"
+
 # =============================================================================
 # DOCTOR (Environment Check)
 # =============================================================================
@@ -207,7 +216,7 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "MCP:"
-	@grep -E '^mcp:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^mcp[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Doctor:"

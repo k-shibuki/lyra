@@ -69,6 +69,15 @@ def configure_logging(
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"lyra_{datetime.now().strftime('%Y%m%d')}.log"
 
+        # Create/update symlink to latest log for easy access
+        latest_link = log_dir / "mcp_latest.log"
+        try:
+            if latest_link.is_symlink() or latest_link.exists():
+                latest_link.unlink()
+            latest_link.symlink_to(log_file.name)
+        except OSError:
+            pass  # Ignore symlink errors (e.g., Windows without admin)
+
     # Convert log level string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
 

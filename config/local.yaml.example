@@ -1,0 +1,85 @@
+# Local Configuration Overrides
+# ==============================
+#
+# Copy this file to `local.yaml` and customize for your environment.
+# local.yaml is gitignored and will not be committed.
+#
+# STRUCTURE
+# ---------
+# Top-level keys correspond to config file names (without .yaml extension):
+#
+#   settings:       -> overrides config/settings.yaml
+#   academic_apis:  -> overrides config/academic_apis.yaml
+#   domains:        -> overrides config/domains.yaml
+#   engines:        -> overrides config/engines.yaml
+#
+# Only include the keys you want to override. Unspecified keys use defaults.
+#
+# PRIORITY (lowest to highest)
+# ----------------------------
+# 1. Base YAML files (settings.yaml, etc.)
+# 2. local.yaml (this file)
+# 3. Environment variables (LYRA_* prefix)
+#
+# ENVIRONMENT VARIABLES
+# ---------------------
+# For CI/CD or containerized environments, use environment variables:
+#   LYRA_TASK_LIMITS__CURSOR_IDLE_TIMEOUT_SECONDS=180
+#   LYRA_GENERAL__LOG_LEVEL=DEBUG
+#
+# Double underscores (__) denote nested keys.
+
+# =============================================================================
+# settings: (overrides settings.yaml)
+# =============================================================================
+settings:
+  # General settings
+  general:
+    log_level: "DEBUG"  # DEBUG, INFO, WARNING, ERROR
+
+  # Task limits
+  task_limits:
+    budget_pages_per_task: 120
+    cursor_idle_timeout_seconds: 180  # Default: 60, extend for long searches
+
+  # Concurrency (ADR-0015)
+  concurrency:
+    search_queue:
+      num_workers: 2  # Parallel search workers
+    browser_serp:
+      max_tabs: 2  # Concurrent browser tabs
+
+  # Browser settings
+  browser:
+    chrome_host: "localhost"
+    chrome_port: 9222
+
+# =============================================================================
+# academic_apis: (overrides academic_apis.yaml)
+# =============================================================================
+# academic_apis:
+#   apis:
+#     semantic_scholar:
+#       enabled: true
+#       api_key: "your-api-key-here"
+#     openalex:
+#       enabled: true
+
+# =============================================================================
+# domains: (overrides domains.yaml)
+# =============================================================================
+# domains:
+#   blocked:
+#     - example.com
+#   priority:
+#     - pubmed.ncbi.nlm.nih.gov
+
+# =============================================================================
+# engines: (overrides engines.yaml)
+# =============================================================================
+# engines:
+#   default_engine: "duckduckgo"
+#   enabled_engines:
+#     - duckduckgo
+#     - mojeek
+
