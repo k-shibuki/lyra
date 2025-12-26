@@ -187,8 +187,15 @@ case "$ACTION" in
         ;;
     
     diagnose|diag)
-        # Diagnose first worker (port = base_port)
-        run_diagnose "$CHROME_BASE_PORT"
+        # Diagnose all workers in the pool (or specific port if provided)
+        DIAGNOSE_PORT="${2:-}"
+        if [ -n "$DIAGNOSE_PORT" ]; then
+            # Single port diagnosis
+            run_diagnose "$DIAGNOSE_PORT"
+        else
+            # Full pool diagnosis
+            run_diagnose_pool
+        fi
         ;;
     
     fix)

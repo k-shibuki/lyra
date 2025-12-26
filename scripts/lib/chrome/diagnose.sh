@@ -2,9 +2,91 @@
 # Chrome Diagnostics Functions
 #
 # Functions for diagnosing Chrome CDP connection issues.
+# Supports both single-port and worker pool diagnostics.
+
+# Function: run_diagnose_pool
+# Description: Diagnose Chrome CDP connection for all workers in the pool
+# Returns:
+#   0: All workers are healthy
+#   1: Some workers have issues
+run_diagnose_pool() {
+    local num_workers="${NUM_WORKERS:-2}"
+    local base_port="${CHROME_BASE_PORT:-9222}"
+    
+    echo "=== Lyra Chrome Pool Diagnostics ==="
+    echo ""
+    echo "Environment: $ENV_TYPE"
+    echo "Workers: $num_workers"
+    echo "Base Port: $base_port"
+    echo ""
+    
+    local all_ok=true
+    local connected=0
+    local issues=()
+    
+    for ((i=0; i<num_workers; i++)); do
+        local port=$((base_port + i))
+        local profile
+        profile=$(get_worker_profile "$i")
+        
+        echo "--- Worker $i (port=$port, profile=$profile) ---"
+        
+        # Quick connectivity check
+        if curl -s --connect-timeout 2 "http://localhost:$port/json/version" > /dev/null 2>&1; then
+            echo "  Status: OK (CDP accessible)"
+            ((connected++)) || true
+        else
+            echo "  Status: FAILED (cannot connect)"
+            all_ok=false
+            issues+=("Worker $i (port $port): Not accessible")
+            
+            # Additional diagnostics for failed workers
+            if [ "$ENV_TYPE" = "wsl" ]; then
+                # Check if port is listening on Windows
+                local port_listening
+                port_listening=$(run_ps "
+                    \$ErrorActionPreference = 'Stop'
+                    try {
+                        \$conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+                        if (\$conn) { 'LISTENING' } else { 'NOT_LISTENING' }
+                    } catch { 'ERROR' }
+                " 2>/dev/null | tr -d '\r\n')
+                
+                if [ "$port_listening" = "LISTENING" ]; then
+                    echo "    -> Port is listening on Windows but not reachable from WSL"
+                    issues+=("  -> Check mirrored networking mode")
+                elif [ "$port_listening" = "NOT_LISTENING" ]; then
+                    echo "    -> Port is not listening (Chrome not started for this worker)"
+                    issues+=("  -> Run: make chrome-start")
+                fi
+            fi
+        fi
+        echo ""
+    done
+    
+    # Summary
+    echo "=== Summary ==="
+    echo "Connected: $connected/$num_workers workers"
+    echo ""
+    
+    if [ "$all_ok" = true ]; then
+        echo "OK All workers are healthy!"
+        return 0
+    else
+        echo "X Some workers have issues:"
+        for issue in "${issues[@]}"; do
+            echo "  $issue"
+        done
+        echo ""
+        echo "Recommended actions:"
+        echo "  1. Start missing workers: make chrome-start"
+        echo "  2. For networking issues: make doctor-chrome-fix"
+        return 1
+    fi
+}
 
 # Function: run_diagnose
-# Description: Diagnose Chrome CDP connection issues (WSL2)
+# Description: Diagnose Chrome CDP connection issues for a single port (WSL2)
 # Arguments:
 #   $1: Port number to diagnose
 # Returns:
@@ -13,7 +95,7 @@
 run_diagnose() {
     local port="$1"
     
-    echo "=== Lyra Chrome Diagnostics ==="
+    echo "=== Lyra Chrome Diagnostics (Single Port) ==="
     echo ""
     echo "Environment: $ENV_TYPE"
     echo "Port: $port"
