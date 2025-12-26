@@ -64,7 +64,7 @@ _show_help() {
 
 # Handle help and unknown commands early (before dependency check)
 # This allows showing help even when podman is not installed
-VALID_COMMANDS="up|down|build|rebuild|shell|logs|test|mcp|research|status|clean|help"
+# Valid commands: up|down|build|rebuild|shell|logs|test|mcp|research|status|clean|help
 case "${1:-}" in
     help|--help|-h|"")
         _show_help
@@ -200,7 +200,7 @@ cleanup_environment() {
 cmd_up() {
     # Check for .env file (required for proxy server configuration)
     if [ ! -f "${PROJECT_DIR}/.env" ]; then
-        output_error $EXIT_CONFIG ".env file not found. Copy from template: cp .env.example .env" "hint=cp .env.example .env"
+        output_error "$EXIT_CONFIG" ".env file not found. Copy from template: cp .env.example .env" "hint=cp .env.example .env"
     fi
 
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
@@ -273,7 +273,7 @@ cmd_mcp() {
 cmd_research() {
     local query="$1"
     if [ -z "$query" ]; then
-        output_error $EXIT_USAGE "Query argument required" "usage=./scripts/dev.sh research \"Your query\""
+        output_error "$EXIT_USAGE" "Query argument required" "usage=make dev-shell"
     fi
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         log_info "Running research: $query"

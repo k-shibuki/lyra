@@ -161,7 +161,7 @@ class PlaywrightProvider(BaseBrowserProvider):
                 except Exception as e:
                     # Per spec ADR-0006: CDP connection is required, no fallback
                     raise RuntimeError(
-                        f"CDP connection failed: {e}. Start Chrome with: ./scripts/chrome.sh start"
+                        f"CDP connection failed: {e}. Start Chrome with: make chrome-start"
                     ) from e
 
                 # Reuse existing context if available (preserves profile cookies per ADR-0007)

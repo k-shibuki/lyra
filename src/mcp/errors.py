@@ -74,7 +74,7 @@ class MCPErrorCode(str, Enum):
     # Infrastructure errors
     CHROME_NOT_READY = "CHROME_NOT_READY"
     """Chrome CDP is not connected (auto-start failed).
-    Action: Check ./scripts/chrome.sh diagnose"""
+    Action: Check make chrome-diagnose"""
 
     # Search-specific errors
     PARSER_NOT_AVAILABLE = "PARSER_NOT_AVAILABLE"
@@ -367,7 +367,7 @@ class ChromeNotReadyError(MCPError):
 
     def __init__(
         self,
-        message: str = "Chrome CDP is not connected. Auto-start failed. Check: ./scripts/chrome.sh start",
+        message: str = "Chrome CDP is not connected. Auto-start failed. Check: make chrome-start",
         *,
         auto_start_attempted: bool = True,
     ):

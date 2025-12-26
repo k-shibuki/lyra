@@ -161,7 +161,10 @@ else
 	uv run mypy src/
 endif
 
-quality: lint typecheck ## Run all quality checks
+shellcheck: ## Run shellcheck on scripts
+	find scripts -name "*.sh" -type f | xargs shellcheck -x -e SC1091
+
+quality: lint typecheck shellcheck ## Run all quality checks
 
 # =============================================================================
 # CLEANUP

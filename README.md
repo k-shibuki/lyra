@@ -547,10 +547,10 @@ Lyra includes 3000+ tests across three layers (see [ADR-0009](docs/adr/0009-test
 | L3 | E2E | All real (Chrome, Ollama, network) | `pytest -m e2e` |
 
 ```bash
-# Run tests via test.sh (recommended - handles venv and environment detection)
-./scripts/test.sh run                    # Unit + integration tests
-./scripts/test.sh check                  # Check completion
-LYRA_TEST_LAYER=e2e ./scripts/test.sh run  # Include E2E tests
+# Run tests via Makefile (recommended - handles venv and environment detection)
+make test                                 # Unit + integration tests
+make test-check                           # Check completion
+make test-e2e                             # E2E tests (requires Chrome CDP + containers)
 
 # Or run pytest directly in venv
 source .venv/bin/activate

@@ -413,7 +413,7 @@ class TestChromeNotReadyError:
 
         assert result["error_code"] == "CHROME_NOT_READY"
         assert "Chrome CDP is not connected" in result["error"]
-        assert "./scripts/chrome.sh start" in result["error"]
+        assert "make chrome-start" in result["error"]
         assert "details" not in result  # No details in simplified error
 
     def test_custom_message(self) -> None:

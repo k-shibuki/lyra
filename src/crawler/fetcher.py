@@ -936,7 +936,7 @@ class BrowserFetcher:
                         # BrowserFetcher requires real Chrome profile for fingerprint consistency
                         raise RuntimeError(
                             f"CDP connection failed: {cdp_error}. "
-                            "Start Chrome with: ./scripts/chrome.sh start"
+                            "Start Chrome with: make chrome-start"
                         )
 
                 # Register browser for lifecycle management
