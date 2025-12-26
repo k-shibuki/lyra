@@ -199,6 +199,7 @@ class BrowserSearchProvider(BaseSearchProvider):
             try:
                 from playwright.async_api import async_playwright
 
+
                 self._playwright = await async_playwright().start()
                 assert self._playwright is not None  # Just initialized
 
@@ -212,7 +213,14 @@ class BrowserSearchProvider(BaseSearchProvider):
 
                 # First attempt to connect
                 try:
-                    self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+                    # IMPORTANT: When CDP is down, Playwright's connect_over_cdp can hang.
+                    # Enforce a short timeout so we can fall back to chrome.sh auto-start.
+                    import asyncio
+
+                    self._browser = await asyncio.wait_for(
+                        self._playwright.chromium.connect_over_cdp(cdp_url),
+                        timeout=2.0,
+                    )
                     cdp_connected = True
                     self._cdp_connected = True
                     logger.info("Connected to Chrome via CDP", url=cdp_url)
@@ -235,8 +243,9 @@ class BrowserSearchProvider(BaseSearchProvider):
 
                         while time.monotonic() - start_time < timeout:
                             try:
-                                self._browser = await self._playwright.chromium.connect_over_cdp(
-                                    cdp_url
+                                self._browser = await asyncio.wait_for(
+                                    self._playwright.chromium.connect_over_cdp(cdp_url),
+                                    timeout=2.0,
                                 )
                                 cdp_connected = True
                                 self._cdp_connected = True
@@ -826,7 +835,8 @@ class BrowserSearchProvider(BaseSearchProvider):
 
             for engine_name in candidate_engines:
                 try:
-                    if await check_engine_available(engine_name):
+                    _is_available = await check_engine_available(engine_name)
+                    if _is_available:
                         engine_config = config_manager.get_engine(engine_name)
                         if engine_config and engine_config.is_available:
                             # Get dynamic weight with time decay
@@ -872,6 +882,7 @@ class BrowserSearchProvider(BaseSearchProvider):
             )
 
         try:
+
             await self._rate_limit(engine)
 
             # Get parser for engine

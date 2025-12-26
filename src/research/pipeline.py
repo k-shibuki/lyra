@@ -286,28 +286,35 @@ class SearchPipeline:
         options: SearchOptions,
         result: SearchResult,
     ) -> SearchResult:
-        """Execute normal search mode."""
-        # Check if academic query
-        is_academic = self._is_academic_query(query)
+        """Execute normal search mode.
 
-        if is_academic:
-            # Complementary search: Browser + Academic API
-            return await self._execute_complementary_search(search_id, query, options, result)
-        else:
-            # Standard browser search only
-            return await self._execute_browser_search(search_id, query, options, result)
+        Always runs unified dual-source search (Academic API + Browser SERP) per ADR-0016.
+        Results are deduplicated via CanonicalPaperIndex, citation graph is processed once.
+        """
+        # Always use unified dual-source search (no is_academic branching)
+        return await self._execute_unified_search(search_id, query, options, result)
 
-    async def _execute_browser_search(
+    async def _execute_fetch_extract(
         self,
         search_id: str,
         query: str,
         options: SearchOptions,
         result: SearchResult,
     ) -> SearchResult:
-        """Execute browser search only.
+        """Execute fetch and extract via SearchExecutor.
 
-        After executor execution, extracts identifiers from SERP results and
-        complements with academic API if identifiers are found .
+        Runs SearchExecutor to fetch pages and extract content/claims.
+        Does NOT perform SERP search or citation graph processing
+        (those are handled in _execute_unified_search to avoid duplication).
+
+        Args:
+            search_id: Search ID
+            query: Search query
+            options: Search options
+            result: SearchResult to update
+
+        Returns:
+            Updated SearchResult with fetch/extract stats
         """
         executor = SearchExecutor(self.task_id, self.state)
         budget_pages = options.budget_pages
@@ -348,46 +355,6 @@ class SearchPipeline:
 
         if exec_result.errors:
             result.errors.extend(exec_result.errors)
-
-        # : Extract identifiers from SERP and complement with academic API
-        # (: Non-academic queries should also trigger API complement)
-        try:
-            from src.search.search_api import search_serp
-
-            serp_items = await search_serp(
-                query=query,
-                # NOTE: This is a SERP result count, not a page budget.
-                # Keep it fixed to avoid semantic collisions with budget_pages.
-                limit=20,
-                task_id=self.task_id,
-                engines=options.engines,
-                serp_max_pages=options.serp_max_pages,
-            )
-
-            if serp_items:
-                index, papers_found = await self._process_serp_with_identifiers(
-                    search_id=search_id,
-                    query=query,
-                    serp_items=serp_items,
-                    options=options,
-                )
-
-                if papers_found:
-                    # Process citation graph for papers with abstracts
-                    await self._process_citation_graph(
-                        search_id=search_id,
-                        query=query,
-                        index=index,
-                        options=options,
-                        result=result,
-                    )
-
-        except Exception as e:
-            logger.debug(
-                "Identifier extraction and API complement failed",
-                query=query[:100],
-                error=str(e),
-            )
 
         return result
 
@@ -708,16 +675,22 @@ class SearchPipeline:
         finally:
             await academic_provider.close()
 
-    async def _execute_complementary_search(
+    async def _execute_unified_search(
         self,
         search_id: str,
         query: str,
         options: SearchOptions,
         result: SearchResult,
     ) -> SearchResult:
-        """Execute complementary search (Browser + Academic API).
+        """Execute unified dual-source search (Browser SERP + Academic API).
 
-        Performs unified deduplication across both sources.
+        Always runs both sources in parallel per ADR-0016:
+        - Browser SERP for web results
+        - Academic API (S2 + OpenAlex) for structured paper data
+
+        Results are deduplicated via CanonicalPaperIndex.
+        Citation graph processing happens once (Abstract Only strategy).
+        Entries needing fetch (no abstract) go through SearchExecutor.
         """
         from src.search.academic_provider import AcademicSearchProvider
         from src.search.canonical_index import CanonicalPaperIndex
@@ -726,7 +699,7 @@ class SearchPipeline:
         from src.search.provider import SearchResult as ProviderSearchResult
         from src.search.search_api import search_serp
 
-        logger.info("Executing complementary search", query=query[:100])
+        logger.info("Executing unified dual-source search", query=query[:100])
 
         # Initialize components
         index = CanonicalPaperIndex()
@@ -886,107 +859,31 @@ class SearchPipeline:
                 result=result,
             )
 
-            # For entries that need fetch (no abstract available), fall back to browser search
+            # For entries that need fetch (no abstract available), use SearchExecutor
             # This includes: SERP-only entries, and entries with paper but no abstract
             entries_needing_fetch = [e for e in unique_entries if e.needs_fetch]
             if entries_needing_fetch:
-                # Use browser search for SERP-only entries
-                # Save current stats before calling _execute_browser_search (it modifies result in-place)
+                # Save current stats before calling _execute_fetch_extract (it modifies result in-place)
                 pages_before = result.pages_fetched
                 fragments_before = result.useful_fragments
 
-                expanded_queries = self._expand_academic_query(query)
-                browser_result = await self._execute_browser_search(
-                    search_id, expanded_queries[0], options, result
+                # Run fetch/extract for the original query
+                # (no query expansion needed - SERP + Academic API already ran)
+                fetch_result = await self._execute_fetch_extract(
+                    search_id, query, options, result
                 )
 
-                # Accumulate stats: add browser search results to existing counts
-                # (browser_result is the same object as result, so browser_result.pages_fetched
+                # Accumulate stats: add fetch results to existing counts
+                # (fetch_result is the same object as result, so fetch_result.pages_fetched
                 # contains the new value that overwrote pages_before)
-                result.pages_fetched = pages_before + browser_result.pages_fetched
-                result.useful_fragments = fragments_before + browser_result.useful_fragments
+                result.pages_fetched = pages_before + fetch_result.pages_fetched
+                result.useful_fragments = fragments_before + fetch_result.useful_fragments
 
             return result
         finally:
             # Cleanup: Close HTTP sessions to prevent resource leaks
             await resolver.close()
             await academic_provider.close()
-
-    def _is_academic_query(self, query: str) -> bool:
-        """Determine if query is academic.
-
-        Args:
-            query: Search query
-
-        Returns:
-            True if academic query
-        """
-        query_lower = query.lower()
-
-        # Keyword detection
-        academic_keywords = [
-            "論文",
-            "paper",
-            "研究",
-            "study",
-            "学術",
-            "journal",
-            "arxiv",
-            "pubmed",
-            "doi:",
-            "citation",
-            "引用",
-            "preprint",
-            "peer-review",
-            "査読",
-            "publication",
-        ]
-        if any(kw in query_lower for kw in academic_keywords):
-            return True
-
-        # Site specification detection
-        academic_sites = [
-            "arxiv.org",
-            "pubmed",
-            "scholar.google",
-            "jstage",
-            "doi.org",
-            "semanticscholar.org",
-            "crossref.org",
-        ]
-        if any(f"site:{site}" in query_lower for site in academic_sites):
-            return True
-
-        # DOI format detection
-        if re.search(r"10\.\d{4,}/", query):
-            return True
-
-        return False
-
-    def _expand_academic_query(self, query: str) -> list[str]:
-        """Expand academic query into multiple site-specific queries.
-
-        Args:
-            query: Original query
-
-        Returns:
-            List of expanded queries
-        """
-        queries = [query]  # Original query
-
-        # Remove site: operator
-        base_query = re.sub(r"\bsite:\S+", "", query).strip()
-
-        # Add academic site specifications (top 2 sites only)
-        academic_sites = [
-            "arxiv.org",
-            "pubmed.ncbi.nlm.nih.gov",
-        ]
-
-        for site in academic_sites[:2]:
-            queries.append(f"{base_query} site:{site}")
-
-        return queries
 
     async def _persist_abstract_as_fragment(
         self,
@@ -1090,8 +987,6 @@ class SearchPipeline:
         Returns:
             Domain string
         """
-        import re
-
         match = re.search(r"https?://([^/]+)", url)
         return match.group(1) if match else "unknown"
 
