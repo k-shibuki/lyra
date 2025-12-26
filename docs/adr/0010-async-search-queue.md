@@ -213,7 +213,7 @@ class StatusResult:
 
 ## Implementation Status
 
-**Status**: Phase 1-6 ✅ 完了
+**Status**: Phase 1-6 ✅ 完了（Phase 5 に残タスクあり、詳細は [R_SERP_ENHANCEMENT.md §8.1](../R_SERP_ENHANCEMENT.md#81-残タスク詳細) 参照）
 
 ### フェーズ一覧
 
@@ -223,7 +223,7 @@ class StatusResult:
 | Phase 2 | `search`, `notify_user`, `wait_for_user` ツール削除 | ✅ 完了 (2025-12-24) |
 | Phase 3 | 一次検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加 | ✅ 完了 (2025-12-24) |
 | Phase 4 | Search Resource Control（学術API + ブラウザSERP） | ✅ 完了 (2025-12-25) ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
-| Phase 5 | SERP Enhancement（ページネーション） | ✅ 完了 (2025-12-25) ([R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md)) |
+| Phase 5 | SERP Enhancement（ページネーション） | ⚠️ ほぼ完了（残タスクあり）([R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md) §8.1) |
 | Phase 6 | calibration_metrics action削除、adaptersテーブル追加 | ✅ 完了 (2025-12-25) |
 
 ### Phase 1-3 実装サマリー
@@ -289,7 +289,7 @@ When running multiple queue workers, external rate limits must still be respecte
 **Note**: 
 - Academic API rate limiting (**Phase 4.A**): See [ADR-0013](0013-worker-resource-contention.md).
 - Browser SERP resource control (**Phase 4.B**): See [ADR-0014](0014-browser-serp-resource-control.md).
-- SERP Enhancement / pagination (**Phase 5**): See [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md).
+- SERP Enhancement / pagination (**Phase 5**): See [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md). **Note**: Phase 5 has remaining tasks (`serp_items.page_number` wiring, `harvest_rate` calculation). See [R_SERP_ENHANCEMENT.md §8.1](../R_SERP_ENHANCEMENT.md#81-残タスク詳細) for details.
 
 ## References
 - [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4.A 学術APIリソース競合制御

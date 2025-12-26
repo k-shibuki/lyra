@@ -2036,22 +2036,6 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 
 - **詳細ドキュメント**: `docs/archive/O6_ADDITIONAL_ISSUES.md`
 
-##### シーケンス図
-
-| シーケンス図 | 対象 |
-|------------|------|
-| `docs/sequences/auth_session_reuse_flow.md` | 問題3: セッション再利用 |
-| `docs/sequences/start_session_browser_flow.md` | 問題5: ブラウザ起動 |
-| `docs/sequences/dynamic_weight_flow.md` | 問題8: 動的重み学習 |
-| `docs/sequences/engine_qps_flow.md` | 問題9: エンジン別QPS |
-| `docs/sequences/tor_daily_limit_flow.md` | 問題10: Tor日次上限 |
-| `docs/sequences/domain_daily_budget_flow.md` | 問題11: ドメイン日次予算 |
-| `docs/sequences/session_transfer_flow.md` | 問題12: セッション転送 |
-| `docs/sequences/lastmile_slot_flow.md` | 問題13: ラストマイルスロット |
-| `docs/sequences/profile_health_audit_flow.md` | 問題14: プロファイル監査 |
-| `docs/sequences/human_behavior_flow.md` | 問題15: ヒューマンライク操作 |
-| `docs/sequences/query_normalizer_flow.md` | 問題16: クエリ正規化 |
-
 ##### デバッグスクリプト
 
 | スクリプト | 対象 |
@@ -2092,14 +2076,6 @@ MCPサーバーをWSL側で直接実行し、ネットワーク構成を簡素�
 ##### 外部ドキュメント
 
 - **詳細ドキュメント**: `docs/archive/O7_MCP_TOOL_CONFORMANCE.md`
-
-##### シーケンス図
-
-| シーケンス図 | 対象 |
-|------------|------|
-| `docs/sequences/search_pipeline_flow.md` | 問題1: searchパイプライン |
-| `docs/sequences/get_status_flow.md` | 問題2: get_status |
-| `docs/sequences/get_materials_flow.md` | 問題3: get_materials |
 
 ##### デバッグスクリプト
 
