@@ -1163,39 +1163,19 @@ class BrowserFetcher:
     async def _should_use_headful(self, domain: str) -> bool:
         """Determine if headful mode should be used for domain.
 
-        Based on domain policy's headful_ratio, past failure history,
-        and HTTP/3 policy.
+        Per ADR-0006: Headless mode is prohibited. Lyra uses "real profile
+        consistency" design, requiring CDP connection to real Chrome profile.
+        This method always returns True to enforce headful mode.
 
         Args:
-            domain: Domain name.
+            domain: Domain name (unused, kept for API compatibility).
 
         Returns:
-            True if headful mode should be used.
+            Always True (headful mode required per ADR-0006).
         """
-        db = await get_database()
-
-        # Check domain policy
-        domain_info = await db.fetch_one(
-            "SELECT headful_ratio, captcha_rate, block_score FROM domains WHERE domain = ?",
-            (domain,),
-        )
-
-        if domain_info is None:
-            base_ratio = self._settings.browser.headful_ratio_initial
-        else:
-            base_ratio = domain_info.get("headful_ratio", 0.1)
-            captcha_rate = domain_info.get("captcha_rate", 0.0)
-
-            # Increase headful probability if domain has high captcha rate
-            if captcha_rate > 0.3:
-                base_ratio = min(1.0, base_ratio * 2)
-
-        # Apply HTTP/3 policy adjustment
-        # HTTP/3 sites may perform better with browser route
-        http3_manager = get_http3_policy_manager()
-        adjusted_ratio = await http3_manager.get_adjusted_browser_ratio(domain, base_ratio)
-
-        return random.random() < adjusted_ratio
+        # ADR-0006: Headless mode is prohibited
+        # Always use headful mode with CDP connection to real Chrome profile
+        return True
 
     async def fetch(
         self,
