@@ -119,6 +119,8 @@ class SearchOptions:
     # ADR-0007: CAPTCHA queue integration
     task_id: str | None = None  # Task ID for CAPTCHA queue association
     search_job_id: str | None = None  # Search job ID for auto-requeue on resolve
+    # ADR-0014 Phase 3: Worker context isolation
+    worker_id: int = 0  # Worker ID for isolated browser context
 
 
 class SearchPipeline:
@@ -319,7 +321,8 @@ class SearchPipeline:
         Returns:
             Updated SearchResult with fetch/extract stats
         """
-        executor = SearchExecutor(self.task_id, self.state)
+        # ADR-0014 Phase 3: pass worker_id for context isolation
+        executor = SearchExecutor(self.task_id, self.state, worker_id=options.worker_id)
         budget_pages = options.budget_pages
 
         exec_result = await executor.execute(
@@ -712,6 +715,7 @@ class SearchPipeline:
 
         try:
             # : Parallel search
+            # ADR-0014 Phase 3: pass worker_id for context isolation
             browser_task = search_serp(
                 query=query,
                 # NOTE: This is a SERP result count, not a page budget.
@@ -719,6 +723,7 @@ class SearchPipeline:
                 task_id=self.task_id,
                 engines=options.engines,
                 serp_max_pages=options.serp_max_pages,
+                worker_id=options.worker_id,
             )
 
             academic_task = academic_provider.search(query, cast(Any, options))
@@ -1043,11 +1048,12 @@ class SearchPipeline:
                         continue
 
                     try:
-                        # Fetch
+                        # Fetch (ADR-0014 Phase 3: pass worker_id for context isolation)
                         fetch_result = await fetch_url(
                             url=url,
                             context={"referer": "refutation_search"},
                             task_id=self.task_id,
+                            worker_id=options.worker_id,
                         )
 
                         pages_fetched += 1
@@ -1235,6 +1241,8 @@ async def search_action(
         # ADR-0007: Pass job identifiers for CAPTCHA queue integration
         search_options.task_id = options.get("task_id")
         search_options.search_job_id = options.get("search_job_id")
+        # ADR-0014 Phase 3: Pass worker_id for context isolation
+        search_options.worker_id = options.get("worker_id", 0)
 
     pipeline = SearchPipeline(task_id, state)
     result = await pipeline.execute(query, search_options)

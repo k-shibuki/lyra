@@ -164,7 +164,7 @@ mojeek:
 
 ## Implementation Status
 
-**Status**: ✅ Phase 1 Implemented (2025-12-25)
+**Status**: ✅ Phase 3 Implemented (2025-12-27)
 
 ### Phase 1: TabPool（max_tabs=1）+ 正しさ担保
 
@@ -177,6 +177,75 @@ mojeek:
 - `max_tabs=2` での並列動作テスト実装済み（`tests/test_tab_pool.py`）
 - config-driven concurrency 対応（`config/settings.yaml` で設定可能）
 - auto-backoff 機能追加（CAPTCHA/403 検出時に自動で並列度を下げる）
+
+### Phase 3: Dynamic Chrome Worker Pool（2025-12-27 完了）
+
+Worker 毎に **独立した Chrome プロセス・プロファイル・CDP ポート** を割り当て、完全分離を実現。
+
+**設計原則:**
+
+1. **num_workers 完全連動**: `settings.yaml` の `num_workers` から Chrome 数を自動決定
+2. **後方互換性なし**: 旧来の単一 Chrome 設計は削除
+3. **N 拡張可能**: Worker 数が増えても自動対応
+4. **ポート自動管理**: `chrome_base_port + worker_id` で計算
+
+**アーキテクチャ:**
+
+```
+Worker 0 ──▶ CDP:9222 ──▶ Chrome (Lyra-00) ──▶ user-data-dir/Lyra-00/
+Worker 1 ──▶ CDP:9223 ──▶ Chrome (Lyra-01) ──▶ user-data-dir/Lyra-01/
+Worker N ──▶ CDP:922N ──▶ Chrome (Lyra-0N) ──▶ user-data-dir/Lyra-0N/
+```
+
+**変更ファイル:**
+
+| カテゴリ | ファイル | 変更内容 |
+|----------|----------|----------|
+| 設定 | `.env`, `.env.example` | `CHROME_PORT` → `CHROME_BASE_PORT`, `CHROME_PROFILE_PREFIX` |
+| 設定 | `config/settings.yaml` | `chrome_port` → `chrome_base_port`, `chrome_profile_prefix` |
+| 設定 | `src/utils/config.py` | `BrowserConfig` 拡張、ヘルパー関数追加 |
+| スクリプト | `scripts/chrome.sh` | プール管理に再設計（start/stop/status） |
+| スクリプト | `scripts/lib/chrome/start.sh` | `start_chrome_worker_wsl/linux()` 追加 |
+| スクリプト | `scripts/lib/chrome/pool.sh` | 新規：プール管理ロジック |
+| スクリプト | `scripts/mcp.sh` | 起動時に Chrome Pool 自動起動 |
+| Python | `src/search/browser_search_provider.py` | `get_chrome_port(worker_id)` で動的接続 |
+| Python | `src/crawler/fetcher.py` | 同上 |
+
+**設定ヘルパー関数:**
+
+```python
+# src/utils/config.py
+def get_chrome_port(worker_id: int) -> int:
+    """Worker ID から CDP ポートを計算"""
+    return get_settings().browser.chrome_base_port + worker_id
+
+def get_chrome_profile(worker_id: int) -> str:
+    """Worker ID からプロファイル名を計算"""
+    prefix = get_settings().browser.chrome_profile_prefix
+    return f"{prefix}{worker_id:02d}"
+
+def get_all_chrome_ports() -> list[int]:
+    """全 Worker の CDP ポートリストを取得"""
+    base = get_settings().browser.chrome_base_port
+    n = get_settings().concurrency.search_queue.num_workers
+    return [base + i for i in range(n)]
+```
+
+**Makefile コマンド:**
+
+```bash
+make chrome         # プール全体のステータス表示
+make chrome-start   # num_workers 分の Chrome を起動
+make chrome-stop    # 全 Chrome を停止
+make chrome-restart # 再起動
+```
+
+**メリット:**
+
+1. **完全分離**: プロセス・プロファイル・Cookie が独立
+2. **フィンガープリント分離**: 各 Chrome が独自のブラウザ指紋
+3. **障害分離**: 1 つの Chrome がブロックされても他は動作
+4. **動的スケール**: `num_workers` 変更で自動追従
 
 ## Related
 

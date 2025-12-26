@@ -146,15 +146,17 @@ class SearchExecutor:
     - Make strategic decisions about what to search next
     """
 
-    def __init__(self, task_id: str, state: ExplorationState):
+    def __init__(self, task_id: str, state: ExplorationState, worker_id: int = 0):
         """Initialize executor.
 
         Args:
             task_id: The task ID.
             state: The exploration state manager.
+            worker_id: Worker ID for isolated browser context (ADR-0014 Phase 3).
         """
         self.task_id = task_id
         self.state = state
+        self.worker_id = worker_id
         self._db: Database | None = None
         self._seen_fragment_hashes: set[str] = set()
         self._seen_domains: set[str] = set()
@@ -507,11 +509,12 @@ class SearchExecutor:
             self._seen_domains.add(domain_short)
 
         try:
-            # Fetch
+            # Fetch (ADR-0014 Phase 3: pass worker_id for context isolation)
             fetch_result = await fetch_url(
                 url=url,
                 context={"referer": serp_item.get("engine", "")},
                 task_id=self.task_id,
+                worker_id=self.worker_id,
             )
 
             if not fetch_result.get("ok"):

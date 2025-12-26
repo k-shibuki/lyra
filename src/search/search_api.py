@@ -586,6 +586,7 @@ async def _search_with_provider(
     task_id: str | None = None,
     search_job_id: str | None = None,
     serp_max_pages: int = 1,
+    worker_id: int = 0,
 ) -> list[dict[str, Any]]:
     """
     Execute search using the provider abstraction layer.
@@ -600,27 +601,16 @@ async def _search_with_provider(
         task_id: Task ID for CAPTCHA queue association (ADR-0007).
         search_job_id: Search job ID for auto-requeue on resolve (ADR-0007).
         serp_max_pages: Maximum SERP pages to fetch (pagination).
+        worker_id: Worker ID for isolated browser context (ADR-0014 Phase 3).
 
     Returns:
         List of normalized result dicts.
     """
-    from src.search.provider import SearchOptions, get_registry
+    from src.search.browser_search_provider import get_browser_search_provider
+    from src.search.provider import SearchOptions
 
-    # Ensure provider is registered
-    registry = get_registry()
-
-    # Use BrowserSearchProvider
-    if registry.get("browser_search") is None:
-        from src.search.browser_search_provider import get_browser_search_provider
-
-        provider = get_browser_search_provider()
-        registry.register(provider, set_default=True)
-
-    # Set as default if not already
-    default_provider = registry.get_default()
-    if default_provider is None or default_provider.name != "browser_search":
-        if registry.get("browser_search"):
-            registry.set_default("browser_search")
+    # Get worker-specific provider (ADR-0014 Phase 3: context isolation)
+    provider = get_browser_search_provider(worker_id=worker_id)
 
     # Build options (ADR-0007: include job identifiers for CAPTCHA queue)
     options = SearchOptions(
@@ -632,8 +622,9 @@ async def _search_with_provider(
         serp_max_pages=serp_max_pages,
     )
 
-    # Search via registry (with fallback support)
-    response = await registry.search_with_fallback(query, options)
+    # Search directly via worker-specific provider (ADR-0014 Phase 3)
+    # This bypasses the registry to ensure context isolation
+    response = await provider.search(query, options)
 
     if not response.ok:
         error_msg = response.error or "Unknown search error"
@@ -718,6 +709,7 @@ async def search_serp(
     transform_operators: bool = True,
     search_job_id: str | None = None,
     serp_max_pages: int = 1,
+    worker_id: int = 0,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.
 
@@ -733,6 +725,7 @@ async def search_serp(
         transform_operators: Whether to transform query operators for engines.
         search_job_id: Search job ID for CAPTCHA queue auto-requeue (ADR-0007).
         serp_max_pages: Maximum SERP pages to fetch (pagination, 1-10).
+        worker_id: Worker ID for isolated browser context (ADR-0014 Phase 3).
 
     Returns:
         List of normalized SERP result dicts.
@@ -784,6 +777,7 @@ async def search_serp(
             )
 
         # Execute search via provider abstraction (ADR-0007: pass job IDs)
+        # ADR-0014 Phase 3: pass worker_id for context isolation
         results = await _search_with_provider(
             query=search_query,
             engines=engines,
@@ -792,6 +786,7 @@ async def search_serp(
             task_id=task_id,
             search_job_id=search_job_id,
             serp_max_pages=serp_max_pages,
+            worker_id=worker_id,
         )
 
         # Store in database

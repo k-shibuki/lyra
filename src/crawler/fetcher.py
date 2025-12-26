@@ -813,9 +813,17 @@ class BrowserFetcher:
     - CDP connection to Windows Chrome for fingerprint consistency
     - Resource blocking (ads, trackers, large media)
     - Lifecycle management for task-scoped cleanup
+    - Worker-isolated BrowserContext for true parallelization (ADR-0014 Phase 3)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, worker_id: int = 0) -> None:
+        """Initialize browser fetcher.
+
+        Args:
+            worker_id: Worker identifier (0 to num_workers-1).
+                       Each worker gets its own isolated BrowserContext.
+        """
+        self._worker_id = worker_id
         self._rate_limiter = RateLimiter()
         self._settings = get_settings()
         self._headless_browser: Browser | None = None
@@ -826,6 +834,8 @@ class BrowserFetcher:
         self._human_behavior = HumanBehavior()
         self._current_task_id: str | None = None
         self._lifecycle_manager = get_lifecycle_manager()
+
+        logger.debug("BrowserFetcher initialized", worker_id=worker_id)
 
     async def _ensure_browser(
         self,
@@ -871,7 +881,11 @@ class BrowserFetcher:
             # Headful mode - for challenge bypass
             if self._headful_browser is None:
                 # Try CDP connection first (Windows Chrome)
-                cdp_url = f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
+                # Dynamic Worker Pool: Each worker connects to its own Chrome instance
+                from src.utils.config import get_chrome_port
+
+                chrome_port = get_chrome_port(self._worker_id)
+                cdp_url = f"http://{browser_settings.chrome_host}:{chrome_port}"
                 cdp_connected = False
 
                 logger.debug("Attempting CDP connection", url=cdp_url)
@@ -948,14 +962,16 @@ class BrowserFetcher:
                         task_id,
                     )
 
-                # Reuse existing context if available (preserves profile cookies)
-                # This only applies when connected via CDP to real Chrome
+                # Per ADR-0014 Phase 3: Each worker gets its own isolated BrowserContext
+                # Worker 0 can reuse Chrome's default context for cookie preservation
+                # Other workers always create new isolated contexts
                 if self._headful_browser is not None:
                     existing_contexts = self._headful_browser.contexts
-                    if existing_contexts:
+                    if self._worker_id == 0 and existing_contexts:
                         self._headful_context = existing_contexts[0]
                         logger.info(
-                            "Reusing existing browser context for cookie preservation",
+                            "Worker 0 reusing existing browser context for cookie preservation",
+                            worker_id=self._worker_id,
                             context_count=len(existing_contexts),
                         )
                     else:
@@ -967,7 +983,11 @@ class BrowserFetcher:
                             locale="ja-JP",
                             timezone_id="Asia/Tokyo",
                         )
-                        logger.info("Created new browser context")
+                        logger.info(
+                            "Created new isolated browser context for worker",
+                            worker_id=self._worker_id,
+                            total_contexts=len(self._headful_browser.contexts),
+                        )
                 if self._headful_context is not None:
                     await self._setup_blocking(self._headful_context)
 
@@ -1985,7 +2005,8 @@ async def _save_screenshot(page: "Page", url: str) -> Path | None:
 
 # Global fetcher instances
 _http_fetcher: HTTPFetcher | None = None
-_browser_fetcher: BrowserFetcher | None = None
+# Worker ID -> BrowserFetcher mapping (ADR-0014 Phase 3: Worker Context Isolation)
+_browser_fetchers: dict[int, BrowserFetcher] = {}
 
 
 async def fetch_url(
@@ -1993,6 +2014,7 @@ async def fetch_url(
     context: dict[str, Any] | None = None,
     policy: dict[str, Any] | None = None,
     task_id: str | None = None,
+    worker_id: int = 0,
 ) -> dict[str, Any]:
     """Fetch URL with automatic method selection, escalation, and cache support.
 
@@ -2023,6 +2045,7 @@ async def fetch_url(
             - provider_name: Specific provider to use (e.g., "playwright", "undetected_chrome").
             - max_fetch_time: Override cumulative timeout (default: from config).
         task_id: Associated task ID.
+        worker_id: Worker ID for isolated browser context (ADR-0014 Phase 3).
 
     Returns:
         Fetch result dictionary with additional 'from_cache' field.
@@ -2037,7 +2060,7 @@ async def fetch_url(
     try:
         # Wrap entire fetch operation with cumulative timeout
         return await asyncio.wait_for(
-            _fetch_url_impl(url, context, policy, task_id),
+            _fetch_url_impl(url, context, policy, task_id, worker_id),
             timeout=float(max_fetch_time),
         )
     except TimeoutError:
@@ -2060,13 +2083,21 @@ async def _fetch_url_impl(
     context: dict[str, Any],
     policy: dict[str, Any],
     task_id: str | None,
+    worker_id: int = 0,
 ) -> dict[str, Any]:
     """Internal implementation of fetch_url with multi-stage escalation.
 
     This function contains the actual fetch logic. It is wrapped by fetch_url
     with a cumulative timeout to prevent indefinite blocking.
+
+    Args:
+        url: URL to fetch.
+        context: Context information.
+        policy: Fetch policy override.
+        task_id: Associated task ID.
+        worker_id: Worker ID for isolated browser context (ADR-0014 Phase 3).
     """
-    global _http_fetcher, _browser_fetcher
+    global _http_fetcher, _browser_fetchers
 
     db = await get_database()
     settings = get_settings()
@@ -2121,8 +2152,11 @@ async def _fetch_url_impl(
         # Initialize fetchers
         if _http_fetcher is None:
             _http_fetcher = HTTPFetcher()
-        if _browser_fetcher is None:
-            _browser_fetcher = BrowserFetcher()
+        # Get worker-specific browser fetcher (ADR-0014 Phase 3)
+        if worker_id not in _browser_fetchers:
+            _browser_fetchers[worker_id] = BrowserFetcher(worker_id=worker_id)
+            logger.info("Created BrowserFetcher for worker", worker_id=worker_id)
+        _browser_fetcher = _browser_fetchers[worker_id]
 
         # Check cache for conditional request data
         cached_etag = None

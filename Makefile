@@ -97,17 +97,22 @@ doctor-chrome-fix: ## Fix WSL2 Chrome networking (via doctor)
 	@$(SCRIPTS)/doctor.sh chrome-fix
 
 # =============================================================================
-# CHROME / BROWSER
+# CHROME / BROWSER (Dynamic Worker Pool)
 # =============================================================================
+# Each worker gets its own Chrome instance with dedicated port and profile.
+# Number of instances is driven by num_workers in settings.yaml.
 
-chrome: ## Check Chrome CDP status
-	@$(SCRIPTS)/chrome.sh check
+chrome: ## Show Chrome Pool status (all workers)
+	@$(SCRIPTS)/chrome.sh status
 
-chrome-start: ## Start Chrome with remote debugging
+chrome-start: ## Start Chrome Pool for all workers
 	@$(SCRIPTS)/chrome.sh start
 
-chrome-stop: ## Stop Lyra Chrome instance
+chrome-stop: ## Stop all Chrome instances
 	@$(SCRIPTS)/chrome.sh stop
+
+chrome-restart: ## Restart Chrome Pool
+	@$(SCRIPTS)/chrome.sh restart
 
 chrome-diagnose: ## Diagnose Chrome connection issues
 	@$(SCRIPTS)/chrome.sh diagnose
