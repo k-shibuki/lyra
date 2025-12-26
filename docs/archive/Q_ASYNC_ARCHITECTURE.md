@@ -1224,13 +1224,13 @@ Phase 4.B で先送りした「max_tabs を増やして並列化」の検証準�
 ### Phase 6: calibration_metrics action削除 ✅ DONE
 
 > **依存**: Phase 3完了後（LoRA設計確定後）
-> **関連**: [S_LORA.md](S_LORA.md) §7.5 MCPツール化の検討結果
+> **関連**: [T_LORA.md](../T_LORA.md) §7.5 MCPツール化の検討結果
 
 **6.1 背景**
 
 Q_ASYNC_ARCHITECTUREの設計原則（関心の分離）に基づき、`calibration_metrics`ツールから不要なactionを削除する。
 
-**判断基準**: MCPツールは「状態参照」のみ。計算・可視化はスクリプト（S_LORA.md管轄）。
+**判断基準**: MCPツールは「状態参照」のみ。計算・可視化はスクリプト（T_LORA.md管轄）。
 
 **6.2 変更内容**
 
@@ -1238,8 +1238,8 @@ Q_ASYNC_ARCHITECTUREの設計原則（関心の分離）に基づき、`calibrat
 |--------|------|------|
 | `get_stats` | **維持** | 軽量な状態確認 |
 | `get_evaluations` | **維持** | 履歴参照（計算なし） |
-| `evaluate` | **削除** | 計算処理はスクリプトへ（S_LORA.md） |
-| `get_diagram_data` | **削除** | 可視化はスクリプトへ（S_LORA.md） |
+| `evaluate` | **削除** | 計算処理はスクリプトへ（T_LORA.md） |
+| `get_diagram_data` | **削除** | 可視化はスクリプトへ（T_LORA.md） |
 
 **後方互換性**: 不要（開発フェーズ）。ゴミコードを残さず完全削除する。
 
@@ -1254,7 +1254,7 @@ Q_ASYNC_ARCHITECTUREの設計原則（関心の分離）に基づき、`calibrat
 | 6.5 | `src/utils/calibration.py`の不要関数削除（evaluate系） | ✅ 完了 |
 | 6.6 | スキーマ変更: `adapters`テーブル + `nli_corrections.trained_adapter_id`追加（※1） | ✅ 完了 |
 
-**※1**: S_LORA.md v2増分学習の準備。S着手が遅れても問題ないよう、先にスキーマを用意しておく。
+**※1**: T_LORA.md v2増分学習の準備。S着手が遅れても問題ないよう、先にスキーマを用意しておく。
 
 ```sql
 -- Phase 6で追加（src/storage/schema.sql）
@@ -1285,9 +1285,9 @@ ALTER TABLE nli_corrections ADD COLUMN trained_adapter_id INTEGER
 - [x] `adapters`テーブルが作成済み
 - [x] `nli_corrections.trained_adapter_id`カラムが追加済み
 - [x] 既存テストがパスする
-- [x] ADR-0011, S_LORA.mdが更新済み
+- [x] ADR-0011, T_LORA.mdが更新済み
 
-**Note**: スクリプト作成（`scripts/evaluate_calibration.py`等）はS_LORA.md Phase 2で実施。
+**Note**: スクリプト作成（`scripts/evaluate_calibration.py`等）はT_LORA.md Phase 2で実施。
 
 ---
 

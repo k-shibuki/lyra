@@ -150,7 +150,7 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 ## Implementation Status
 
 **Note**: 本ADRで記載されたLoRA学習機能は**Phase R（将来）** で実装予定である。
-詳細なタスクリストは `docs/S_LORA.md` を参照。
+詳細なタスクリストは `docs/T_LORA.md` を参照。
 
 ### 現状（実装済み）
 - `feedback(edge_correct)` でNLI訂正サンプルを `nli_corrections` テーブルに蓄積
@@ -171,7 +171,7 @@ LoRA学習を開始するには、以下が必要：
 | R.4.x | テスト・検証 | 未着手 |
 
 ## References
-- `docs/S_LORA.md` - LoRAファインチューニング詳細設計
+- `docs/T_LORA.md` - LoRAファインチューニング詳細設計
 - `docs/archive/P_EVIDENCE_SYSTEM.md` - Phase 6: NLI訂正サンプル蓄積（アーカイブ）
 - `src/utils/calibration.py` - 確率キャリブレーション実装
 - `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations`テーブル

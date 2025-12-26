@@ -740,7 +740,7 @@ lyra/
 | Document | Description |
 |----------|-------------|
 | [ADRs](docs/adr/) | Architecture Decision Records |
-| [S_LORA.md](docs/S_LORA.md) | LoRA fine-tuning design (planned) |
+| [T_LORA.md](docs/T_LORA.md) | LoRA fine-tuning design (planned) |
 | [R_SERP_ENHANCEMENT.md](docs/R_SERP_ENHANCEMENT.md) | SERP Enhancement design (in progress) |
 | [archive/](docs/archive/) | Historical snapshots (not maintained) |
 
@@ -750,7 +750,7 @@ lyra/
 docs/
 ├── adr/           # Architecture Decision Records (12 ADRs)
 ├── archive/       # Historical snapshots (not maintained)
-├── S_LORA.md
+├── T_LORA.md
 └── R_SERP_ENHANCEMENT.md
 ```
 
