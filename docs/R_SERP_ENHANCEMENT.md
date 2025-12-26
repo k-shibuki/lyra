@@ -378,7 +378,6 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={max_page
 
 **テスト:**
 - `tests/test_pagination_strategy.py`: `harvest_rate` wiring/effect テスト
-- `tests/scripts/debug_serp_pagination_flow.py`: E2E フロー検証
 
 ---
 
