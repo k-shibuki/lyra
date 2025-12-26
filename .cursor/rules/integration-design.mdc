@@ -43,7 +43,7 @@ alwaysApply: false
 
 - 対象モジュール間のシーケンス図を作成
 - データ型を明示（Pydanticモデル推奨）
-- 保存場所: `docs/sequences/`
+- 保存場所: `docs/debug/`
 
 ### ステップ2: 型定義（Pydantic）
 
