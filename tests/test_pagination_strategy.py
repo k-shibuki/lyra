@@ -352,7 +352,7 @@ class TestPaginationWiringEffect:
 
 
 class TestHarvestRatePropagation:
-    """Wiring/Effect tests for harvest_rate propagation (R_SERP_ENHANCEMENT Issue 2)."""
+    """Wiring/Effect tests for harvest_rate propagation."""
 
     def test_harvest_rate_passed_to_pagination_context(self) -> None:
         """TC-W-04: Wiring test - harvest_rate passed to PaginationContext.

@@ -107,6 +107,10 @@ class SearchOptions:
 
     engines: list[str] | None = None  # Use None for Lyra-selected engines
     budget_pages: int | None = None
+    # SERP pagination:
+    # This is distinct from budget_pages (crawl budget). It controls how many SERP pages
+    # BrowserSearchProvider.search() will fetch per query.
+    serp_max_pages: int = 1
     seek_primary: bool = False  # Prioritize primary sources
     refute: bool = False  # Enable refutation mode
     # ADR-0007: CAPTCHA queue integration
@@ -313,6 +317,7 @@ class SearchPipeline:
             priority="high" if options.seek_primary else "medium",
             budget_pages=budget_pages,
             engines=options.engines,
+            serp_max_pages=options.serp_max_pages,
             search_job_id=options.search_job_id,  # ADR-0007
         )
 
@@ -356,6 +361,7 @@ class SearchPipeline:
                 limit=20,
                 task_id=self.task_id,
                 engines=options.engines,
+                serp_max_pages=options.serp_max_pages,
             )
 
             if serp_items:
@@ -736,6 +742,7 @@ class SearchPipeline:
                 limit=20,
                 task_id=self.task_id,
                 engines=options.engines,
+                serp_max_pages=options.serp_max_pages,
             )
 
             academic_task = academic_provider.search(query, cast(Any, options))
@@ -1324,6 +1331,7 @@ async def search_action(
             raise ValueError("options.max_pages is no longer supported; use options.budget_pages")
         search_options.engines = options.get("engines")
         search_options.budget_pages = options.get("budget_pages")
+        search_options.serp_max_pages = int(options.get("serp_max_pages", 1))
         search_options.seek_primary = options.get("seek_primary", False)
         search_options.refute = options.get("refute", False)
         # ADR-0007: Pass job identifiers for CAPTCHA queue integration

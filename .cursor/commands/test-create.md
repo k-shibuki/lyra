@@ -49,11 +49,15 @@ Use `make` commands (run `make help` for all options).
 > pattern. Always use the `make test` → `make test-check RUN_ID=xxx` pattern.
 
 ```bash
-# Start test execution
+# Start test execution (all tests)
 make test
 # Output shows: run_id: 20251225_123456_12345
 
 # Check results (wait for completion)
+make test-check RUN_ID=<run_id_from_output>
+
+# Run specific test files
+make test TARGET="tests/test_foo.py tests/test_bar.py"
 make test-check RUN_ID=<run_id_from_output>
 
 # Run unit tests only

@@ -39,7 +39,7 @@ CHANGED_TESTS="$(
 )"
 
 if [[ -n "${CHANGED_TESTS}" ]]; then
-  make test-scoped TARGET="${CHANGED_TESTS}"
+  make test TARGET="${CHANGED_TESTS}"
   # Output shows: run_id: 20251225_123456_12345
   # Use that run_id:
   make test-check RUN_ID=<run_id_from_output>
@@ -52,7 +52,7 @@ If you changed implementation code but didn't touch tests, explicitly choose the
 
 ```bash
 # Examples (pick what matches your change)
-make test-scoped TARGET="tests/test_xxx.py"
+make test TARGET="tests/test_xxx.py"
 # Output shows: run_id: 20251225_123456_12345
 make test-check RUN_ID=<run_id_from_output>
 ```
@@ -70,7 +70,7 @@ make test-kill RUN_ID=<run_id>   # only if you need to abort
 
 ### run_id の取得方法
 
-`make test` / `make test-scoped` の出力に以下が含まれます:
+`make test` の出力に以下が含まれます:
 
 ```
 Artifacts:

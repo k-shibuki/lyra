@@ -109,17 +109,17 @@ chrome-diagnose: ## Diagnose Chrome connection issues
 # RUNTIME=container/venv to override auto-detection (container preferred)
 # RUN_ID= to specify a specific test run for check/kill/debug
 
-test: ## Run all tests (use test-check for results)
-	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/
+test: ## Run all tests (use test-check for results; TARGET= for specific files)
+	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/)
 
-test-unit: ## Run unit tests only
-	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m unit
+test-unit: ## Run unit tests only (TARGET= for specific files)
+	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m unit
 
-test-integration: ## Run integration tests only
-	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m integration
+test-integration: ## Run integration tests only (TARGET= for specific files)
+	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m integration
 
-test-e2e: ## Run E2E tests
-	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m e2e
+test-e2e: ## Run E2E tests (TARGET= for specific files)
+	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m e2e
 
 test-check: ## Check test run status (RUN_ID= optional)
 	@$(SCRIPTS)/test.sh check $(RUN_ID)

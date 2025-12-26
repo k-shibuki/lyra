@@ -353,9 +353,10 @@ All operations are available via `make`. Run `make help` for the full list.
 
 | Command | Purpose |
 |---------|---------|
-| `make test` | Run all tests (use test-check for results) |
-| `make test-unit` | Run unit tests only |
-| `make test-e2e` | Run E2E tests |
+| `make test` | Run all tests (use test-check for results; TARGET= for specific files) |
+| `make test TARGET="tests/test_foo.py"` | Run specific test files |
+| `make test-unit` | Run unit tests only (TARGET= for specific files) |
+| `make test-e2e` | Run E2E tests (TARGET= for specific files) |
 | `make test-check` | Check test run status (RUN_ID= optional) |
 | `make test-env` | Show environment detection info |
 
@@ -565,6 +566,7 @@ Lyra includes 3000+ tests across three layers (see [ADR-0009](docs/adr/0009-test
 # Run tests via Makefile (recommended - handles venv and environment detection)
 make test                                 # Unit + integration tests
 make test-check                           # Check completion
+make test TARGET="tests/test_foo.py"      # Specific test files
 make test-e2e                             # E2E tests (requires Chrome CDP + containers)
 
 # Or run pytest directly in venv
@@ -739,19 +741,17 @@ lyra/
 
 | Document | Description |
 |----------|-------------|
-| [ADRs](docs/adr/) | Architecture Decision Records |
+| [ADRs](docs/adr/) | Architecture Decision Records (15 ADRs) |
 | [T_LORA.md](docs/T_LORA.md) | LoRA fine-tuning design (planned) |
-| [R_SERP_ENHANCEMENT.md](docs/R_SERP_ENHANCEMENT.md) | SERP Enhancement design (in progress) |
 | [archive/](docs/archive/) | Historical snapshots (not maintained) |
 
 ### Directory Structure
 
 ```
 docs/
-├── adr/           # Architecture Decision Records (12 ADRs)
+├── adr/           # Architecture Decision Records (15 ADRs)
 ├── archive/       # Historical snapshots (not maintained)
-├── T_LORA.md
-└── R_SERP_ENHANCEMENT.md
+└── T_LORA.md
 ```
 
 ---

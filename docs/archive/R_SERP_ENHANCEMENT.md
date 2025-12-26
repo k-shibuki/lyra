@@ -1,3 +1,10 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2025-12-26
+
 # SERP Enhancement（ブラウザ検索強化）
 
 > **Status**: ✅ DONE
