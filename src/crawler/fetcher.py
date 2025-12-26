@@ -1265,6 +1265,7 @@ class BrowserFetcher:
                 )
 
         page = None
+        keep_page_open = False  # ADR-0007: Keep page open for CAPTCHA resolution
         try:
             page = await context.new_page()
 
@@ -1340,12 +1341,15 @@ class BrowserFetcher:
                         )
 
                         logger.info(
-                            "Authentication queued",
+                            "Authentication queued - keeping page open for user resolution",
                             url=url[:80],
                             queue_id=queue_id,
                             auth_type=challenge_type,
                             estimated_effort=estimated_effort,
                         )
+
+                        # ADR-0007: Keep page open for user to resolve CAPTCHA
+                        keep_page_open = True
 
                         return FetchResult(
                             ok=False,
@@ -1561,8 +1565,14 @@ class BrowserFetcher:
                 method="browser_headful" if headful else "browser_headless",
             )
         finally:
-            if page:
+            # ADR-0007: Keep page open for CAPTCHA resolution if auth was queued
+            if page and not keep_page_open:
                 await page.close()
+            elif keep_page_open:
+                logger.debug(
+                    "Page kept open for CAPTCHA resolution",
+                    url=url[:80],
+                )
 
     async def _request_manual_intervention(
         self,
