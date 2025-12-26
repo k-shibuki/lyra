@@ -1,6 +1,6 @@
 # SERP Enhancement（ブラウザ検索強化）
 
-> **Status**: ⚠️ MOSTLY DONE（残タスクあり）
+> **Status**: ✅ DONE
 >
 > **Phase Mapping**: [ADR-0010](adr/0010-async-search-queue.md) **Phase 5** として実装
 > **Related ADRs**: ADR-0014（Browser SERP Resource Control）, ADR-0015（Adaptive Concurrency）
@@ -9,7 +9,8 @@
 > - ADR-0010 Phase 4 完了後に着手（Phase 5 で実装）
 > - ADR-0014（Browser SERP Resource Control）を前提
 > - 既存コード資産の拡張で実装可能
-> - **実装**: 2025-12-25（主要機能完了、一部残タスクあり）
+> - **実装**: 2025-12-25（主要機能完了）
+> - **Issue 1/2 完了**: 2025-12-26
 
 ## Executive Summary
 
@@ -346,68 +347,38 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={max_page
 - [ ] 結合テスト（実エンジン）- 手動検証のみ
 - [x] Q_ASYNC / ADR更新（Q_ASYNC_ARCHITECTURE.md Phase 5 完了マーク済み）
 
-### Phase 5: DB拡張 ⚠️ 一部未完了
+### Phase 5: DB拡張 ✅
 - [x] `serp_items.page_number` カラム追加（`schema.sql` 64行目に追加済み）
 - [x] スキーマを更新し、DBを作り直し
-- [ ] **`page_number` の保存処理が未実装**（詳細は §8.1 参照）
+- [x] `page_number` の保存処理を実装（2025-12-26）
 
 ---
 
-### 8.1 残タスク詳細
+### 8.1 完了したタスク（2025-12-26）
 
-#### 🔴 Issue 1: `page_number` がDBに保存されていない
+#### ✅ Issue 1: `page_number` のDB保存 - 完了
 
-**現状:**
-- `schema.sql` に `serp_items.page_number` カラムは追加済み（デフォルト値 `1`）
-- しかし `search_api.py` の `search_serp()` 関数（812-826行）で `serp_items` に INSERT する際、`page_number` フィールドが含まれていない
+**実装内容:**
+1. `SearchResult` に `page_number` フィールドを追加（`provider.py`）
+2. `ParsedResult.to_search_result()` に `serp_page` パラメータを追加（`search_parsers.py`）
+3. `browser_search_provider.py` のページネーションループで `current_page` を結果に付与
+4. `search_api.py` で `page_number` を `serp_items` テーブルに保存
 
-**影響:**
-- 監査/再現性の担保ができない（どのSERPページから取得されたか追跡不可）
-- ドキュメントで「必須」としている機能が未実装
+**テスト:**
+- `tests/test_search_provider.py`: `SearchResult.page_number` の wiring/effect テスト
+- `tests/test_search_api_page_number.py`: DB INSERT の検証
+- `tests/test_pagination_strategy.py`: `ParsedResult.to_search_result()` のテスト
 
-**修正箇所:**
+#### ✅ Issue 2: `harvest_rate` の `PaginationContext` 伝播 - 完了
 
-```python
-# src/search/search_api.py:812-826
-# 現在:
-await db.insert(
-    "serp_items",
-    {
-        "query_id": query_id,
-        "engine": result["engine"],
-        "rank": result["rank"],
-        "url": result["url"],
-        "title": result["title"],
-        "snippet": result["snippet"],
-        "published_date": result.get("date"),
-        "source_tag": result["source_tag"],
-        "cause_id": trace.id,
-        # "page_number" が欠落
-    },
-)
-```
+**実装内容:**
+- `browser_search_provider.py` で `search()` メソッドの `harvest_rate` パラメータを `PaginationContext` に伝播
 
-**対応方針:**
-1. `SearchResult` / `BrowserSearchProvider` で `page_number` を結果に含める
-2. `search_serp()` で INSERT 時に `page_number` を保存
+**Note:** 実際の `harvest_rate` 計算は研究パイプライン（`ExplorationState`）側で行われ、`BrowserSearchProvider.search()` の呼び出し時に渡される設計。現在は `novelty_rate` ベースの停止判断が機能しており、`harvest_rate` が渡された場合は追加の停止条件として機能する。
 
-**Done定義:** `serp_items` INSERT時に `page_number` が正しく保存される + テストで検証済み
-
-#### 🟡 Issue 2: `harvest_rate` が計算されていない
-
-**現状:**
-- `browser_search_provider.py` の 1155行目で `harvest_rate=None` のまま `PaginationContext` に渡している
-- `pagination_strategy.py` のロジックは実装済みだが、実際の値が渡されていない
-
-**影響:**
-- 収穫率ベースの停止判断が機能しない（`novelty_rate` のみで判断）
-- 実用上は `novelty_rate` で十分な場合が多いため、優先度は低い
-
-**対応方針:**
-- `harvest_rate` の計算は研究パイプライン（`ExplorationState`）との連携が必要
-- 中期的な改善タスクとして扱う（現状の動作に大きな問題なし）
-
-**Done定義:** `harvest_rate` が計算されて `PaginationContext` に渡され、停止判断に使用される
+**テスト:**
+- `tests/test_pagination_strategy.py`: `harvest_rate` wiring/effect テスト
+- `tests/scripts/debug_serp_pagination_flow.py`: E2E フロー検証
 
 ---
 

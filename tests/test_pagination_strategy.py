@@ -349,3 +349,231 @@ class TestPaginationWiringEffect:
         # And: Can be used in calculations
         max_page = options.serp_page + options.serp_max_pages - 1
         assert max_page == 6  # 2 + 5 - 1 = 6
+
+
+class TestHarvestRatePropagation:
+    """Wiring/Effect tests for harvest_rate propagation (R_SERP_ENHANCEMENT Issue 2)."""
+
+    def test_harvest_rate_passed_to_pagination_context(self) -> None:
+        """TC-W-04: Wiring test - harvest_rate passed to PaginationContext.
+
+        // Given: harvest_rate = 0.8
+        // When: Creating PaginationContext
+        // Then: context.harvest_rate == 0.8
+        """
+        # Given/When: Create PaginationContext with harvest_rate
+        context = PaginationContext(
+            current_page=2,
+            novelty_rate=0.5,
+            harvest_rate=0.8,
+        )
+
+        # Then: harvest_rate is stored
+        assert context.harvest_rate == 0.8
+
+    def test_harvest_rate_none_allowed(self) -> None:
+        """TC-W-05: Wiring test - harvest_rate=None is allowed.
+
+        // Given: harvest_rate = None
+        // When: Creating PaginationContext
+        // Then: context.harvest_rate is None
+        """
+        # Given/When: Create PaginationContext with None harvest_rate
+        context = PaginationContext(
+            current_page=2,
+            novelty_rate=0.5,
+            harvest_rate=None,
+        )
+
+        # Then: harvest_rate is None
+        assert context.harvest_rate is None
+
+    def test_harvest_rate_effect_on_should_fetch_next(self) -> None:
+        """TC-E-04: Effect test - harvest_rate affects should_fetch_next decision.
+
+        // Given: Auto strategy with min_harvest_rate=0.05
+        // When: harvest_rate is above/below threshold
+        // Then: Decision changes based on harvest_rate
+        """
+        # Given: Auto strategy with min_harvest_rate=0.05
+        config = PaginationConfig(
+            serp_max_pages=10,
+            min_harvest_rate=0.05,
+            strategy="auto",
+        )
+        strategy = PaginationStrategy(config)
+
+        # When: harvest_rate above threshold (0.1 > 0.05)
+        context_above = PaginationContext(
+            current_page=2,
+            novelty_rate=0.5,
+            harvest_rate=0.1,
+        )
+        result_above = strategy.should_fetch_next(context_above)
+
+        # Then: Should continue
+        assert result_above is True
+
+        # When: harvest_rate below threshold (0.03 < 0.05)
+        context_below = PaginationContext(
+            current_page=2,
+            novelty_rate=0.5,
+            harvest_rate=0.03,
+        )
+        result_below = strategy.should_fetch_next(context_below)
+
+        # Then: Should stop
+        assert result_below is False
+
+    def test_harvest_rate_boundary_at_threshold(self) -> None:
+        """TC-B-05: Boundary test - harvest_rate exactly at threshold.
+
+        // Given: min_harvest_rate=0.05
+        // When: harvest_rate = 0.05 (exactly at threshold)
+        // Then: Should continue (threshold uses <, not <=)
+        """
+        # Given: Strategy with min_harvest_rate=0.05
+        config = PaginationConfig(
+            serp_max_pages=10,
+            min_harvest_rate=0.05,
+            strategy="auto",
+        )
+        strategy = PaginationStrategy(config)
+
+        # When: harvest_rate exactly at threshold
+        context = PaginationContext(
+            current_page=2,
+            novelty_rate=0.5,
+            harvest_rate=0.05,
+        )
+        result = strategy.should_fetch_next(context)
+
+        # Then: Should continue (0.05 is not < 0.05)
+        assert result is True
+
+    def test_harvest_rate_boundary_zero(self) -> None:
+        """TC-B-06: Boundary test - harvest_rate = 0.0.
+
+        // Given: min_harvest_rate=0.05
+        // When: harvest_rate = 0.0
+        // Then: Should stop (0.0 < 0.05)
+        """
+        # Given: Strategy with min_harvest_rate=0.05
+        config = PaginationConfig(
+            serp_max_pages=10,
+            min_harvest_rate=0.05,
+            strategy="auto",
+        )
+        strategy = PaginationStrategy(config)
+
+        # When: harvest_rate = 0.0
+        context = PaginationContext(
+            current_page=2,
+            novelty_rate=0.5,
+            harvest_rate=0.0,
+        )
+        result = strategy.should_fetch_next(context)
+
+        # Then: Should stop
+        assert result is False
+
+    def test_harvest_rate_none_does_not_stop(self) -> None:
+        """TC-N-05: Negative test - None harvest_rate does not cause stop.
+
+        // Given: Auto strategy
+        // When: harvest_rate = None
+        // Then: Should continue (None means no data, not failure)
+        """
+        # Given: Auto strategy
+        config = PaginationConfig(
+            serp_max_pages=10,
+            min_harvest_rate=0.05,
+            strategy="auto",
+        )
+        strategy = PaginationStrategy(config)
+
+        # When: harvest_rate = None
+        context = PaginationContext(
+            current_page=2,
+            novelty_rate=0.5,
+            harvest_rate=None,
+        )
+        result = strategy.should_fetch_next(context)
+
+        # Then: Should continue
+        assert result is True
+
+
+class TestParsedResultToSearchResult:
+    """Wiring tests for ParsedResult.to_search_result() with serp_page parameter."""
+
+    def test_serp_page_default_is_one(self) -> None:
+        """TC-W-06: Wiring test - serp_page default is 1.
+
+        // Given: ParsedResult
+        // When: Calling to_search_result without serp_page
+        // Then: page_number is 1
+        """
+        from src.search.search_parsers import ParsedResult
+
+        # Given: ParsedResult
+        parsed = ParsedResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Test snippet",
+            rank=1,
+        )
+
+        # When: Calling to_search_result without serp_page
+        result = parsed.to_search_result("test_engine")
+
+        # Then: page_number is 1
+        assert result.page_number == 1
+
+    def test_serp_page_custom_value(self) -> None:
+        """TC-W-07: Wiring test - serp_page custom value is propagated.
+
+        // Given: ParsedResult
+        // When: Calling to_search_result with serp_page=3
+        // Then: page_number is 3
+        """
+        from src.search.search_parsers import ParsedResult
+
+        # Given: ParsedResult
+        parsed = ParsedResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Test snippet",
+            rank=1,
+        )
+
+        # When: Calling to_search_result with serp_page=3
+        result = parsed.to_search_result("test_engine", serp_page=3)
+
+        # Then: page_number is 3
+        assert result.page_number == 3
+
+    def test_serp_page_boundary_values(self) -> None:
+        """TC-B-07: Boundary test - serp_page boundary values.
+
+        // Given: ParsedResult
+        // When: Calling to_search_result with serp_page=1 and serp_page=10
+        // Then: page_number matches serp_page
+        """
+        from src.search.search_parsers import ParsedResult
+
+        # Given: ParsedResult
+        parsed = ParsedResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Test snippet",
+            rank=1,
+        )
+
+        # When/Then: serp_page=1 (minimum)
+        result_min = parsed.to_search_result("test_engine", serp_page=1)
+        assert result_min.page_number == 1
+
+        # When/Then: serp_page=10 (expected maximum)
+        result_max = parsed.to_search_result("test_engine", serp_page=10)
+        assert result_max.page_number == 10

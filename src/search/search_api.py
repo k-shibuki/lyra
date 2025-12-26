@@ -821,6 +821,7 @@ async def search_serp(
                         "snippet": result["snippet"],
                         "published_date": result.get("date"),
                         "source_tag": result["source_tag"],
+                        "page_number": result.get("page_number", 1),
                         "cause_id": trace.id,
                     },
                 )

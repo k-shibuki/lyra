@@ -152,6 +152,108 @@ async def test_search_options() -> None:
     print("✓ SearchOptions tests passed")
 
 
+async def test_page_number_propagation() -> None:
+    """Test page_number propagation through SearchResult (R_SERP_ENHANCEMENT Issue 1)."""
+    print("\n=== Test 5: page_number Propagation ===")
+
+    from src.search.provider import SearchResult
+    from src.search.search_parsers import ParsedResult
+
+    # Test ParsedResult.to_search_result with serp_page
+    parsed = ParsedResult(
+        title="Test",
+        url="https://example.com",
+        snippet="Test snippet",
+        rank=1,
+    )
+
+    # Default serp_page=1
+    result1 = parsed.to_search_result("test_engine")
+    assert result1.page_number == 1, "Default page_number should be 1"
+    print(f"✓ Default page_number: {result1.page_number}")
+
+    # Custom serp_page=3
+    result3 = parsed.to_search_result("test_engine", serp_page=3)
+    assert result3.page_number == 3, "Custom page_number should be 3"
+    print(f"✓ Custom page_number: {result3.page_number}")
+
+    # Test to_dict includes page_number
+    result_dict = result3.to_dict()
+    assert "page_number" in result_dict, "to_dict should include page_number"
+    assert result_dict["page_number"] == 3, "page_number in dict should be 3"
+    print(f"✓ to_dict includes page_number: {result_dict['page_number']}")
+
+    # Test from_dict preserves page_number
+    restored = SearchResult.from_dict(result_dict)
+    assert restored.page_number == 3, "from_dict should preserve page_number"
+    print(f"✓ from_dict preserves page_number: {restored.page_number}")
+
+    # Test from_dict with missing page_number (backward compatibility)
+    dict_without_page = {
+        "title": "Test",
+        "url": "https://example.com",
+        "snippet": "Test",
+        "engine": "test",
+        "rank": 1,
+        "source_tag": "unknown",
+    }
+    restored_default = SearchResult.from_dict(dict_without_page)
+    assert restored_default.page_number == 1, "Missing page_number should default to 1"
+    print(f"✓ Missing page_number defaults to 1: {restored_default.page_number}")
+
+    print("✓ page_number propagation tests passed")
+
+
+async def test_harvest_rate_propagation() -> None:
+    """Test harvest_rate propagation to PaginationContext (R_SERP_ENHANCEMENT Issue 2)."""
+    print("\n=== Test 6: harvest_rate Propagation ===")
+
+    from src.search.pagination_strategy import (
+        PaginationConfig,
+        PaginationContext,
+        PaginationStrategy,
+    )
+
+    config = PaginationConfig(
+        serp_max_pages=10,
+        min_harvest_rate=0.05,
+        strategy="auto",
+    )
+    strategy = PaginationStrategy(config)
+
+    # Test with harvest_rate provided
+    context_with_rate = PaginationContext(
+        current_page=2,
+        novelty_rate=0.5,
+        harvest_rate=0.08,  # Above threshold
+    )
+    result = strategy.should_fetch_next(context_with_rate)
+    assert result is True, "Should continue with harvest_rate > threshold"
+    print(f"✓ harvest_rate=0.08 (> 0.05): should_fetch_next={result}")
+
+    # Test with low harvest_rate
+    context_low_rate = PaginationContext(
+        current_page=2,
+        novelty_rate=0.5,
+        harvest_rate=0.03,  # Below threshold
+    )
+    result = strategy.should_fetch_next(context_low_rate)
+    assert result is False, "Should stop with harvest_rate < threshold"
+    print(f"✓ harvest_rate=0.03 (< 0.05): should_fetch_next={result}")
+
+    # Test with None harvest_rate (should continue)
+    context_none_rate = PaginationContext(
+        current_page=2,
+        novelty_rate=0.5,
+        harvest_rate=None,
+    )
+    result = strategy.should_fetch_next(context_none_rate)
+    assert result is True, "Should continue with None harvest_rate"
+    print(f"✓ harvest_rate=None: should_fetch_next={result}")
+
+    print("✓ harvest_rate propagation tests passed")
+
+
 async def main() -> int:
     """Run all debug tests."""
     print("=" * 60)
@@ -163,6 +265,8 @@ async def main() -> int:
         await test_url_building()
         await test_cache_key()
         await test_search_options()
+        await test_page_number_propagation()
+        await test_harvest_rate_propagation()
 
         print("\n" + "=" * 60)
         print("All debug tests PASSED ✓")

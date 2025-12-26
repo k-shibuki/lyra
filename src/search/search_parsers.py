@@ -51,8 +51,16 @@ class ParsedResult:
     rank: int = 0
     raw_element: str | None = None  # For debugging
 
-    def to_search_result(self, engine: str) -> SearchResult:
-        """Convert to SearchResult for provider interface."""
+    def to_search_result(self, engine: str, serp_page: int = 1) -> SearchResult:
+        """Convert to SearchResult for provider interface.
+
+        Args:
+            engine: Search engine name.
+            serp_page: SERP page number (1-indexed) for audit/reproducibility.
+
+        Returns:
+            SearchResult with page_number set.
+        """
         return SearchResult(
             title=self.title,
             url=self.url,
@@ -61,6 +69,7 @@ class ParsedResult:
             engine=engine,
             rank=self.rank,
             source_tag=_classify_source(self.url),
+            page_number=serp_page,
         )
 
 

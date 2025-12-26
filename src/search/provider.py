@@ -63,6 +63,9 @@ class SearchResult(BaseModel):
     raw_data: dict[str, Any] | None = Field(
         default=None, description="Optional raw data from provider"
     )
+    page_number: int = Field(
+        default=1, ge=1, description="SERP page number (1-indexed) for audit/reproducibility"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -74,6 +77,7 @@ class SearchResult(BaseModel):
             "engine": self.engine,
             "rank": self.rank,
             "source_tag": self.source_tag.value,
+            "page_number": self.page_number,
         }
 
     @classmethod
@@ -87,6 +91,7 @@ class SearchResult(BaseModel):
             engine=data.get("engine", "unknown"),
             rank=data.get("rank", 0),
             source_tag=SourceTag(data.get("source_tag", "unknown")),
+            page_number=data.get("page_number", 1),
         )
 
 

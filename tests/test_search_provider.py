@@ -29,6 +29,12 @@ BrowserSearchProvider tests are in test_browser_search_provider.py.
 | TC-SR-B-04 | rank = -1 | Boundary – negative | Validation error | - |
 | TC-SR-A-01 | Missing required field in from_dict() | Abnormal – missing field | Default values used | - |
 | TC-SR-A-02 | Invalid source_tag value | Abnormal – invalid enum | Validation error | - |
+| TC-SR-W-01 | page_number in to_dict() | Wiring – propagation | Dict contains page_number | Issue 1 |
+| TC-SR-W-02 | page_number in from_dict() | Wiring – propagation | SearchResult has page_number | Issue 1 |
+| TC-SR-E-01 | Different page_number values | Effect – value change | Different to_dict() outputs | Issue 1 |
+| TC-SR-B-05 | page_number = 1 (minimum) | Boundary – minimum | Valid result | Issue 1 |
+| TC-SR-B-06 | page_number = 10 (max expected) | Boundary – maximum | Valid result | Issue 1 |
+| TC-SR-B-07 | page_number default | Boundary – default | Default is 1 | Issue 1 |
 | TC-SP-N-01 | Successful SearchResponse | Equivalence – normal | ok=True, error=None | - |
 | TC-SP-A-01 | SearchResponse with error | Abnormal – error | ok=False, error set | - |
 | TC-SP-B-01 | Empty results list | Boundary – empty | Valid response | - |
@@ -419,6 +425,191 @@ class TestSearchResult:
                 rank=1,
                 source_tag="invalid_tag",  # type: ignore
             )
+
+    def test_page_number_default(self) -> None:
+        """TC-SR-B-07: Test page_number default value is 1.
+
+        // Given: No page_number specified
+        // When: Creating SearchResult
+        // Then: page_number defaults to 1
+        """
+        # Given/When: Create SearchResult without page_number
+        result = SearchResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Snippet",
+            engine="test",
+            rank=1,
+        )
+
+        # Then: page_number defaults to 1
+        assert result.page_number == 1
+
+    def test_page_number_minimum(self) -> None:
+        """TC-SR-B-05: Test page_number = 1 (minimum valid value).
+
+        // Given: page_number = 1
+        // When: Creating SearchResult
+        // Then: Valid result created
+        """
+        # Given/When: Create SearchResult with page_number=1
+        result = SearchResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Snippet",
+            engine="test",
+            rank=1,
+            page_number=1,
+        )
+
+        # Then: Valid result
+        assert result.page_number == 1
+
+    def test_page_number_maximum(self) -> None:
+        """TC-SR-B-06: Test page_number = 10 (max expected value).
+
+        // Given: page_number = 10
+        // When: Creating SearchResult
+        // Then: Valid result created
+        """
+        # Given/When: Create SearchResult with page_number=10
+        result = SearchResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Snippet",
+            engine="test",
+            rank=1,
+            page_number=10,
+        )
+
+        # Then: Valid result
+        assert result.page_number == 10
+
+    def test_page_number_zero_raises_error(self) -> None:
+        """TC-SR-A-03: Test page_number = 0 raises validation error.
+
+        // Given: page_number = 0 (below minimum)
+        // When: Creating SearchResult
+        // Then: ValidationError raised
+        """
+        from pydantic import ValidationError
+
+        # Given: page_number = 0
+        # When/Then: ValidationError raised
+        with pytest.raises(ValidationError):
+            SearchResult(
+                title="Test",
+                url="https://example.com",
+                snippet="Snippet",
+                engine="test",
+                rank=1,
+                page_number=0,
+            )
+
+    def test_page_number_in_to_dict(self) -> None:
+        """TC-SR-W-01: Test page_number is included in to_dict().
+
+        // Given: SearchResult with page_number=3
+        // When: Calling to_dict()
+        // Then: Dictionary includes page_number=3
+        """
+        # Given: SearchResult with page_number=3
+        result = SearchResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Snippet",
+            engine="test",
+            rank=1,
+            page_number=3,
+        )
+
+        # When: Calling to_dict()
+        d = result.to_dict()
+
+        # Then: Dictionary includes page_number=3
+        assert "page_number" in d
+        assert d["page_number"] == 3
+
+    def test_page_number_in_from_dict(self) -> None:
+        """TC-SR-W-02: Test page_number is preserved in from_dict().
+
+        // Given: Dictionary with page_number=5
+        // When: Calling from_dict()
+        // Then: SearchResult has page_number=5
+        """
+        # Given: Dictionary with page_number=5
+        data = {
+            "title": "Test",
+            "url": "https://example.com",
+            "snippet": "Snippet",
+            "engine": "test",
+            "rank": 1,
+            "source_tag": "unknown",
+            "page_number": 5,
+        }
+
+        # When: Calling from_dict()
+        result = SearchResult.from_dict(data)
+
+        # Then: SearchResult has page_number=5
+        assert result.page_number == 5
+
+    def test_page_number_from_dict_missing_defaults_to_one(self) -> None:
+        """TC-SR-W-03: Test page_number defaults to 1 when missing in dict.
+
+        // Given: Dictionary without page_number
+        // When: Calling from_dict()
+        // Then: SearchResult has page_number=1
+        """
+        # Given: Dictionary without page_number
+        data = {
+            "title": "Test",
+            "url": "https://example.com",
+            "snippet": "Snippet",
+            "engine": "test",
+            "rank": 1,
+            "source_tag": "unknown",
+        }
+
+        # When: Calling from_dict()
+        result = SearchResult.from_dict(data)
+
+        # Then: SearchResult has page_number=1
+        assert result.page_number == 1
+
+    def test_page_number_effect_different_values(self) -> None:
+        """TC-SR-E-01: Test different page_number values produce different outputs.
+
+        // Given: Two SearchResults with different page_number
+        // When: Calling to_dict() on each
+        // Then: Outputs differ in page_number
+        """
+        # Given: Two SearchResults with different page_number
+        result1 = SearchResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Snippet",
+            engine="test",
+            rank=1,
+            page_number=1,
+        )
+        result2 = SearchResult(
+            title="Test",
+            url="https://example.com",
+            snippet="Snippet",
+            engine="test",
+            rank=1,
+            page_number=2,
+        )
+
+        # When: Calling to_dict() on each
+        d1 = result1.to_dict()
+        d2 = result2.to_dict()
+
+        # Then: Outputs differ in page_number
+        assert d1["page_number"] != d2["page_number"]
+        assert d1["page_number"] == 1
+        assert d2["page_number"] == 2
 
 
 # ============================================================================
