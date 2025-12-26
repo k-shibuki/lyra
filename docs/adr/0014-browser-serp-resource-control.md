@@ -8,57 +8,57 @@ Accepted (2025-12-25: TabPool + EngineRateLimiter implemented)
 
 ## Context
 
-ADR-0010 により `SearchQueueWorker` が2並列で検索を処理する。ブラウザSERP取得には以下の**ローカルリソース競合**が存在する：
+ADR-0010 specifies that `SearchQueueWorker` processes searches with 2 parallel workers. Browser SERP fetching has the following **local resource contention**:
 
-| リソース | 制約 | 理由 |
-|----------|------|------|
-| CDPプロファイル | 同時1セッション | Playwrightの永続コンテキストは共有不可 |
-| フィンガープリント | 一貫性必要 | 異なるプロファイルでの同時アクセスはbot検出リスク |
-| タブ/メモリ | 有限 | タブ数増加でメモリ圧迫 |
+| Resource | Constraint | Reason |
+|----------|------------|--------|
+| CDP Profile | 1 session at a time | Playwright persistent context cannot be shared |
+| Fingerprint | Consistency required | Simultaneous access with different profiles risks bot detection |
+| Tabs/Memory | Finite | More tabs = more memory pressure |
 
-### 現状の制御
+### Current Control
 
 ```python
 # browser_search_provider.py:159
-self._rate_limiter = asyncio.Semaphore(1)  # グローバル1並列
+self._rate_limiter = asyncio.Semaphore(1)  # Global 1 parallel
 ```
 
-**問題点:**
-1. **過剰な制限**: 異なるエンジン（DuckDuckGo, Mojeek）への同時リクエストも直列化
-2. **スケーラビリティ不足**: ページネーション（複数ページ取得）実装時にボトルネック化
-3. **リソース非効率**: 1タブで全エンジンを順番に処理
+**Problems:**
+1. **Excessive Restriction**: Serializes even simultaneous requests to different engines (DuckDuckGo, Mojeek)
+2. **Scalability Issues**: Becomes bottleneck when implementing pagination (multi-page fetch)
+3. **Resource Inefficiency**: All engines processed sequentially in 1 tab
 
-### 関連ADR
+### Related ADRs
 
-- **ADR-0013**: 学術API（Semantic Scholar, OpenAlex）のグローバルレート制限
-- **本ADR**: ブラウザSERP（ローカルリソース）の競合制御
+- **ADR-0013**: Global rate limits for academic APIs (Semantic Scholar, OpenAlex)
+- **This ADR**: Browser SERP (local resource) contention control
 
-両者は「リソース競合制御」という共通テーマだが、リソース特性と解決策が異なるため別ADRとした。
+Both share "resource contention control" as a theme, but resource characteristics and solutions differ, hence separate ADRs.
 
 ## Decision
 
-**TabPool（タブ管理）を導入し、ブラウザ操作の競合（同一Pageの同時操作）を構造的に排除する。**
+**Introduce TabPool (tab management) to structurally eliminate browser operation contention (simultaneous operations on same Page).**
 
-> **重要**: 現状の `BrowserSearchProvider` は単一の `page` を共有して `goto()` 等を実行するため、\
-> 「エンジン別Semaphore」だけでは **同一Pageへの同時操作** が起き得る。まず **正しさ（競合排除）** を担保する。
+> **Important**: The current `BrowserSearchProvider` shares a single `page` and executes `goto()` etc.
+> "Per-engine Semaphore" alone can still cause **simultaneous operations on the same Page**. First guarantee **correctness (eliminate contention)**.
 
-### 設計方針
+### Design Principles
 
-1. **Pageは共有しない**: 検索1回のブラウザ操作は「借りたタブ（Page）」に閉じる
-2. **TabPoolで上限を一元管理**: `max_tabs` を1から開始し、段階的に増やす
-3. **エンジン別レート制御**: QPS（min_interval）と同時実行数（concurrency）はエンジン単位で制御
-4. **設定責務の分離**:
-   - **エンジンのQPS/並列**: `config/engines.yaml`（Engine policy）
-   - **URLテンプレ/selector**: `config/search_parsers.yaml`（Parser）
+1. **Pages are not shared**: Browser operations for one search are confined to "borrowed tab (Page)"
+2. **TabPool centralizes limit management**: Start with `max_tabs=1` and increase gradually
+3. **Per-engine rate control**: QPS (min_interval) and concurrency controlled per engine
+4. **Configuration responsibility separation**:
+   - **Engine QPS/parallelism**: `config/engines.yaml` (Engine policy)
+   - **URL templates/selectors**: `config/search_parsers.yaml` (Parser)
 
-### 実装
+### Implementation
 
-#### Phase 1: TabPool（max_tabs=1）で正しさを担保（挙動は現状維持）
+#### Phase 1: TabPool (max_tabs=1) for Correctness (Behavior unchanged)
 
 ```python
 class BrowserSearchProvider:
     def __init__(self, ...):
-        # BrowserContext は共有するが、Page は共有しない
+        # BrowserContext is shared, but Page is not
         self._tab_pool = TabPool(max_tabs=1)  # Phase 1: keep behavior stable
         self._engine_locks: dict[str, asyncio.Semaphore] = {}  # per-engine concurrency cap (default 1)
     
@@ -78,14 +78,14 @@ class BrowserSearchProvider:
                 self._tab_pool.release(tab)
 ```
 
-**効果:**
-- **正しさ**: 同一Pageへの同時 `goto()` 等を排除できる
-- **挙動維持**: `max_tabs=1` により、並列度は現状と同等（安全な導入）
-- **将来拡張**: `max_tabs>1` による並列化を、設定で段階的に有効化できる
+**Effect:**
+- **Correctness**: Eliminates simultaneous `goto()` etc. on same Page
+- **Behavior Maintained**: `max_tabs=1` keeps parallelism same as current (safe introduction)
+- **Future Extension**: Parallelization via `max_tabs>1` can be enabled via config gradually
 
-#### Phase 2: TabPoolの拡張（max_tabs>1）で並列度を上げる（段階的・実測ベース）
+#### Phase 2: TabPool Extension (max_tabs>1) for Increased Parallelism (Gradual, Measurement-based)
 
-複数ページネーション対応時に検討：
+Considered when multi-pagination support is added:
 
 ```python
 class TabPool:
@@ -105,12 +105,12 @@ class TabPool:
         self._available.release()
 ```
 
-**Note**: Phase 2 で `max_tabs` を増やすと bot検出/メモリ/不安定性のリスクが上がるため、\
-まず Phase 1（正しさ担保）を完了し、CAPTCHA率・成功率・レイテンシを監視してから段階的に解放する。
+**Note**: Increasing `max_tabs` in Phase 2 raises bot detection/memory/instability risks.
+First complete Phase 1 (correctness guarantee), monitor CAPTCHA rate/success rate/latency, then gradually release.
 
-### 設定
+### Configuration
 
-エンジン別の制限は `config/engines.yaml` を活用（Engine policy）：
+Per-engine limits use `config/engines.yaml` (Engine policy):
 
 ```yaml
 duckduckgo:
@@ -127,69 +127,69 @@ mojeek:
 
 ### Positive
 
-1. **正しさの担保**: Page共有による競合を構造的に排除
-2. **段階的な並列化**: `max_tabs` を上げるだけで並列度を調整可能
-3. **ページネーション対応**: SERP複数ページ取得でも他ジョブを“完全ブロック”しにくい設計になる
-4. **設定駆動**: エンジン別QPS/並列は `engines.yaml` で集中管理
+1. **Correctness Guarantee**: Structurally eliminates Page sharing contention
+2. **Gradual Parallelization**: Parallelism adjustable just by raising `max_tabs`
+3. **Pagination Ready**: Multi-page SERP fetch won't "fully block" other jobs
+4. **Config-driven**: Per-engine QPS/parallelism centrally managed in `engines.yaml`
 
 ### Negative
 
-1. **複雑性増加**: TabPoolの取得/返却、例外時の確実なreleaseが必要
-2. **メモリ増加**: `max_tabs>1` でタブ/DOM保持量が増加
-3. **bot検出リスク**: 並列度が高すぎると検出される可能性
+1. **Complexity Increase**: Tab acquisition/release, ensure release on exception
+2. **Memory Increase**: Tab/DOM holding increases with `max_tabs>1`
+3. **Bot Detection Risk**: High parallelism may trigger detection
 
 ### Neutral
 
-1. **学術API変更なし**: ADR-0013で別途対応
-2. **HTTPフェッチ変更なし**: 既存 `RateLimiter` で保護済み
+1. **No Academic API Changes**: Handled separately by ADR-0013
+2. **No HTTP Fetch Changes**: Already protected by existing `RateLimiter`
 
 ## Alternatives Considered
 
-### A. グローバルSemaphore維持（現状）
+### A. Maintain Global Semaphore (Status Quo)
 
-**却下理由:**
-- ページネーション実装時にボトルネック
-- 異なるエンジンへの並列リクエストが不可能
+**Rejection Reason:**
+- Bottleneck when implementing pagination
+- Parallel requests to different engines impossible
 
-### B. 完全並列（ロックなし）
+### B. Full Parallelism (No Locks)
 
-**却下理由:**
-- 同一エンジンへの連続リクエストでbot検出リスク
-- QPS制限違反の可能性
+**Rejection Reason:**
+- Bot detection risk from consecutive requests to same engine
+- Potential QPS limit violations
 
-### C. タブプール先行実装
+### C. Tab Pool Early Implementation
 
-**再評価（本ADRの結論）:**\
-タブプールは「並列化のため」ではなく、「Page共有競合を避けるための抽象化」として Phase 1 から導入する。
+**Re-evaluation (This ADR's Conclusion):**
+TabPool is introduced from Phase 1 not "for parallelization" but as "abstraction to avoid Page sharing contention."
 
 ## Implementation Status
 
 **Status**: ✅ Phase 3 Implemented (2025-12-27)
 
-### Phase 1: TabPool（max_tabs=1）+ 正しさ担保
+### Phase 1: TabPool (max_tabs=1) + Correctness Guarantee
 
-- `src/search/tab_pool.py`: `TabPool` + `EngineRateLimiter` 実装済み
-- `src/search/browser_search_provider.py`: TabPool 統合済み（max_tabs=1）
-- `config/engines.yaml`: min_interval / concurrency 設定追加済み
+- `src/search/tab_pool.py`: `TabPool` + `EngineRateLimiter` implemented
+- `src/search/browser_search_provider.py`: TabPool integration (max_tabs=1)
+- `config/engines.yaml`: min_interval / concurrency settings added
 
-### Phase 2: max_tabs=2 への拡張（2025-12-25 完了）
+### Phase 2: max_tabs=2 Extension (2025-12-25 Complete)
 
-- `max_tabs=2` での並列動作テスト実装済み（`tests/test_tab_pool.py`）
-- config-driven concurrency 対応（`config/settings.yaml` で設定可能）
-- auto-backoff 機能追加（CAPTCHA/403 検出時に自動で並列度を下げる）
+- `max_tabs=2` parallel operation tests implemented (`tests/test_tab_pool.py`)
+- Config-driven concurrency support (`config/settings.yaml` configurable)
+- Auto-backoff feature added (automatically reduces parallelism on CAPTCHA/403 detection)
 
-### Phase 3: Dynamic Chrome Worker Pool（2025-12-27 完了）
+### Phase 3: Dynamic Chrome Worker Pool (2025-12-27 Complete)
 
-Worker 毎に **独立した Chrome プロセス・プロファイル・CDP ポート** を割り当て、完全分離を実現。
+Each Worker gets **independent Chrome process, profile, and CDP port** for complete isolation.
 
-**設計原則:**
+**Design Principles:**
 
-1. **num_workers 完全連動**: `settings.yaml` の `num_workers` から Chrome 数を自動決定
-2. **後方互換性なし**: 旧来の単一 Chrome 設計は削除
-3. **N 拡張可能**: Worker 数が増えても自動対応
-4. **ポート自動管理**: `chrome_base_port + worker_id` で計算
+1. **num_workers Fully Linked**: Chrome count auto-determined from `settings.yaml`'s `num_workers`
+2. **No Backward Compatibility**: Legacy single-Chrome design removed
+3. **N-Scalable**: Auto-adapts when worker count increases
+4. **Automatic Port Management**: Calculated as `chrome_base_port + worker_id`
 
-**アーキテクチャ:**
+**Architecture:**
 
 ```
 Worker 0 ──▶ CDP:9222 ──▶ Chrome (Lyra-00) ──▶ user-data-dir/Lyra-00/
@@ -197,59 +197,57 @@ Worker 1 ──▶ CDP:9223 ──▶ Chrome (Lyra-01) ──▶ user-data-dir/L
 Worker N ──▶ CDP:922N ──▶ Chrome (Lyra-0N) ──▶ user-data-dir/Lyra-0N/
 ```
 
-**変更ファイル:**
+**Changed Files:**
 
-| カテゴリ | ファイル | 変更内容 |
-|----------|----------|----------|
-| 設定 | `.env`, `.env.example` | `CHROME_PORT` → `CHROME_BASE_PORT`, `CHROME_PROFILE_PREFIX` |
-| 設定 | `config/settings.yaml` | `chrome_port` → `chrome_base_port`, `chrome_profile_prefix` |
-| 設定 | `src/utils/config.py` | `BrowserConfig` 拡張、ヘルパー関数追加 |
-| スクリプト | `scripts/chrome.sh` | プール管理に再設計（start/stop/status） |
-| スクリプト | `scripts/lib/chrome/start.sh` | `start_chrome_worker_wsl/linux()` 追加 |
-| スクリプト | `scripts/lib/chrome/pool.sh` | 新規：プール管理ロジック |
-| スクリプト | `scripts/mcp.sh` | 起動時に Chrome Pool 自動起動 |
-| Python | `src/search/browser_search_provider.py` | `get_chrome_port(worker_id)` で動的接続 |
-| Python | `src/crawler/fetcher.py` | 同上 |
+| Category | File | Changes |
+|----------|------|---------|
+| Config | `.env`, `.env.example` | `CHROME_PORT` → `CHROME_BASE_PORT`, `CHROME_PROFILE_PREFIX` |
+| Config | `config/settings.yaml` | `chrome_port` → `chrome_base_port`, `chrome_profile_prefix` |
+| Config | `src/utils/config.py` | `BrowserConfig` extended, helper functions added |
+| Script | `scripts/chrome.sh` | Redesigned for pool management (start/stop/status) |
+| Script | `scripts/lib/chrome/start.sh` | `start_chrome_worker_wsl/linux()` added |
+| Script | `scripts/lib/chrome/pool.sh` | New: Pool management logic |
+| Script | `scripts/mcp.sh` | Auto-starts Chrome Pool at startup |
+| Python | `src/search/browser_search_provider.py` | Dynamic connection via `get_chrome_port(worker_id)` |
+| Python | `src/crawler/fetcher.py` | Same as above |
 
-**設定ヘルパー関数:**
+**Config Helper Functions:**
 
 ```python
 # src/utils/config.py
 def get_chrome_port(worker_id: int) -> int:
-    """Worker ID から CDP ポートを計算"""
+    """Calculate CDP port from Worker ID"""
     return get_settings().browser.chrome_base_port + worker_id
 
 def get_chrome_profile(worker_id: int) -> str:
-    """Worker ID からプロファイル名を計算"""
+    """Calculate profile name from Worker ID"""
     prefix = get_settings().browser.chrome_profile_prefix
     return f"{prefix}{worker_id:02d}"
 
 def get_all_chrome_ports() -> list[int]:
-    """全 Worker の CDP ポートリストを取得"""
+    """Get CDP port list for all Workers"""
     base = get_settings().browser.chrome_base_port
     n = get_settings().concurrency.search_queue.num_workers
     return [base + i for i in range(n)]
 ```
 
-**Makefile コマンド:**
+**Makefile Commands:**
 
 ```bash
-make chrome         # プール全体のステータス表示
-make chrome-start   # num_workers 分の Chrome を起動
-make chrome-stop    # 全 Chrome を停止
-make chrome-restart # 再起動
+make chrome         # Show pool-wide status
+make chrome-start   # Start Chrome for num_workers
+make chrome-stop    # Stop all Chrome instances
+make chrome-restart # Restart
 ```
 
-**メリット:**
+**Benefits:**
 
-1. **完全分離**: プロセス・プロファイル・Cookie が独立
-2. **フィンガープリント分離**: 各 Chrome が独自のブラウザ指紋
-3. **障害分離**: 1 つの Chrome がブロックされても他は動作
-4. **動的スケール**: `num_workers` 変更で自動追従
+1. **Complete Isolation**: Process, profile, cookies are independent
+2. **Fingerprint Isolation**: Each Chrome has its own browser fingerprint
+3. **Fault Isolation**: One Chrome blocked doesn't affect others
+4. **Dynamic Scaling**: Auto-follows `num_workers` changes
 
 ## Related
 
-- [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - ワーカー並列実行の基盤
-- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - 学術APIレート制限
-- [archive/R_SERP_ENHANCEMENT.md](../archive/R_SERP_ENHANCEMENT.md) - ページネーション機能詳細（アーカイブ）
-
+- [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - Foundation for worker parallel execution
+- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Academic API rate limits

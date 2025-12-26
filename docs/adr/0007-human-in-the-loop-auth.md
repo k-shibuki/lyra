@@ -5,31 +5,31 @@
 
 ## Context
 
-学術リソースの多くは認証が必要：
+Many academic resources require authentication:
 
-| リソース | 認証方式 | 自動化の難易度 |
-|----------|----------|----------------|
-| 大学図書館 | SSO/Shibboleth | 非常に困難 |
-| IEEE/ACM | 機関認証 or 個人 | 困難 |
-| 一般Webサイト | Cookie/Session | 中程度 |
-| CAPTCHA保護サイト | 画像/行動認証 | 非常に困難 |
+| Resource | Authentication Method | Automation Difficulty |
+|----------|----------------------|----------------------|
+| University Libraries | SSO/Shibboleth | Very difficult |
+| IEEE/ACM | Institutional or personal auth | Difficult |
+| General Websites | Cookie/Session | Moderate |
+| CAPTCHA-protected Sites | Image/behavioral auth | Very difficult |
 
-自動認証突破の問題点：
+Problems with automated authentication bypass:
 
-| 問題 | 詳細 |
-|------|------|
-| 法的リスク | 利用規約違反、不正アクセス |
-| 倫理的問題 | CAPTCHAは人間確認が目的 |
-| 技術的困難 | 最新CAPTCHAは突破困難 |
-| コスト | 解決サービスは有料（ADR-0001違反） |
+| Problem | Details |
+|---------|---------|
+| Legal Risk | Terms of service violation, unauthorized access |
+| Ethical Issues | CAPTCHAs exist to verify humans |
+| Technical Difficulty | Modern CAPTCHAs are hard to bypass |
+| Cost | Solving services are paid (ADR-0001 violation) |
 
-また、ADR-0001（Zero OpEx）の制約により、有償のCAPTCHA解決サービスは使用できない。
+Additionally, ADR-0001 (Zero OpEx) constraints prohibit paid CAPTCHA solving services.
 
 ## Decision
 
-**認証はユーザーに委ね、認証済みセッションを再利用する（Human-in-the-Loop方式）。**
+**Delegate authentication to the user and reuse authenticated sessions (Human-in-the-Loop approach).**
 
-### アーキテクチャ（Phase 4統合版）
+### Architecture (Phase 4 Integrated Version)
 
 ```mermaid
 sequenceDiagram
@@ -43,36 +43,36 @@ sequenceDiagram
 
     W->>BP: search(query, options)
     BP->>TP: acquire()
-    BP-->>BP: CAPTCHA検出!
+    BP-->>BP: CAPTCHA detected!
     BP->>TP: report_captcha()
     BP->>IQ: enqueue(search_job_id)
     BP->>CB: record_failure(is_captcha)
     BP-->>W: SearchResponse(captcha_queued=True)
     W->>DB: state=awaiting_auth
 
-    Note over IQ: 30秒後 or キュー空時
-    IQ-->>User: バッチ通知
+    Note over IQ: After 30 seconds or queue empty
+    IQ-->>User: Batch notification
 
-    User->>User: ブラウザでCAPTCHA解決
+    User->>User: Solve CAPTCHA in browser
     User->>MCP: resolve_auth(domain)
     MCP->>DB: UPDATE state=queued
     MCP->>CB: force_close(engine)
     W->>BP: search(query) [retry]
 ```
 
-### コンポーネント統合
+### Component Integration
 
-| コンポーネント | 役割 | ADR |
-|---------------|------|-----|
-| TabPool | タブ管理、auto-backoff | ADR-0014, ADR-0015 |
-| InterventionQueue | CAPTCHA待ちキュー | ADR-0007 |
-| CircuitBreaker | エンジン可用性管理 | - |
-| BatchNotificationManager | バッチ通知 | ADR-0007 |
+| Component | Role | ADR |
+|-----------|------|-----|
+| TabPool | Tab management, auto-backoff | ADR-0014, ADR-0015 |
+| InterventionQueue | CAPTCHA wait queue | ADR-0007 |
+| CircuitBreaker | Engine availability management | - |
+| BatchNotificationManager | Batch notifications | ADR-0007 |
 
-### 認証キューの設計
+### Authentication Queue Design
 
 ```python
-# intervention_queue テーブル
+# intervention_queue table
 CREATE TABLE intervention_queue (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL,
@@ -82,36 +82,36 @@ CREATE TABLE intervention_queue (
     priority TEXT DEFAULT 'medium',
     status TEXT DEFAULT 'pending',
     queued_at DATETIME,
-    expires_at DATETIME,  -- Queue item expiration time (default: 3 hours from queued_at)
-    search_job_id TEXT,  -- 関連する検索ジョブID
+    expires_at DATETIME,  -- Queue item expiration (default: 3 hours from queued_at)
+    search_job_id TEXT,  -- Related search job ID
     FOREIGN KEY (search_job_id) REFERENCES jobs(id)
 );
 ```
 
-**expires_at の仕様**:
-- デフォルト値: `queued_at` から3時間後（`TaskLimitsConfig.auth_queue_ttl_hours` で設定可能）
-- 期限切れ処理: `cleanup_expired()` で `status='expired'` に更新（定期実行は未実装、必要に応じて手動実行）
+**expires_at Specification**:
+- Default: 3 hours after `queued_at` (configurable via `TaskLimitsConfig.auth_queue_ttl_hours`)
+- Expiration handling: `cleanup_expired()` updates `status='expired'` (periodic execution not implemented; run manually as needed)
 
-### ユーザーワークフロー
+### User Workflow
 
-1. **検索キュー実行**: 複数の検索がバックグラウンドで並列実行
-2. **CAPTCHA検出**: CAPTCHAを検出したら：
-   - `TabPool.report_captcha()` でauto-backoff
-   - `InterventionQueue.enqueue()` でキューに追加
-   - ジョブを `awaiting_auth` 状態に設定
-   - **他のドメインの検索は継続**
-3. **バッチ通知**: 30秒経過 or 検索キュー空になったら通知
-4. **手動認証**: ユーザーがまとめてCAPTCHAを解決
-5. **resolve_auth**: AIに「解決した」と伝えると：
-   - `resolve_auth(domain)` または `resolve_auth(task_id=..., target=task)` が呼ばれる
-   - 関連ジョブが `queued` に戻る
-   - CircuitBreakerがリセット
-6. **自動リトライ**: SearchWorkerがジョブを再実行
-7. **タスク停止時**: `stop_task` が呼ばれると：
-   - そのタスクの `pending`/`in_progress` 状態の認証待ちアイテムが自動的に `cancelled` に更新される
-   - 検索ジョブのキャンセルと同時に実行される
+1. **Search Queue Execution**: Multiple searches run in parallel in the background
+2. **CAPTCHA Detection**: When CAPTCHA is detected:
+   - `TabPool.report_captcha()` for auto-backoff
+   - `InterventionQueue.enqueue()` to add to queue
+   - Set job to `awaiting_auth` state
+   - **Other domain searches continue**
+3. **Batch Notification**: Notify after 30 seconds or when search queue is empty
+4. **Manual Authentication**: User solves CAPTCHAs in batch
+5. **resolve_auth**: When user tells AI "solved":
+   - `resolve_auth(domain)` or `resolve_auth(task_id=..., target=task)` is called
+   - Related jobs return to `queued` state
+   - CircuitBreaker resets
+6. **Automatic Retry**: SearchWorker re-executes jobs
+7. **Task Stop**: When `stop_task` is called:
+   - Auth wait items in `pending`/`in_progress` state for that task are automatically set to `cancelled`
+   - Executed simultaneously with search job cancellation
 
-### 通知タイミング（ハイブリッド方式）
+### Notification Timing (Hybrid Approach)
 
 ```python
 # BatchNotificationManager
@@ -119,84 +119,84 @@ class BatchNotificationManager:
     BATCH_TIMEOUT_SECONDS = 30
 
     async def on_captcha_queued(self, queue_id, domain):
-        # タイマー開始（30秒後に通知）
+        # Start timer (notify after 30 seconds)
         ...
 
     async def on_search_queue_empty(self):
-        # キュー空時に即座に通知
+        # Notify immediately when queue is empty
         ...
 ```
 
-| トリガー | 条件 | メリット |
-|---------|------|---------|
-| タイムアウト | 最初のCAPTCHAから30秒後 | 溜め込み防止 |
-| キュー空 | 検索キューが空になった | 効率的なバッチ処理 |
+| Trigger | Condition | Benefit |
+|---------|-----------|---------|
+| Timeout | 30 seconds after first CAPTCHA | Prevents accumulation |
+| Queue Empty | Search queue becomes empty | Efficient batch processing |
 
-### CAPTCHAの扱い
+### CAPTCHA Handling
 
-| 状況 | 対応 |
-|------|------|
-| CAPTCHA検出 | キューに追加、バックオフ、他ドメイン継続 |
-| 同一ドメインで繰り返し | CircuitBreakerで一時停止 |
-| resolve_auth後 | 自動再キュー、CircuitBreakerリセット |
-| stop_task時 | そのタスクの認証待ちアイテムを `cancelled` に更新 |
+| Situation | Response |
+|-----------|----------|
+| CAPTCHA Detected | Add to queue, backoff, continue other domains |
+| Repeated on Same Domain | Temporarily suspend via CircuitBreaker |
+| After resolve_auth | Automatic requeue, CircuitBreaker reset |
+| On stop_task | Update task's auth wait items to `cancelled` |
 
-### resolve_auth の操作粒度
+### resolve_auth Granularity
 
-`resolve_auth` MCPツールは3つの操作粒度をサポート:
+The `resolve_auth` MCP tool supports 3 granularity levels:
 
-| target | 必須パラメータ | 効果 |
-|--------|---------------|------|
-| `item` | `queue_id` | 単一アイテムを complete/skip |
-| `domain` | `domain` | 全タスクにまたがる同一ドメインの認証待ちを一括処理 |
-| `task` | `task_id` | 特定タスクの認証待ちのみを一括処理 |
+| target | Required Parameter | Effect |
+|--------|-------------------|--------|
+| `item` | `queue_id` | Complete/skip single item |
+| `domain` | `domain` | Batch process same domain across all tasks |
+| `task` | `task_id` | Process only specific task's auth waits |
 
-**ユースケース例**:
-- `target=item`: 1件だけ処理したい場合
-- `target=domain`: ドメイン単位でまとめて処理したい場合（複数タスクにまたがる）
-- `target=task`: 特定タスクの認証待ちだけ処理したい場合（タスク継続中に認証待ちだけスキップなど）
+**Use Case Examples**:
+- `target=item`: Process just one item
+- `target=domain`: Batch process by domain (across multiple tasks)
+- `target=task`: Process only a specific task's auth waits (e.g., skip auth waits while task continues)
 
-### 実装ファイル
+### Implementation Files
 
-| ファイル | 変更内容 |
-|---------|---------|
-| `src/storage/schema.sql` | `intervention_queue.search_job_id`, `expires_at` 追加 |
-| `src/scheduler/jobs.py` | `JobState.AWAITING_AUTH` 追加 |
-| `src/utils/config.py` | `TaskLimitsConfig.auth_queue_ttl_hours` 追加（デフォルト3時間） |
-| `src/utils/notification.py` | `BatchNotificationManager`, `enqueue()` 拡張、`skip()` に `status` パラメータ追加 |
-| `src/search/browser_search_provider.py` | CAPTCHA時にキュー登録 |
-| `src/scheduler/search_worker.py` | `awaiting_auth` 状態処理 |
-| `src/mcp/server.py` | `resolve_auth` 自動再キュー・`target=task` 追加、`stop_task` で auth queue キャンセル、`get_status` pending_auth |
-| `src/search/provider.py` | `SearchOptions.task_id/search_job_id` 追加 |
+| File | Changes |
+|------|---------|
+| `src/storage/schema.sql` | `intervention_queue.search_job_id`, `expires_at` added |
+| `src/scheduler/jobs.py` | `JobState.AWAITING_AUTH` added |
+| `src/utils/config.py` | `TaskLimitsConfig.auth_queue_ttl_hours` added (default 3 hours) |
+| `src/utils/notification.py` | `BatchNotificationManager`, `enqueue()` extension, `skip()` status parameter |
+| `src/search/browser_search_provider.py` | Queue registration on CAPTCHA |
+| `src/scheduler/search_worker.py` | `awaiting_auth` state processing |
+| `src/mcp/server.py` | `resolve_auth` auto-requeue, `target=task` added, `stop_task` auth queue cancel, `get_status` pending_auth |
+| `src/search/provider.py` | `SearchOptions.task_id/search_job_id` added |
 
 ## Consequences
 
 ### Positive
-- **法的安全性**: 自動突破を行わない
-- **Zero OpEx**: 有償サービス不使用
-- **確実性**: 人間が解決するので確実
-- **透明性**: ユーザーが何にアクセスしているか把握
-- **並列性維持**: CAPTCHA発生中も他ドメインは継続
-- **バッチ処理**: 複数CAPTCHAをまとめて解決可能
+- **Legal Safety**: No automated bypass
+- **Zero OpEx**: No paid services used
+- **Reliability**: Human solving is reliable
+- **Transparency**: Users know what they're accessing
+- **Parallelism Maintained**: Other domains continue during CAPTCHA
+- **Batch Processing**: Multiple CAPTCHAs can be solved at once
 
 ### Negative
-- **待機時間**: ユーザー操作まで該当ドメインは停止
-- **UX負荷**: ユーザーに認証作業が発生
-- **完全自動化不可**: 人間介入が必須
+- **Wait Time**: Domain paused until user action
+- **UX Burden**: Authentication work falls on user
+- **Not Fully Automated**: Human intervention required
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| CAPTCHA解決サービス | 自動化 | 有料、倫理的問題 | 却下 |
-| ヘッドレスブラウザ偽装 | 一部成功 | 検出リスク、いたちごっこ | 却下 |
-| 認証スキップ | シンプル | 重要リソースにアクセス不可 | 却下 |
-| 即時通知 | シンプル | 作業中断が頻繁 | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| CAPTCHA Solving Service | Automated | Paid, ethical issues | Rejected |
+| Headless Browser Spoofing | Partial success | Detection risk, cat-and-mouse | Rejected |
+| Skip Authentication | Simple | Cannot access important resources | Rejected |
+| Immediate Notification | Simple | Frequent work interruptions | Rejected |
 
 ## References
-- `src/storage/schema.sql` - `intervention_queue`テーブル（認証キュー）
+- `src/storage/schema.sql` - `intervention_queue` table (auth queue)
 - `src/utils/notification.py` - `InterventionQueue`, `BatchNotificationManager`
-- `src/mcp/server.py` - `get_auth_queue`, `resolve_auth` MCPツール
+- `src/mcp/server.py` - `get_auth_queue`, `resolve_auth` MCP tools
 - `src/search/tab_pool.py` - TabPool, auto-backoff
 - ADR-0001: Local-First / Zero OpEx
 - ADR-0006: 8-Layer Security Model

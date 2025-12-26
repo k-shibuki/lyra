@@ -5,84 +5,83 @@
 
 ## Context
 
-研究支援ツールは長期間使用される。商用クラウドAPIへの依存は以下のリスクをもたらす：
+Research support tools are used over extended periods. Dependence on commercial cloud APIs introduces the following risks:
 
-| リスク | 詳細 |
-|--------|------|
-| コスト増大 | API使用量に比例して課金（月額数百〜数千ドル） |
-| サービス終了 | APIプロバイダの方針変更でツールが使用不能に |
-| レート制限 | 大量の学術論文処理時にスロットリング |
-| プライバシー | 研究データが外部サーバーに送信される |
-| オフライン不可 | ネットワーク障害時に完全に機能停止 |
+| Risk | Details |
+|------|---------|
+| Cost Escalation | Pay-per-use billing (potentially hundreds to thousands of dollars monthly) |
+| Service Discontinuation | API provider policy changes can render tools unusable |
+| Rate Limiting | Throttling when processing large volumes of academic papers |
+| Privacy | Research data transmitted to external servers |
+| Offline Unavailability | Complete functionality loss during network outages |
 
-一方、ローカル実行には課題もある：
+However, local execution also presents challenges:
 
-| 課題 | 対策 |
-|------|------|
-| 計算リソース | 3B程度の小型モデルで十分な性能を確保 |
-| セットアップ複雑性 | Ollama + uvによる簡易インストール |
-| モデル品質 | 抽出タスクに特化することで品質担保 |
+| Challenge | Mitigation |
+|-----------|------------|
+| Compute Resources | Sufficient performance with ~3B parameter models |
+| Setup Complexity | Simplified installation via Ollama + uv |
+| Model Quality | Quality ensured by specializing in extraction tasks |
 
 ## Decision
 
-**すべての処理をローカルで完結させ、運用コスト（OpEx）をゼロにする。**
+**All processing is completed locally, reducing operational expenditure (OpEx) to zero.**
 
-具体的には：
-1. **LLM処理**: Ollama経由でローカルモデル（Qwen2.5-3B等）を使用
-2. **ベクトル検索**: ローカルembeddingモデル + SQLite FTS
-3. **Webクローリング**: Playwright（ローカル実行）
-4. **データ保存**: SQLite（ローカルファイル）
-5. **ML推論**: lyra-mlコンテナでembedding/reranking/NLI
+Specifically:
+1. **LLM Processing**: Local models (Qwen2.5-3B, etc.) via Ollama
+2. **Vector Search**: Local embedding models + SQLite FTS
+3. **Web Crawling**: Playwright (local execution)
+4. **Data Storage**: SQLite (local file)
+5. **ML Inference**: lyra-ml container for embedding/reranking/NLI
 
-### GPU要件
+### GPU Requirements
 
-**NVIDIA GPU + CUDA環境を必須とする。**
+**NVIDIA GPU + CUDA environment is mandatory.**
 
-| コンポーネント | GPU要件 | 理由 |
-|---------------|---------|------|
-| Ollama (LLM) | 必須 | 実用的な推論速度の確保 |
-| lyra-ml (Embedding/Reranking/NLI) | 必須 | バッチ処理での性能確保 |
+| Component | GPU Requirement | Reason |
+|-----------|-----------------|--------|
+| Ollama (LLM) | Required | Practical inference speed |
+| lyra-ml (Embedding/Reranking/NLI) | Required | Batch processing performance |
 
-CPU環境での動作はサポートしない。テスト時はモックを使用する（ADR-0009参照）。
+CPU-only operation is not supported. Mocks are used during testing (see ADR-0009).
 
-### 例外（許容する外部通信）
-- 学術API（Semantic Scholar、OpenAlex）: 無料・レート制限緩い
-- 対象Webサイトへのアクセス: クローリング対象として必須
-- Ollamaモデルダウンロード: 初回セットアップのみ
+### Exceptions (Permitted External Communication)
+- Academic APIs (Semantic Scholar, OpenAlex): Free with relaxed rate limits
+- Target website access: Required for crawling
+- Ollama model downloads: Initial setup only
 
-### 禁止する外部依存
-- OpenAI API / Anthropic API（有料）
-- Google Cloud / AWS / Azure（課金発生）
-- 有料CAPTCHA解決サービス
-- SaaSベースのベクトルDB（Pinecone等）
+### Prohibited External Dependencies
+- OpenAI API / Anthropic API (paid)
+- Google Cloud / AWS / Azure (incurs charges)
+- Paid CAPTCHA solving services
+- SaaS vector databases (Pinecone, etc.)
 
 ## Consequences
 
 ### Positive
-- **運用コストゼロ**: 電気代以外の継続コストなし
-- **完全なデータ主権**: 研究データが外部に出ない
-- **オフライン動作**: ネットワーク障害時も過去データで作業可能
-- **長期安定性**: 外部サービス終了の影響を受けない
+- **Zero OpEx**: No ongoing costs beyond electricity
+- **Complete Data Sovereignty**: Research data never leaves the local machine
+- **Offline Operation**: Past data available during network outages
+- **Long-term Stability**: Unaffected by external service discontinuation
 
 ### Negative
-- **GPU必須**: NVIDIA GPU + CUDA環境が必要
-- **モデル品質の制約**: GPT-4/Claude相当の推論は不可
-- **ストレージ消費**: モデルファイルで数十GB必要
+- **GPU Required**: NVIDIA GPU + CUDA environment necessary
+- **Model Quality Constraints**: GPT-4/Claude-level reasoning not achievable
+- **Storage Consumption**: Model files require tens of GB
 
-### 設計への影響
-- LLMは「抽出」に特化し、「推論」はMCPクライアントに委譲（ADR-0002参照）
-- 認証が必要なサイトはHuman-in-the-Loop方式（ADR-0007参照）
+### Design Implications
+- LLM specializes in "extraction"; "reasoning" is delegated to MCP clients (see ADR-0002)
+- Authentication-required sites use Human-in-the-Loop approach (see ADR-0007)
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| OpenAI API使用 | 高品質、簡単 | 月額コスト、データ外部送信 | 却下 |
-| ハイブリッド（ローカル+API） | 柔軟性 | コスト発生、複雑性 | 却下 |
-| セルフホストクラウド | スケーラブル | インフラ運用コスト | 却下 |
-| CPU対応 | GPUなしで動作 | 実用的な速度が出ない | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| OpenAI API | High quality, easy | Monthly cost, external data transmission | Rejected |
+| Hybrid (Local+API) | Flexible | Incurs cost, increases complexity | Rejected |
+| Self-hosted Cloud | Scalable | Infrastructure operation costs | Rejected |
+| CPU Support | Runs without GPU | Impractical speed | Rejected |
 
 ## References
-- `docs/archive/REQUIREMENTS.md` 1.1節（アーカイブ）
 - Ollama: https://ollama.ai
 - Qwen2.5: https://huggingface.co/Qwen

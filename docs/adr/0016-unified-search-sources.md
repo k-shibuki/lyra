@@ -8,33 +8,33 @@ Accepted
 
 ## Context
 
-以前の検索パイプラインでは、クエリを「学術的」か「一般的」かで判定（`is_academic`フラグ）し、ルーティングを分岐していた：
+The previous search pipeline classified queries as "academic" or "general" (`is_academic` flag) and routed differently:
 
 ```
-学術クエリ判定  ─┬─→ 学術API優先（S2/OpenAlex）→ Abstract利用 or ブラウザfallback
-                └─→ ブラウザSERP優先 → identifier検出時のみ学術API補完
+Academic query detection ─┬─→ Academic API priority (S2/OpenAlex) → Use Abstract or browser fallback
+                         └─→ Browser SERP priority → Academic API supplement only on identifier detection
 ```
 
-### 問題点
+### Problems
 
-| 問題 | 詳細 |
-|------|------|
-| 判定の不安定性 | キーワードベースの判定（"paper", "doi:", site:arxiv.org等）は偽陽性・偽陰性が発生 |
-| 網羅性の低下 | 学術クエリでSERP、一般クエリで学術APIを呼ばないためカバレッジが限定的 |
-| コードの複雑化 | 分岐ロジックが `_is_academic_query()`, `_expand_academic_query()` 等で分散 |
-| メンテナンス負荷 | 判定条件の調整が困難、テストケースの組み合わせ爆発 |
+| Problem | Details |
+|---------|---------|
+| Detection Instability | Keyword-based detection ("paper", "doi:", site:arxiv.org, etc.) produces false positives/negatives |
+| Reduced Coverage | Academic queries skip SERP, general queries skip academic API, limiting coverage |
+| Code Complexity | Branching logic scattered across `_is_academic_query()`, `_expand_academic_query()`, etc. |
+| Maintenance Burden | Detection condition adjustments difficult, test case combinatorial explosion |
 
-### 実測データからの示唆
+### Insights from Measured Data
 
-- 一般クエリでも高確率でDOI/arXiv IDを含むSERP結果が返る
-- 学術クエリでもWikipedia/ブログ等の有益なソースがSERPに含まれる
-- Abstract-onlyで十分な論文が多く、fetch不要でEvidenceが得られる
+- General queries often return SERP results containing DOI/arXiv IDs
+- Academic queries often have useful sources like Wikipedia/blogs in SERP
+- Many papers have sufficient Abstracts, allowing Evidence without fetching
 
 ## Decision
 
-**すべてのクエリでBrowser SERPと学術API（Semantic Scholar + OpenAlex）の両方を常に並列実行し、結果をマージ・重複排除する。**
+**For all queries, always execute both Browser SERP and academic APIs (Semantic Scholar + OpenAlex) in parallel, merging and deduplicating results.**
 
-### 統一検索フロー
+### Unified Search Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -48,95 +48,94 @@ Accepted
 │            └───────────┬───────────┘                        │
 │                        ▼                                    │
 │            ┌─────────────────────┐                          │
-│            │ CanonicalPaperIndex │  重複排除（DOI/title）   │
+│            │ CanonicalPaperIndex │  Deduplication (DOI/title)│
 │            └──────────┬──────────┘                          │
 │                       ▼                                     │
 │            ┌─────────────────────┐                          │
-│            │ Abstract-only or    │  ADR-0008に従う          │
+│            │ Abstract-only or    │  Per ADR-0008            │
 │            │ Browser fetch       │                          │
 │            └──────────┬──────────┘                          │
 │                       ▼                                     │
 │            ┌─────────────────────┐                          │
-│            │ Citation graph      │  Abstract有の論文のみ    │
-│            │ (get_citation_graph)│                          │
+│            │ Citation graph      │  Only for papers with    │
+│            │ (get_citation_graph)│  Abstract                │
 │            └─────────────────────┘                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 重複排除戦略
+### Deduplication Strategy
 
-`CanonicalPaperIndex`（ADR-0008で導入）を活用：
+Uses `CanonicalPaperIndex` (introduced in ADR-0008):
 
-1. **DOI一致**: 同一DOIはマージ（APIメタデータ優先）
-2. **タイトル類似度**: 正規化タイトルで90%以上類似はマージ候補
-3. **ソース属性保持**: `source: "both" | "api_only" | "serp_only"` で追跡
+1. **DOI Match**: Same DOI is merged (API metadata takes priority)
+2. **Title Similarity**: Normalized titles with 90%+ similarity are merge candidates
+3. **Source Attribution Preserved**: Track with `source: "both" | "api_only" | "serp_only"`
 
-### 削除されたコード
+### Deleted Code
 
-- `SearchPipeline._is_academic_query()` - クエリ判定ロジック
-- `SearchPipeline._expand_academic_query()` - 学術クエリ拡張
-- `_execute_normal_search()` 内の条件分岐
+- `SearchPipeline._is_academic_query()` - Query detection logic
+- `SearchPipeline._expand_academic_query()` - Academic query expansion
+- Conditional branching in `_execute_normal_search()`
 
-### 変更されたメソッド
+### Changed Methods
 
-| メソッド | 変更内容 |
-|---------|---------|
-| `_execute_normal_search()` | 常に `_execute_unified_search()` を呼び出す |
-| `_execute_unified_search()` | 旧 `_execute_complementary_search()` をリネーム |
-| `_execute_browser_search()` | fetch/extract専用に簡素化（SERPは呼ばない） |
+| Method | Change |
+|--------|--------|
+| `_execute_normal_search()` | Always calls `_execute_unified_search()` |
+| `_execute_unified_search()` | Renamed from old `_execute_complementary_search()` |
+| `_execute_browser_search()` | Simplified to fetch/extract only (no SERP call) |
 
 ## Consequences
 
 ### Positive
 
-1. **網羅性向上**: 全クエリで両ソースを検索するためカバレッジが向上
-2. **コード簡素化**: 判定ロジックが不要となりメンテナンス性向上
-3. **テスト容易化**: 分岐条件がなくなり、テストケースが単純化
-4. **一貫した挙動**: クエリ内容に関わらず同じパスを通る
+1. **Improved Coverage**: Both sources searched for all queries increases coverage
+2. **Simplified Code**: No detection logic needed, improved maintainability
+3. **Easier Testing**: No branching conditions, simplified test cases
+4. **Consistent Behavior**: Same path regardless of query content
 
 ### Negative
 
-1. **API消費増加**: 一般クエリでも学術APIを呼ぶためレート消費が増加
-2. **レイテンシ増加**: 並列実行でも遅い方に引っ張られる可能性
+1. **Increased API Consumption**: Academic API called even for general queries, more rate consumption
+2. **Latency Increase**: Parallel execution still bound by slower source
 
 ### Mitigation
 
-- **レート制限**: ADR-0013のグローバルレートリミッターで保護済み
-- **タイムアウト**: 学術APIには適切なタイムアウトを設定
-- **失敗耐性**: 片方の失敗は他方に影響しない（`try/except`で分離）
+- **Rate Limits**: Protected by ADR-0013's global rate limiter
+- **Timeouts**: Appropriate timeouts set for academic APIs
+- **Fault Tolerance**: One source failure doesn't affect the other (`try/except` isolation)
 
 ## Alternatives Considered
 
-### A. 判定ロジックの改善
+### A. Improve Detection Logic
 
-**却下理由**: 
-- キーワード/パターンマッチングの限界
-- 機械学習モデル導入はZero OpEx違反（ADR-0001）
-- 「学術的かどうか」より「両方見る」方が確実
+**Rejection Reason**: 
+- Keyword/pattern matching limitations
+- ML model introduction violates Zero OpEx (ADR-0001)
+- "Search both" is more reliable than "is it academic?"
 
-### B. ユーザー選択式
+### B. User Selection
 
-**却下理由**:
-- UX負荷増（Cursor AIエージェントは自動判断が前提）
-- 選択を忘れるとカバレッジ低下
+**Rejection Reason**:
+- Increased UX burden (Cursor AI agent assumes automatic decisions)
+- Forgetting to select reduces coverage
 
-### C. 段階的フォールバック（SERP→API or API→SERP）
+### C. Staged Fallback (SERP→API or API→SERP)
 
-**却下理由**:
-- 順序による遅延増
-- 並列のほうがシンプルかつ高速
+**Rejection Reason**:
+- Ordering introduces delay
+- Parallel is simpler and faster
 
 ## Implementation Status
 
 **Status**: ✅ Implemented (2025-12-26)
 
-- `src/research/pipeline.py`: 統一検索フロー実装完了
-- `tests/test_research.py`: `TestUnifiedDualSourceSearch` テストクラス追加
-- Debug instrumentation（agent log）を削除
+- `src/research/pipeline.py`: Unified search flow implementation complete
+- `tests/test_research.py`: `TestUnifiedDualSourceSearch` test class added
+- Debug instrumentation (agent log) removed
 
 ## Related
 
-- [ADR-0008: Academic Data Source Strategy](0008-academic-data-source-strategy.md) - 学術API選定とCanonicalPaperIndex
-- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - 学術APIレート制限
-- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - ブラウザSERPリソース制御
-
+- [ADR-0008: Academic Data Source Strategy](0008-academic-data-source-strategy.md) - Academic API selection and CanonicalPaperIndex
+- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Academic API rate limits
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Browser SERP resource control

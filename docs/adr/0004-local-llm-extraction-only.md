@@ -5,78 +5,78 @@
 
 ## Context
 
-LyraはWebページから情報を抽出し、構造化する必要がある。具体的なタスク：
+Lyra needs to extract and structure information from web pages. Specific tasks:
 
-| タスク | 入力 | 出力 |
-|--------|------|------|
-| 主張抽出 | ページテキスト + 仮説 | 関連する主張のリスト |
-| NLI判定 | 前提テキスト + 仮説 | SUPPORTS / REFUTES / NEUTRAL |
-| エンティティ抽出 | テキスト | 人名、組織名、日付等 |
-| 要約 | 長文 | 短い要約 |
+| Task | Input | Output |
+|------|-------|--------|
+| Claim Extraction | Page text + Hypothesis | List of related claims |
+| NLI Judgment | Premise text + Hypothesis | SUPPORTS / REFUTES / NEUTRAL |
+| Entity Extraction | Text | Names, organizations, dates, etc. |
+| Summarization | Long text | Short summary |
 
-これらにはLLMが有効だが、ADR-0001（Zero OpEx）の制約により商用API（GPT-4、Claude API）は使用できない。
+LLMs are effective for these tasks, but ADR-0001 (Zero OpEx) constraints prohibit commercial APIs (GPT-4, Claude API).
 
-一方、ADR-0002で規定した通り、**戦略的判断（クエリ設計、探索方針）はMCPクライアントが担当**する。ローカルLLMがこれらを担当すると品質が低下する。
+Additionally, as specified in ADR-0002, **strategic decisions (query design, exploration strategy) are handled by the MCP client**. Having local LLMs handle these would degrade quality.
 
 ## Decision
 
-**ローカルLLM（Qwen2.5-3B）を「機械的な抽出・分類タスク」のみに使用する。**
+**Use local LLM (Qwen2.5-3B) only for "mechanical extraction and classification tasks."**
 
-### 使用するタスク（許可）
+### Permitted Tasks
 
-| タスク | モデル使用方法 |
-|--------|----------------|
-| NLI判定 | 3クラス分類（SUPPORTS/REFUTES/NEUTRAL） |
-| 主張抽出 | 構造化出力（JSON） |
-| 要約生成 | 圧縮タスク |
+| Task | Model Usage |
+|------|-------------|
+| NLI Judgment | 3-class classification (SUPPORTS/REFUTES/NEUTRAL) |
+| Claim Extraction | Structured output (JSON) |
+| Summary Generation | Compression task |
 
-### 使用しないタスク（禁止）
+### Prohibited Tasks
 
-| タスク | 理由 |
-|--------|------|
-| 検索クエリ設計 | MCPクライアントの専権（ADR-0002） |
-| 探索戦略の決定 | 高度な推論が必要 |
-| エビデンスの統合評価 | 複雑な判断が必要 |
-| ユーザーへの回答生成 | MCPクライアントが担当 |
+| Task | Reason |
+|------|--------|
+| Search Query Design | MCP client's exclusive domain (ADR-0002) |
+| Exploration Strategy Decisions | Requires advanced reasoning |
+| Evidence Synthesis Evaluation | Requires complex judgment |
+| User Response Generation | MCP client's responsibility |
 
-### モデル選定
+### Model Selection
 
-| モデル | サイズ | 用途 | 選定理由 |
-|--------|--------|------|----------|
-| Qwen2.5-3B-Instruct | 3B | NLI、抽出 | 日本語性能、サイズ効率 |
-| (予備) Phi-3-mini | 3.8B | 英語特化時 | 英語性能が高い |
+| Model | Size | Purpose | Selection Reason |
+|-------|------|---------|------------------|
+| Qwen2.5-3B-Instruct | 3B | NLI, extraction | Japanese performance, size efficiency |
+| (Backup) Phi-3-mini | 3.8B | English-focused | High English performance |
 
-### プロンプト設計
+### Prompt Design
 
-NLI判定の例：
+NLI judgment example:
 
 ```
-System: あなたはNLI（自然言語推論）の専門家です。
-前提文と仮説文を比較し、関係を判定してください。
+System: You are an NLI (Natural Language Inference) expert.
+Compare the premise and hypothesis, and determine their relationship.
 
 User:
-前提: {premise}
-仮説: {hypothesis}
+Premise: {premise}
+Hypothesis: {hypothesis}
 
-以下の3つから1つを選んでください：
-- SUPPORTS: 前提は仮説を支持する
-- REFUTES: 前提は仮説に反する
-- NEUTRAL: 前提からは仮説について判断できない
+Choose one of the following three options:
+- SUPPORTS: Premise supports the hypothesis
+- REFUTES: Premise contradicts the hypothesis
+- NEUTRAL: Cannot determine from premise
 
-回答（1単語のみ）:
+Answer (single word only):
 ```
 
-### 出力制御
+### Output Control
 
 ```python
-# 構造化出力を強制
+# Force structured output
 response = await ollama.generate(
     model="qwen2.5:3b",
     prompt=prompt,
-    format="json",  # JSON出力を強制
+    format="json",  # Force JSON output
     options={
-        "temperature": 0.1,  # 決定的な出力
-        "num_predict": 50,   # 短い出力に制限
+        "temperature": 0.1,  # Deterministic output
+        "num_predict": 50,   # Limit to short output
     }
 )
 ```
@@ -84,28 +84,28 @@ response = await ollama.generate(
 ## Consequences
 
 ### Positive
-- **Zero OpEx達成**: 商用API不要
-- **高速応答**: 3Bモデルは数百msで応答
-- **品質担保**: タスクを限定することで精度維持
-- **オフライン動作**: ネットワーク不要
+- **Zero OpEx Achieved**: No commercial API required
+- **Fast Response**: 3B model responds in hundreds of milliseconds
+- **Quality Assurance**: Accuracy maintained by limiting tasks
+- **Offline Operation**: No network required
 
 ### Negative
-- **機能制限**: 複雑なタスクはMCPクライアント依存
-- **言語制約**: 英語・日本語以外は精度低下の可能性
-- **GPU必要**: 快適な動作にはGPUが望ましい
+- **Feature Limitation**: Complex tasks depend on MCP client
+- **Language Constraints**: Accuracy may decrease for non-English/Japanese
+- **GPU Needed**: GPU desirable for comfortable operation
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| GPT-4 API | 高品質 | コスト、Zero OpEx違反 | 却下 |
-| 7B+ モデル | より高精度 | GPU要件が厳しい | 将来検討 |
-| ルールベース抽出 | 高速、確実 | 柔軟性不足 | 部分採用 |
-| 外部NLIサービス | 高精度 | API依存 | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| GPT-4 API | High quality | Cost, Zero OpEx violation | Rejected |
+| 7B+ Models | Higher accuracy | Stricter GPU requirements | Future consideration |
+| Rule-based Extraction | Fast, reliable | Insufficient flexibility | Partial adoption |
+| External NLI Service | High accuracy | API dependency | Rejected |
 
 ## References
-- `src/filter/ollama_provider.py` - Ollamaクライアント
-- `src/filter/llm.py` - LLM抽出処理
-- `src/filter/nli.py` - NLI判定実装
+- `src/filter/ollama_provider.py` - Ollama client
+- `src/filter/llm.py` - LLM extraction processing
+- `src/filter/nli.py` - NLI judgment implementation
 - ADR-0001: Local-First / Zero OpEx
 - ADR-0002: Thinking-Working Separation

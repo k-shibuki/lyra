@@ -5,152 +5,151 @@
 
 ## Context
 
-AIを活用した調査支援ツールには大きく2つのアプローチがある：
+AI-powered research support tools have two broad approaches:
 
-1. **単一AIモデルで完結**: 1つの高性能モデルが調査計画から実行まで担当
-2. **分離アーキテクチャ**: 思考（計画・判断）と作業（実行）を分離
+1. **Single AI Model**: One high-performance model handles both planning and execution
+2. **Separated Architecture**: Thinking (planning/judgment) and Working (execution) are separated
 
-単一モデルアプローチの問題点：
+Problems with the single-model approach:
 
-| 問題 | 詳細 |
-|------|------|
-| コスト | GPT-4/Claudeクラスの常時使用は高コスト |
-| レイテンシ | 大規模モデルは応答が遅い |
-| ローカル実行困難 | 70B+モデルは一般的なGPUで動作しない |
+| Problem | Details |
+|---------|---------|
+| Cost | Continuous use of GPT-4/Claude class models is expensive |
+| Latency | Large models respond slowly |
+| Local Execution Difficulty | 70B+ models don't run on typical GPUs |
 
-一方、ローカルの小型モデル（3B-7B）は：
-- 抽出・分類などの機械的タスクは高精度で実行可能
-- 複雑な推論・計画立案は苦手
+Meanwhile, local small models (3B-7B):
+- Can perform mechanical tasks (extraction, classification) with high accuracy
+- Struggle with complex reasoning and planning
 
 ## Decision
 
-**「思考」と「作業」を明確に分離し、それぞれに最適なコンポーネントを割り当てる。**
+**Clearly separate "Thinking" and "Working", assigning optimal components to each.**
 
-### アーキテクチャ
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  MCP Client (Claude Desktop / Cline / etc.)                 │
 │  ─────────────────────────────────────────────────────────  │
-│  • 調査計画の策定                                            │
-│  • 探索戦略の決定                                            │
-│  • 結果の解釈・統合                                          │
-│  • ユーザーとの対話                                          │
+│  • Research plan formulation                                │
+│  • Exploration strategy decisions                           │
+│  • Result interpretation and synthesis                      │
+│  • User interaction                                         │
 └─────────────────────────────────────────────────────────────┘
                               │ MCP Protocol
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Lyra (MCP Server)                                          │
 │  ─────────────────────────────────────────────────────────  │
-│  • Webクローリング実行                                       │
-│  • テキスト抽出・構造化                                      │
-│  • NLI判定（SUPPORTS/REFUTES/NEUTRAL）                      │
-│  • データ永続化                                              │
+│  • Web crawling execution                                   │
+│  • Text extraction and structuring                          │
+│  • NLI judgment (SUPPORTS/REFUTES/NEUTRAL)                  │
+│  • Data persistence                                         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 責任マトリクス
+### Responsibility Matrix
 
-**重要**: 検索クエリの「設計」は例外なくMCPクライアントが行う。Lyraが「候補を提案」することはない。
+**Important**: Search query "design" is exclusively performed by the MCP client. Lyra does not "suggest candidates."
 
-| 責任領域 | MCPクライアント（思考） | Lyra（作業） |
-|---------|------------------------|--------------|
-| 問いの分解 | ✅ 検索クエリの設計・優先度決定 | ❌ 設計には関与しない |
-| クエリ生成 | ✅ すべてのクエリの設計・指定 | 機械的展開のみ（同義語・ミラークエリ） |
-| 探索計画 | ✅ 計画の立案・決定 | 計画の実行・進捗報告 |
-| 探索制御 | ✅ 次のアクション判断 | メトリクス計算と報告のみ |
-| 反証探索 | ✅ 反証クエリの設計・指定 | 機械パターン適用（接尾辞付与等） |
-| 停止判断 | ✅ 探索の終了指示 | 停止条件充足の報告 |
-| レポート構成 | ✅ 論理構成・執筆判断 | 素材（断片・引用）の提供 |
+| Responsibility | MCP Client (Thinking) | Lyra (Working) |
+|----------------|----------------------|----------------|
+| Query Decomposition | ✅ Query design and prioritization | ❌ Not involved in design |
+| Query Generation | ✅ All query design and specification | Mechanical expansion only (synonyms, mirror queries) |
+| Exploration Planning | ✅ Plan formulation and decisions | Plan execution and progress reporting |
+| Exploration Control | ✅ Next action decisions | Metrics calculation and reporting only |
+| Refutation Search | ✅ Refutation query design | Mechanical pattern application (suffix addition, etc.) |
+| Stop Decision | ✅ Exploration termination instruction | Stop condition satisfaction reporting |
+| Report Structure | ✅ Logical structure and writing decisions | Material provision (fragments, citations) |
 
-### Lyraの処理範囲
+### Lyra's Processing Scope
 
-Lyraは**MCPクライアントの指示に基づいて**以下を実行する（指示なしに探索を進めない）：
+Lyra executes the following **based on MCP client instructions** (does not advance exploration without instructions):
 
-**実行すること**:
-- 機械的展開: 指定クエリに対する同義語展開、言語横断ミラークエリ、演算子付与
-- 取得・抽出パイプライン: 検索→取得→抽出→ランキング→NLI
-- メトリクス計算: 収穫率、新規性、充足度、重複率
-- 異常ハンドリング: CAPTCHA/ブロック検知、認証キューへの追加
+**What it does**:
+- Mechanical expansion: Synonym expansion, cross-language mirror queries, operator addition for specified queries
+- Retrieval/Extraction pipeline: Search → Fetch → Extract → Rank → NLI
+- Metrics calculation: Harvest rate, novelty, sufficiency, duplication rate
+- Exception handling: CAPTCHA/block detection, authentication queue addition
 
-**実行しないこと**:
-- クエリの設計・候補提案
-- 探索方針の決定
-- 「次に何をすべきか」の推奨
+**What it does NOT do**:
+- Query design or candidate suggestions
+- Exploration strategy decisions
+- "What should be done next" recommendations
 
-### 対話フロー
+### Interaction Flow
 
-探索はMCPクライアント主導のループで進行する：
+Exploration proceeds in an MCP client-driven loop:
 
 ```
 1. create_task(query)
-   └─ Lyra: タスク作成、task_id返却
+   └─ Lyra: Creates task, returns task_id
 
-2. MCPクライアント: クエリを設計（この判断はMCPクライアントのみ）
+2. MCP Client: Designs query (this judgment is MCP client only)
 
 3. search(task_id, query)
-   └─ Lyra: パイプライン実行、結果サマリ返却
+   └─ Lyra: Executes pipeline, returns result summary
 
 4. get_status(task_id)
-   └─ Lyra: メトリクスのみ返却（推奨なし）
-     - クエリ状態（充足/部分充足/未充足）
-     - 新規性スコア推移
-     - 残り予算
+   └─ Lyra: Returns metrics only (no recommendations)
+     - Query state (satisfied/partially satisfied/unsatisfied)
+     - Novelty score progression
+     - Remaining budget
 
-5. MCPクライアント: 状況評価、次クエリ設計（3-4を繰り返す）
+5. MCP Client: Evaluates situation, designs next query (repeats 3-4)
 
 6. search(task_id, query, refute=true)
-   └─ Lyra: 反証モードで実行
+   └─ Lyra: Executes in refutation mode
 
 7. stop_task(task_id)
-   └─ Lyra: 最終状態をDB記録
+   └─ Lyra: Records final state to DB
 
 8. get_materials(task_id)
-   └─ Lyra: 素材提供（主張、断片、グラフ）
-   └─ MCPクライアント: レポート構成・執筆
+   └─ Lyra: Provides materials (claims, fragments, graph)
+   └─ MCP Client: Structures and writes report
 ```
 
-### 具体例
+### Concrete Example
 
 ```
-ユーザー: 「気候変動が農業生産性に与える影響を調べて」
+User: "Research the impact of climate change on agricultural productivity"
 
-MCPクライアント（思考）:
-  1. 「climate change agriculture productivity」で検索を指示
-  2. get_statusでメトリクス確認、主要論文を特定
-  3. 追加クエリ「crop yield climate impact」を設計・指示
-  4. 反証クエリ「climate agriculture productivity criticism」を指示
-  5. 収集したエビデンスを統合してレポート作成
+MCP Client (Thinking):
+  1. Instructs search with "climate change agriculture productivity"
+  2. Checks metrics via get_status, identifies key papers
+  3. Designs and instructs additional query "crop yield climate impact"
+  4. Instructs refutation query "climate agriculture productivity criticism"
+  5. Synthesizes collected evidence into report
 
-Lyra（作業）:
-  1. 検索クエリを実行、ページ取得
-  2. テキスト抽出、NLI判定
-  3. メトリクス（収穫率、新規性）を報告
-  4. 最終素材を提供
+Lyra (Working):
+  1. Executes search query, fetches pages
+  2. Extracts text, performs NLI judgment
+  3. Reports metrics (harvest rate, novelty)
+  4. Provides final materials
 ```
 
 ## Consequences
 
 ### Positive
-- **コスト最適化**: 高コストモデルは思考のみ、作業はローカル
-- **品質担保**: 各コンポーネントが得意なタスクに集中
-- **柔軟性**: MCPクライアントを自由に選択可能
-- **ローカル実行**: ADR-0001のZero OpEx原則と整合
+- **Cost Optimization**: High-cost models for thinking only, work done locally
+- **Quality Assurance**: Each component focuses on its strengths
+- **Flexibility**: MCP client can be freely chosen
+- **Local Execution**: Aligned with ADR-0001 Zero OpEx principle
 
 ### Negative
-- **クライアント依存**: MCPクライアントの品質に全体が依存
-- **通信オーバーヘッド**: MCP経由のやり取りが発生
-- **設計複雑性**: 責務分離の境界設計が必要
+- **Client Dependency**: Overall quality depends on MCP client quality
+- **Communication Overhead**: MCP protocol exchanges occur
+- **Design Complexity**: Responsibility boundary design required
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| 単一ローカルLLM | シンプル | 推論品質が低い | 却下 |
-| 単一クラウドAPI | 高品質 | コスト大、Zero OpEx違反 | 却下 |
-| Agent Framework (LangChain等) | 柔軟 | 抽象化過多、MCP非対応 | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| Single Local LLM | Simple | Low reasoning quality | Rejected |
+| Single Cloud API | High quality | High cost, Zero OpEx violation | Rejected |
+| Agent Framework (LangChain, etc.) | Flexible | Over-abstraction, MCP incompatible | Rejected |
 
 ## References
-- `docs/REQUIREMENTS.md` 1.2節（アーカイブ）
-- MCP仕様: https://modelcontextprotocol.io
+- MCP Specification: https://modelcontextprotocol.io
 - ADR-0001: Local-First / Zero OpEx
