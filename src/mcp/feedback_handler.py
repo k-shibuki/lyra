@@ -400,7 +400,13 @@ async def _handle_claim_restore(args: dict[str, Any]) -> dict[str, Any]:
 async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
     """Handle edge_correct action.
 
-    Corrects an edge's NLI relation, persisting to nli_corrections for training.
+    Marks an edge as human-reviewed, and optionally corrects its NLI relation.
+
+    Semantics:
+    - Always: mark the edge as human-reviewed (`edge_human_corrected=1`) and set timestamps.
+    - If the label changes: update the edge relation/label and persist a correction sample
+      to `nli_corrections` for training (predicted_label != correct_label).
+    - If the label does not change: do NOT create a `nli_corrections` record.
     """
     edge_id = args.get("edge_id", "").strip()
     correct_relation = args.get("correct_relation", "").strip()
@@ -452,9 +458,9 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
         )
 
     now = datetime.now(UTC).isoformat()
-    sample_id = f"nlc_{uuid.uuid4().hex[:12]}"
     previous_relation = edge.get("nli_label") or edge.get("relation") or "unknown"
     predicted_confidence = edge.get("nli_confidence") or 0.0
+    is_correction = previous_relation != correct_relation
 
     # Get task_id from claim if available
     task_id = None
@@ -467,56 +473,77 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
         if claim:
             task_id = claim.get("task_id")
 
-    # Insert nli_correction (always, for ground-truth collection)
-    await db.execute(
-        """
-        INSERT INTO nli_corrections (id, edge_id, task_id, premise, hypothesis,
-                                     predicted_label, predicted_confidence,
-                                     correct_label, reason, corrected_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            sample_id,
-            edge_id,
-            task_id,
-            edge.get("premise", ""),
-            edge.get("hypothesis", ""),
-            previous_relation,
-            predicted_confidence,
-            correct_relation,
-            reason or None,
-            now,
-        ),
-    )
+    sample_id: str | None = None
+    if is_correction:
+        # Insert nli_correction (only when label changes)
+        sample_id = f"nlc_{uuid.uuid4().hex[:12]}"
+        await db.execute(
+            """
+            INSERT INTO nli_corrections (id, edge_id, task_id, premise, hypothesis,
+                                         predicted_label, predicted_confidence,
+                                         correct_label, reason, corrected_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                sample_id,
+                edge_id,
+                task_id,
+                edge.get("premise", ""),
+                edge.get("hypothesis", ""),
+                previous_relation,
+                predicted_confidence,
+                correct_relation,
+                reason or None,
+                now,
+            ),
+        )
 
-    # Update edge
-    await db.execute(
-        """
-        UPDATE edges
-        SET relation = ?,
-            nli_label = ?,
-            nli_confidence = 1.0,
-            edge_human_corrected = 1,
-            edge_correction_reason = ?,
-            edge_corrected_at = ?
-        WHERE id = ?
-        """,
-        (correct_relation, correct_relation, reason or None, now, edge_id),
-    )
+        # Update edge (correction)
+        await db.execute(
+            """
+            UPDATE edges
+            SET relation = ?,
+                nli_label = ?,
+                nli_confidence = 1.0,
+                edge_human_corrected = 1,
+                edge_correction_reason = ?,
+                edge_corrected_at = ?
+            WHERE id = ?
+            """,
+            (correct_relation, correct_relation, reason or None, now, edge_id),
+        )
+        logger.info(
+            "Edge corrected via feedback",
+            edge_id=edge_id,
+            previous_relation=previous_relation,
+            new_relation=correct_relation,
+            sample_id=sample_id,
+        )
+    else:
+        # Update edge (review only): do not modify relation/label/confidence
+        await db.execute(
+            """
+            UPDATE edges
+            SET edge_human_corrected = 1,
+                edge_correction_reason = ?,
+                edge_corrected_at = ?
+            WHERE id = ?
+            """,
+            (reason or None, now, edge_id),
+        )
+        logger.info(
+            "Edge reviewed via feedback",
+            edge_id=edge_id,
+            relation=previous_relation,
+        )
 
-    logger.info(
-        "Edge corrected via feedback",
-        edge_id=edge_id,
-        previous_relation=previous_relation,
-        new_relation=correct_relation,
-        sample_id=sample_id,
-    )
-
-    return {
+    response: dict[str, Any] = {
         "ok": True,
         "action": "edge_correct",
         "edge_id": edge_id,
         "previous_relation": previous_relation,
         "new_relation": correct_relation,
-        "sample_id": sample_id,
     }
+    if sample_id is not None:
+        response["sample_id"] = sample_id
+    return response

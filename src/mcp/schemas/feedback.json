@@ -73,7 +73,7 @@
         "new_relation": { "type": "string" },
         "sample_id": { "type": "string" }
       },
-      "required": ["ok", "action", "edge_id", "previous_relation", "new_relation", "sample_id"],
+      "required": ["ok", "action", "edge_id", "previous_relation", "new_relation"],
       "additionalProperties": false
     }
   ]

@@ -104,7 +104,7 @@ Lyraは学術調査を支援するが、以下の状況でモデルが誤判定�
   "action": "edge_correct",
   "args": {
     "edge_id": "edge_xyz789",
-    "correct_label": "supports",
+    "correct_relation": "supports",
     "reason": "The conclusion section clearly supports the hypothesis"
   }
 }
@@ -175,15 +175,39 @@ FORBIDDEN_PATTERNS = [
 ```python
 async def apply_feedback(action: str, args: dict):
     if action == "edge_correct":
-        # エッジの関係を更新
+        # Mark as human-reviewed, and optionally correct relation
         edge = await get_edge(args["edge_id"])
-        edge.relation = args["correct_label"]
+        previous_label = edge.nli_label or edge.relation
         edge.edge_human_corrected = True
+        edge.edge_corrected_at = now()
+
+        # If the label changes, update the edge relation/label
+        if previous_label != args["correct_relation"]:
+            edge.relation = args["correct_relation"]
+            edge.nli_label = args["correct_relation"]
+            edge.nli_confidence = 1.0
+            edge.edge_correction_reason = args.get("reason")
+        else:
+            # Review only (no correction): keep existing model outputs
+            edge.edge_correction_reason = args.get("reason")
+
         await save_edge(edge)
         
-        # NLI訂正サンプルをDBに記録（将来のLoRA学習用）
-        await save_nli_correction(edge, args)
+        # Persist correction samples only when the label actually changed
+        # (predicted_label != correct_label). These samples are used for future LoRA training.
+        if previous_label != args["correct_relation"]:
+            await save_nli_correction(edge, args)
 ```
+
+### Edge review vs correction (運用上の重要事項)
+
+`edge_correct` は「訂正」だけでなく「**人手レビュー済み**」の印を付けるためにも使う。
+
+- **レビュー済み（分母）**: `edges.edge_human_corrected = 1` かつ `edges.edge_corrected_at` がセットされる
+- **訂正あり（分子）**: 上記に加えて `nli_corrections` に1レコードが追加される（`predicted_label != correct_label`）
+- **レビュー済みで訂正なし（正しい）**: `edges` 側はレビュー印あり、`nli_corrections` は増えない
+
+この分離により、運用では「誤りだけを明示的に記録」しつつ、ケーススタディ等でレビュー済み集合をDBから追跡できる。
 
 ## Consequences
 

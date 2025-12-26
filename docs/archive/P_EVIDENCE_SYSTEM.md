@@ -658,19 +658,19 @@ task_id = "task-123"
 - `feedback`: Human-in-the-loop 入力用（訂正・棄却・ブロック）
 - 両者は責務が異なり、併存する
 
-**`calibration_metrics` の最小actionセット（4アクション）**:
+**`calibration_metrics` の最小actionセット**:
 - `get_stats`: source別の統計（サンプル数、最新version、最新Brier等）
-- `evaluate`: `nli_corrections` テーブルに蓄積されたサンプルから評価を実行し、結果を履歴として保存
 - `get_evaluations`: 評価履歴の取得（reliability diagram用のbinsを含む）
-- `get_diagram_data`: 可視化用データ取得
-- 破壊操作は `calibration_rollback`（別ツール）に分離維持
+
+**注**: バッチ評価・可視化（evaluate/get_diagram_data相当）は、MCPツールではなくスクリプト運用（ADR-0011/ADR-0010）とする。
 
 **注**: `add_sample` アクションは削除。サンプルは `feedback(edge_correct)` 経由で `nli_corrections` テーブルに蓄積される。
 
 **3クラス対応**:
 - `correct_relation` は `"supports"` / `"refutes"` / `"neutral"` の3値
-- `edge_correct` は **NLIのground-truth入力**として扱い、訂正の有無に関わらずサンプルを蓄積する（`correct_relation` が現状と同じでもサンプルは保存する）
-- 訂正サンプルは `nli_corrections` としてDBに蓄積（LoRA学習の入力。詳細は `docs/T_LORA.md`）
+- `edge_correct` は **人手レビューの印**を付ける（`edges.edge_human_corrected=1`, `edges.edge_corrected_at`）。
+- `nli_corrections` には **訂正があった場合のみ**を記録する（`predicted_label != correct_label`）。
+- 訂正サンプルは `nli_corrections` としてDBに蓄積（将来のLoRA学習の入力。詳細は `docs/T_LORA.md`）。
 - 校正（確率のズレ補正）は **計測→適用の順**で進め、推論への適用はサンプルが十分蓄積されてから（Phase R）
 
 **実装タイミング**: Phase 6
@@ -3308,22 +3308,19 @@ FORBIDDEN_PATTERNS = [
 1. edge存在確認
    - DB から edge を取得（premise/hypothesis も JOIN で取得）
    - 存在しない場合: EdgeNotFoundError
-2. nli_corrections に蓄積（常に実行。訂正がなくても ground-truth として蓄積）
-   - INSERT INTO nli_corrections (
-       id, edge_id, task_id, premise, hypothesis,
-       predicted_label, predicted_confidence,
-       correct_label, reason, corrected_at
-     )
-3. edge 即時更新
-   - relation = correct_relation
-   - nli_label = correct_relation
-   - nli_confidence = 1.0（人が確信を持って訂正したため）
+2. edge をレビュー済みにマーク（常に実行）
    - edge_human_corrected = True
-   - edge_correction_reason = reason
    - edge_corrected_at = now()
+   - edge_correction_reason = reason?（レビュー理由/訂正理由）
+3. 訂正がある場合のみ（predicted_label != correct_relation）:
+   3.1 nli_corrections に蓄積
+   3.2 edge 即時更新（relation/nli_label を correct_relation に更新）
+       - nli_confidence = 1.0（人が確信を持って訂正したため）
 4. レスポンス
-   { ok: true, action: "edge_correct", edge_id: "edge_xxx", 
-     previous_relation: "supports", new_relation: "refutes", sample_id: "nlc_xxx" }
+   - 訂正あり: { ok: true, action: "edge_correct", edge_id: "edge_xxx",
+               previous_relation: "supports", new_relation: "refutes", sample_id: "nlc_xxx" }
+   - 訂正なし（同ラベル=レビューのみ）: { ok: true, action: "edge_correct", edge_id: "edge_xxx",
+                                   previous_relation: "supports", new_relation: "supports" }
 ```
 
 ##### 6.2.5 レスポンススキーマ（`src/mcp/schemas/feedback.json`）
@@ -3404,7 +3401,7 @@ FORBIDDEN_PATTERNS = [
         "new_relation": { "type": "string" },
         "sample_id": { "type": "string" }
       },
-      "required": ["ok", "action", "edge_id", "previous_relation", "new_relation", "sample_id"],
+      "required": ["ok", "action", "edge_id", "previous_relation", "new_relation"],
       "additionalProperties": false
     }
   ]
@@ -3594,7 +3591,7 @@ source_verification:
 | TC-CS-03 | 存在しないclaim_id | 異常系 | ClaimNotFoundError | |
 | **edge_correct** | | | | |
 | TC-EC-01 | supports → refutes | 正常系 | relation更新、nli_corrections蓄積 | |
-| TC-EC-02 | 同じラベルを入力（supports → supports） | 正常系 | 変更なしでもサンプル蓄積 | ground-truth収集 |
+| TC-EC-02 | 同じラベルを入力（supports → supports） | 正常系 | レビュー印のみ（edge_human_corrected=1）。nli_correctionsは増えない | 運用負担最小化 |
 | TC-EC-03 | 存在しないedge_id | 異常系 | EdgeNotFoundError | |
 | TC-EC-04 | 無効なrelation `"unknown"` | 異常系 | InvalidParamsError | |
 | TC-EC-05 | 3クラス: supports | 正常系 | | |
@@ -3609,11 +3606,9 @@ source_verification:
 |---------|---------------------|-------------|-----------------|-------|
 | TC-CM-01 | get_stats（サンプルあり） | 正常系 | source別統計返却 | |
 | TC-CM-02 | get_stats（サンプルなし） | 境界値 | 空の統計 | |
-| TC-CM-03 | evaluate（サンプル十分） | 正常系 | Brier/ECE計算、履歴保存 | |
-| TC-CM-04 | evaluate（サンプル0件） | 境界値 | エラー or 警告 | |
 | TC-CM-05 | get_evaluations（履歴あり） | 正常系 | 評価履歴返却 | |
 | TC-CM-06 | get_evaluations（limit指定） | 正常系 | 指定件数以下 | |
-| TC-CM-07 | get_diagram_data | 正常系 | bins データ返却 | |
+| TC-CM-07 | 旧 evaluate/get_diagram_data アクション | 異常系 | InvalidParamsError（MCPからは削除。評価/可視化はスクリプト運用） | ADR-0011/ADR-0010 |
 | TC-CM-08 | 旧 add_sample アクション | 異常系 | InvalidParamsError（削除済み） | |
 
 ### テスト戦略（全Phase共通）
