@@ -13,7 +13,7 @@
 | ドキュメント | 役割 | 参照 |
 |-------------|------|------|
 | `docs/archive/P_EVIDENCE_SYSTEM.md` | エビデンス評価システム設計（アーカイブ） | Phase 6（決定17）で `edge_correct`→`nli_corrections` 蓄積、計測は `calibration_metrics` |
-| **`docs/S_LORA.md`**（本文書） | **LoRAファインチューニング設計** | Phase S |
+| **`docs/T_LORA.md`**（本文書） | **LoRAファインチューニング設計** | Phase S |
 | `docs/archive/IMPLEMENTATION_PLAN.md` | 実装計画書（アーカイブ） | Phase R概要 |
 | [ADR-0011](adr/0011-lora-fine-tuning.md) | LoRAファインチューニング戦略（ADR） | LoRA採用理由、MCPツール化却下 |
 | [ADR-0012](adr/0012-feedback-tool-design.md) | フィードバックツール設計（ADR） | `feedback(edge_correct)` 設計 |
@@ -514,7 +514,7 @@ WHERE e.source_type = 'fragment'
 
 ### 9.3 target_modulesの確認
 
-S_LORA.md §7.3では `["query", "value"]` と記載。DeBERTa-v3の実際のモジュール名はPhase R実装時に確認すること：
+T_LORA.md §7.3では `["query", "value"]` と記載。DeBERTa-v3の実際のモジュール名はPhase R実装時に確認すること：
 
 ```python
 from transformers import AutoModel
