@@ -100,7 +100,8 @@ cmd_run() {
   "result_file": "${result_file}",
   "pid_file": "${pid_file}",
   "check_command": "make test-check RUN_ID=${run_id}",
-  "markers": "${markers}"
+  "markers": "${markers}",
+  "container_name": "${CONTAINER_NAME_SELECTED:-}"
 }
 EOF
     else
@@ -110,11 +111,18 @@ EOF
         echo ""
         echo "Artifacts:"
         echo "  run_id:      ${run_id}"
+        echo "  runtime:     ${runtime}"
         echo "  result_file: ${result_file}"
         echo "  pid_file:    ${pid_file}"
         echo ""
         echo "Tip:"
-        echo "  less -R ${result_file}"
+        if [[ "$runtime" == "container" ]]; then
+            local tool
+            tool=$(detect_container_tool)
+            echo "  ${tool} exec ${CONTAINER_NAME_SELECTED} tail -100 ${result_file}"
+        else
+            echo "  less -R ${result_file}"
+        fi
     fi
 }
 

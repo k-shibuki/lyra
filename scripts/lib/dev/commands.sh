@@ -88,6 +88,9 @@ cmd_research() {
 }
 
 cmd_status() {
+    local container_tool
+    container_tool=$(get_container_runtime_cmd 2>/dev/null || echo "podman")
+    
     if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
         # Get container status in JSON-friendly format
         local containers
@@ -96,16 +99,24 @@ cmd_status() {
         if check_container_running "$CONTAINER_NAME"; then
             running="true"
         fi
+        # Get network list
+        local networks
+        networks=$($container_tool network ls --filter "label=io.podman.compose.project=lyra" --format "{{.Name}}" 2>/dev/null | jq -R -s 'split("\n") | map(select(length > 0))' 2>/dev/null || echo "[]")
         cat <<EOF
 {
   "status": "ok",
   "container_running": ${running},
   "container_name": "${CONTAINER_NAME}",
-  "containers": ${containers:-[]}
+  "containers": ${containers:-[]},
+  "networks": ${networks:-[]}
 }
 EOF
     else
+        echo "=== Containers ==="
         $COMPOSE ps
+        echo ""
+        echo "=== Networks ==="
+        $container_tool network ls --filter "label=io.podman.compose.project=lyra"
     fi
 }
 
