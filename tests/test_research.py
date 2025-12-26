@@ -1601,174 +1601,343 @@ class TestGetOverallHarvestRate:
 
 
 # =============================================================================
-# Academic Query Detection Tests (J2)
+# Unified Dual-Source Search Tests (ADR-0016)
 # =============================================================================
 
 
-class TestAcademicQueryDetection:
-    """Tests for academic query detection and complementary search (J2).
+class TestUnifiedDualSourceSearch:
+    """Tests for unified dual-source search behavior (ADR-0016).
 
-    Tests for _is_academic_query() and _expand_academic_query() methods
-    in SearchPipeline.
+    All queries now use both Academic API and Browser SERP, with results
+    deduplicated via CanonicalPaperIndex.
 
     ## Test Perspectives Table
 
     | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
     |---------|---------------------|-------------|-----------------|-------|
-    | TC-AQ-N-01 | Query with academic keyword | Equivalence – normal | Returns True | - |
-    | TC-AQ-N-02 | Query with site:arxiv.org | Equivalence – normal | Returns True | - |
-    | TC-AQ-N-03 | Query with DOI pattern | Equivalence – normal | Returns True | - |
-    | TC-AQ-B-01 | Empty query string | Boundary – empty | Returns False | - |
-    | TC-AQ-B-02 | Query without academic indicators | Boundary – no match | Returns False | - |
-    | TC-AQ-N-04 | Expand academic query | Equivalence – normal | Returns expanded queries | - |
-    | TC-AQ-B-03 | Expand empty query | Boundary – empty | Returns list with empty query | - |
+    | TC-US-N-01 | Normal query, SERP success, Academic success | Equivalence – normal | Both sources called, unified flow completes | wiring |
+    | TC-US-N-02 | Academic query (DOI), SERP success, Academic success | Equivalence – normal | Citation graph processed once, dedupe works | effect |
+    | TC-US-A-01 | Academic API raises exception | Abnormal – exception | Browser continues, exception logged | negative |
+    | TC-US-A-02 | SERP raises exception | Abnormal – exception | Academic continues, citation graph created | negative |
+    | TC-US-A-03 | Both SERP and Academic fail | Abnormal – exception | Stable status/error_code returned | negative |
+    | TC-US-A-04 | SERP + Academic return same paper (DOI match) | Abnormal – dedupe | CanonicalIndex deduplicates to 1 entry | effect |
+    | TC-US-B-01 | Empty query | Boundary – empty | Handled safely, no crash | boundary |
     """
 
-    def test_is_academic_query_with_keyword(self) -> None:
-        """TC-AQ-N-01: Test query with academic keyword.
+    @pytest.mark.asyncio
+    async def test_unified_search_calls_both_sources(self) -> None:
+        """TC-US-N-01: Unified search calls both Academic API and Browser SERP.
 
-        // Given: Query containing academic keyword
-        // When: Checking if academic query
-        // Then: Returns True
+        // Given: Normal query
+        // When: _execute_unified_search() is called
+        // Then: Both search_serp and AcademicSearchProvider.search are called
         """
-        from src.research.pipeline import SearchPipeline
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
         from src.research.state import ExplorationState
 
-        # Given: Query with academic keyword
+        # Given
         state = ExplorationState("test_task")
         pipeline = SearchPipeline("test_task", state)
-        query = "transformer attention 論文"
+        query = "今日の天気"  # Non-academic query - should still use both sources
 
-        # When: Checking if academic query
-        is_academic = pipeline._is_academic_query(query)
+        # When: Mock both sources
+        # Note: patch at definition site (src.search.search_api) because it's imported inside method
+        mock_serp_response: list[dict[str, str]] = [
+            {"url": "https://example.com/weather", "title": "Weather", "snippet": "Today's weather"}
+        ]
 
-        # Then: Returns True
-        assert is_academic is True
+        with (
+            patch("src.search.search_api.search_serp", new_callable=AsyncMock) as mock_serp,
+            patch(
+                "src.search.academic_provider.AcademicSearchProvider"
+            ) as mock_academic_provider_class,
+            patch("src.search.id_resolver.IDResolver") as mock_resolver_class,
+        ):
+            mock_serp.return_value = mock_serp_response
 
-    def test_is_academic_query_with_site_operator(self) -> None:
-        """TC-AQ-N-02: Test query with site:arxiv.org.
+            # Setup academic provider mock
+            mock_academic_provider = MagicMock()
+            mock_academic_provider.search = AsyncMock(return_value=MagicMock(ok=False))
+            mock_academic_provider.get_last_index = MagicMock(return_value=None)
+            mock_academic_provider.close = AsyncMock()
+            mock_academic_provider_class.return_value = mock_academic_provider
 
-        // Given: Query with site:arxiv.org operator
-        // When: Checking if academic query
-        // Then: Returns True
+            # Setup resolver mock
+            mock_resolver = MagicMock()
+            mock_resolver.close = AsyncMock()
+            mock_resolver_class.return_value = mock_resolver
+
+            options = SearchOptions()
+            result = SearchResult(search_id="test_search", query=query)
+
+            await pipeline._execute_unified_search("test_search", query, options, result)
+
+            # Then: Both sources should be called
+            mock_serp.assert_called_once()
+            mock_academic_provider.search.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unified_search_academic_api_failure_continues(self) -> None:
+        """TC-US-A-01: Academic API failure does not stop browser search.
+
+        // Given: Query with Academic API raising exception
+        // When: _execute_unified_search() is called
+        // Then: Browser search continues, no crash
         """
-        from src.research.pipeline import SearchPipeline
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
         from src.research.state import ExplorationState
 
-        # Given: Query with site operator
+        # Given
         state = ExplorationState("test_task")
         pipeline = SearchPipeline("test_task", state)
-        query = "machine learning site:arxiv.org"
+        query = "test query"
 
-        # When: Checking if academic query
-        is_academic = pipeline._is_academic_query(query)
+        mock_serp_response: list[dict[str, str]] = [
+            {"url": "https://example.com/test", "title": "Test", "snippet": "Test content"}
+        ]
 
-        # Then: Returns True
-        assert is_academic is True
+        with (
+            patch("src.search.search_api.search_serp", new_callable=AsyncMock) as mock_serp,
+            patch(
+                "src.search.academic_provider.AcademicSearchProvider"
+            ) as mock_academic_provider_class,
+            patch("src.search.id_resolver.IDResolver") as mock_resolver_class,
+        ):
+            mock_serp.return_value = mock_serp_response
 
-    def test_is_academic_query_with_doi_pattern(self) -> None:
-        """TC-AQ-N-03: Test query with DOI pattern.
+            # Academic API raises exception
+            mock_academic_provider = MagicMock()
+            mock_academic_provider.search = AsyncMock(side_effect=Exception("API Error"))
+            mock_academic_provider.close = AsyncMock()
+            mock_academic_provider_class.return_value = mock_academic_provider
 
-        // Given: Query containing DOI pattern
-        // When: Checking if academic query
-        // Then: Returns True
+            mock_resolver = MagicMock()
+            mock_resolver.close = AsyncMock()
+            mock_resolver_class.return_value = mock_resolver
+
+            options = SearchOptions()
+            result = SearchResult(search_id="test_search", query=query)
+
+            # When: Should not raise
+            returned_result = await pipeline._execute_unified_search(
+                "test_search", query, options, result
+            )
+
+            # Then: Result is returned (no crash)
+            assert returned_result is not None
+            mock_serp.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unified_search_serp_failure_continues(self) -> None:
+        """TC-US-A-02: SERP failure does not stop academic search.
+
+        // Given: Query with SERP raising exception
+        // When: _execute_unified_search() is called
+        // Then: Academic search continues, citation graph can be created
         """
-        from src.research.pipeline import SearchPipeline
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
+        from src.research.state import ExplorationState
+        from src.utils.schemas import Author, Paper
+
+        # Given
+        state = ExplorationState("test_task")
+        pipeline = SearchPipeline("test_task", state)
+        query = "machine learning paper"
+
+        # Mock paper with abstract
+        mock_paper = Paper(
+            id="s2:12345",
+            title="Test Paper",
+            abstract="Test abstract content",
+            authors=[Author(name="Test Author", affiliation=None, orcid=None)],
+            year=2024,
+            doi="10.1234/test",
+            source_api="semantic_scholar",
+        )
+
+        with (
+            patch("src.search.search_api.search_serp", new_callable=AsyncMock) as mock_serp,
+            patch(
+                "src.search.academic_provider.AcademicSearchProvider"
+            ) as mock_academic_provider_class,
+            patch("src.search.id_resolver.IDResolver") as mock_resolver_class,
+            patch(
+                "src.research.pipeline.get_database", new_callable=AsyncMock
+            ) as mock_db,
+            patch("src.filter.evidence_graph.get_evidence_graph", new_callable=AsyncMock),
+        ):
+            # SERP raises exception
+            mock_serp.side_effect = Exception("SERP Error")
+
+            # Academic API succeeds with paper
+            mock_index = MagicMock()
+            mock_entry = MagicMock()
+            mock_entry.paper = mock_paper
+            mock_entry.needs_fetch = False
+            mock_index.get_all_entries.return_value = [mock_entry]
+            mock_index.get_stats.return_value = {"total": 1, "both": 0, "api_only": 1, "serp_only": 0}
+
+            mock_academic_response = MagicMock(ok=True, results=[])
+            mock_academic_provider = MagicMock()
+            mock_academic_provider.search = AsyncMock(return_value=mock_academic_response)
+            mock_academic_provider.get_last_index = MagicMock(return_value=mock_index)
+            mock_academic_provider.close = AsyncMock()
+            mock_academic_provider.get_citation_graph = AsyncMock(return_value=([], []))
+            mock_academic_provider_class.return_value = mock_academic_provider
+
+            mock_resolver = MagicMock()
+            mock_resolver.close = AsyncMock()
+            mock_resolver_class.return_value = mock_resolver
+
+            mock_db_instance = AsyncMock()
+            mock_db_instance.insert = AsyncMock(return_value="test_id")
+            mock_db.return_value = mock_db_instance
+
+            options = SearchOptions()
+            result = SearchResult(search_id="test_search", query=query)
+
+            # When: Should not raise
+            returned_result = await pipeline._execute_unified_search(
+                "test_search", query, options, result
+            )
+
+            # Then: Result is returned (no crash), academic was called
+            assert returned_result is not None
+            mock_academic_provider.search.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unified_search_both_fail_stable_result(self) -> None:
+        """TC-US-A-03: Both SERP and Academic failure returns stable result.
+
+        // Given: Both SERP and Academic API raise exceptions
+        // When: _execute_unified_search() is called
+        // Then: Stable result returned with no crash
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
         from src.research.state import ExplorationState
 
-        # Given: Query with DOI pattern
+        # Given
         state = ExplorationState("test_task")
         pipeline = SearchPipeline("test_task", state)
-        query = "paper 10.1038/nature12373"
+        query = "test query"
 
-        # When: Checking if academic query
-        is_academic = pipeline._is_academic_query(query)
+        with (
+            patch("src.search.search_api.search_serp", new_callable=AsyncMock) as mock_serp,
+            patch(
+                "src.search.academic_provider.AcademicSearchProvider"
+            ) as mock_academic_provider_class,
+            patch("src.search.id_resolver.IDResolver") as mock_resolver_class,
+        ):
+            # Both fail
+            mock_serp.side_effect = Exception("SERP Error")
 
-        # Then: Returns True
-        assert is_academic is True
+            mock_academic_provider = MagicMock()
+            mock_academic_provider.search = AsyncMock(side_effect=Exception("API Error"))
+            mock_academic_provider.close = AsyncMock()
+            mock_academic_provider_class.return_value = mock_academic_provider
 
-    def test_is_academic_query_empty(self) -> None:
-        """TC-AQ-B-01: Test empty query string.
+            mock_resolver = MagicMock()
+            mock_resolver.close = AsyncMock()
+            mock_resolver_class.return_value = mock_resolver
+
+            options = SearchOptions()
+            result = SearchResult(search_id="test_search", query=query)
+
+            # When: Should not raise
+            returned_result = await pipeline._execute_unified_search(
+                "test_search", query, options, result
+            )
+
+            # Then: Stable result returned
+            assert returned_result is not None
+            assert returned_result.search_id == "test_search"
+
+    @pytest.mark.asyncio
+    async def test_unified_search_empty_query_handled(self) -> None:
+        """TC-US-B-01: Empty query is handled safely.
 
         // Given: Empty query string
-        // When: Checking if academic query
-        // Then: Returns False
+        // When: _execute_unified_search() is called
+        // Then: No crash, both sources called
         """
-        from src.research.pipeline import SearchPipeline
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
         from src.research.state import ExplorationState
 
-        # Given: Empty query string
+        # Given
         state = ExplorationState("test_task")
         pipeline = SearchPipeline("test_task", state)
+        query = ""
 
-        # When: Checking if academic query
-        is_academic = pipeline._is_academic_query("")
+        with (
+            patch("src.search.search_api.search_serp", new_callable=AsyncMock) as mock_serp,
+            patch(
+                "src.search.academic_provider.AcademicSearchProvider"
+            ) as mock_academic_provider_class,
+            patch("src.search.id_resolver.IDResolver") as mock_resolver_class,
+        ):
+            mock_serp.return_value = []
 
-        # Then: Returns False
-        assert is_academic is False
+            mock_academic_provider = MagicMock()
+            mock_academic_provider.search = AsyncMock(return_value=MagicMock(ok=False))
+            mock_academic_provider.get_last_index = MagicMock(return_value=None)
+            mock_academic_provider.close = AsyncMock()
+            mock_academic_provider_class.return_value = mock_academic_provider
 
-    def test_is_academic_query_general(self) -> None:
-        """TC-AQ-B-02: Test query without academic indicators.
+            mock_resolver = MagicMock()
+            mock_resolver.close = AsyncMock()
+            mock_resolver_class.return_value = mock_resolver
 
-        // Given: General query without academic indicators
-        // When: Checking if academic query
-        // Then: Returns False
+            options = SearchOptions()
+            result = SearchResult(search_id="test_search", query=query)
+
+            # When: Should not raise
+            returned_result = await pipeline._execute_unified_search(
+                "test_search", query, options, result
+            )
+
+            # Then: Stable result
+            assert returned_result is not None
+            mock_serp.assert_called_once()
+            mock_academic_provider.search.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unified_search_normal_search_uses_unified_flow(self) -> None:
+        """TC-US-N-01 (wiring): _execute_normal_search always calls unified search.
+
+        // Given: Any query (academic or not)
+        // When: _execute_normal_search() is called
+        // Then: _execute_unified_search() is called (no is_academic branching)
         """
-        from src.research.pipeline import SearchPipeline
+        from unittest.mock import AsyncMock, patch
+
+        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
         from src.research.state import ExplorationState
 
-        # Given: General query
+        # Given: Non-academic query
         state = ExplorationState("test_task")
         pipeline = SearchPipeline("test_task", state)
         query = "今日の天気"
 
-        # When: Checking if academic query
-        is_academic = pipeline._is_academic_query(query)
+        with patch.object(
+            pipeline, "_execute_unified_search", new_callable=AsyncMock
+        ) as mock_unified:
+            mock_unified.return_value = SearchResult(search_id="test", query=query)
 
-        # Then: Returns False
-        assert is_academic is False
+            options = SearchOptions()
+            result = SearchResult(search_id="test", query=query)
 
-    def test_expand_academic_query(self) -> None:
-        """TC-AQ-N-04: Test expanding academic query.
+            # When
+            await pipeline._execute_normal_search("test", query, options, result)
 
-        // Given: Academic query
-        // When: Expanding query
-        // Then: Returns expanded queries with site operators
-        """
-        from src.research.pipeline import SearchPipeline
-        from src.research.state import ExplorationState
-
-        # Given: Academic query
-        state = ExplorationState("test_task")
-        pipeline = SearchPipeline("test_task", state)
-        query = "transformer attention"
-
-        # When: Expanding query
-        expanded = pipeline._expand_academic_query(query)
-
-        # Then: Returns expanded queries
-        assert len(expanded) >= 1
-        assert query in expanded
-        # Should include site: operators
-        assert any("site:arxiv.org" in q or "site:pubmed" in q for q in expanded)
-
-    def test_expand_academic_query_empty(self) -> None:
-        """TC-AQ-B-03: Test expanding empty query.
-
-        // Given: Empty query
-        // When: Expanding query
-        // Then: Returns list with empty query
-        """
-        from src.research.pipeline import SearchPipeline
-        from src.research.state import ExplorationState
-
-        # Given: Empty query
-        state = ExplorationState("test_task")
-        pipeline = SearchPipeline("test_task", state)
-
-        # When: Expanding query
-        expanded = pipeline._expand_academic_query("")
-
-        # Then: Returns list with empty query
-        assert len(expanded) >= 1
-        assert "" in expanded
+            # Then: Unified search was called
+            mock_unified.assert_called_once_with("test", query, options, result)

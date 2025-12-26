@@ -22,7 +22,7 @@ ADR-0010 により `SearchQueueWorker` が2並列で検索を処理する。し�
 ### 現状の問題
 
 ```
-SearchPipeline._execute_complementary_search():
+SearchPipeline._execute_unified_search():  # ADR-0016: 常時dual-sourceを実行
     academic_provider = AcademicSearchProvider()  # 毎回新規インスタンス
     ...
     await asyncio.gather(
