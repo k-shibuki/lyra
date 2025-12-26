@@ -385,6 +385,53 @@ class ExplorationState:
             )
             self._searches[search.id] = search
 
+        # Load metrics from database
+        await self._load_metrics_from_db()
+
+    async def _load_metrics_from_db(self) -> None:
+        """Load accumulated metrics from database.
+
+        Restores total_claims, total_fragments, and budget_pages_used
+        from the database so that get_status returns accurate values
+        even after MCP server restart.
+        """
+        assert self._db is not None
+
+        # Count claims directly (claims table has task_id)
+        claims_count = await self._db.fetch_one(
+            "SELECT COUNT(*) as cnt FROM claims WHERE task_id = ?",
+            (self.task_id,),
+        )
+        if claims_count:
+            self._total_claims = claims_count.get("cnt", 0) or 0
+
+        # Count fragments and pages via the query chain:
+        # queries -> serp_items -> pages -> fragments
+        metrics = await self._db.fetch_one(
+            """
+            SELECT
+                COUNT(DISTINCT p.id) as page_count,
+                COUNT(DISTINCT f.id) as fragment_count
+            FROM queries q
+            JOIN serp_items s ON s.query_id = q.id
+            JOIN pages p ON p.url = s.url
+            LEFT JOIN fragments f ON f.page_id = p.id
+            WHERE q.task_id = ?
+            """,
+            (self.task_id,),
+        )
+        if metrics:
+            self._budget_pages_used = metrics.get("page_count", 0) or 0
+            self._total_fragments = metrics.get("fragment_count", 0) or 0
+
+        logger.debug(
+            "Loaded metrics from DB",
+            task_id=self.task_id,
+            claims=self._total_claims,
+            pages=self._budget_pages_used,
+            fragments=self._total_fragments,
+        )
+
     async def save_state(self) -> None:
         """Save current state to database."""
         await self._ensure_db()
