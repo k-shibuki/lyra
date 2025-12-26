@@ -72,6 +72,7 @@ start_chrome_worker_wsl() {
 #   0: Chrome started and ready
 #   1: Failed to start Chrome or connect
 start_chrome_worker_linux() {
+    # shellcheck disable=SC2034  # worker_id reserved for future logging
     local worker_id="$1"
     local port="$2"
     local profile="$3"

@@ -45,6 +45,28 @@ Lyraでは、**タスク固有（task-scoped）**と**グローバル（global /
 - Evidence Graph のロードは `task_id` を指定すると **claims(task_id=...) に接続する edges** のみを読み込む。
   - これにより、`edges/pages/fragments` がグローバルに存在しても、タスクの材料は `task_id` で切り出せる。
 
+#### 同一リソースの再発見（異なるクエリ・コンテキスト）
+
+同じ論文（DOI/URL）が**異なるクエリやコンテキストから再発見**された場合の振る舞い：
+
+| レイヤー | 振る舞い | 理由 |
+|----------|----------|------|
+| `pages` | 2回目以降は既存 `page_id` を返す（挿入しない） | URLでUNIQUE、グローバルリソースとして1回だけ保存 |
+| `fragments` | 2回目以降は既存 `fragment_id` を返す | `page_id` に紐づくグローバルリソース |
+| `claims` | **新規作成** | タスク固有。異なるクエリ/コンテキストは異なるClaim |
+| `edges` | **新規作成**（Fragment → 新Claim） | 同じFragmentが複数のClaimを支持/反証できる |
+
+実装上のワークフロー：
+
+1. **リソース発見時**: `resource_index` で DOI/URL をチェック
+2. **既存の場合**: 既存 `page_id` と `fragment_id` を取得して返す
+3. **呼び出し元**: 取得した `fragment_id` を使って新しい `claims` と `edges` を作成
+
+これにより：
+- **ストレージ効率**: 同じ論文データは1回だけ保存
+- **コンテキスト保持**: 各クエリ固有のClaimとして評価可能
+- **引用追跡**: 同じFragmentから複数Claimへのedgeで表現
+
 ### Cleanup Policy（soft / hard）
 
 本ADRのスコープ設計により、停止/削除時のクリーンアップは次の2段階に分けるのが安全である。

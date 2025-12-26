@@ -147,6 +147,9 @@ class TestAbstractOnlyStrategy:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock(return_value="test_id")
+            # Mock resource dedup methods (claim succeeds, complete does nothing)
+            mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+            mock_db_instance.complete_resource = AsyncMock()
 
             # When
             page_id, fragment_id = await pipeline._persist_abstract_as_fragment(
@@ -176,6 +179,98 @@ class TestAbstractOnlyStrategy:
             fragments_data = fragments_call[0][1]
             assert fragments_data["fragment_type"] == "abstract"
             assert fragments_data["text_content"] == sample_paper_with_abstract.abstract
+
+            # Verify resource dedup was called
+            mock_db_instance.claim_resource.assert_called_once()
+            mock_db_instance.complete_resource.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_persist_abstract_existing_resource_returns_fragment_id(
+        self, sample_paper_with_abstract: Paper
+    ) -> None:
+        """
+        Test: _persist_abstract_as_fragment() returns existing fragment_id when resource exists.
+
+        Given: Paper already processed by another worker (claim_resource returns False)
+        When: _persist_abstract_as_fragment() is called
+        Then: Existing page_id and fragment_id are returned (ADR-0005: global resources)
+        """
+        # Given
+        state = ExplorationState(task_id="test_task")
+        pipeline = SearchPipeline(task_id="test_task", state=state)
+
+        with patch("src.research.pipeline.get_database") as mock_get_db:
+            mock_db_instance = AsyncMock()
+            mock_get_db.return_value = mock_db_instance
+
+            # Mock: resource already claimed by another worker
+            existing_page_id = "page_existing123"
+            existing_fragment_id = "frag_existing456"
+            mock_db_instance.claim_resource = AsyncMock(
+                return_value=(False, existing_page_id)
+            )
+            # Mock: fetch_one returns existing fragment
+            mock_db_instance.fetch_one = AsyncMock(
+                return_value={"id": existing_fragment_id}
+            )
+
+            # When
+            page_id, fragment_id = await pipeline._persist_abstract_as_fragment(
+                paper=sample_paper_with_abstract,
+                task_id="test_task",
+                search_id="test_search",
+            )
+
+            # Then: should return existing page_id and fragment_id
+            assert page_id == existing_page_id
+            assert fragment_id == existing_fragment_id
+
+            # Verify: no inserts (resource already exists)
+            mock_db_instance.insert.assert_not_called()
+            mock_db_instance.complete_resource.assert_not_called()
+
+            # Verify: fragment lookup was done
+            mock_db_instance.fetch_one.assert_called_once()
+            call_args = mock_db_instance.fetch_one.call_args
+            assert "fragments" in call_args[0][0]
+            assert "abstract" in call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_persist_abstract_existing_resource_no_fragment(
+        self, sample_paper_with_abstract: Paper
+    ) -> None:
+        """
+        Test: _persist_abstract_as_fragment() returns None fragment_id when fragment not found.
+
+        Given: Page exists but fragment was not created (edge case)
+        When: _persist_abstract_as_fragment() is called
+        Then: Existing page_id returned, fragment_id is None
+        """
+        # Given
+        state = ExplorationState(task_id="test_task")
+        pipeline = SearchPipeline(task_id="test_task", state=state)
+
+        with patch("src.research.pipeline.get_database") as mock_get_db:
+            mock_db_instance = AsyncMock()
+            mock_get_db.return_value = mock_db_instance
+
+            # Mock: resource claimed but page has no fragment
+            existing_page_id = "page_nofrag123"
+            mock_db_instance.claim_resource = AsyncMock(
+                return_value=(False, existing_page_id)
+            )
+            mock_db_instance.fetch_one = AsyncMock(return_value=None)
+
+            # When
+            page_id, fragment_id = await pipeline._persist_abstract_as_fragment(
+                paper=sample_paper_with_abstract,
+                task_id="test_task",
+                search_id="test_search",
+            )
+
+            # Then
+            assert page_id == existing_page_id
+            assert fragment_id is None
 
     @pytest.mark.asyncio
     async def test_paper_with_abstract_skips_fetch(self, sample_paper_with_abstract: Paper) -> None:
@@ -342,6 +437,9 @@ class TestPaperMetadataPersistence:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock(return_value="test_id")
+            # Mock resource dedup methods
+            mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+            mock_db_instance.complete_resource = AsyncMock()
 
             await pipeline._persist_abstract_as_fragment(
                 paper=sample_paper_with_abstract,
@@ -776,6 +874,9 @@ class TestExceptionHandling:
         with patch("src.research.pipeline.get_database") as mock_db:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
+            # Mock claim_resource to succeed, then insert to fail
+            mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+            mock_db_instance.fail_resource = AsyncMock()
             mock_db_instance.insert = AsyncMock(side_effect=Exception("DB error"))
 
             # When: Persisting abstract (should raise exception)
@@ -786,8 +887,9 @@ class TestExceptionHandling:
                     search_id="test_search",
                 )
 
-            # Then: Exception is raised (caller should handle it)
+            # Then: Exception is raised and fail_resource is called
             assert "DB error" in str(exc_info.value)
+            mock_db_instance.fail_resource.assert_called_once()
 
 
 # =============================================================================
@@ -1031,6 +1133,9 @@ class TestExecuteComplementarySearchE2E:
             mock_db_instance = AsyncMock()
             mock_db.return_value = mock_db_instance
             mock_db_instance.insert = AsyncMock(return_value="test_id")
+            # Mock resource dedup methods
+            mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+            mock_db_instance.complete_resource = AsyncMock()
 
             # When: Persisting abstract
             page_id, fragment_id = await pipeline._persist_abstract_as_fragment(

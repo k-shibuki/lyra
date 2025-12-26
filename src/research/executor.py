@@ -614,14 +614,30 @@ class SearchExecutor:
                                             urlparse(target_url).netloc or ""
                                         ).lower() or "unknown"
 
-                                        # Ensure target page exists in pages table (placeholder is OK).
-                                        existing = await db.fetch_one(
-                                            "SELECT id FROM pages WHERE url = ?",
-                                            (target_url,),
+                                        # Use claim_resource for race-condition-safe dedup
+                                        is_new, existing_page_id = await db.claim_resource(
+                                            identifier_type="url",
+                                            identifier_value=target_url,
+                                            task_id=self.task_id,
+                                            worker_id=self.worker_id,
                                         )
-                                        if existing and existing.get("id"):
-                                            target_page_id = str(existing["id"])
+
+                                        if not is_new and existing_page_id:
+                                            # Already processed by another worker
+                                            target_page_id = existing_page_id
+                                        elif not is_new:
+                                            # Resource claimed but no page_id yet (being processed)
+                                            # Check if page exists
+                                            existing = await db.fetch_one(
+                                                "SELECT id FROM pages WHERE url = ?",
+                                                (target_url,),
+                                            )
+                                            if existing and existing.get("id"):
+                                                target_page_id = str(existing["id"])
+                                            else:
+                                                continue  # Skip, being processed
                                         else:
+                                            # We claimed it, create placeholder page
                                             if not wc.create_placeholder_pages:
                                                 continue
                                             inserted_id = await db.insert(
@@ -630,10 +646,18 @@ class SearchExecutor:
                                                     "url": target_url,
                                                     "domain": target_domain,
                                                 },
+                                                or_ignore=True,
                                             )
                                             if not inserted_id:
                                                 continue
                                             target_page_id = str(inserted_id)
+
+                                            # Mark resource as completed
+                                            await db.complete_resource(
+                                                identifier_type="url",
+                                                identifier_value=target_url,
+                                                page_id=target_page_id,
+                                            )
 
                                         await add_citation(
                                             source_type="page",

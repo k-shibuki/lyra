@@ -151,8 +151,9 @@ class PlaywrightProvider(BaseBrowserProvider):
             if self._headful_browser is None:
                 try:
                     # Try CDP connection first (Windows Chrome)
+                    # Use base port (worker 0) for default connection
                     cdp_url = (
-                        f"http://{browser_settings.chrome_host}:{browser_settings.chrome_port}"
+                        f"http://{browser_settings.chrome_host}:{browser_settings.chrome_base_port}"
                     )
                     self._headful_browser = await self._playwright.chromium.connect_over_cdp(
                         cdp_url

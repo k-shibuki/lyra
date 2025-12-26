@@ -232,6 +232,7 @@ class Database:
         data: dict[str, Any],
         *,
         or_replace: bool = False,
+        or_ignore: bool = False,
         auto_id: bool = True,
     ) -> str | None:
         """Insert a row into a table.
@@ -239,11 +240,16 @@ class Database:
         Args:
             table: Table name.
             data: Column-value mapping.
-            or_replace: Use INSERT OR REPLACE.
+            or_replace: Use INSERT OR REPLACE (overwrites on conflict).
+            or_ignore: Use INSERT OR IGNORE (silently skips on conflict).
             auto_id: Auto-generate UUID for 'id' column if missing.
 
         Returns:
             The ID of the inserted row, or None if no id column.
+
+        Note:
+            or_replace and or_ignore are mutually exclusive.
+            or_replace takes precedence if both are True.
         """
         # Generate ID if not provided and auto_id is True
         if auto_id and "id" not in data:
@@ -253,7 +259,12 @@ class Database:
         columns = ", ".join(data.keys())
         placeholders = ", ".join(["?" for _ in data])
 
-        verb = "INSERT OR REPLACE" if or_replace else "INSERT"
+        if or_replace:
+            verb = "INSERT OR REPLACE"
+        elif or_ignore:
+            verb = "INSERT OR IGNORE"
+        else:
+            verb = "INSERT"
         sql = f"{verb} INTO {table} ({columns}) VALUES ({placeholders})"
 
         await self.execute(sql, tuple(data.values()))
@@ -640,6 +651,170 @@ class Database:
             "http_error_rate": 0.0 if (v := result.get("http_error_rate")) is None else v,
             "updated_at": result.get("updated_at"),
         }
+
+    # ============================================================
+    # Resource Deduplication Operations (Cross-Worker Coordination)
+    # ============================================================
+
+    async def claim_resource(
+        self,
+        identifier_type: str,
+        identifier_value: str,
+        task_id: str,
+        worker_id: int,
+    ) -> tuple[bool, str | None]:
+        """Attempt to claim a resource for processing.
+
+        Uses INSERT OR IGNORE + SELECT pattern to avoid race conditions.
+        If the resource already exists, returns the existing page_id.
+
+        Args:
+            identifier_type: Type of identifier ('doi', 'pmid', 'arxiv', 'url').
+            identifier_value: The identifier value (should be normalized).
+            task_id: Task ID that discovered this resource.
+            worker_id: Worker ID attempting to claim.
+
+        Returns:
+            Tuple of (is_new, page_id):
+            - is_new=True if this worker claimed it (first to insert)
+            - page_id is the existing page_id if already processed, else None
+        """
+        if not identifier_value:
+            raise ValueError("identifier_value cannot be empty")
+
+        resource_id = f"res_{uuid.uuid4().hex[:12]}"
+        now = datetime.now(UTC).isoformat()
+
+        # Attempt to insert (INSERT OR IGNORE won't fail on conflict)
+        await self.execute(
+            """
+            INSERT OR IGNORE INTO resource_index
+                (id, identifier_type, identifier_value, task_id, status, worker_id, claimed_at, created_at)
+            VALUES (?, ?, ?, ?, 'processing', ?, ?, ?)
+            """,
+            (resource_id, identifier_type, identifier_value, task_id, worker_id, now, now),
+        )
+
+        # Check if we were the one who inserted (or if it already existed)
+        existing = await self.fetch_one(
+            """
+            SELECT id, page_id, status, worker_id
+            FROM resource_index
+            WHERE identifier_type = ? AND identifier_value = ?
+            """,
+            (identifier_type, identifier_value),
+        )
+
+        if existing is None:
+            # Should not happen, but handle gracefully
+            logger.warning(
+                "Resource claim failed unexpectedly",
+                identifier_type=identifier_type,
+                identifier_value=identifier_value[:50],
+            )
+            return False, None
+
+        # Check if we won the race (our ID was inserted)
+        if existing["id"] == resource_id:
+            logger.debug(
+                "Resource claimed",
+                identifier_type=identifier_type,
+                identifier_value=identifier_value[:50],
+                worker_id=worker_id,
+            )
+            return True, None
+
+        # Another worker got there first
+        logger.debug(
+            "Resource already claimed",
+            identifier_type=identifier_type,
+            identifier_value=identifier_value[:50],
+            existing_worker_id=existing.get("worker_id"),
+            page_id=existing.get("page_id"),
+        )
+        return False, existing.get("page_id")
+
+    async def complete_resource(
+        self,
+        identifier_type: str,
+        identifier_value: str,
+        page_id: str,
+    ) -> None:
+        """Mark a resource as completed with associated page_id.
+
+        Args:
+            identifier_type: Type of identifier ('doi', 'pmid', 'arxiv', 'url').
+            identifier_value: The identifier value.
+            page_id: The page ID created for this resource.
+        """
+        now = datetime.now(UTC).isoformat()
+        await self.execute(
+            """
+            UPDATE resource_index
+            SET status = 'completed', page_id = ?, completed_at = ?
+            WHERE identifier_type = ? AND identifier_value = ?
+            """,
+            (page_id, now, identifier_type, identifier_value),
+        )
+        logger.debug(
+            "Resource completed",
+            identifier_type=identifier_type,
+            identifier_value=identifier_value[:50],
+            page_id=page_id,
+        )
+
+    async def get_resource(
+        self,
+        identifier_type: str,
+        identifier_value: str,
+    ) -> dict[str, Any] | None:
+        """Get resource status by identifier.
+
+        Args:
+            identifier_type: Type of identifier.
+            identifier_value: The identifier value.
+
+        Returns:
+            Resource record or None if not found.
+        """
+        return await self.fetch_one(
+            """
+            SELECT id, identifier_type, identifier_value, page_id, task_id,
+                   status, worker_id, claimed_at, completed_at, created_at
+            FROM resource_index
+            WHERE identifier_type = ? AND identifier_value = ?
+            """,
+            (identifier_type, identifier_value),
+        )
+
+    async def fail_resource(
+        self,
+        identifier_type: str,
+        identifier_value: str,
+        error_message: str | None = None,
+    ) -> None:
+        """Mark a resource as failed.
+
+        Args:
+            identifier_type: Type of identifier.
+            identifier_value: The identifier value.
+            error_message: Optional error message (not stored, just logged).
+        """
+        now = datetime.now(UTC).isoformat()
+        await self.execute(
+            """
+            UPDATE resource_index
+            SET status = 'failed', completed_at = ?
+            WHERE identifier_type = ? AND identifier_value = ?
+            """,
+            (now, identifier_type, identifier_value),
+        )
+        logger.debug(
+            "Resource failed",
+            identifier_type=identifier_type,
+            identifier_value=identifier_value[:50],
+            error=error_message,
+        )
 
     # ============================================================
     # Fetch Cache Operations (304 support)

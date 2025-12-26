@@ -31,7 +31,10 @@ class TestMCPIdleWarning:
             return_value={"id": "test_task", "status": "created", "query": "test query"}
         )
         db.fetch_all = AsyncMock(return_value=[])
-        db.execute = AsyncMock()
+        # Mock cursor with rowcount attribute for UPDATE operations
+        mock_cursor = AsyncMock()
+        mock_cursor.rowcount = 0
+        db.execute = AsyncMock(return_value=mock_cursor)
         return db
 
     @pytest.fixture

@@ -560,7 +560,7 @@ async def reset_tab_pool(worker_id: int | None = None) -> None:
             logger.debug("Reset TabPool for worker", worker_id=worker_id)
     else:
         # Reset all pools
-        for wid, pool in list(_tab_pools.items()):
+        for _wid, pool in list(_tab_pools.items()):
             await pool.close()
         _tab_pools.clear()
         logger.debug("Reset all TabPools")

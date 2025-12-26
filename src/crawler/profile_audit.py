@@ -345,13 +345,15 @@ class ProfileAuditor:
         "audio_hash": ("low", RepairAction.RESTART_BROWSER),
     }
 
-    def __init__(self, profile_dir: Path | None = None):
+    def __init__(self, profile_dir: Path | None = None, worker_id: int = 0):
         """Initialize profile auditor.
 
         Args:
             profile_dir: Directory for storing profile data. Defaults to data/profiles.
+            worker_id: Worker ID for multi-worker Chrome pool (default 0).
         """
         self._settings = get_settings()
+        self._worker_id = worker_id
 
         if profile_dir is None:
             root = get_project_root()
@@ -371,14 +373,20 @@ class ProfileAuditor:
         # Load baseline if exists
         self._load_baseline()
 
+    def _get_profile_name(self) -> str:
+        """Get profile name for this worker."""
+        from src.utils.config import get_chrome_profile
+
+        return get_chrome_profile(self._worker_id)
+
     def _get_baseline_path(self) -> Path:
         """Get path to baseline fingerprint file."""
-        profile_name = self._settings.browser.profile_name
+        profile_name = self._get_profile_name()
         return self._profile_dir / f"{profile_name}_baseline.json"
 
     def _get_audit_log_path(self) -> Path:
         """Get path to audit log file."""
-        profile_name = self._settings.browser.profile_name
+        profile_name = self._get_profile_name()
         return self._profile_dir / f"{profile_name}_audit_log.jsonl"
 
     def _load_baseline(self) -> None:
@@ -802,7 +810,7 @@ class ProfileAuditor:
                 # Profile recreation is handled by backup/restore
                 logger.warning(
                     "Profile recreation recommended",
-                    profile=self._settings.browser.profile_name,
+                    profile=self._get_profile_name(),
                 )
                 repair_success = await self._attempt_profile_restore()
 
@@ -821,7 +829,7 @@ class ProfileAuditor:
         Returns:
             True if restore was successful or backup doesn't exist.
         """
-        profile_name = self._settings.browser.profile_name
+        profile_name = self._get_profile_name()
         backup_path = self._profile_dir / f"{profile_name}_backup"
 
         if not backup_path.exists():

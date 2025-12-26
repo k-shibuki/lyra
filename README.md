@@ -344,9 +344,10 @@ All operations are available via `make`. Run `make help` for the full list.
 
 | Command | Purpose |
 |---------|---------|
-| `make chrome` | Check Chrome CDP status |
-| `make chrome-start` | Start Chrome with CDP on port 9222 |
-| `make chrome-stop` | Stop Chrome |
+| `make chrome` | Check Chrome CDP status (all workers) |
+| `make chrome-start` | Start Chrome pool (one per worker) |
+| `make chrome-stop` | Stop all Chrome instances |
+| `make chrome-restart` | Restart Chrome pool |
 | `make chrome-diagnose` | Diagnose connection issues |
 
 **Testing:**
