@@ -5,61 +5,61 @@
 
 ## Context
 
-Lyraで使用するNLIモデル（DeBERTa-v3-xsmall/small）は、汎用的な事前学習モデルである。以下の課題がある：
+The NLI models used in Lyra (DeBERTa-v3-xsmall/small) are general-purpose pre-trained models. The following challenges exist:
 
-| 課題 | 詳細 |
-|------|------|
-| ドメイン適応 | 学術論文・技術文書への特化が不十分 |
-| 誤分類 | supportsをneutralと判定する等のエラー |
-| ユーザー固有 | 各ユーザーの調査ドメインに最適化されていない |
+| Challenge | Details |
+|-----------|---------|
+| Domain Adaptation | Insufficient specialization for academic papers/technical documents |
+| Misclassification | Errors like classifying supports as neutral |
+| User-specific | Not optimized for each user's research domain |
 
-フルファインチューニングには以下の問題がある：
-- 数十GBのGPUメモリが必要
-- 数時間〜数日の学習時間
-- モデル全体の保存が必要（数GB）
+Full fine-tuning has these problems:
+- Requires tens of GB of GPU memory
+- Training time of hours to days
+- Entire model must be saved (several GB)
 
 ## Decision
 
-**LoRA（Low-Rank Adaptation）によるパラメータ効率的なファインチューニングを採用する。**
+**Adopt LoRA (Low-Rank Adaptation) for parameter-efficient fine-tuning.**
 
-### LoRAの選択理由
+### LoRA Selection Reasons
 
-| 観点 | LoRA | フル FT |
-|------|------|---------|
-| メモリ | 数GB | 数十GB |
-| 学習時間 | 数分〜数時間 | 数時間〜数日 |
-| アダプタサイズ | 数MB | 数GB |
-| 複数アダプタ | 可能 | 困難 |
+| Aspect | LoRA | Full FT |
+|--------|------|---------|
+| Memory | Several GB | Tens of GB |
+| Training Time | Minutes to hours | Hours to days |
+| Adapter Size | Several MB | Several GB |
+| Multiple Adapters | Possible | Difficult |
 
-### アーキテクチャ
+### Architecture
 
 ```
-ベースモデル（DeBERTa-v3-xsmall/small）
+Base Model (DeBERTa-v3-xsmall/small)
     │
-    ├── LoRA Adapter: 一般NLI改善
+    ├── LoRA Adapter: General NLI improvement
     │
-    ├── LoRA Adapter: 学術ドメイン
+    ├── LoRA Adapter: Academic domain
     │
-    └── LoRA Adapter: ユーザー固有（フィードバックから学習）
+    └── LoRA Adapter: User-specific (learned from feedback)
 ```
 
-### フィードバック駆動学習
+### Feedback-driven Learning
 
-ユーザーのフィードバック（ADR-0012参照）からLoRAアダプタを学習：
+Learn LoRA adapters from user feedback (see ADR-0012):
 
 ```python
-# フィードバックデータの収集
+# Collect feedback data
 feedback_data = [
     {
-        "premise": "論文Aの主張...",
-        "hypothesis": "ユーザーの仮説...",
-        "correct_label": "supports",  # ユーザー訂正
-        "original_label": "neutral"   # モデル誤判定
+        "premise": "Claim from Paper A...",
+        "hypothesis": "User's hypothesis...",
+        "correct_label": "supports",  # User correction
+        "original_label": "neutral"   # Model misclassification
     },
     ...
 ]
 
-# LoRA学習（数十〜数百サンプルで効果あり）
+# LoRA training (effective with tens to hundreds of samples)
 adapter = train_lora(
     base_model="cross-encoder/nli-deberta-v3-small",
     data=feedback_data,
@@ -68,112 +68,112 @@ adapter = train_lora(
 )
 ```
 
-### 学習パラメータ
+### Training Parameters
 
-| パラメータ | 値 | 理由 |
-|------------|-----|------|
-| rank (r) | 8 | メモリ効率と性能のバランス |
-| alpha | 16 | r の2倍が推奨 |
-| dropout | 0.1 | 小モデル（70-140M params）では高めの正則化が有効 |
-| target_modules | query, value | DeBERTa-v3 の Attention レイヤー |
+| Parameter | Value | Reason |
+|-----------|-------|--------|
+| rank (r) | 8 | Balance between memory efficiency and performance |
+| alpha | 16 | Recommended 2× of r |
+| dropout | 0.1 | Higher regularization effective for small models (70-140M params) |
+| target_modules | query, value | DeBERTa-v3 Attention layers |
 
-### アダプタ管理
+### Adapter Management
 
 ```
 ~/.lyra/
   └── adapters/
-      ├── base_nli_v1.safetensors      # 基本NLI改善
-      ├── academic_v1.safetensors       # 学術ドメイン
-      └── user_feedback_v3.safetensors  # フィードバック学習
+      ├── base_nli_v1.safetensors      # Basic NLI improvement
+      ├── academic_v1.safetensors       # Academic domain
+      └── user_feedback_v3.safetensors  # Feedback learning
 ```
 
-### MCPツール統合の検討結果
+### MCP Tool Integration Decision
 
-**決定: MCPツール化は却下。スクリプト運用を採用。**
+**Decision: MCP tooling rejected. Script-based operation adopted.**
 
-#### 却下理由
+#### Rejection Reasons
 
-| 観点 | 問題 |
-|------|------|
-| 処理時間 | 数十分〜1時間でMCPタイムアウトリスク |
-| GPU占有 | 推論中のML Serverと競合 |
-| 手動確認 | シャドー評価の結果を人間が確認してから本番投入が望ましい |
-| 試行錯誤 | ハイパラ調整はスクリプトの方が柔軟 |
+| Aspect | Problem |
+|--------|---------|
+| Processing Time | MCP timeout risk with tens of minutes to 1 hour |
+| GPU Contention | Competes with ML Server during inference |
+| Manual Verification | Shadow evaluation results should be human-reviewed before production |
+| Iteration | Scripts more flexible for hyperparameter tuning |
 
-#### 採用方式
+#### Adopted Approach
 
 ```bash
-# スクリプトでLoRA学習を実行（オフラインバッチ）
+# Run LoRA training via script (offline batch)
 python scripts/train_lora.py --db data/lyra.db --output adapters/lora-v1
 
-# 結果確認後、ML Serverにアダプタを適用
+# After result verification, apply adapter to ML Server
 curl -X POST http://localhost:8001/nli/adapter/load \
   -d '{"adapter_path": "adapters/lora-v1"}'
 ```
 
-#### calibration_metricsとの関係
+#### Relationship with calibration_metrics
 
-- `calibration_metrics(get_stats)` / `(get_evaluations)`: 状態確認・履歴参照（MCPツール）
-- `evaluate` / `get_diagram_data`: MCPツールから削除済み（ADR-0010）。バッチ評価・可視化はスクリプトで実施。
+- `calibration_metrics(get_stats)` / `(get_evaluations)`: State check/history reference (MCP tools)
+- `evaluate` / `get_diagram_data`: Removed from MCP tools (ADR-0010). Batch evaluation/visualization done via scripts.
 
-### 学習トリガー条件
+### Training Trigger Conditions
 
-| 条件 | 閾値 | 理由 |
-|------|------|------|
-| フィードバック蓄積 | 100件以上 | 3クラス分類で各クラス約33件の統計的安定性 |
-| 誤判定率 | 10%以上 | 改善の必要性 |
-| ドメイン変更 | ユーザー指定 | 新ドメイン適応 |
+| Condition | Threshold | Reason |
+|-----------|-----------|--------|
+| Feedback Accumulation | 100+ samples | Statistical stability with ~33 samples per class for 3-class classification |
+| Misclassification Rate | 10%+ | Indicates need for improvement |
+| Domain Change | User-specified | New domain adaptation |
 
 ## Consequences
 
 ### Positive
-- **効率的**: 数MBのアダプタで性能改善
-- **高速**: 数分〜数時間で学習完了
-- **可逆**: ロールバックでいつでも元に戻せる
-- **個人最適化**: ユーザーの調査ドメインに適応
+- **Efficient**: Performance improvement with several MB adapters
+- **Fast**: Training completes in minutes to hours
+- **Reversible**: Can always rollback to original
+- **Personalized**: Adapts to user's research domain
 
 ### Negative
-- **学習品質**: フィードバック品質に依存
-- **複雑性**: アダプタ管理のオーバーヘッド
-- **互換性**: Ollamaのアダプタサポートに依存
+- **Training Quality**: Depends on feedback quality
+- **Complexity**: Adapter management overhead
+- **Compatibility**: Depends on Ollama adapter support
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| フルファインチューニング | 最高性能 | リソース過大 | 却下 |
-| プロンプトチューニング | 軽量 | 効果限定的 | 却下 |
-| Adapter Tuning | LoRA類似 | LoRAより効率悪い | 却下 |
-| QLoRA | 超軽量 | 品質低下リスク | 将来検討 |
-| **MCPツール化** | UI統合 | 長時間処理、GPU競合、手動確認困難 | **却下** |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| Full Fine-tuning | Best performance | Excessive resources | Rejected |
+| Prompt Tuning | Lightweight | Limited effect | Rejected |
+| Adapter Tuning | Similar to LoRA | Less efficient than LoRA | Rejected |
+| QLoRA | Ultra-lightweight | Quality degradation risk | Future consideration |
+| **MCP Tooling** | UI integration | Long processing, GPU contention, manual verification difficulty | **Rejected** |
 
 ## Implementation Status
 
-**Note**: 本ADRで記載されたLoRA学習機能は**Phase R（将来）** で実装予定である。
-詳細なタスクリストは `docs/T_LORA.md` を参照。
+**Note**: LoRA training functionality described in this ADR is planned for **Phase R (Future)**.
+See `docs/T_LORA.md` for detailed task list.
 
-### 現状（実装済み）
-- `feedback(edge_correct)` でNLI訂正サンプルを `nli_corrections` テーブルに蓄積
-- `calibration_metrics` ツールで確率キャリブレーション（Platt Scaling/Temperature Scaling）を評価可能
-- `calibration_rollback` ツールでパラメータのロールバック可能
+### Current State (Implemented)
+- `feedback(edge_correct)` accumulates NLI correction samples in `nli_corrections` table
+- `calibration_metrics` tool enables probability calibration evaluation (Platt Scaling/Temperature Scaling)
+- `calibration_rollback` tool enables parameter rollback
 
-### 前提条件（Phase 6）
-LoRA学習を開始するには、以下が必要：
-- `nli_corrections` テーブルに100件以上のサンプル蓄積
-- `feedback` ツールが運用されている状態
+### Prerequisites (Phase 6)
+To start LoRA training, the following are required:
+- 100+ samples accumulated in `nli_corrections` table
+- `feedback` tool in operational use
 
-### 計画（未実装）
-| タスク | 内容 | 状態 |
-|--------|------|:----:|
-| R.1.x | PEFT/LoRAライブラリ統合 | 未着手 |
-| R.2.x | 学習スクリプト作成 | 未着手 |
-| R.3.x | アダプタバージョン管理 | 未着手 |
-| R.4.x | テスト・検証 | 未着手 |
+### Planned (Not Implemented)
+
+| Task | Content | Status |
+|------|---------|:------:|
+| R.1.x | PEFT/LoRA library integration | Not started |
+| R.2.x | Training script creation | Not started |
+| R.3.x | Adapter version management | Not started |
+| R.4.x | Testing and validation | Not started |
 
 ## References
-- `docs/T_LORA.md` - LoRAファインチューニング詳細設計
-- `docs/archive/P_EVIDENCE_SYSTEM.md` - Phase 6: NLI訂正サンプル蓄積（アーカイブ）
-- `src/utils/calibration.py` - 確率キャリブレーション実装
-- `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations`テーブル
-- `src/mcp/server.py` - `calibration_metrics`, `calibration_rollback` MCPツール
+- `docs/T_LORA.md` - LoRA fine-tuning detailed design
+- `src/utils/calibration.py` - Probability calibration implementation
+- `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations` tables
+- `src/mcp/server.py` - `calibration_metrics`, `calibration_rollback` MCP tools
 - ADR-0012: Feedback Tool Design

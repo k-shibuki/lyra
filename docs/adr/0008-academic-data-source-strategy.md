@@ -5,68 +5,68 @@
 
 ## Context
 
-学術情報の取得には以下の課題がある：
+Academic information retrieval faces these challenges:
 
-| 課題 | 詳細 |
-|------|------|
-| API制限 | 多くの学術DBは有料またはレート制限あり |
-| カバレッジ | 単一ソースでは網羅性が不十分 |
-| 信頼性 | プレプリントと査読済みの区別が必要 |
-| Zero OpEx | ADR-0001により有料APIは使用不可 |
+| Challenge | Details |
+|-----------|---------|
+| API Limitations | Many academic DBs are paid or rate-limited |
+| Coverage | Single source provides insufficient comprehensiveness |
+| Reliability | Need to distinguish preprints from peer-reviewed |
+| Zero OpEx | ADR-0001 prohibits paid APIs |
 
-主要な学術データソースの比較：
+Comparison of major academic data sources:
 
-| ソース | 論文数 | API | 引用データ | コスト |
-|--------|--------|-----|------------|--------|
-| Semantic Scholar | 2億+ | 無料（制限あり） | あり | 無料 |
-| OpenAlex | 2.5億+ | 無料（無制限） | あり | 無料 |
-| Google Scholar | 最大 | なし（スクレイピング必要） | あり | 無料（規約リスク） |
-| Crossref | 1.4億+ | 無料 | 限定的 | 無料 |
-| PubMed | 3600万+ | 無料 | なし | 無料 |
-| Scopus/WoS | 大規模 | 有料 | あり | 有料 |
+| Source | Papers | API | Citation Data | Cost |
+|--------|--------|-----|---------------|------|
+| Semantic Scholar | 200M+ | Free (limited) | Yes | Free |
+| OpenAlex | 250M+ | Free (unlimited) | Yes | Free |
+| Google Scholar | Largest | None (scraping required) | Yes | Free (ToS risk) |
+| Crossref | 140M+ | Free | Limited | Free |
+| PubMed | 36M+ | Free | No | Free |
+| Scopus/WoS | Large | Paid | Yes | Paid |
 
 ## Decision
 
-**Semantic Scholar (S2) をプライマリ、OpenAlex をセカンダリとする2層戦略を採用する。**
+**Adopt a 2-tier strategy with Semantic Scholar (S2) as primary and OpenAlex as secondary.**
 
-### データソース階層
+### Data Source Hierarchy
 
 ```
 [1] Semantic Scholar API
-    ↓ レート制限時 or 見つからない場合
+    ↓ On rate limit or not found
 [2] OpenAlex API
-    ↓ 見つからない場合
-[3] DOI/URL直接アクセス
+    ↓ If not found
+[3] DOI/URL direct access
 ```
 
-### Semantic Scholar (S2) の選択理由
+### Semantic Scholar (S2) Selection Reasons
 
-| 観点 | 詳細 |
-|------|------|
-| 引用グラフ | 高品質な引用・被引用関係 |
-| Abstract | ほぼ全論文でアブストラクト取得可能 |
-| TL;DR | AI生成の要約が付属 |
-| API品質 | RESTful、ドキュメント充実 |
-| 無料枠 | 5,000リクエスト/5分 |
+| Aspect | Details |
+|--------|---------|
+| Citation Graph | High-quality citation/reference relationships |
+| Abstract | Abstracts available for nearly all papers |
+| TL;DR | AI-generated summaries included |
+| API Quality | RESTful, well-documented |
+| Free Tier | 5,000 requests/5 minutes |
 
-### OpenAlex の補完理由
+### OpenAlex Complementary Reasons
 
-| 観点 | 詳細 |
-|------|------|
-| カバレッジ | S2より広い（2.5億+ works） |
-| レート制限 | 事実上無制限（politeプール） |
-| 機関情報 | 著者の所属機関データが充実 |
-| オープン | 完全オープンデータ |
+| Aspect | Details |
+|--------|---------|
+| Coverage | Broader than S2 (250M+ works) |
+| Rate Limit | Effectively unlimited (polite pool) |
+| Institution Info | Rich author affiliation data |
+| Open | Completely open data |
 
-### 引用グラフの構築
+### Citation Graph Construction
 
 ```python
-# S2から引用関係を取得
+# Get citations from S2
 paper = s2_client.get_paper(paper_id)
-references = paper.references      # この論文が引用している論文
-citations = paper.citations        # この論文を引用している論文
+references = paper.references      # Papers this paper cites
+citations = paper.citations        # Papers citing this paper
 
-# Evidence Graphに統合（ADR-0005参照）
+# Integrate into Evidence Graph (see ADR-0005)
 for ref in references:
     graph.add_edge(
         from_node=paper.fragment_id,
@@ -76,40 +76,40 @@ for ref in references:
     )
 ```
 
-### フォールバック戦略
+### Fallback Strategy
 
 ```python
 async def get_paper_metadata(identifier: str) -> PaperMetadata:
-    # 1. S2を試行
+    # 1. Try S2
     try:
         return await s2_client.get_paper(identifier)
     except RateLimitError:
         await asyncio.sleep(backoff)
-        # 2. OpenAlexにフォールバック
+        # 2. Fallback to OpenAlex
         return await openalex_client.get_work(identifier)
     except NotFoundError:
-        # 3. DOI直接解決
+        # 3. Direct DOI resolution
         if is_doi(identifier):
             return await resolve_doi_metadata(identifier)
         raise
 ```
 
-### プレプリントの扱い
+### Preprint Handling
 
-| ソース | 査読状態 | 信頼度への影響 |
-|--------|----------|----------------|
-| arXiv | 未査読 | uncertaintyに反映（高め） |
-| bioRxiv/medRxiv | 未査読 | uncertaintyに反映（高め） |
-| 出版済みジャーナル | 査読済み | 通常通り |
+| Source | Review Status | Confidence Impact |
+|--------|--------------|-------------------|
+| arXiv | Unreviewed | Reflected in uncertainty (higher) |
+| bioRxiv/medRxiv | Unreviewed | Reflected in uncertainty (higher) |
+| Published Journal | Peer-reviewed | Normal |
 
 ```python
-# メタデータに査読状態を記録
+# Record review status in metadata
 if paper.venue in ["arXiv", "bioRxiv", "medRxiv"]:
     paper.peer_reviewed = False
     paper.preprint = True
 ```
 
-### APIクライアント設定
+### API Client Configuration
 
 ```python
 # Semantic Scholar
@@ -124,7 +124,7 @@ S2_CONFIG = {
 # OpenAlex
 OPENALEX_CONFIG = {
     "base_url": "https://api.openalex.org",
-    "polite_pool_email": "lyra@example.com",  # 設定必須
+    "polite_pool_email": "lyra@example.com",  # Required
     "timeout": 30,
     "retry_count": 3
 }
@@ -133,28 +133,28 @@ OPENALEX_CONFIG = {
 ## Consequences
 
 ### Positive
-- **Zero OpEx維持**: 両APIとも無料
-- **高カバレッジ**: 2層で大半の学術論文をカバー
-- **引用グラフ**: エビデンス関係の強化
-- **冗長性**: 1つ障害でも継続可能
+- **Zero OpEx Maintained**: Both APIs are free
+- **High Coverage**: 2 tiers cover most academic papers
+- **Citation Graph**: Strengthened evidence relationships
+- **Redundancy**: Operation continues if one fails
 
 ### Negative
-- **API依存**: 外部サービス変更の影響を受ける
-- **レート制限**: 大量取得時に待機が必要
-- **データ品質**: 自動抽出データのため誤りあり
+- **API Dependency**: Affected by external service changes
+- **Rate Limits**: Waiting required for bulk retrieval
+- **Data Quality**: Auto-extracted data contains errors
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| Google Scholarスクレイピング | 最大カバレッジ | 規約違反リスク、不安定 | 却下 |
-| Crossrefのみ | 安定 | 引用データ不十分 | 却下 |
-| Scopus/WoS | 高品質 | 有料（Zero OpEx違反） | 却下 |
-| PubMedのみ | 医学に強い | カバレッジ限定 | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| Google Scholar Scraping | Maximum coverage | ToS violation risk, unstable | Rejected |
+| Crossref Only | Stable | Insufficient citation data | Rejected |
+| Scopus/WoS | High quality | Paid (Zero OpEx violation) | Rejected |
+| PubMed Only | Strong in medicine | Limited coverage | Rejected |
 
 ## References
-- `src/search/apis/semantic_scholar.py` - Semantic Scholar API クライアント
-- `src/search/apis/openalex.py` - OpenAlex API クライアント
-- `src/search/academic_provider.py` - 学術API統合プロバイダー
-- `config/academic_apis.yaml` - API設定
+- `src/search/apis/semantic_scholar.py` - Semantic Scholar API client
+- `src/search/apis/openalex.py` - OpenAlex API client
+- `src/search/academic_provider.py` - Academic API integration provider
+- `config/academic_apis.yaml` - API configuration
 - ADR-0005: Evidence Graph Structure

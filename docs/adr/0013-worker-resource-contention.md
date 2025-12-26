@@ -8,30 +8,30 @@ Accepted (2025-12-25: Implementation complete)
 
 ## Context
 
-ADR-0010 により `SearchQueueWorker` が2並列で検索を処理する。しかし、検索処理が内部で使用するリソースには**異なる同時実行制約**がある：
+ADR-0010 specifies that `SearchQueueWorker` processes searches with 2 parallel workers. However, resources used internally by search processing have **different concurrency constraints**:
 
-| リソース | 制約 | 理由 | 対応ADR |
-|----------|------|------|---------|
-| ブラウザSERP | TabPool(max_tabs=2) | Page共有競合の排除（正しさ担保） | **ADR-0014** |
-| Semantic Scholar API | グローバルQPS | API利用規約、レート制限 | 本ADR |
-| OpenAlex API | グローバルQPS | 同上 | 本ADR |
-| HTTPフェッチ | ドメイン別QPS | ADR-0006 ステルス要件 | - |
+| Resource | Constraint | Reason | Related ADR |
+|----------|------------|--------|-------------|
+| Browser SERP | TabPool(max_tabs=2) | Eliminate Page sharing contention (correctness guarantee) | **ADR-0014** |
+| Semantic Scholar API | Global QPS | API terms of service, rate limits | This ADR |
+| OpenAlex API | Global QPS | Same as above | This ADR |
+| HTTP Fetch | Per-domain QPS | ADR-0006 stealth requirements | - |
 
-**Note**: ブラウザSERPリソース制御は [ADR-0014](0014-browser-serp-resource-control.md) で詳細設計。本ADRは学術APIに焦点を当てる。
+**Note**: Browser SERP resource control is detailed in [ADR-0014](0014-browser-serp-resource-control.md). This ADR focuses on academic APIs.
 
-### 現状の問題
+### Current Problem
 
 ```
-SearchPipeline._execute_unified_search():  # ADR-0016: 常時dual-sourceを実行
-    academic_provider = AcademicSearchProvider()  # 毎回新規インスタンス
+SearchPipeline._execute_unified_search():  # ADR-0016: Always execute dual-source
+    academic_provider = AcademicSearchProvider()  # New instance each time
     ...
     await asyncio.gather(
-        search_serp(query),           # ✅ シングルトン+Semaphore(1)で保護
-        academic_provider.search()    # ❌ グローバル制限なし
+        search_serp(query),           # ✅ Protected by singleton + Semaphore(1)
+        academic_provider.search()    # ❌ No global limit
     )
 ```
 
-**問題シナリオ:**
+**Problem Scenario:**
 
 ```mermaid
 sequenceDiagram
@@ -41,50 +41,50 @@ sequenceDiagram
     participant ASP1 as AcademicSearchProvider (Instance 1)
     participant S2 as Semantic Scholar API
 
-    par 同時呼び出し
+    par Simultaneous calls
         W0->>ASP0: search("AI safety")
         ASP0->>S2: GET /paper/search
         W1->>ASP1: search("ML fairness")
         ASP1->>S2: GET /paper/search
     end
-    Note over S2: 同時2リクエスト → QPS超過リスク
+    Note over S2: 2 simultaneous requests → QPS exceeded risk
 ```
 
-2ワーカーが同時に同一APIを呼び出すと、グローバルQPS制限がないためAPI側でレート制限に引っかかる可能性がある。
+When 2 workers simultaneously call the same API, there's a risk of hitting rate limits because there's no global QPS control.
 
-### 現状で問題ないリソース
+### Resources Without Issues Currently
 
-1. **ブラウザSERP**: `get_browser_search_provider()` がシングルトンを返す
-   - **Note**: Phase 4.B で TabPool(max_tabs=1) を導入し、まず Page競合を排除（[ADR-0014](0014-browser-serp-resource-control.md)）
-2. **HTTPフェッチ**: `RateLimiter` がドメイン別にロックを取得し、QPS制限を遵守
+1. **Browser SERP**: `get_browser_search_provider()` returns singleton
+   - **Note**: Phase 4.B introduces TabPool(max_tabs=1) to first eliminate Page contention ([ADR-0014](0014-browser-serp-resource-control.md))
+2. **HTTP Fetch**: `RateLimiter` acquires per-domain locks, respecting QPS limits
 
 ## Decision
 
-**学術APIクライアントに「全ワーカー横断のグローバル制御」を追加する。**
+**Add "cross-worker global control" to academic API clients.**
 
-目的は「429が出てからバックオフ」ではなく、**超過を予防**して安定稼働させること。
+The goal is to **prevent exceeding limits** rather than "backoff after 429", for stable operation.
 
-### 設計方針
+### Design Principles
 
-1. **シングルトンパターンではなく、グローバルレートリミッター**
-   - 各クライアントインスタンスは独立して良い
-   - レートリミッターのみグローバル共有
+1. **Global rate limiter, not singleton pattern**
+   - Each client instance can be independent
+   - Only the rate limiter is globally shared
 
-2. **プロバイダー別制限**
-   - Semantic Scholar と OpenAlex は別のAPI → 並列OK
-   - 同一プロバイダーへの同時リクエストを制限
+2. **Per-provider limits**
+   - Semantic Scholar and OpenAlex are separate APIs → parallel OK
+   - Limit simultaneous requests to the same provider
 
-3. **設定駆動**
-   - `config/academic_apis.yaml` からQPS設定を読み込み
-   - ハードコードを避ける
+3. **Config-driven**
+   - Load QPS settings from `config/academic_apis.yaml`
+   - Avoid hardcoding
 
-4. **並列度も制御する（重要）**
-   - `AcademicSearchProvider` / citation graph で `asyncio.gather()` による fan-out が起きる
-   - そのため「QPS」だけでなく **max_parallel（同時数）** も provider ごとに制御する
+4. **Control parallelism too (Important)**
+   - `AcademicSearchProvider` / citation graph use `asyncio.gather()` for fan-out
+   - Therefore control **max_parallel (concurrency)** as well as QPS per provider
 
-### 実装
+### Implementation
 
-#### 1. グローバルレートリミッター (`src/search/apis/rate_limiter.py`)
+#### 1. Global Rate Limiter (`src/search/apis/rate_limiter.py`)
 
 ```python
 class AcademicAPIRateLimiter:
@@ -137,7 +137,7 @@ def get_academic_rate_limiter() -> AcademicAPIRateLimiter:
     return _rate_limiter
 ```
 
-#### 2. クライアント統合 (`src/search/apis/base.py`)
+#### 2. Client Integration (`src/search/apis/base.py`)
 
 ```python
 class BaseAcademicClient(ABC):
@@ -153,7 +153,7 @@ class BaseAcademicClient(ABC):
         pass
 ```
 
-### 設定例 (`config/academic_apis.yaml`)
+### Configuration Example (`config/academic_apis.yaml`)
 
 ```yaml
 apis:
@@ -172,31 +172,31 @@ apis:
       max_parallel: 2
 ```
 
-> Note: `requests_per_day` のような日次制限しかない場合は、\
-> まず `max_parallel` を低め（1〜2）にし、必要なら `min_interval_seconds` を明示する（保守的運用）。
+> Note: If only daily limits like `requests_per_day` exist,
+> first set `max_parallel` low (1-2), then explicitly add `min_interval_seconds` if needed (conservative operation).
 
 ## Consequences
 
 ### Positive
 
-1. **API利用規約遵守** - レート制限違反によるブロックを防止
-2. **スケーラビリティ** - ワーカー数増加時も安全
-3. **設定駆動** - API仕様変更時にコード変更不要
-4. **既存コード影響最小** - 基底クラスの変更のみ
+1. **API Terms Compliance** - Prevents blocking from rate limit violations
+2. **Scalability** - Safe even when worker count increases
+3. **Config-driven** - No code changes needed when API specs change
+4. **Minimal Existing Code Impact** - Only base class changes
 
 ### Negative
 
-1. **レイテンシ増加** - 同一APIへの連続リクエストに待機発生
-2. **複雑性増加** - グローバル状態の管理
+1. **Latency Increase** - Wait required for consecutive requests to same API
+2. **Complexity Increase** - Global state management
 
 ### Neutral
 
-1. **ブラウザSERP変更なし** - 既に保護済み
-2. **HTTPフェッチ変更なし** - 既に保護済み
+1. **No Browser SERP Changes** - Already protected
+2. **No HTTP Fetch Changes** - Already protected
 
 ## Alternatives Considered
 
-### A. クライアントのシングルトン化
+### A. Client Singletonization
 
 ```python
 _clients: dict[str, BaseAcademicClient] = {}
@@ -207,32 +207,31 @@ def get_academic_client(name: str) -> BaseAcademicClient:
     return _clients[name]
 ```
 
-**却下理由**: HTTPセッション管理が複雑化、テスト困難
+**Rejection Reason**: HTTP session management becomes complex, testing difficult
 
-### B. 現状維持（API側制限に依存）
+### B. Status Quo (Rely on API-side Limits)
 
-**却下理由**: 
-- Semantic Scholar は 100 req/5min と厳格
-- 2ワーカー × 複数タスク でバースト時に超過リスク
-- API側でブロックされると長時間影響
+**Rejection Reason**: 
+- Semantic Scholar is strict at 100 req/5min
+- 2 workers × multiple tasks risks burst exceeding limits
+- API-side blocking has long-term impact
 
-### C. ワーカー数を1に制限
+### C. Limit Worker Count to 1
 
-**却下理由**: 
-- 並列性の利点を失う
-- ブラウザSERPと学術APIは並列で問題ない
+**Rejection Reason**: 
+- Loses parallelism benefits
+- Browser SERP and academic API can run in parallel without issues
 
 ## Implementation Status
 
 **Status**: ✅ Implemented (2025-12-25)
 
-- `src/search/apis/rate_limiter.py`: `AcademicAPIRateLimiter` 実装済み
-- `src/search/apis/base.py`: `BaseAcademicClient` 統合済み
-- `config/academic_apis.yaml`: rate_limit 設定追加済み
+- `src/search/apis/rate_limiter.py`: `AcademicAPIRateLimiter` implemented
+- `src/search/apis/base.py`: `BaseAcademicClient` integrated
+- `config/academic_apis.yaml`: rate_limit settings added
 
 ## Related
 
-- [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - ワーカー並列実行の基盤
-- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - ブラウザSERPリソース制御（TabPool: max_tabs=2）
-- [ADR-0006: 8-Layer Security Model](0006-8-layer-security-model.md) - ステルス要件
-- [archive/R_SERP_ENHANCEMENT.md](../archive/R_SERP_ENHANCEMENT.md) - ページネーション詳細設計（アーカイブ）
+- [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - Foundation for worker parallel execution
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Browser SERP resource control (TabPool: max_tabs=2)
+- [ADR-0006: 8-Layer Security Model](0006-8-layer-security-model.md) - Stealth requirements

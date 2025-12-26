@@ -5,33 +5,33 @@
 
 ## Context
 
-Lyraは複数の外部依存（Ollama、Playwright、SQLite、外部Web）を持つ。これらすべてを含む統合テストは：
+Lyra has multiple external dependencies (Ollama, Playwright, SQLite, external Web). Integration tests including all of these:
 
-| 問題 | 詳細 |
-|------|------|
-| 遅い | Ollama起動だけで数秒〜数十秒 |
-| 不安定 | ネットワーク・GPU状態で結果変動 |
-| 重い | GPUリソース消費 |
-| デバッグ困難 | どの層で失敗したか特定しにくい |
+| Problem | Details |
+|---------|---------|
+| Slow | Ollama startup alone takes seconds to tens of seconds |
+| Unstable | Results vary with network and GPU state |
+| Heavy | GPU resource consumption |
+| Hard to Debug | Difficult to identify which layer failed |
 
-一方、純粋なユニットテストだけでは、コンポーネント間の統合問題を検出できない。
+On the other hand, pure unit tests alone cannot detect component integration issues.
 
 ## Decision
 
-**3層のテスト戦略を採用し、外部依存を段階的に除外する。**
+**Adopt a 3-layer test strategy, progressively excluding external dependencies.**
 
-### テスト層
+### Test Layers
 
-| 層 | 名称 | 外部依存 | 速度 | 目的 |
-|:--:|------|----------|------|------|
-| L1 | Unit | なし（全モック） | 高速 | ロジック検証 |
-| L2 | Integration | SQLite実物 | 中速 | DB統合検証 |
-| L3 | E2E | 全実物 | 低速 | シナリオ検証 |
+| Layer | Name | External Dependencies | Speed | Purpose |
+|:-----:|------|----------------------|-------|---------|
+| L1 | Unit | None (all mocked) | Fast | Logic verification |
+| L2 | Integration | Real SQLite | Medium | DB integration verification |
+| L3 | E2E | All real | Slow | Scenario verification |
 
-### L1: Unitテスト
+### L1: Unit Tests
 
 ```python
-# 外部依存なし、すべてモック
+# No external dependencies, all mocked
 @pytest.fixture
 def mock_ollama():
     return MockOllamaClient(...)
@@ -41,52 +41,52 @@ def test_nli_judgment_supports(mock_ollama):
     assert result.relation == "SUPPORTS"
 ```
 
-**特徴**:
-- OllamaをMockOllamaClientで置換
-- PlaywrightをMockBrowserで置換
-- SQLiteをインメモリDBで置換
-- 数百msで完了
+**Characteristics**:
+- Replace Ollama with MockOllamaClient
+- Replace Playwright with MockBrowser
+- Replace SQLite with in-memory DB
+- Completes in hundreds of milliseconds
 
-### L2: Integrationテスト
+### L2: Integration Tests
 
 ```python
-# SQLite実物、他はモック
+# Real SQLite, others mocked
 @pytest.fixture
 def real_db(tmp_path):
     db_path = tmp_path / "test.db"
     return Storage(db_path)
 
 def test_evidence_persistence(real_db, mock_ollama):
-    # DB統合の検証
+    # DB integration verification
 ```
 
-**特徴**:
-- 実際のSQLiteファイル操作
-- スキーママイグレーション検証
-- トランザクション動作確認
+**Characteristics**:
+- Actual SQLite file operations
+- Schema migration verification
+- Transaction behavior confirmation
 
-### L3: E2Eテスト
+### L3: E2E Tests
 
 ```python
-# 全実物（CI/CDでは条件付き実行）
+# All real (conditional execution in CI/CD)
 @pytest.mark.e2e
 @pytest.mark.skipif(not gpu_available(), reason="GPU required")
 def test_full_search_flow():
-    # Ollama + Playwright + SQLite + 実Web
+    # Ollama + Playwright + SQLite + real Web
 ```
 
-**特徴**:
-- GPU必須（スキップ可能）
-- ネットワークアクセスあり
-- 実行時間: 数分
+**Characteristics**:
+- GPU required (skippable)
+- Network access
+- Execution time: several minutes
 
-### CI/CD統合
+### CI/CD Integration
 
 ```yaml
 # GitHub Actions
 jobs:
   test-l1-l2:
-    # L1 (Unit) + L2 (Integration) を同一ジョブで実行
+    # Run L1 (Unit) + L2 (Integration) in same job
     runs-on: ubuntu-latest
     steps:
       - run: pytest -m "not e2e and not slow"
@@ -98,37 +98,37 @@ jobs:
       - run: pytest -m "e2e"
 ```
 
-### pytestマーカー
+### pytest Markers
 
 ```python
 # conftest.py
 def pytest_configure(config):
-    config.addinivalue_line("markers", "integration: SQLite実物使用")
-    config.addinivalue_line("markers", "e2e: 全外部依存使用")
+    config.addinivalue_line("markers", "integration: Uses real SQLite")
+    config.addinivalue_line("markers", "e2e: Uses all external dependencies")
 ```
 
 ## Consequences
 
 ### Positive
-- **高速フィードバック**: L1は数秒で完了
-- **安定性**: L1/L2は外部依存なく決定的
-- **段階的検証**: 問題箇所の特定が容易
-- **CI効率化**: L3は必要時のみ実行
+- **Fast Feedback**: L1 completes in seconds
+- **Stability**: L1/L2 are deterministic without external dependencies
+- **Progressive Verification**: Easy to identify problem location
+- **CI Efficiency**: L3 runs only when needed
 
 ### Negative
-- **モック維持コスト**: MockOllama等の更新が必要
-- **網羅性の限界**: モックでは検出できないバグ
-- **3層の管理**: どの層でテストすべきか判断が必要
+- **Mock Maintenance Cost**: MockOllama etc. need updates
+- **Coverage Limits**: Some bugs undetectable with mocks
+- **3-Layer Management**: Need to decide which layer tests belong in
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| 全E2Eのみ | 現実的 | 遅い、不安定 | 却下 |
-| 全Unitのみ | 高速 | 統合問題未検出 | 却下 |
-| 2層（Unit/E2E） | シンプル | DB統合問題が見落とされやすい | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| E2E Only | Realistic | Slow, unstable | Rejected |
+| Unit Only | Fast | Integration issues undetected | Rejected |
+| 2-Layer (Unit/E2E) | Simple | DB integration issues easily missed | Rejected |
 
 ## References
-- `README.md` - Quality Control セクション（テスト実行ガイド）
-- `tests/conftest.py` - pytest設定、環境検出、マーカー定義
-- `scripts/test.sh` - テストランナー（クラウドエージェント対応）
+- `README.md` - Quality Control section (test execution guide)
+- `tests/conftest.py` - pytest configuration, environment detection, marker definitions
+- `scripts/test.sh` - Test runner (cloud agent compatible)

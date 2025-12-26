@@ -5,108 +5,106 @@
 
 ## Context
 
-学術調査では、複数のソースから収集したエビデンスを統合し、仮説の信頼度を評価する必要がある。
+Academic research requires integrating evidence from multiple sources to evaluate hypothesis confidence.
 
-従来のアプローチ：
+Traditional approaches:
 
-| アプローチ | 問題点 |
-|------------|--------|
-| フラットなリスト | エビデンス間の関係が不明 |
-| 単純なスコアリング | 矛盾するエビデンスの扱いが困難 |
-| 手動評価のみ | スケールしない |
+| Approach | Problem |
+|----------|---------|
+| Flat List | Relationships between evidence unclear |
+| Simple Scoring | Difficult to handle contradicting evidence |
+| Manual Evaluation Only | Doesn't scale |
 
-必要な機能：
-- 仮説とエビデンスの関係を表現
-- 支持・反証の両方を追跡
-- エビデンス間の引用関係を表現
-- 信頼度の自動計算
+Required capabilities:
+- Represent relationships between hypotheses and evidence
+- Track both supporting and refuting evidence
+- Represent citation relationships between evidence
+- Automatic confidence calculation
 
 ## Decision
 
-**Claimをルートとしたエビデンスグラフ構造を採用し、ベイズ的な信頼度計算を行う。**
+**Adopt an evidence graph structure with Claim as root, using Bayesian confidence calculation.**
 
-### Data Ownership & Scope（グローバル / タスク固有の境界）
+### Data Ownership & Scope (Global / Task-scoped Boundary)
 
-本ADRで扱う「Evidence Graph」は、永続化されたデータがすべて `task_id` 列を持つわけではない。
-Lyraでは、**タスク固有（task-scoped）**と**グローバル（global / reuseable）**が混在し、**task_idで“切り出す”**ことでタスク単位の材料を構成する。
+The "Evidence Graph" in this ADR does not have `task_id` column on all persisted data. In Lyra, **task-scoped** and **global (reusable)** data coexist, and task-specific materials are assembled by **"slicing" via task_id**.
 
-#### スコープの基本原則
+#### Basic Scope Principles
 
-- **Task-scoped（タスク固有）**
-  - `claims` は `task_id` を持ち、タスクの成果物（主張ノード）である。
-  - タスクの Evidence Graph は、原則として **この task の claims を起点**に切り出される。
-- **Global / Reusable（タスク横断で再利用され得る）**
-  - `pages` は `url UNIQUE` で `task_id` を持たず、同一URLはタスク横断で共有され得る（キャッシュ/再利用の設計）。
-  - `fragments` も `task_id` を持たず `page_id → pages.id` にぶら下がるため、タスク固有の所有権が弱い。
-  - `edges` も `task_id` を持たず、**claimを起点にフィルタ**してタスクの部分グラフを構成する。
+- **Task-scoped**
+  - `claims` has `task_id` and represents task outputs (claim nodes).
+  - A task's Evidence Graph is principally sliced **starting from claims of that task**.
+- **Global / Reusable (cross-task reuse possible)**
+  - `pages` has `url UNIQUE` with no `task_id`; same URL can be shared across tasks (cache/reuse design).
+  - `fragments` also has no `task_id` and hangs off `page_id → pages.id`, so task-specific ownership is weak.
+  - `edges` also has no `task_id`; **filter by claims** to construct task subgraph.
 
-#### 実装上のスコーピング（重要）
+#### Implementation Scoping (Important)
 
-- Evidence Graph のロードは `task_id` を指定すると **claims(task_id=...) に接続する edges** のみを読み込む。
-  - これにより、`edges/pages/fragments` がグローバルに存在しても、タスクの材料は `task_id` で切り出せる。
+- Evidence Graph load specifies `task_id` and reads **only edges connected to claims(task_id=...)**.
+  - This allows task-specific material slicing even though `edges/pages/fragments` exist globally.
 
-#### 同一リソースの再発見（異なるクエリ・コンテキスト）
+#### Rediscovery of Same Resource (Different Query/Context)
 
-同じ論文（DOI/URL）が**異なるクエリやコンテキストから再発見**された場合の振る舞い：
+Behavior when the same paper (DOI/URL) is **rediscovered from different query or context**:
 
-| レイヤー | 振る舞い | 理由 |
-|----------|----------|------|
-| `pages` | 2回目以降は既存 `page_id` を返す（挿入しない） | URLでUNIQUE、グローバルリソースとして1回だけ保存 |
-| `fragments` | 2回目以降は既存 `fragment_id` を返す | `page_id` に紐づくグローバルリソース |
-| `claims` | **新規作成** | タスク固有。異なるクエリ/コンテキストは異なるClaim |
-| `edges` | **新規作成**（Fragment → 新Claim） | 同じFragmentが複数のClaimを支持/反証できる |
+| Layer | Behavior | Reason |
+|-------|----------|--------|
+| `pages` | Returns existing `page_id` on subsequent finds (no insert) | UNIQUE on URL, stored once as global resource |
+| `fragments` | Returns existing `fragment_id` on subsequent finds | Global resource tied to `page_id` |
+| `claims` | **New creation** | Task-specific; different queries/contexts are different Claims |
+| `edges` | **New creation** (Fragment → new Claim) | Same Fragment can support/refute multiple Claims |
 
-実装上のワークフロー：
+Implementation workflow:
 
-1. **リソース発見時**: `resource_index` で DOI/URL をチェック
-2. **既存の場合**: 既存 `page_id` と `fragment_id` を取得して返す
-3. **呼び出し元**: 取得した `fragment_id` を使って新しい `claims` と `edges` を作成
+1. **On resource discovery**: Check DOI/URL in `resource_index`
+2. **If exists**: Get and return existing `page_id` and `fragment_id`
+3. **Caller**: Creates new `claims` and `edges` using retrieved `fragment_id`
 
-これにより：
-- **ストレージ効率**: 同じ論文データは1回だけ保存
-- **コンテキスト保持**: 各クエリ固有のClaimとして評価可能
-- **引用追跡**: 同じFragmentから複数Claimへのedgeで表現
+This enables:
+- **Storage efficiency**: Same paper data stored once
+- **Context preservation**: Evaluable as query-specific Claims
+- **Citation tracking**: Expressed via edges from same Fragment to multiple Claims
 
-### Cleanup Policy（soft / hard）
+### Cleanup Policy (Soft / Hard)
 
-本ADRのスコープ設計により、停止/削除時のクリーンアップは次の2段階に分けるのが安全である。
+Due to this ADR's scope design, stop/delete cleanup is safe as two stages.
 
-#### Soft cleanup（安全・デフォルト）
+#### Soft Cleanup (Safe, Default)
 
-目的: **他タスクへ影響し得るデータ（pages/fragments等）を触らず**、該当タスクの材料を論理的に不可視化する。
+Purpose: Logically hide task materials **without touching data that could affect other tasks (pages/fragments, etc.)**.
 
-- **Task-scopedを対象**に削除/無効化する（例: `tasks`, `claims`, `queries`, `serp_items`, `task_metrics`, `decisions`, `jobs`, `event_log`, `intervention_queue` など）。
-- Evidence Graph観点では、少なくとも次を対象にする:
+- Delete/invalidate **task-scoped** items (e.g., `tasks`, `claims`, `queries`, `serp_items`, `task_metrics`, `decisions`, `jobs`, `event_log`, `intervention_queue`).
+- From Evidence Graph perspective, target at minimum:
   - **claims**: `claims.task_id = ?`
-  - **edges**: source/target がこの task の claim を参照するもの
-    - `edges` は FK で守られていないため、claims削除後に「claim参照edge」が残るとDBが汚れる。
-    - ただし claim ID はタスク固有であるため、該当 edges の削除は他タスクへ波及しにくい。
+  - **edges**: Those where source/target reference this task's claims
+    - `edges` lacks FK protection, so edges referencing deleted claims dirty the DB if left.
+    - However, claim IDs are task-specific, so deleting relevant edges rarely ripples to other tasks.
 
-Soft cleanup後の状態:
-- `pages/fragments/edges(非claim参照)` はDB上に残り得るが、`task_id` を起点とする材料収集では辿れない（論理的不可視化）。
+After Soft cleanup:
+- `pages/fragments/edges(non-claim-referencing)` may remain in DB, but are unreachable via `task_id`-based material collection (logically invisible).
 
-#### Hard cleanup（慎重）
+#### Hard Cleanup (Careful)
 
-目的: ストレージ回収のために、**共有され得るデータ**も「安全条件を満たす場合に限り」削除する。
+Purpose: Reclaim storage by deleting **shareable data** only when "safety conditions are met."
 
-Hard cleanupは **必ず task_id から辿れる集合を計算し、かつ“他タスクから参照されていない”ことを確認**してから削除する。
+Hard cleanup **must compute set reachable from task_id and verify "not referenced by other tasks"** before deletion.
 
-推奨: hard cleanup は次の仕様とする。
+Recommended: Hard cleanup should be **hard(orphans_only)**.
 
-- **hard(orphans_only)**
-  - Soft cleanupを実施後に、追加で以下の “孤児（orphan）” を削除する。
-    - **orphan edges**: source_id/target_id が存在しない（または削除済み）ノードを参照する edges
-    - **orphan fragments**: どの edges にも参照されない fragments
-    - **orphan pages**: どの fragments にも参照されず、かつ edges でも参照されない pages
-  - `pages` にはファイルパス列（html/warc/screenshot等）があるため、ページ削除時に対応するファイル削除も行う（best-effort）。
+- After Soft cleanup, additionally delete the following "orphans":
+  - **orphan edges**: Edges whose source_id/target_id reference non-existent (or deleted) nodes
+  - **orphan fragments**: Fragments not referenced by any edges
+  - **orphan pages**: Pages not referenced by any fragments and not referenced by edges
+- `pages` has file path columns (html/warc/screenshot), so page deletion should also delete corresponding files (best-effort).
 
 Note:
-- “中途半端な状態をゼロにする（強い原子性）”は、非同期I/O＋増分永続化の特性上、現実的でない。
+- "Zero intermediate state (strong atomicity)" is impractical given async I/O + incremental persistence characteristics.
 
-### グラフ構造
+### Graph Structure
 
 ```
-         Claim（主張・仮説）
+         Claim (Assertion/Hypothesis)
               │
     ┌─────────┼─────────┐
     │         │         │
@@ -116,35 +114,35 @@ Fragment  Fragment  Fragment
     └── Page ── Domain
 ```
 
-### ノードタイプ
+### Node Types
 
-| ノード | 説明 | 主要属性 |
-|--------|------|----------|
-| Claim | ユーザーの主張・仮説 | text, confidence |
-| Fragment | ページから抽出した断片 | text_content, extraction_method |
-| Page | クロールしたWebページ | url, title, crawled_at |
-| Domain | ドメイン（参考情報） | domain_name |
+| Node | Description | Key Attributes |
+|------|-------------|----------------|
+| Claim | User's assertion/hypothesis | text, confidence |
+| Fragment | Excerpt extracted from page | text_content, extraction_method |
+| Page | Crawled web page | url, title, crawled_at |
+| Domain | Domain (reference info) | domain_name |
 
-### エッジタイプ
+### Edge Types
 
-| エッジ | From | To | 説明 |
-|--------|------|-----|------|
-| SUPPORTS | Fragment | Claim | 断片が主張を支持 |
-| REFUTES | Fragment | Claim | 断片が主張に反証 |
-| NEUTRAL | Fragment | Claim | 関係不明確 |
-| EXTRACTED_FROM | Fragment | Page | 抽出元 |
-| CITES | Fragment | Fragment | 引用関係 |
+| Edge | From | To | Description |
+|------|------|-----|-------------|
+| SUPPORTS | Fragment | Claim | Fragment supports claim |
+| REFUTES | Fragment | Claim | Fragment contradicts claim |
+| NEUTRAL | Fragment | Claim | Relationship unclear |
+| EXTRACTED_FROM | Fragment | Page | Source of extraction |
+| CITES | Fragment | Fragment | Citation relationship |
 
-### 信頼度計算（ベイズ的アプローチ）
+### Confidence Calculation (Bayesian Approach)
 
 ```python
 def calculate_confidence(claim: Claim) -> float:
     """
-    Claimの信頼度を計算
+    Calculate Claim confidence
 
     P(H|E) ∝ P(E|H) × P(H)
-    - P(H): 事前確率（デフォルト0.5）
-    - P(E|H): 尤度（エビデンスの質と量に依存）
+    - P(H): Prior probability (default 0.5)
+    - P(E|H): Likelihood (depends on evidence quality and quantity)
     """
     supports = get_edges(claim, "SUPPORTS")
     refutes = get_edges(claim, "REFUTES")
@@ -158,59 +156,59 @@ def calculate_confidence(claim: Claim) -> float:
         for edge in refutes
     )
 
-    # ロジスティック関数で0-1に正規化
+    # Normalize to 0-1 with logistic function
     log_odds = support_weight - refute_weight
     confidence = 1 / (1 + exp(-log_odds))
 
     return confidence
 ```
 
-### Domainカテゴリ（参考情報のみ）
+### Domain Category (Reference Only)
 
-**重要**: ドメインカテゴリは参考情報であり、信頼度計算には**使用しない**。
+**Important**: Domain categories are reference information and are **NOT used** in confidence calculation.
 
-理由：
-- 同じドメインでも記事の質は様々
-- ドメインベースの重み付けは偏見を生む
-- Fragment単位の評価が本質
+Reasons:
+- Article quality varies within the same domain
+- Domain-based weighting introduces bias
+- Fragment-level evaluation is essential
 
 ```python
-# ドメインカテゴリ（参考表示用）
+# Domain categories (for reference display)
 DOMAIN_CATEGORIES = {
     "academic": ["arxiv.org", "nature.com", ...],
     "news": ["reuters.com", "nytimes.com", ...],
     "government": [".gov", ".go.jp", ...],
 }
 
-# 信頼度計算ではドメインを参照しない
+# Confidence calculation does NOT reference domain
 def calculate_reliability(fragment: Fragment) -> float:
     # ❌ domain_weight = DOMAIN_WEIGHTS[fragment.page.domain.category]
-    # ✓ Fragment自体の特徴のみ使用
+    # ✓ Use only Fragment's own features
     return compute_from_fragment_features(fragment)
 ```
 
 ## Consequences
 
 ### Positive
-- **透明性**: なぜその信頼度かを追跡可能
-- **矛盾の可視化**: 支持・反証が並列表示
-- **拡張性**: 新しいエッジタイプを追加可能
-- **引用追跡**: 学術論文間の引用関係を表現
+- **Transparency**: Traceable why a confidence level was assigned
+- **Contradiction Visibility**: Support and refutation displayed in parallel
+- **Extensibility**: New edge types can be added
+- **Citation Tracking**: Academic paper citation relationships expressible
 
 ### Negative
-- **計算コスト**: グラフ走査が必要
-- **複雑性**: 単純なリストより理解が難しい
-- **メンテナンス**: グラフの整合性維持が必要
+- **Computation Cost**: Graph traversal required
+- **Complexity**: More difficult to understand than simple list
+- **Maintenance**: Graph consistency maintenance required
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| フラットリスト | シンプル | 関係性が表現不可 | 却下 |
-| Knowledge Graph (RDF) | 標準化 | 過剰に複雑 | 却下 |
-| ベクトルDB only | 類似検索が高速 | 関係性が弱い | 補助的採用 |
-| スコアのみ | 軽量 | 根拠が不透明 | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| Flat List | Simple | Cannot express relationships | Rejected |
+| Knowledge Graph (RDF) | Standardized | Overly complex | Rejected |
+| Vector DB Only | Fast similarity search | Weak relationships | Supplementary adoption |
+| Score Only | Lightweight | Opaque rationale | Rejected |
 
 ## References
-- `src/storage/schema.sql` - グラフスキーマ（edges, claims, fragmentsテーブル）
-- `src/filter/evidence_graph.py` - エビデンスグラフ実装（NetworkX + SQLite）
+- `src/storage/schema.sql` - Graph schema (edges, claims, fragments tables)
+- `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)

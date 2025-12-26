@@ -5,59 +5,59 @@
 
 ## Context
 
-LLMを活用したシステムには固有のセキュリティリスクがある：
+LLM-based systems have unique security risks:
 
-| リスク | 詳細 |
-|--------|------|
-| Prompt Injection | 悪意あるWebページがLLMの動作を操作 |
-| Data Exfiltration | 収集したデータの意図しない漏洩 |
-| Jailbreak | LLMの安全機能の回避 |
-| 出力汚染 | 悪意ある内容がユーザーに到達 |
+| Risk | Details |
+|------|---------|
+| Prompt Injection | Malicious web pages manipulate LLM behavior |
+| Data Exfiltration | Unintended leakage of collected data |
+| Jailbreak | Bypassing LLM safety features |
+| Output Pollution | Malicious content reaching users |
 
-単一の防御層では不十分。攻撃者は1つの層を突破できても、複数の層を同時に突破することは困難。
+A single defense layer is insufficient. Even if an attacker breaches one layer, breaching multiple layers simultaneously is difficult.
 
 ## Decision
 
-**8層の多層防御モデルを採用し、各層で独立したセキュリティチェックを実施する。**
+**Adopt an 8-layer defense-in-depth model with independent security checks at each layer.**
 
-### 8層モデル
+### 8-Layer Model
 
 ```
 [Input]
    │
    ▼
 ┌─────────────────────────────────┐
-│ L1: Input Validation            │  ← 形式検証
+│ L1: Input Validation            │  ← Format validation
 ├─────────────────────────────────┤
-│ L2: URL Allowlist/Blocklist     │  ← アクセス制御
+│ L2: URL Allowlist/Blocklist     │  ← Access control
 ├─────────────────────────────────┤
-│ L3: Content Pre-filter          │  ← 取得前フィルタ
+│ L3: Content Pre-filter          │  ← Pre-fetch filtering
 ├─────────────────────────────────┤
-│ L4: Prompt Injection Detection  │  ← 注入検出
+│ L4: Prompt Injection Detection  │  ← Injection detection
 ├─────────────────────────────────┤
-│ L5: LLM Sandbox                 │  ← 実行隔離
+│ L5: LLM Sandbox                 │  ← Execution isolation
 ├─────────────────────────────────┤
-│ L6: Output Validation           │  ← 出力検証
+│ L6: Output Validation           │  ← Output verification
 ├─────────────────────────────────┤
-│ L7: Response Sanitization       │  ← 無害化
+│ L7: Response Sanitization       │  ← Neutralization
 ├─────────────────────────────────┤
-│ L8: Audit Logging               │  ← 監査記録
+│ L8: Audit Logging               │  ← Audit records
 └─────────────────────────────────┘
    │
    ▼
 [Output]
 ```
 
-### 各層の責務
+### Layer Responsibilities
 
 #### L1: Input Validation
 ```python
 def validate_input(request: MCPRequest) -> ValidationResult:
-    # スキーマ検証
+    # Schema validation
     validate_json_schema(request, TOOL_SCHEMAS[request.tool])
-    # 長さ制限
+    # Length limits
     check_length_limits(request.params)
-    # 文字種検証
+    # Character type validation
     check_allowed_characters(request.params)
 ```
 
@@ -70,17 +70,17 @@ def check_url_access(url: str) -> bool:
     domain = extract_domain(url)
     if domain in BLOCKLIST:
         return False
-    # ユーザー設定のallowlistがあれば適用
+    # Apply user-configured allowlist if present
     return True
 ```
 
 #### L3: Content Pre-filter
 ```python
 def prefilter_content(html: str) -> str:
-    # 危険なタグを除去
+    # Remove dangerous tags
     html = remove_script_tags(html)
     html = remove_style_tags(html)
-    # 極端に大きなコンテンツを拒否
+    # Reject extremely large content
     if len(html) > MAX_CONTENT_SIZE:
         raise ContentTooLargeError()
     return html
@@ -104,15 +104,15 @@ def detect_injection(text: str) -> InjectionResult:
 
 #### L5: LLM Sandbox
 ```python
-# LLMの能力を制限
+# Limit LLM capabilities
 SANDBOX_CONFIG = {
     "max_tokens": 1000,
-    "allowed_tools": [],  # ツール呼び出し禁止
+    "allowed_tools": [],  # Tool invocation prohibited
     "system_prompt_locked": True,
 }
 
 async def sandboxed_generate(prompt: str) -> str:
-    # 隔離された環境で実行
+    # Execute in isolated environment
     return await ollama.generate(
         prompt=prompt,
         **SANDBOX_CONFIG
@@ -122,10 +122,10 @@ async def sandboxed_generate(prompt: str) -> str:
 #### L6: Output Validation
 ```python
 def validate_output(output: LLMOutput) -> ValidationResult:
-    # NLI結果が有効な値か
+    # Is NLI result a valid value?
     if output.relation not in ["SUPPORTS", "REFUTES", "NEUTRAL"]:
         return ValidationResult(valid=False, reason="Invalid relation")
-    # 信頼度が範囲内か
+    # Is confidence within range?
     if not 0 <= output.confidence <= 1:
         return ValidationResult(valid=False, reason="Invalid confidence")
     return ValidationResult(valid=True)
@@ -134,11 +134,11 @@ def validate_output(output: LLMOutput) -> ValidationResult:
 #### L7: Response Sanitization
 ```python
 def sanitize_response(response: dict) -> dict:
-    # ユーザーに返す前に無害化
+    # Neutralize before returning to user
     sanitized = deep_copy(response)
-    # 内部情報を除去
+    # Remove internal information
     remove_internal_fields(sanitized)
-    # HTMLエスケープ
+    # HTML escape
     escape_html_in_strings(sanitized)
     return sanitized
 ```
@@ -153,33 +153,33 @@ def audit_log(event: SecurityEvent) -> None:
         "details": event.details,
         "request_id": event.request_id,
     }
-    # 改ざん防止のためappend-only
+    # Append-only for tamper resistance
     append_to_audit_log(log_entry)
 ```
 
 ## Consequences
 
 ### Positive
-- **多層防御**: 1層突破でも残りが防御
-- **独立性**: 各層が独立してテスト可能
-- **可視性**: どの層で検出されたか明確
-- **拡張性**: 新しい層の追加が容易
+- **Defense in Depth**: Remaining layers defend even if one is breached
+- **Independence**: Each layer can be tested independently
+- **Visibility**: Clear which layer detected the threat
+- **Extensibility**: Easy to add new layers
 
 ### Negative
-- **パフォーマンス**: 8層すべてを通過するオーバーヘッド
-- **複雑性**: 層間の整合性維持が必要
-- **誤検知**: 厳格すぎると正当なコンテンツもブロック
+- **Performance**: Overhead of passing through all 8 layers
+- **Complexity**: Inter-layer consistency maintenance required
+- **False Positives**: Overly strict rules may block legitimate content
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| 単一フィルタ | シンプル | 突破されると終わり | 却下 |
-| 外部WAF | 専門的 | ローカル実行に不適 | 却下 |
-| LLM自己防御のみ | 簡単 | 信頼性不十分 | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| Single Filter | Simple | Game over if breached | Rejected |
+| External WAF | Specialized | Unsuitable for local execution | Rejected |
+| LLM Self-defense Only | Easy | Insufficient reliability | Rejected |
 
 ## References
-- `src/filter/llm_security.py` - L4/L5実装
-- `src/mcp/response_sanitizer.py` - L7実装
-- `src/filter/source_verification.py` - L2/L6実装
+- `src/filter/llm_security.py` - L4/L5 implementation
+- `src/mcp/response_sanitizer.py` - L7 implementation
+- `src/filter/source_verification.py` - L2/L6 implementation
 - OWASP LLM Top 10: https://owasp.org/www-project-top-10-for-large-language-model-applications/

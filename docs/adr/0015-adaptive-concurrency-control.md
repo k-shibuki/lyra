@@ -4,108 +4,106 @@
 2025-12-25
 
 ## Status
-Accepted (2025-12-25: 方針承認、基盤整備済み)
+Accepted (2025-12-25: Policy approved, foundation implemented)
 
 ## Context
 
-Lyra は `SearchQueueWorker` により複数ジョブを並列処理する（ADR-0010）。検索パイプライン内の外部/共有リソースには異なる制約があり、ワーカー数や内部fan-outを増やす場合に対応が必要である。
+Lyra processes multiple jobs in parallel via `SearchQueueWorker` (ADR-0010). External/shared resources within the search pipeline have different constraints, requiring attention when increasing worker count or internal fan-out.
 
-**ADR-0013/0014の実装で導入された基盤:**
+**Foundation introduced by ADR-0013/0014 implementations:**
 
-- **学術API（Semantic Scholar / OpenAlex）**:
-  - `AcademicSearchProvider` / citation graph で `asyncio.gather()` による並列呼び出しが起きる
-  - **ADR-0013 で `AcademicAPIRateLimiter` を導入済み**: リクエスト直前にグローバルQPS制限を強制し、超過を予防
-- **ブラウザSERP（Playwright/CDP）**:
-  - **ADR-0014 で `TabPool(max_tabs=1)` を導入済み**: Page 共有による競合を構造的に排除
-- **ワーカー並列**:
-  - 現状2ワーカー固定。上記の制御により外部制約は遵守される
+- **Academic APIs (Semantic Scholar / OpenAlex)**:
+  - `AcademicSearchProvider` / citation graph use `asyncio.gather()` for parallel calls
+  - **ADR-0013 introduced `AcademicAPIRateLimiter`**: Enforces global QPS limit before each request, preventing exceeding
+- **Browser SERP (Playwright/CDP)**:
+  - **ADR-0014 introduced `TabPool(max_tabs=1)`**: Structurally eliminates Page sharing contention
+- **Worker Parallelism**:
+  - Currently fixed at 2 workers. Above controls ensure external constraint compliance
 
-**本ADRの目的**: 上記の基盤を前提に、並列度を **configで調整可能**にし、可能なら **自動で最適化**する方針を定める。
+**This ADR's Purpose**: Define policy to make parallelism **config-adjustable** and, where possible, **auto-optimize**.
 
 ## Decision
 
-**並列度は「configで上限を決める」ことを原則とし、自動最適化は安全側（主に“下げる”）に限定する。**
+**Parallelism is "determined by config upper limits" as a principle, with auto-optimization limited to safe direction (primarily "decreasing").**
 
-### 1) Config-driven upper bounds（上限は明示的に設定）
+### 1) Config-driven Upper Bounds (Explicit Upper Limits)
 
 - **Worker**:
-  - `search_queue.num_workers`（例: settings.yaml）
+  - `search_queue.num_workers` (e.g., settings.yaml)
 - **Academic APIs**:
   - `academic_apis.apis.<provider>.rate_limit.max_parallel`
   - `academic_apis.apis.<provider>.rate_limit.min_interval_seconds`
 - **Browser SERP**:
-  - `browser.serp_max_tabs`（TabPool上限）
-  - エンジン別QPS/並列は `config/engines.yaml`（engine policy）
+  - `browser.serp_max_tabs` (TabPool upper limit)
+  - Per-engine QPS/parallelism in `config/engines.yaml` (engine policy)
 
-### 2) リソース別の自動制御戦略
+### 2) Auto-control Strategy by Resource
 
-リソースごとにリスク特性が異なるため、自動制御の方針を分ける：
+Different risk characteristics per resource require different auto-control policies:
 
-#### Academic API: 自動増減OK
+#### Academic API: Auto Increase/Decrease OK
 
-`AcademicAPIRateLimiter`（ADR-0013）がリクエスト直前にグローバルQPS制限を強制するため、並列度を上げてもレート制限は確実に遵守される。
+`AcademicAPIRateLimiter` (ADR-0013) enforces global QPS limit before each request, so rate limits are reliably respected even with increased parallelism.
 
-- **Decrease**: 429発生時に即座に `effective_max_parallel` を下げる
-- **Increase**: 安定時間（例: 60秒）経過後に1段戻す（config上限まで）
-- **リスク**: 低（レート制限で保護）
+- **Decrease**: Immediately lower `effective_max_parallel` on 429
+- **Increase**: Return by 1 step after stability period (e.g., 60 seconds) up to config limit
+- **Risk**: Low (protected by rate limiting)
 
-#### Browser SERP: 保守的に（自動増加なし）
+#### Browser SERP: Conservative (No Auto Increase)
 
-bot検出・CAPTCHAはレート制限では防げない。エンジン側のヒューリスティクスに依存するため予測困難。
+Bot detection and CAPTCHAs cannot be prevented by rate limiting. Depends on engine-side heuristics, making prediction difficult.
 
-- **Decrease**: CAPTCHA/403率上昇時に `effective_max_tabs` を下げる
-- **Increase**: **手動のみ**（config変更で段階的に上げる）
-- **リスク**: 中〜高（bot検出でBANリスク）
+- **Decrease**: Lower `effective_max_tabs` when CAPTCHA/403 rate increases
+- **Increase**: **Manual only** (gradually raise via config changes)
+- **Risk**: Medium to high (BAN risk from bot detection)
 
-> Note: ブラウザSERPは `max_tabs=1` で開始し、CAPTCHA率・成功率を観測しながら手動で上限を調整する運用を推奨。
+> Note: Recommend starting browser SERP with `max_tabs=1`, manually adjusting limits after observing CAPTCHA rate and success rate.
 
 ## Consequences
 
 ### Positive
 
-1. **スケール可能性**: 上限をconfigで段階的に上げられる（Worker/API/SERP）
-2. **安全性**: Autoが暴走して規約違反・CAPTCHA増大を招きにくい
-3. **運用容易性**: 環境ごとに上限を切り替えられる（ローカル/CI/本番相当）
+1. **Scalability**: Upper limits can be gradually raised via config (Worker/API/SERP)
+2. **Safety**: Auto won't run wild causing terms violations or CAPTCHA increases
+3. **Operational Ease**: Upper limits switchable per environment (local/CI/production-equivalent)
 
 ### Negative
 
-1. **複雑性増加**: effective concurrency 状態の管理が必要
-2. **観測依存**: 自動制御の品質はメトリクス精度に依存
+1. **Complexity Increase**: Effective concurrency state management required
+2. **Observation Dependency**: Auto-control quality depends on metrics accuracy
 
 ## Implementation Notes
 
-- 学術APIは「リトライ」ではなく「**リクエスト直前のグローバル制御（Acquire）**」を必須にする（ADR-0013）
-- ブラウザSERPは TabPool(max_tabs=1) を先に導入し、Page競合を排除してから並列度を上げる（ADR-0014）
-- Auto-backoff の観測シグナルは既存メトリクス（`HTTP_ERROR_429_RATE`, `CAPTCHA_RATE` 等）を再利用し、API/SERP側の計測点を追加する
+- Academic APIs use "**global control (Acquire) before each request**" not "retry" as mandatory (ADR-0013)
+- Browser SERP introduces TabPool(max_tabs=1) first, eliminates Page contention, then increases parallelism (ADR-0014)
+- Auto-backoff observation signals reuse existing metrics (`HTTP_ERROR_429_RATE`, `CAPTCHA_RATE`, etc.), adding API/SERP measurement points
 
 ## Implementation Status
 
 **Status**: ✅ Implementation Complete (2025-12-25)
 
-### Phase 4.C.1: Config化 ✅
-- [x] `config/settings.yaml` に `concurrency` セクション追加
-- [x] `src/utils/config.py` に `ConcurrencyConfig` 追加
-- [x] Worker数・max_tabs を config から読み込み
-- [x] テスト追加（`test_concurrency_config.py`, `test_concurrency_wiring.py`）
+### Phase 4.C.1: Config-driven ✅
+- [x] `config/settings.yaml` `concurrency` section added
+- [x] `src/utils/config.py` `ConcurrencyConfig` added
+- [x] Worker count and max_tabs loaded from config
+- [x] Tests added (`test_concurrency_config.py`, `test_concurrency_wiring.py`)
 
-### Phase 4.C.2: 自動バックオフ ✅
-- [x] `AcademicAPIRateLimiter` にバックオフ機能追加（429検知 → effective_max_parallel減少、安定後回復）
-- [x] `TabPool` にバックオフ機能追加（report_captcha/report_403 → effective_max_tabs減少、手動リセットのみ）
-- [x] `get_stats()` で backoff 状態を返す
-- [x] テスト追加（`test_academic_rate_limiter_backoff.py`, `test_tab_pool.py::TestTabPoolBackoff`）
+### Phase 4.C.2: Auto-backoff ✅
+- [x] `AcademicAPIRateLimiter` backoff feature added (429 detection → effective_max_parallel decrease, recovery after stability)
+- [x] `TabPool` backoff feature added (report_captcha/report_403 → effective_max_tabs decrease, manual reset only)
+- [x] `get_stats()` returns backoff state
+- [x] Tests added (`test_academic_rate_limiter_backoff.py`, `test_tab_pool.py::TestTabPoolBackoff`)
 
-### Phase 4.C.3: max_tabs>1 検証準備
-- [ ] 観測スクリプト作成（将来タスク）
-- [x] 検証手順ドキュメント化
+### Phase 4.C.3: max_tabs>1 Validation Prep
+- [ ] Observation script creation (future task)
+- [x] Validation procedure documented
 
-### テスト結果
+### Test Results
 - 42 tests passed (config + backoff + wiring)
 
 ## Related
 
 - [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md)
-- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - 学術API
+- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Academic API
 - [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - SERP
 - `config/academic_apis.yaml`, `config/settings.yaml`, `config/engines.yaml`
-
-

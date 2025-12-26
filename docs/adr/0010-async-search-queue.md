@@ -5,23 +5,23 @@
 
 ## Context
 
-Web検索・クローリングは時間がかかる操作である：
+Web search and crawling are time-consuming operations:
 
-| 操作 | 所要時間 |
-|------|----------|
-| 検索API呼び出し | 1-3秒 |
-| ページ取得 | 2-10秒 |
-| JavaScript実行待ち | 3-15秒 |
-| LLM抽出 | 1-5秒 |
+| Operation | Time Required |
+|-----------|--------------|
+| Search API call | 1-3 seconds |
+| Page fetch | 2-10 seconds |
+| JavaScript execution wait | 3-15 seconds |
+| LLM extraction | 1-5 seconds |
 
-同期的に処理すると：
-- 10ページ × 10秒 = 100秒待機
-- MCPクライアントがタイムアウト
-- ユーザー体験が悪化
+Synchronous processing results in:
+- 10 pages × 10 seconds = 100 seconds wait
+- MCP client timeout
+- Poor user experience
 
 ## Decision
 
-**検索リクエストをキューに投入し、非同期で処理する。ポーリングでステータスを確認する。**
+**Submit search requests to a queue for asynchronous processing. Check status via polling.**
 
 ### Scheduling Policy (Ordering / Concurrency)
 
@@ -36,10 +36,10 @@ Web検索・クローリングは時間がかかる操作である：
 - The queue worker is stopped (cancelled) when the MCP server shuts down (`run_server()` shutdown).
 - Start **2 worker tasks** for parallel execution.
 
-### アーキテクチャ
+### Architecture
 
 ```
-MCPクライアント                          Lyra
+MCP Client                               Lyra
      │                                    │
      │  queue_searches([q1, q2, q3])      │
      │ ─────────────────────────────────► │
@@ -48,7 +48,7 @@ MCPクライアント                          Lyra
      │ ◄───────────────────────────────── │ │  [q1, q2, q3]   │
      │                                    │ └────────┬────────┘
      │                                    │          │
-     │  (MCPクライアントは他の作業)         │          ▼ 非同期処理
+     │  (MCP client does other work)      │          ▼ Async processing
      │                                    │   ┌──────────────┐
      │  get_status(task_id, wait=30)      │   │   Worker     │
      │ ─────────────────────────────────► │   │  - Crawl     │
@@ -58,7 +58,7 @@ MCPクライアント                          Lyra
      │                                    │
 ```
 
-### MCPツール設計
+### MCP Tool Design
 
 #### queue_searches
 
@@ -70,12 +70,12 @@ async def queue_searches(
     max_results_per_query: int = 10
 ) -> QueueResult:
     """
-    検索クエリをキューに追加（即座に返却）
+    Add search queries to queue (returns immediately)
 
     Returns:
-        task_id: タスク識別子
-        queued: キューに追加された数
-        estimated_time: 推定完了時間
+        task_id: Task identifier
+        queued: Number added to queue
+        estimated_time: Estimated completion time
     """
     for query in queries:
         await search_queue.enqueue(task_id, query, max_results_per_query)
@@ -87,22 +87,21 @@ async def queue_searches(
     )
 ```
 
-#### get_status（sleep対応）
-#### get_status（wait / long polling）
+#### get_status (wait / long polling)
 
 ```python
 @server.tool()
 async def get_status(
     task_id: str,
-    wait: int = 0  # 秒数、0なら即座に返却
+    wait: int = 0  # Seconds, 0 returns immediately
 ) -> StatusResult:
     """
-    タスクの進捗を取得
+    Get task progress
 
-    wait > 0 の場合、完了または変化があるまで最大wait秒待機
+    If wait > 0, waits up to wait seconds until completion or change
     """
     if wait > 0:
-        # Long polling: 変化があるまで待機
+        # Long polling: wait until change
         result = await wait_for_progress(task_id, timeout=wait)
     else:
         result = await get_current_status(task_id)
@@ -116,26 +115,26 @@ async def get_status(
     )
 ```
 
-### Long Polling の利点
+### Long Polling Benefits
 
 ```
-従来（短いポーリング）:
+Traditional (short polling):
   Client: get_status → Server: {progress: "0/3"}
-  (1秒後)
+  (1 second later)
   Client: get_status → Server: {progress: "0/3"}
-  (1秒後)
+  (1 second later)
   Client: get_status → Server: {progress: "1/3"}
   ...
-  → リクエストが多い、レイテンシが悪い
+  → Many requests, poor latency
 
 Long Polling:
-  Client: get_status(wait=30) → (サーバーで待機)
-  (進捗があった時点で)
+  Client: get_status(wait=30) → (server waits)
+  (when progress occurs)
   Server: {progress: "1/3"}
-  → リクエスト削減、即座に通知
+  → Reduced requests, immediate notification
 ```
 
-### ワーカー実装
+### Worker Implementation
 
 ```python
 class SearchWorker:
@@ -151,22 +150,22 @@ class SearchWorker:
                 continue
 
             try:
-                # 検索実行
+                # Execute search
                 results = await self.search_engine.search(job.query)
 
-                # 各結果をクロール
+                # Crawl each result
                 for url in results[:job.max_results]:
                     page = await self.crawler.fetch(url)
                     await self.storage.save_page(page)
 
-                    # 進捗を更新（Long pollingに通知）
+                    # Update progress (notify long polling)
                     await self.notify_progress(job.task_id)
 
             except Exception as e:
                 await self.record_error(job.task_id, e)
 ```
 
-### エラーハンドリング
+### Error Handling
 
 ```python
 @dataclass
@@ -175,13 +174,13 @@ class StatusResult:
     status: str
     progress: str
     results: List[PageSummary]
-    errors: List[ErrorInfo]  # 部分的なエラーも報告
+    errors: List[ErrorInfo]  # Report partial errors too
 
-# エラーがあっても処理継続
+# Processing continues despite errors
 {
     "status": "running",
     "progress": "8/10",
-    "results": [...],  # 成功した8件
+    "results": [...],  # 8 successful items
     "errors": [
         {"url": "https://...", "reason": "timeout"},
         {"url": "https://...", "reason": "403 Forbidden"}
@@ -192,51 +191,51 @@ class StatusResult:
 ## Consequences
 
 ### Positive
-- **非ブロッキング**: MCPクライアントが待機不要
-- **並列処理**: 複数クエリを同時処理可能
-- **タイムアウト回避**: 長時間処理でもMCPタイムアウトしない
-- **部分結果**: 完了前でも途中結果を取得可能
+- **Non-blocking**: MCP client doesn't need to wait
+- **Parallel Processing**: Multiple queries processed simultaneously
+- **Timeout Avoidance**: Long processing doesn't cause MCP timeout
+- **Partial Results**: Can get intermediate results before completion
 
 ### Negative
-- **複雑性**: キュー管理、ワーカー管理が必要
-- **状態管理**: タスク状態の永続化が必要
-- **デバッグ困難**: 非同期処理のトレースが複雑
+- **Complexity**: Queue management, worker management required
+- **State Management**: Task state persistence required
+- **Hard to Debug**: Async processing traces are complex
 
 ## Alternatives Considered
 
-| Alternative | Pros | Cons | 判定 |
-|-------------|------|------|------|
-| 同期処理 | シンプル | タイムアウト問題 | 却下 |
-| WebSocket | リアルタイム | 実装複雑、MCP非対応 | 却下 |
-| 短いポーリング | シンプル | リクエスト過多 | 却下 |
-| Server-Sent Events | 軽量 | MCP非対応 | 却下 |
+| Alternative | Pros | Cons | Decision |
+|-------------|------|------|----------|
+| Synchronous Processing | Simple | Timeout issues | Rejected |
+| WebSocket | Real-time | Complex implementation, MCP incompatible | Rejected |
+| Short Polling | Simple | Too many requests | Rejected |
+| Server-Sent Events | Lightweight | MCP incompatible | Rejected |
 
 ## Implementation Status
 
-**Status**: Phase 1-6 ✅ 完了
+**Status**: Phase 1-6 ✅ Complete
 
-### フェーズ一覧
+### Phase Summary
 
-| Phase | 内容 | 状態 |
-|-------|------|------|
-| Phase 1 | `queue_searches` ツール追加、`get_status` に `wait` パラメータ追加 | ✅ 完了 (2025-12-24) |
-| Phase 2 | `search`, `notify_user`, `wait_for_user` ツール削除 | ✅ 完了 (2025-12-24) |
-| Phase 3 | 一次検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加 | ✅ 完了 (2025-12-24) |
-| Phase 4 | Search Resource Control（学術API + ブラウザSERP） | ✅ 完了 (2025-12-25) ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
-| Phase 5 | SERP Enhancement（ページネーション） | ✅ 完了 (2025-12-26) |
-| Phase 6 | calibration_metrics action削除、adaptersテーブル追加 | ✅ 完了 (2025-12-25) |
+| Phase | Content | Status |
+|-------|---------|--------|
+| Phase 1 | `queue_searches` tool, `get_status` with `wait` parameter | ✅ Complete (2025-12-24) |
+| Phase 2 | `search`, `notify_user`, `wait_for_user` tools removed | ✅ Complete (2025-12-24) |
+| Phase 3 | Initial validation, `stop_task` `mode` parameter (graceful/immediate) | ✅ Complete (2025-12-24) |
+| Phase 4 | Search Resource Control (Academic API + Browser SERP) | ✅ Complete (2025-12-25) ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
+| Phase 5 | SERP Enhancement (Pagination) | ✅ Complete (2025-12-26) |
+| Phase 6 | calibration_metrics action removed, adapters table added | ✅ Complete (2025-12-25) |
 
-### Phase 1-3 実装サマリー
+### Phase 1-3 Implementation Summary
 
-| 変更 | 状態 |
-|------|------|
-| `search`, `notify_user`, `wait_for_user` 削除 | ✅ 完了 |
-| `queue_searches` 追加 | ✅ 完了 |
-| `get_status` に `wait` パラメータ追加 | ✅ 完了 |
-| `stop_task` に `mode` パラメータ追加 | ✅ 完了 |
-| パフォーマンス/安定性テスト | ✅ 完了 |
-| E2E検証スクリプト | ✅ 完了 |
-| 結果 | 13ツール → 10ツール（23%削減） |
+| Change | Status |
+|--------|--------|
+| `search`, `notify_user`, `wait_for_user` removed | ✅ Complete |
+| `queue_searches` added | ✅ Complete |
+| `get_status` with `wait` parameter | ✅ Complete |
+| `stop_task` with `mode` parameter | ✅ Complete |
+| Performance/stability tests | ✅ Complete |
+| E2E validation script | ✅ Complete |
+| Result | 13 tools → 10 tools (23% reduction) |
 
 ### Storage Policy (Auditability)
 
@@ -309,15 +308,12 @@ When running multiple queue workers, external rate limits must still be respecte
 **Note**: 
 - Academic API rate limiting (**Phase 4.A**): See [ADR-0013](0013-worker-resource-contention.md).
 - Browser SERP resource control (**Phase 4.B**): See [ADR-0014](0014-browser-serp-resource-control.md).
-- SERP Enhancement / pagination (**Phase 5**): Implemented. See [archive/R_SERP_ENHANCEMENT.md](../archive/R_SERP_ENHANCEMENT.md) for historical design details.
 
 ## References
-- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4.A 学術APIリソース競合制御
-- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Phase 4.B ブラウザSERPリソース制御
-- [archive/R_SERP_ENHANCEMENT.md](../archive/R_SERP_ENHANCEMENT.md) - Phase 5 ページネーション詳細設計（アーカイブ）
-- [archive/Q_ASYNC_ARCHITECTURE.md](../archive/Q_ASYNC_ARCHITECTURE.md) - 非同期アーキテクチャ詳細設計（アーカイブ）
-- `src/mcp/server.py` - MCPツール定義
-- `src/research/executor.py` - 検索実行
-- `src/research/pipeline.py` - パイプラインオーケストレーション
-- `src/scheduler/jobs.py` - ジョブスケジューラ
-- `src/scheduler/search_worker.py` - SearchQueueWorker実装
+- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4.A Academic API resource contention control
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Phase 4.B Browser SERP resource control
+- `src/mcp/server.py` - MCP tool definitions
+- `src/research/executor.py` - Search execution
+- `src/research/pipeline.py` - Pipeline orchestration
+- `src/scheduler/jobs.py` - Job scheduler
+- `src/scheduler/search_worker.py` - SearchQueueWorker implementation
