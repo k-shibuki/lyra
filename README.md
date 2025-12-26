@@ -342,10 +342,10 @@ All operations are available via `make`. Run `make help` for the full list.
 
 | Command | Purpose |
 |---------|---------|
-| `make test` | Run all tests (unit + integration, RUNTIME=container/venv) |
-| `make test-unit` | Run unit tests only (RUNTIME=container/venv) |
-| `make test-e2e` | Run E2E tests (RUNTIME=container/venv) |
-| `make test-check` | Check test run status (auto-detects runtime) |
+| `make test` | Run all tests (use test-check for results) |
+| `make test-unit` | Run unit tests only |
+| `make test-e2e` | Run E2E tests |
+| `make test-check` | Check test run status (RUN_ID= optional) |
 | `make test-env` | Show environment detection info |
 
 **Code Quality:**
@@ -356,6 +356,20 @@ All operations are available via `make`. Run `make help` for the full list.
 | `make format` | Format code (black + ruff) |
 | `make typecheck` | Run type checker (mypy) |
 | `make quality` | Run all quality checks |
+
+**JSON Output Mode (for AI agents):**
+
+Set `LYRA_OUTPUT_JSON=true` for machine-readable JSON output:
+
+```bash
+# Single command
+LYRA_OUTPUT_JSON=true make lint
+
+# Or add to .env for persistent JSON mode
+echo "LYRA_OUTPUT_JSON=true" >> .env
+```
+
+All commands (`make lint`, `make typecheck`, `make test-env`, `make dev-status`, `make chrome`, etc.) automatically switch to JSON output when this variable is set.
 
 **Test execution**: Tests run in WSL venv (`.venv/`) by default. The script auto-detects:
 - Cloud agents (Cursor, Claude Code) → unit + integration only

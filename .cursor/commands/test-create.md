@@ -44,20 +44,24 @@ Design and implement tests for the implemented change.
 
 Use `make` commands (run `make help` for all options).
 
-> **CRITICAL:** Always capture `run_id` from `make test` output and pass it to `make test-check RUN_ID=xxx`.
+> **WARNING (AI agents):** Do NOT use `sleep`, `head`, `tail`, or any
+> output-truncating commands with test execution. These break the async
+> pattern. Always use the `make test` → `make test-check RUN_ID=xxx` pattern.
 
 ```bash
+# Start test execution
 make test
 # Output shows: run_id: 20251225_123456_12345
-make test-check RUN_ID=<run_id_from_output>
-```
 
-For specific test files:
-
-```bash
-make test-scoped TARGET="tests/test_xxx.py"
-# Output shows: run_id: 20251225_123456_12345
+# Check results (wait for completion)
 make test-check RUN_ID=<run_id_from_output>
+
+# Run unit tests only
+make test-unit
+
+# Run specific markers
+make test-integration
+make test-e2e
 ```
 
 ## Output (response format)
