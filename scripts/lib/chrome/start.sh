@@ -2,6 +2,112 @@
 # Chrome Start Functions
 #
 # Functions for starting Chrome with remote debugging.
+# Supports both single-instance (legacy) and worker pool modes.
+
+# =============================================================================
+# WORKER POOL FUNCTIONS (Dynamic Chrome Pool)
+# =============================================================================
+
+# Function: start_chrome_worker_wsl
+# Description: Start Chrome for a specific worker on Windows (from WSL)
+# Arguments:
+#   $1: Worker ID (0-indexed)
+#   $2: Port number for remote debugging
+#   $3: Profile name (e.g., "Lyra-00")
+# Returns:
+#   0: Chrome started and ready
+#   1: Failed to start Chrome or connect
+start_chrome_worker_wsl() {
+    local worker_id="$1"
+    local port="$2"
+    local profile="$3"
+    
+    # Start Chrome with worker-specific profile via PowerShell
+    # Note: Bind to 127.0.0.1 only for security. WSL2 mirrored mode allows direct localhost access.
+    local start_result
+    start_result=$(run_ps "
+        \$ErrorActionPreference = 'Stop'
+        try {
+            \$baseDir = [Environment]::GetFolderPath('LocalApplicationData') + '\LyraChrome'
+            \$dataDir = \"\$baseDir\\$profile\"
+            if (-not (Test-Path \$dataDir)) { New-Item -ItemType Directory -Path \$dataDir -Force | Out-Null }
+            
+            \$proc = Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList @(
+                '--remote-debugging-port=$port',
+                '--remote-debugging-address=127.0.0.1',
+                \"--user-data-dir=\$dataDir\",
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-background-networking',
+                '--disable-sync'
+            ) -PassThru -ErrorAction Stop
+            'SUCCESS'
+        } catch {
+            'ERROR'
+        }
+    " 2>/dev/null | tr -d '\r\n')
+    
+    local start_result_value="${start_result:-}"
+    if [ -z "$start_result_value" ] || [ "$start_result_value" = "ERROR" ]; then
+        return 1
+    fi
+
+    # Wait and try to connect with exponential backoff
+    local host=""
+    host=$(try_connect_with_backoff "$port" "$STARTUP_TIMEOUT_WSL" "$BACKOFF_BASE_DELAY" "$BACKOFF_MAX_DELAY" || true)
+    if [ -n "${host:-}" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Function: start_chrome_worker_linux
+# Description: Start Chrome for a specific worker on Linux native
+# Arguments:
+#   $1: Worker ID (0-indexed)
+#   $2: Port number for remote debugging
+#   $3: Profile name (e.g., "Lyra-00")
+# Returns:
+#   0: Chrome started and ready
+#   1: Failed to start Chrome or connect
+start_chrome_worker_linux() {
+    local worker_id="$1"
+    local port="$2"
+    local profile="$3"
+
+    local chrome_path
+    chrome_path=$(which google-chrome || which chromium-browser || which chromium 2>/dev/null || echo "")
+
+    if [ -z "$chrome_path" ]; then
+        return 1
+    fi
+
+    # Use worker-specific data dir
+    local data_dir="$HOME/.local/share/lyra-chrome/$profile"
+    mkdir -p "$data_dir"
+
+    "$chrome_path" \
+        --remote-debugging-port="$port" \
+        --user-data-dir="$data_dir" \
+        --no-first-run \
+        --no-default-browser-check \
+        --disable-background-networking \
+        --disable-sync \
+        > /dev/null 2>&1 &
+
+    local host=""
+    host=$(try_connect_with_backoff "$port" "$STARTUP_TIMEOUT_LINUX" "$BACKOFF_BASE_DELAY" "$BACKOFF_MAX_DELAY" || true)
+    if [ -n "${host:-}" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+# =============================================================================
+# LEGACY SINGLE-INSTANCE FUNCTIONS (for backward compatibility during migration)
+# =============================================================================
 
 # Function: start_chrome_wsl
 # Description: Start Chrome with remote debugging on Windows (from WSL)

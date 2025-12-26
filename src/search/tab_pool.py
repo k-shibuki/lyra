@@ -495,30 +495,41 @@ class EngineRateLimiter:
 
 
 # Global instances
-_tab_pool: TabPool | None = None
+# Worker ID -> TabPool mapping (ADR-0014 Phase 3: Worker Context Isolation)
+_tab_pools: dict[int, TabPool] = {}
+_tab_pools_lock = asyncio.Lock()
 _engine_rate_limiter: EngineRateLimiter | None = None
 
 
-def get_tab_pool(max_tabs: int | None = None) -> TabPool:
-    """Get or create the global tab pool.
+def get_tab_pool(worker_id: int = 0, max_tabs: int | None = None) -> TabPool:
+    """Get or create a tab pool for a specific worker.
+
+    Per ADR-0014 Phase 3: Each worker gets its own TabPool to enable
+    true parallelization and reduce blocking risk.
 
     Args:
-        max_tabs: Maximum concurrent tabs (only used on first call).
+        worker_id: Worker identifier (0 to num_workers-1).
+                   Each worker gets its own isolated TabPool.
+        max_tabs: Maximum concurrent tabs per worker (only used on first call).
                   If None, reads from config (ADR-0015).
 
     Returns:
-        Global TabPool instance.
+        TabPool instance for the specified worker.
     """
-    global _tab_pool
-    if _tab_pool is None:
+    if worker_id not in _tab_pools:
         if max_tabs is None:
             # Read from config (ADR-0015)
             from src.utils.config import get_settings
 
             settings = get_settings()
             max_tabs = settings.concurrency.browser_serp.max_tabs
-        _tab_pool = TabPool(max_tabs=max_tabs)
-    return _tab_pool
+        _tab_pools[worker_id] = TabPool(max_tabs=max_tabs)
+        logger.info(
+            "Created TabPool for worker",
+            worker_id=worker_id,
+            max_tabs=max_tabs,
+        )
+    return _tab_pools[worker_id]
 
 
 def get_engine_rate_limiter() -> EngineRateLimiter:
@@ -533,15 +544,47 @@ def get_engine_rate_limiter() -> EngineRateLimiter:
     return _engine_rate_limiter
 
 
-async def reset_tab_pool() -> None:
-    """Reset the global tab pool (for testing only)."""
-    global _tab_pool
-    if _tab_pool is not None:
-        await _tab_pool.close()
-        _tab_pool = None
+async def reset_tab_pool(worker_id: int | None = None) -> None:
+    """Reset tab pool(s) (for testing only).
+
+    Args:
+        worker_id: If specified, reset only the pool for that worker.
+                   If None, reset all worker pools.
+    """
+    global _tab_pools
+    if worker_id is not None:
+        # Reset specific worker's pool
+        if worker_id in _tab_pools:
+            await _tab_pools[worker_id].close()
+            del _tab_pools[worker_id]
+            logger.debug("Reset TabPool for worker", worker_id=worker_id)
+    else:
+        # Reset all pools
+        for wid, pool in list(_tab_pools.items()):
+            await pool.close()
+        _tab_pools.clear()
+        logger.debug("Reset all TabPools")
 
 
 def reset_engine_rate_limiter() -> None:
     """Reset the global engine rate limiter (for testing only)."""
     global _engine_rate_limiter
     _engine_rate_limiter = None
+
+
+def get_all_tab_pools() -> dict[int, TabPool]:
+    """Get all active tab pools (for monitoring/testing).
+
+    Returns:
+        Dict mapping worker_id to TabPool.
+    """
+    return _tab_pools.copy()
+
+
+def get_tab_pool_stats() -> dict[int, dict]:
+    """Get stats for all active tab pools.
+
+    Returns:
+        Dict mapping worker_id to pool stats.
+    """
+    return {wid: pool.get_stats() for wid, pool in _tab_pools.items()}

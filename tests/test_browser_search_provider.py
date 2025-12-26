@@ -4032,3 +4032,185 @@ class TestLastmileSlotSelection:
 
                                         # Then: _should_use_lastmile was NOT called
                                         assert len(should_use_lastmile_calls) == 0
+
+
+# ============================================================================
+# Worker ID Isolation Tests (ADR-0014 Phase 3)
+# ============================================================================
+
+
+class TestBrowserSearchProviderWorkerIsolation:
+    """Tests for worker_id based isolation.
+
+    Per ADR-0014 Phase 3: Each worker gets its own BrowserSearchProvider
+    instance with isolated BrowserContext for true parallelization.
+
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result |
+    |---------|----------------------|-------------|-----------------|
+    | TC-W-01 | worker_id=0 | Equivalence | Provider created with worker_id=0 |
+    | TC-W-02 | worker_id=1 | Equivalence | Provider created with worker_id=1 |
+    | TC-W-03 | Different worker_ids | Equivalence | Different instances returned |
+    | TC-W-04 | Same worker_id twice | Equivalence | Same instance returned |
+    | TC-W-05 | Reset all workers | Equivalence | All instances cleared |
+    | TC-W-06 | Reset specific worker | Equivalence | Only that worker cleared |
+    """
+
+    @pytest.fixture(autouse=True)
+    def reset_providers(self) -> Generator[None, None, None]:
+        """Reset all providers before and after each test."""
+        reset_browser_search_provider()
+        yield
+        reset_browser_search_provider()
+
+    # =========================================================================
+    # TC-W-01: worker_id=0 creates provider
+    # =========================================================================
+    def test_worker_id_zero_creates_provider(self) -> None:
+        """Test worker_id=0 creates provider.
+
+        Given: No providers exist
+        When: get_browser_search_provider(worker_id=0) is called
+        Then: A provider with worker_id=0 is returned
+        """
+        # When
+        provider = get_browser_search_provider(worker_id=0)
+
+        # Then
+        assert provider is not None
+        assert provider._worker_id == 0
+
+    # =========================================================================
+    # TC-W-02: worker_id=1 creates provider
+    # =========================================================================
+    def test_worker_id_one_creates_provider(self) -> None:
+        """Test worker_id=1 creates provider.
+
+        Given: No providers exist
+        When: get_browser_search_provider(worker_id=1) is called
+        Then: A provider with worker_id=1 is returned
+        """
+        # When
+        provider = get_browser_search_provider(worker_id=1)
+
+        # Then
+        assert provider is not None
+        assert provider._worker_id == 1
+
+    # =========================================================================
+    # TC-W-03: Different worker_ids return different instances
+    # =========================================================================
+    def test_different_worker_ids_return_different_instances(self) -> None:
+        """Test different worker_ids return different instances.
+
+        Given: No providers exist
+        When: get_browser_search_provider is called with different worker_ids
+        Then: Different provider instances are returned
+        """
+        # When
+        provider0 = get_browser_search_provider(worker_id=0)
+        provider1 = get_browser_search_provider(worker_id=1)
+
+        # Then
+        assert provider0 is not provider1
+        assert provider0._worker_id == 0
+        assert provider1._worker_id == 1
+
+    # =========================================================================
+    # TC-W-04: Same worker_id returns same instance (singleton per worker)
+    # =========================================================================
+    def test_same_worker_id_returns_same_instance(self) -> None:
+        """Test same worker_id returns same instance.
+
+        Given: A provider exists for worker_id=0
+        When: get_browser_search_provider(worker_id=0) is called again
+        Then: Same provider instance is returned
+        """
+        # When
+        provider1 = get_browser_search_provider(worker_id=0)
+        provider2 = get_browser_search_provider(worker_id=0)
+
+        # Then
+        assert provider1 is provider2
+
+    # =========================================================================
+    # TC-W-05: Reset without worker_id clears all
+    # =========================================================================
+    def test_reset_all_clears_all_providers(self) -> None:
+        """Test reset without worker_id clears all providers.
+
+        Given: Multiple providers exist
+        When: reset_browser_search_provider() is called without worker_id
+        Then: All providers are cleared and new instances are returned
+        """
+        # Given
+        provider0_before = get_browser_search_provider(worker_id=0)
+        provider1_before = get_browser_search_provider(worker_id=1)
+
+        # When
+        reset_browser_search_provider()
+
+        # Then
+        provider0_after = get_browser_search_provider(worker_id=0)
+        provider1_after = get_browser_search_provider(worker_id=1)
+        assert provider0_before is not provider0_after
+        assert provider1_before is not provider1_after
+
+    # =========================================================================
+    # TC-W-06: Reset specific worker clears only that worker
+    # =========================================================================
+    def test_reset_specific_worker_clears_only_that_worker(self) -> None:
+        """Test reset with worker_id clears only that worker's provider.
+
+        Given: Multiple providers exist
+        When: reset_browser_search_provider(worker_id=0) is called
+        Then: Only worker 0's provider is cleared, worker 1's remains
+        """
+        # Given
+        provider0_before = get_browser_search_provider(worker_id=0)
+        provider1_before = get_browser_search_provider(worker_id=1)
+
+        # When
+        reset_browser_search_provider(worker_id=0)
+
+        # Then
+        provider0_after = get_browser_search_provider(worker_id=0)
+        provider1_after = get_browser_search_provider(worker_id=1)
+        assert provider0_before is not provider0_after  # Cleared
+        assert provider1_before is provider1_after  # Same instance
+
+    # =========================================================================
+    # TC-W-07: Provider uses worker-specific TabPool
+    # =========================================================================
+    def test_provider_uses_worker_specific_tab_pool(self) -> None:
+        """Test each provider uses its worker-specific TabPool.
+
+        Given: Two providers with different worker_ids
+        When: Checking their TabPool instances
+        Then: Each has its own TabPool
+        """
+        # When
+        provider0 = get_browser_search_provider(worker_id=0)
+        provider1 = get_browser_search_provider(worker_id=1)
+
+        # Then: Each has its own tab pool (different object IDs)
+        assert id(provider0._tab_pool) != id(provider1._tab_pool)
+
+    # =========================================================================
+    # TC-W-08: Default worker_id is 0
+    # =========================================================================
+    def test_default_worker_id_is_zero(self) -> None:
+        """Test default worker_id is 0 for backward compatibility.
+
+        Given: No providers exist
+        When: BrowserSearchProvider() is instantiated without worker_id
+        Then: worker_id defaults to 0
+        """
+        # Reset first
+        reset_browser_search_provider()
+
+        # When: Create provider without explicit worker_id
+        provider = BrowserSearchProvider()
+
+        # Then
+        assert provider._worker_id == 0

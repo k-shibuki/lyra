@@ -436,37 +436,75 @@ class TestGlobalTabPoolFunctions:
         """Reset global tab pool before each test."""
         await reset_tab_pool()
 
-    def test_get_tab_pool_singleton(self) -> None:
-        """Test get_tab_pool returns singleton.
+    def test_get_tab_pool_worker_id_isolation(self) -> None:
+        """Test get_tab_pool returns different instances per worker_id.
 
         Given: Global tab pool is reset
-        When: get_tab_pool() is called twice
+        When: get_tab_pool() is called with different worker_ids
+        Then: Different instances are returned for each worker_id (ADR-0014 Phase 3)
+        """
+        # When: Get pool for different workers
+        pool0 = get_tab_pool(worker_id=0)
+        pool1 = get_tab_pool(worker_id=1)
+
+        # Then: Different instances
+        assert pool0 is not pool1
+
+    def test_get_tab_pool_same_worker_id_singleton(self) -> None:
+        """Test get_tab_pool returns same instance for same worker_id.
+
+        Given: Global tab pool is reset
+        When: get_tab_pool() is called twice with same worker_id
         Then: Same instance is returned
         """
-        # When: Get pool twice
-        pool1 = get_tab_pool()
-        pool2 = get_tab_pool()
+        # When: Get pool twice for same worker
+        pool1 = get_tab_pool(worker_id=0)
+        pool2 = get_tab_pool(worker_id=0)
 
         # Then: Same instance
         assert pool1 is pool2
 
     @pytest.mark.asyncio
-    async def test_reset_tab_pool(self) -> None:
-        """Test reset creates new instance.
+    async def test_reset_tab_pool_all(self) -> None:
+        """Test reset without worker_id clears all pools.
 
-        Given: A global tab pool exists
-        When: reset_tab_pool() is called
-        Then: Next get_tab_pool() returns new instance
+        Given: Multiple worker pools exist
+        When: reset_tab_pool() is called without worker_id
+        Then: All pools are cleared and new instances are returned
         """
-        # Given: Get initial pool
-        pool1 = get_tab_pool()
+        # Given: Get pools for multiple workers
+        pool0_before = get_tab_pool(worker_id=0)
+        pool1_before = get_tab_pool(worker_id=1)
 
-        # When: Reset
+        # When: Reset all
         await reset_tab_pool()
 
-        # Then: New instance
-        pool2 = get_tab_pool()
-        assert pool1 is not pool2
+        # Then: New instances for all workers
+        pool0_after = get_tab_pool(worker_id=0)
+        pool1_after = get_tab_pool(worker_id=1)
+        assert pool0_before is not pool0_after
+        assert pool1_before is not pool1_after
+
+    @pytest.mark.asyncio
+    async def test_reset_tab_pool_specific_worker(self) -> None:
+        """Test reset with worker_id clears only that worker's pool.
+
+        Given: Multiple worker pools exist
+        When: reset_tab_pool(worker_id=0) is called
+        Then: Only worker 0's pool is cleared, worker 1's remains
+        """
+        # Given: Get pools for multiple workers
+        pool0_before = get_tab_pool(worker_id=0)
+        pool1_before = get_tab_pool(worker_id=1)
+
+        # When: Reset only worker 0
+        await reset_tab_pool(worker_id=0)
+
+        # Then: Only worker 0 gets new instance
+        pool0_after = get_tab_pool(worker_id=0)
+        pool1_after = get_tab_pool(worker_id=1)
+        assert pool0_before is not pool0_after
+        assert pool1_before is pool1_after  # Same instance
 
 
 class TestGlobalEngineRateLimiterFunctions:

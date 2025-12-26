@@ -123,10 +123,18 @@ export LYRA_DATA_DIR="${LYRA_DATA_DIR:-${PROJECT_DIR}/data}"
 export LYRA_GENERAL__PROXY_URL="${PROXY_URL}"
 
 # Chrome settings (localhost for WSL direct connection)
+# Dynamic Worker Pool: Each worker gets its own Chrome instance
 export LYRA_BROWSER__CHROME_HOST="${LYRA_BROWSER__CHROME_HOST:-localhost}"
-export LYRA_BROWSER__CHROME_PORT="${LYRA_BROWSER__CHROME_PORT:-9222}"
+export LYRA_BROWSER__CHROME_BASE_PORT="${LYRA_BROWSER__CHROME_BASE_PORT:-9222}"
+export LYRA_BROWSER__CHROME_PROFILE_PREFIX="${LYRA_BROWSER__CHROME_PROFILE_PREFIX:-Lyra-}"
 
-# 6. Start MCP server on host (enables chrome.sh auto-start)
+# 6. Auto-start Chrome Pool for all workers
+log_info "Starting Chrome Pool for worker pool..." >&2
+"${SCRIPT_DIR}/chrome.sh" start >&2 || {
+    log_warn "Chrome Pool start failed. Workers will auto-start Chrome as needed." >&2
+}
+
+# 7. Start MCP server on host
 cd "${PROJECT_DIR}"
 
 # Restore stdout for JSON-RPC protocol before launching the server.

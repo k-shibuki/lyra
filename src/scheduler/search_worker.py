@@ -170,10 +170,12 @@ async def _search_queue_worker(worker_id: int) -> None:
                 # Wrap search_action in a separate task so we can cancel it
                 # without killing the worker itself (ADR-0010 mode=immediate)
                 # ADR-0007: Pass search_job_id for CAPTCHA queue integration
+                # ADR-0014 Phase 3: Pass worker_id for context isolation
                 options_with_job = {
                     **options,
                     "task_id": task_id,
                     "search_job_id": search_id,
+                    "worker_id": worker_id,
                 }
                 manager = get_worker_manager()
                 search_task = asyncio.create_task(

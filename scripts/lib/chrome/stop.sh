@@ -2,15 +2,16 @@
 # Chrome Stop Functions
 #
 # Functions for stopping Chrome instances.
+# Used by pool.sh for stopping individual workers in the pool.
 
 # Function: stop_chrome
-# Description: Stop Lyra Chrome instance
+# Description: Stop Chrome instance on a specific port
 # Arguments:
-#   $1: Port number (optional, defaults to CHROME_PORT)
+#   $1: Port number (required)
 # Returns:
 #   0: Success
 stop_chrome() {
-    local port="${1:-$CHROME_PORT}"
+    local port="${1:?Port number required}"
     local stopped_pid=""
 
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then

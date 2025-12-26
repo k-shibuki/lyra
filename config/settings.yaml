@@ -166,13 +166,12 @@ http3:
 
 # === Browser Settings ===
 browser:
-  # Chrome remote debugging (default: localhost:9222)
+  # Chrome remote debugging - Dynamic Worker Pool
+  # Each worker gets its own Chrome instance: Worker N -> BASE_PORT + N
   # WSL2 mirrored networking allows direct localhost access from WSL to Windows Chrome
   chrome_host: "localhost"
-  chrome_port: 9222
-  
-  # Profile
-  profile_name: "Profile-Research"
+  chrome_base_port: 9222  # Worker 0 = 9222, Worker 1 = 9223, etc.
+  chrome_profile_prefix: "Lyra-"  # Profile names: Lyra-00, Lyra-01, etc.
   
   # Headless/Headful
   default_headless: true

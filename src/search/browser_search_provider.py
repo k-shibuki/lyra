@@ -134,14 +134,20 @@ class BrowserSearchProvider(BaseSearchProvider):
         default_engine: str | None = None,
         timeout: int | None = None,
         min_interval: float | None = None,
+        worker_id: int = 0,
     ):
         """
         Initialize browser search provider.
+
+        Per ADR-0014 Phase 3: Each worker gets its own BrowserSearchProvider
+        instance with isolated BrowserContext for true parallelization.
 
         Args:
             default_engine: Default search engine to use.
             timeout: Search timeout in seconds.
             min_interval: Minimum interval between searches.
+            worker_id: Worker identifier (0 to num_workers-1).
+                       Each worker gets its own isolated Context and TabPool.
         """
         super().__init__("browser_search")
 
@@ -149,8 +155,11 @@ class BrowserSearchProvider(BaseSearchProvider):
         self._default_engine = default_engine or self.DEFAULT_ENGINE
         self._timeout = timeout or self.DEFAULT_TIMEOUT
         self._min_interval = min_interval or self.MIN_INTERVAL
+        self._worker_id = worker_id
 
         # Browser state (lazy initialization)
+        # Browser is shared across workers (single CDP connection)
+        # Context is isolated per worker for cookie/state separation
         self._playwright: Playwright | None = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
@@ -160,8 +169,8 @@ class BrowserSearchProvider(BaseSearchProvider):
         # TabPool manages browser tabs; EngineRateLimiter enforces per-engine QPS
         from src.search.tab_pool import get_engine_rate_limiter, get_tab_pool
 
-        # max_tabs is read from config (ADR-0015); default=1 ensures correctness
-        self._tab_pool = get_tab_pool()
+        # Each worker gets its own TabPool (ADR-0014 Phase 3)
+        self._tab_pool = get_tab_pool(worker_id=worker_id)
         self._engine_rate_limiter = get_engine_rate_limiter()
         # Legacy semaphore kept for transition period
         self._rate_limiter = asyncio.Semaphore(1)
@@ -182,6 +191,11 @@ class BrowserSearchProvider(BaseSearchProvider):
 
         # Human behavior simulation
         self._human_behavior = HumanBehavior()
+
+        logger.debug(
+            "BrowserSearchProvider initialized",
+            worker_id=worker_id,
+        )
 
     async def _ensure_browser(self) -> None:
         """
@@ -204,8 +218,11 @@ class BrowserSearchProvider(BaseSearchProvider):
                 assert self._playwright is not None  # Just initialized
 
                 # CDP connection to Chrome (required, no fallback)
+                # Dynamic Worker Pool: Each worker connects to its own Chrome instance
+                from src.utils.config import get_chrome_port
+
                 chrome_host = getattr(self._settings.browser, "chrome_host", "localhost")
-                chrome_port = getattr(self._settings.browser, "chrome_port", 9222)
+                chrome_port = get_chrome_port(self._worker_id)
                 cdp_url = f"http://{chrome_host}:{chrome_port}"
 
                 cdp_connected = False
@@ -270,24 +287,34 @@ class BrowserSearchProvider(BaseSearchProvider):
                         f"CDP connection failed: {cdp_error}. Start Chrome with: make chrome-start"
                     ) from cdp_error
 
-                # Reuse existing context if available (preserves profile cookies per ADR-0007)
+                # Per ADR-0014 Phase 3: Each worker gets its own isolated BrowserContext
+                # This enables true parallelization and reduces blocking risk
                 assert self._browser is not None  # Just connected
                 existing_contexts = self._browser.contexts
-                if existing_contexts:
+
+                # Check if this worker already has a context (by matching viewport/locale)
+                # Worker 0 can reuse Chrome's default context for cookie preservation
+                # Other workers always create new isolated contexts
+                if self._worker_id == 0 and existing_contexts:
                     self._context = existing_contexts[0]
                     logger.info(
-                        "Reusing existing browser context for cookie preservation",
+                        "Worker 0 reusing existing browser context for cookie preservation",
+                        worker_id=self._worker_id,
                         context_count=len(existing_contexts),
                     )
                 else:
-                    # Create new context only if no existing context
+                    # Create new isolated context for this worker
                     self._context = await self._browser.new_context(
                         viewport={"width": 1920, "height": 1080},
                         locale="ja-JP",
                         timezone_id="Asia/Tokyo",
                         user_agent=self._get_user_agent(),
                     )
-                    logger.info("Created new browser context")
+                    logger.info(
+                        "Created new isolated browser context for worker",
+                        worker_id=self._worker_id,
+                        total_contexts=len(self._browser.contexts),
+                    )
 
                 # Block unnecessary resources
                 assert self._context is not None  # Just created or reused
@@ -297,8 +324,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                 )
 
                 # Perform profile health audit on browser session initialization
-                # Only audit when new context is created (not when reusing existing context)
-                if not existing_contexts:
+                # Only audit for worker 0 (avoids redundant audits)
+                if self._worker_id == 0 and not existing_contexts:
                     await self._perform_health_audit()
 
             except CDPConnectionError:
@@ -1481,37 +1508,70 @@ class BrowserSearchProvider(BaseSearchProvider):
 # =============================================================================
 
 
-_default_provider: BrowserSearchProvider | None = None
+# Worker ID -> BrowserSearchProvider mapping (ADR-0014 Phase 3)
+_providers: dict[int, BrowserSearchProvider] = {}
 
 
-def get_browser_search_provider() -> BrowserSearchProvider:
+def get_browser_search_provider(worker_id: int = 0) -> BrowserSearchProvider:
     """
-    Get or create the default BrowserSearchProvider instance.
+    Get or create a BrowserSearchProvider instance for a specific worker.
+
+    Per ADR-0014 Phase 3: Each worker gets its own isolated provider
+    with separate BrowserContext for true parallelization.
+
+    Args:
+        worker_id: Worker identifier (0 to num_workers-1).
+                   Each worker gets its own isolated provider.
 
     Returns:
-        BrowserSearchProvider singleton instance.
+        BrowserSearchProvider instance for the specified worker.
     """
-    global _default_provider
-    if _default_provider is None:
-        _default_provider = BrowserSearchProvider()
-    return _default_provider
+    if worker_id not in _providers:
+        _providers[worker_id] = BrowserSearchProvider(worker_id=worker_id)
+        logger.info(
+            "Created BrowserSearchProvider for worker",
+            worker_id=worker_id,
+            total_providers=len(_providers),
+        )
+    return _providers[worker_id]
 
 
-async def cleanup_browser_search_provider() -> None:
+async def cleanup_browser_search_provider(worker_id: int | None = None) -> None:
     """
-    Close and cleanup the default BrowserSearchProvider.
+    Close and cleanup BrowserSearchProvider(s).
+
+    Args:
+        worker_id: If specified, cleanup only that worker's provider.
+                   If None, cleanup all providers.
 
     Used for testing cleanup and graceful shutdown.
     """
-    global _default_provider
-    if _default_provider is not None:
-        await _default_provider.close()
-        _default_provider = None
+    global _providers
+    if worker_id is not None:
+        # Cleanup specific worker's provider
+        if worker_id in _providers:
+            await _providers[worker_id].close()
+            del _providers[worker_id]
+            logger.debug("Cleaned up BrowserSearchProvider", worker_id=worker_id)
+    else:
+        # Cleanup all providers
+        for wid, provider in list(_providers.items()):
+            await provider.close()
+        _providers.clear()
+        logger.debug("Cleaned up all BrowserSearchProviders")
 
 
-def reset_browser_search_provider() -> None:
+def reset_browser_search_provider(worker_id: int | None = None) -> None:
     """
-    Reset the default provider. For testing purposes only.
+    Reset provider(s). For testing purposes only.
+
+    Args:
+        worker_id: If specified, reset only that worker's provider.
+                   If None, reset all providers.
     """
-    global _default_provider
-    _default_provider = None
+    global _providers
+    if worker_id is not None:
+        if worker_id in _providers:
+            del _providers[worker_id]
+    else:
+        _providers.clear()

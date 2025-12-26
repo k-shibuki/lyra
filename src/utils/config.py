@@ -176,11 +176,15 @@ class UndetectedChromeDriverConfig(BaseModel):
 
 
 class BrowserConfig(BaseModel):
-    """Browser configuration."""
+    """Browser configuration.
+
+    Dynamic Worker Pool: Each worker gets its own Chrome instance.
+    Worker N connects to chrome_base_port + N with profile Lyra-{N:02d}.
+    """
 
     chrome_host: str = "localhost"
-    chrome_port: int = 9222
-    profile_name: str = "Profile-Research"
+    chrome_base_port: int = 9222  # Worker 0 = 9222, Worker 1 = 9223, etc.
+    chrome_profile_prefix: str = "Lyra-"  # Profile names: Lyra-00, Lyra-01, etc.
     default_headless: bool = True
     headful_ratio_initial: float = 0.1
     block_ads: bool = True
@@ -756,6 +760,57 @@ def get_project_root() -> Path:
     """
     # Assuming this file is at src/utils/config.py
     return Path(__file__).parent.parent.parent
+
+
+# =============================================================================
+# Dynamic Chrome Worker Pool Helpers
+# =============================================================================
+
+
+def get_num_workers() -> int:
+    """Get the number of search queue workers from settings.
+
+    Returns:
+        Number of workers configured.
+    """
+    return get_settings().concurrency.search_queue.num_workers
+
+
+def get_chrome_port(worker_id: int) -> int:
+    """Calculate CDP port for a specific worker.
+
+    Args:
+        worker_id: Worker ID (0-indexed).
+
+    Returns:
+        CDP port number (base_port + worker_id).
+    """
+    return get_settings().browser.chrome_base_port + worker_id
+
+
+def get_chrome_profile(worker_id: int) -> str:
+    """Calculate Chrome profile name for a specific worker.
+
+    Args:
+        worker_id: Worker ID (0-indexed).
+
+    Returns:
+        Profile name (e.g., "Lyra-00", "Lyra-01").
+    """
+    prefix = get_settings().browser.chrome_profile_prefix
+    return f"{prefix}{worker_id:02d}"
+
+
+def get_all_chrome_ports() -> list[int]:
+    """Get all CDP ports for the configured number of workers.
+
+    Returns:
+        List of CDP ports for all workers.
+    """
+    settings = get_settings()
+    base = settings.browser.chrome_base_port
+    n = settings.concurrency.search_queue.num_workers
+    return [base + i for i in range(n)]
 
 
 def ensure_directories() -> None:
