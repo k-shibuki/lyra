@@ -3,9 +3,12 @@
 # Usage: make [target]
 # Run 'make help' for available targets
 #
-# Features:
-#   - JSON output: make test-env-json, make dev-status-json, make chrome-json
-#   - Standardized exit codes (see scripts/common.sh)
+# Output Mode:
+#   Set LYRA_OUTPUT_JSON=true for JSON output (AI agents / automation)
+#   Default is human-readable output
+#
+#   Example: LYRA_OUTPUT_JSON=true make lint
+#   Or add to .env: LYRA_OUTPUT_JSON=true
 #
 # Script Dependencies:
 #   common.sh  <- (base, no dependencies)
@@ -99,16 +102,16 @@ chrome-fix: ## Auto-fix WSL2 networking for Chrome
 # RUNTIME=container/venv to override auto-detection (container preferred)
 # RUN_ID= to specify a specific test run for check/kill/debug
 
-test: ## Run all tests (RUNTIME=container/venv)
+test: ## Run all tests (use test-check for results)
 	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/
 
-test-unit: ## Run unit tests only (RUNTIME=container/venv)
+test-unit: ## Run unit tests only
 	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m unit
 
-test-integration: ## Run integration tests only (RUNTIME=container/venv)
+test-integration: ## Run integration tests only
 	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m integration
 
-test-e2e: ## Run E2E tests (RUNTIME=container/venv)
+test-e2e: ## Run E2E tests
 	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) tests/ -m e2e
 
 test-check: ## Check test run status (RUN_ID= optional)
@@ -130,28 +133,16 @@ test-scripts: ## Run shell script tests
 	@$(SCRIPTS)/test_scripts.sh
 
 # =============================================================================
-# JSON OUTPUT TARGETS
-# =============================================================================
-# These targets provide machine-readable output for AI agents and automation.
-
-test-env-json: ## Show test environment (JSON output)
-	@$(SCRIPTS)/test.sh --json env
-
-test-check-json: ## Check test status (JSON output, RUN_ID= optional)
-	@$(SCRIPTS)/test.sh --json check $(RUN_ID)
-
-dev-status-json: ## Show container status (JSON output)
-	@$(SCRIPTS)/dev.sh --json status
-
-chrome-json: ## Check Chrome CDP status (JSON output)
-	@$(SCRIPTS)/chrome.sh --json check
-
-# =============================================================================
 # CODE QUALITY
 # =============================================================================
+# Output format controlled by LYRA_OUTPUT_JSON environment variable
 
 lint: ## Run linters (ruff)
+ifeq ($(LYRA_OUTPUT_JSON),true)
+	uv run ruff check --output-format json src/ tests/
+else
 	uv run ruff check src/ tests/
+endif
 
 lint-fix: ## Run linters with auto-fix
 	uv run ruff check --fix src/ tests/
@@ -164,7 +155,11 @@ format-check: ## Check code formatting
 	uv run black --check src/ tests/
 
 typecheck: ## Run type checker (mypy)
+ifeq ($(LYRA_OUTPUT_JSON),true)
+	uv run mypy --output json src/
+else
 	uv run mypy src/
+endif
 
 quality: lint typecheck ## Run all quality checks
 
@@ -189,12 +184,16 @@ help: ## Show this help
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
+	@echo "Output Mode:"
+	@echo "  Set LYRA_OUTPUT_JSON=true for JSON output (AI agents)"
+	@echo "  Example: LYRA_OUTPUT_JSON=true make lint"
+	@echo ""
 	@echo "Setup:"
 	@grep -E '^setup[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Development:"
-	@grep -E '^dev-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
+	@grep -E '^dev-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "MCP:"
@@ -202,15 +201,11 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Chrome:"
-	@grep -E '^chrome[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
+	@grep -E '^chrome[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Testing:"
-	@grep -E '^test[a-zA-Z0-9_-]*:.*?## .*$$' $(MAKEFILE_LIST) | grep -v '\-json' | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
-	@echo ""
-	@echo "Machine-Readable (JSON):"
-	@grep -E '^(test|dev|chrome)[a-zA-Z0-9_-]*-json:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^test[a-zA-Z0-9_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Code Quality:"
@@ -220,4 +215,3 @@ help: ## Show this help
 	@echo "Cleanup:"
 	@grep -E '^clean[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
-

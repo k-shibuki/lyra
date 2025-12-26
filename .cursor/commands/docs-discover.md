@@ -31,14 +31,18 @@ This command supports two modes depending on the stage:
 
 ## Discovery heuristics (how to find related docs)
 
-Use multiple signals (don’t rely on one):
+Use multiple signals (don't rely on one):
 
 1. **Attached docs**: any `@docs/...` attached by the user are always candidates.
 2. **Changed areas**: use the current diff to list touched modules/paths (e.g. `git diff --name-only`, `git diff --stat`).
 3. **Repository docs search**:
    - Start under `docs/` and search for keywords (module names, feature names, API names).
-   - If the repo has “system docs” (e.g. architecture, evidence, design), consider them if the change touches those areas.
+   - If the repo has "system docs" (e.g. architecture, evidence, design), consider them if the change touches those areas.
 4. **Workflow docs**: if you changed Cursor commands/rules, update `docs/CURSOR_RULES_COMMANDS.md`.
+5. **Makefile / Shell scripts**: if you changed `Makefile` or `scripts/*.sh`:
+   - Check `README.md` "Makefile Commands" section for accuracy.
+   - Check `README.md` "JSON Output Mode" section if output behavior changed.
+   - Update related Cursor commands (e.g., `test-create.md`, `quality-check.md`) if command usage changed.
 
 ## Steps
 
