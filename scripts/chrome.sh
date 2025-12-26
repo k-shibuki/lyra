@@ -303,10 +303,12 @@ EOF
 #   1: Failed to start Chrome or connect
 start_chrome_wsl() {
     local port="$1"
-    
-    echo "STARTING"
-    echo "Environment: WSL"
-    echo "Port: $port"
+
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "STARTING"
+        echo "Environment: WSL"
+        echo "Port: $port"
+    fi
     
     # Start Chrome with separate profile via PowerShell
     # Note: Bind to 127.0.0.1 only for security. WSL2 mirrored mode allows direct localhost access.
@@ -334,31 +336,67 @@ start_chrome_wsl() {
     
     local start_result_value="${start_result:-}"
     if [ -z "$start_result_value" ] || [ "$start_result_value" = "ERROR" ]; then
-        echo "ERROR"
-        echo "Failed to start Chrome via PowerShell"
-        echo "  -> Check if Chrome is installed at: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-        echo "  -> Check PowerShell permissions"
-        echo "  -> Try running PowerShell manually to verify it works"
-        log_error "PowerShell command failed or returned ERROR"
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "error",
+  "exit_code": ${EXIT_OPERATION_FAILED},
+  "message": "Failed to start Chrome via PowerShell",
+  "hint": "Check if Chrome is installed at C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe"
+}
+EOF
+        else
+            echo "ERROR"
+            echo "Failed to start Chrome via PowerShell"
+            echo "  -> Check if Chrome is installed at: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+            echo "  -> Check PowerShell permissions"
+            echo "  -> Try running PowerShell manually to verify it works"
+        fi
         return 1
     fi
-    
+
     # Wait and try to connect with exponential backoff
-    echo "Waiting for Chrome (${STARTUP_TIMEOUT_WSL}s timeout)..."
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "Waiting for Chrome (${STARTUP_TIMEOUT_WSL}s timeout)..."
+    fi
     local host=""
     host=$(try_connect_with_backoff "$port" "$STARTUP_TIMEOUT_WSL" "$BACKOFF_BASE_DELAY" "$BACKOFF_MAX_DELAY" || true)
     if [ -n "${host:-}" ]; then
-        echo "READY"
-        echo "Host: $host:$port"
-        echo "Connect: chromium.connect_over_cdp('http://$host:$port')"
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "ready",
+  "exit_code": ${EXIT_SUCCESS},
+  "host": "${host}",
+  "port": ${port},
+  "connect_url": "http://${host}:${port}",
+  "cdp_command": "chromium.connect_over_cdp('http://${host}:${port}')"
+}
+EOF
+        else
+            echo "READY"
+            echo "Host: $host:$port"
+            echo "Connect: chromium.connect_over_cdp('http://$host:$port')"
+        fi
         return 0
     fi
-    
-    echo "TIMEOUT"
-    echo "Chrome started but could not connect from WSL"
-    echo ""
-    echo "Ensure WSL2 mirrored networking is enabled:"
-    echo "  ./scripts/chrome.sh fix"
+
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        cat <<EOF
+{
+  "status": "timeout",
+  "exit_code": ${EXIT_TIMEOUT},
+  "message": "Chrome started but could not connect from WSL",
+  "hint": "./scripts/chrome.sh fix"
+}
+EOF
+    else
+        echo "TIMEOUT"
+        echo "Chrome started but could not connect from WSL"
+        echo ""
+        echo "Ensure WSL2 mirrored networking is enabled:"
+        echo "  ./scripts/chrome.sh fix"
+    fi
     return 1
 }
 
@@ -371,24 +409,36 @@ start_chrome_wsl() {
 #   1: Failed to start Chrome or connect
 start_chrome_linux() {
     local port="$1"
-    
+
     local chrome_path
     chrome_path=$(which google-chrome || which chromium-browser || which chromium 2>/dev/null || echo "")
-    
+
     if [ -z "$chrome_path" ]; then
-        echo "ERROR"
-        echo "Chrome/Chromium not found"
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "error",
+  "exit_code": ${EXIT_DEPENDENCY},
+  "message": "Chrome/Chromium not found"
+}
+EOF
+        else
+            echo "ERROR"
+            echo "Chrome/Chromium not found"
+        fi
         return 1
     fi
-    
-    echo "STARTING"
-    echo "Environment: Linux"
-    echo "Port: $port"
-    
+
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "STARTING"
+        echo "Environment: Linux"
+        echo "Port: $port"
+    fi
+
     # Use separate data dir
     local data_dir="$HOME/.local/share/lyra-chrome"
     mkdir -p "$data_dir"
-    
+
     "$chrome_path" \
         --remote-debugging-port="$port" \
         --user-data-dir="$data_dir" \
@@ -397,17 +447,42 @@ start_chrome_linux() {
         --disable-background-networking \
         --disable-sync \
         > /dev/null 2>&1 &
-    
-    echo "Waiting for Chrome (${STARTUP_TIMEOUT_LINUX}s timeout)..."
+
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "Waiting for Chrome (${STARTUP_TIMEOUT_LINUX}s timeout)..."
+    fi
     local host=""
     host=$(try_connect_with_backoff "$port" "$STARTUP_TIMEOUT_LINUX" "$BACKOFF_BASE_DELAY" "$BACKOFF_MAX_DELAY" || true)
     if [ -n "${host:-}" ]; then
-        echo "READY"
-        echo "Connect: chromium.connect_over_cdp('http://${host}:$port')"
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "ready",
+  "exit_code": ${EXIT_SUCCESS},
+  "host": "${host}",
+  "port": ${port},
+  "connect_url": "http://${host}:${port}",
+  "cdp_command": "chromium.connect_over_cdp('http://${host}:${port}')"
+}
+EOF
+        else
+            echo "READY"
+            echo "Connect: chromium.connect_over_cdp('http://${host}:$port')"
+        fi
         return 0
     fi
-    
-    echo "TIMEOUT"
+
+    if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+        cat <<EOF
+{
+  "status": "timeout",
+  "exit_code": ${EXIT_TIMEOUT},
+  "message": "Chrome startup timeout"
+}
+EOF
+    else
+        echo "TIMEOUT"
+    fi
     return 1
 }
 
@@ -419,8 +494,12 @@ start_chrome_linux() {
 #   0: Success
 stop_chrome() {
     local port="${1:-$CHROME_PORT}"
-    echo "STOPPING"
-    
+    local stopped_pid=""
+
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo "STOPPING"
+    fi
+
     if [ "$ENV_TYPE" = "wsl" ]; then
         # Find process listening on debug port and kill it
         local stop_result
@@ -438,20 +517,55 @@ stop_chrome() {
                 'ERROR'
             }
         " 2>/dev/null | tr -d '\r\n')
-        
-        if [ -n "$stop_result" ] && [ "$stop_result" != "ERROR" ]; then
-            echo "$stop_result"
+
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            local was_running="false"
+            if [ -n "$stop_result" ] && [[ "$stop_result" == *"Stopped"* ]]; then
+                was_running="true"
+            fi
+            cat <<EOF
+{
+  "status": "success",
+  "exit_code": ${EXIT_SUCCESS},
+  "message": "${stop_result:-Chrome stop completed}",
+  "was_running": ${was_running}
+}
+EOF
+        else
+            if [ -n "$stop_result" ] && [ "$stop_result" != "ERROR" ]; then
+                echo "$stop_result"
+            fi
+            echo "DONE"
         fi
-        echo "DONE"
     else
         # Find process by port on Linux
         local pid
         pid=$(lsof -ti :"$port" 2>/dev/null || true)
         if [ -n "$pid" ]; then
             kill -9 "$pid" 2>/dev/null || true
-            echo "Stopped process $pid"
+            stopped_pid="$pid"
         fi
-        echo "DONE"
+
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            local was_running="false"
+            if [ -n "$stopped_pid" ]; then
+                was_running="true"
+            fi
+            cat <<EOF
+{
+  "status": "success",
+  "exit_code": ${EXIT_SUCCESS},
+  "message": "Chrome stop completed",
+  "was_running": ${was_running},
+  "pid": "${stopped_pid:-null}"
+}
+EOF
+        else
+            if [ -n "$stopped_pid" ]; then
+                echo "Stopped process $stopped_pid"
+            fi
+            echo "DONE"
+        fi
     fi
 }
 

@@ -80,8 +80,8 @@ case "${1:-}" in
         ;;
 esac
 
-# Verify required commands
-require_podman_compose || exit $EXIT_DEPENDENCY
+# Verify required commands (exit mode for JSON output support)
+require_podman_compose "exit"
 
 COMPOSE="podman-compose"
 
@@ -200,16 +200,18 @@ cleanup_environment() {
 cmd_up() {
     # Check for .env file (required for proxy server configuration)
     if [ ! -f "${PROJECT_DIR}/.env" ]; then
-        log_error ".env file not found"
-        output_result "error" ".env file not found. Copy from template: cp .env.example .env" "exit_code=$EXIT_CONFIG"
-        exit $EXIT_CONFIG
+        output_error $EXIT_CONFIG ".env file not found. Copy from template: cp .env.example .env" "hint=cp .env.example .env"
     fi
 
-    log_info "Starting Lyra development environment..."
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        log_info "Starting Lyra development environment..."
+    fi
+
     # --no-build: Require explicit build (use dev-build first)
     $COMPOSE up -d --no-build
 
     output_result "success" "Services started" \
+        "exit_code=0" \
         "tor_socks=localhost:9050" \
         "container=$CONTAINER_NAME"
 
@@ -224,40 +226,58 @@ cmd_up() {
 }
 
 cmd_down() {
-    log_info "Stopping Lyra development environment..."
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        log_info "Stopping Lyra development environment..."
+    fi
     $COMPOSE down
-    output_result "success" "Containers stopped"
+    output_result "success" "Containers stopped" "exit_code=0"
 }
 
 cmd_build() {
-    log_info "Building containers..."
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        log_info "Building containers..."
+    fi
     $COMPOSE build
-    output_result "success" "Build complete"
+    output_result "success" "Build complete" "exit_code=0"
 }
 
 cmd_rebuild() {
-    log_info "Rebuilding containers from scratch..."
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        log_info "Rebuilding containers from scratch..."
+    fi
     $COMPOSE build --no-cache
-    output_result "success" "Rebuild complete"
+    output_result "success" "Rebuild complete" "exit_code=0"
 }
 
 cmd_test() {
-    log_info "Running tests..."
-    $COMPOSE exec "$CONTAINER_NAME" pytest tests/ -v
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        log_info "Running tests..."
+    fi
+    local exit_code=0
+    $COMPOSE exec "$CONTAINER_NAME" pytest tests/ -v || exit_code=$?
+    if [[ $exit_code -eq 0 ]]; then
+        output_result "success" "Tests passed" "exit_code=0"
+    else
+        output_result "error" "Tests failed" "exit_code=$exit_code"
+        exit $exit_code
+    fi
 }
 
 cmd_mcp() {
-    log_info "Starting MCP server..."
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        log_info "Starting MCP server..."
+    fi
     $COMPOSE exec "$CONTAINER_NAME" python -m src.mcp.server
 }
 
 cmd_research() {
     local query="$1"
     if [ -z "$query" ]; then
-        echo "Usage: ./scripts/dev.sh research \"Your query\""
-        exit 1
+        output_error $EXIT_USAGE "Query argument required" "usage=./scripts/dev.sh research \"Your query\""
     fi
-    log_info "Running research: $query"
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        log_info "Running research: $query"
+    fi
     $COMPOSE exec "$CONTAINER_NAME" python -m src.main research --query "$query"
 }
 
