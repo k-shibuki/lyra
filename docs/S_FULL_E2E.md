@@ -78,14 +78,17 @@ for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?
 #### 2.1.1 環境構築
 
 ```bash
-# Lyra環境の起動
-./scripts/dev.sh start
+# 環境確認
+make doctor
+
+# Lyra環境の起動（コンテナビルドが未済なら先に make dev-build）
+make dev-up
 
 # Chrome CDPの起動
-./scripts/chrome.sh start
+make chrome-start
 
-# 環境確認
-./scripts/doctor.sh
+# MCPサーバーの起動
+make mcp
 ```
 
 #### 2.1.2 商用ツールの準備

@@ -1,0 +1,332 @@
+---
+alwaysApply: true
+---
+# S_FULL_E2E デバッグ規約
+
+## 概要
+
+本ルールは `docs/S_FULL_E2E.md` のケーススタディを完遂するためのデバッグ手順を定義する。
+Cursor Debugモードのインストラクション（system_reminderで提供）を前提とし、Lyra固有のコンポーネントに対する仮説生成・計装・検証の指針を補足する。
+
+---
+
+## 0. デバッグ基本原則
+
+### 0.1 自律実行の原則
+
+- **AIが自律的に実行**: ユーザーに操作を依頼せず、AIがターミナルコマンド・テストスクリプト・DBクエリを直接実行する
+- **MCPサーバー再起動のみ例外**: MCPサーバーの再起動はユーザー操作が必要（Cursor連携のため）
+- **仮説→計装→検証サイクル**: 推測で修正せず、ログ証拠に基づいて修正する
+
+### 0.2 タイムアウト必須
+
+ターミナルコマンドは **必ずタイムアウトを設定** してハングを防ぐ:
+
+```bash
+# 良い例: timeout付き
+timeout 30 uv run python -c "..."
+
+# 悪い例: タイムアウトなし（ハングの危険）
+uv run python -c "..."
+```
+
+**推奨タイムアウト値**:
+| 操作 | タイムアウト |
+|------|-------------|
+| 環境チェック（make doctor等） | 30秒 |
+| DB操作・クエリ | 10秒 |
+| MCP ハンドラーテスト | 30秒 |
+| 検索実行（queue_searches） | 120秒 |
+| ページ取得・抽出 | 60秒 |
+
+---
+
+## 1. 前提条件
+
+### 1.1 環境チェック（必ず最初に実行）
+
+```bash
+# 環境全体のヘルスチェック
+make doctor
+
+# Chrome CDP接続確認
+make chrome
+
+# コンテナ状態確認
+make dev-status
+```
+
+問題があれば `make doctor-chrome-fix` または `make chrome-diagnose` で詳細を確認。
+
+### 1.2 参照すべきADR
+
+| コンポーネント | ADR | 目的 |
+|---------------|-----|------|
+| MCP Server ↔ Cursor連携 | ADR-0002, ADR-0003 | Thinking-Working分離、MCP優先 |
+| Evidence Graph | ADR-0005 | Claim-Fragment-Page構造 |
+| 非同期検索キュー | ADR-0010 | queue_searches, get_status, stop_task |
+| フィードバック | ADR-0012 | edge_correct, claim_reject |
+| ブラウザSERP | ADR-0014 | TabPool, ブラウザ並行制御 |
+| 学術API | ADR-0013 | Rate limiter, リソース競合 |
+
+---
+
+## 2. フェーズ別デバッグ戦略
+
+### Phase A: 環境起動・接続
+
+**目標**: MCP Server起動、Chrome CDP接続、DB初期化が正常に完了すること
+
+**よくある問題と仮説**:
+
+| 症状 | 仮説 | 計装ポイント |
+|------|------|-------------|
+| MCP Server起動失敗 | ポート競合、依存モジュール不足 | `src/mcp/server.py:run_server()` 起動シーケンス |
+| Chrome CDP接続失敗 | WSL2ネットワーク問題、Chrome未起動 | `src/crawler/browser.py` 接続処理 |
+| DB初期化エラー | schema.sqlマイグレーション失敗 | `src/storage/database.py` 初期化 |
+
+**確認コマンド**:
+```bash
+make chrome-start     # Chrome起動
+make chrome-diagnose  # 接続診断
+make dev-up           # コンテナ起動
+make mcp              # MCP Server起動
+```
+
+### Phase B: タスク作成・検索キュー
+
+**目標**: `create_task` → `queue_searches` → Worker処理が正常に動作すること
+
+**計装すべきモジュール**:
+- `src/mcp/server.py` - MCP toolハンドラ
+- `src/scheduler/search_worker.py` - SearchQueueWorker
+- `src/scheduler/jobs.py` - ジョブスケジューラ
+- `src/research/executor.py` - 検索実行
+
+**仮説テンプレート**:
+1. `queue_searches` がジョブをDBに登録できていない
+2. Workerがジョブをdequeueできていない（ロック競合）
+3. 検索エンジンAPIがエラーを返している
+4. Rate limiterが過度に制限している
+5. タスクIDの不一致でジョブが見つからない
+
+### Phase C: ページ取得・抽出
+
+**目標**: SERP結果からページ取得、テキスト抽出が正常に動作すること
+
+**計装すべきモジュール**:
+- `src/crawler/browser.py` - TabPool, ページ取得
+- `src/crawler/fetcher.py` - HTTP取得
+- `src/extract/extractor.py` - LLM抽出
+
+**仮説テンプレート**:
+1. TabPoolが枯渇している（max_tabs=1制約）
+2. CAPTCHAでブロックされている
+3. JavaScript実行タイムアウト
+4. LLM抽出がエラーを返している
+5. 抽出結果のパースに失敗している
+
+### Phase D: NLI・Evidence Graph
+
+**目標**: Fragment-Claim間のNLI判定、グラフ構築が正常に動作すること
+
+**計装すべきモジュール**:
+- `src/filter/nli.py` - NLI判定
+- `src/filter/evidence_graph.py` - グラフ構築
+- `src/storage/repository.py` - DB永続化
+
+**仮説テンプレート**:
+1. NLIモデルのロードに失敗している
+2. Fragmentが空または不正な形式
+3. Edge作成時にDB制約違反
+4. グラフのメモリ使用量が過大
+5. Claim IDの参照が不整合
+
+### Phase E: 素材取得・レポート構成
+
+**目標**: `get_materials` で素材取得、Evidence Graphが正しく構築されていること
+
+**計装すべきモジュール**:
+- `src/mcp/server.py:get_materials` - 素材取得ハンドラ
+- `src/filter/evidence_graph.py:load_graph` - グラフロード
+
+**仮説テンプレート**:
+1. task_idに紐づくclaimsが存在しない
+2. edgesのフィルタリングが不正
+3. グラフシリアライズでエラー
+4. メトリクス計算で除算エラー
+
+---
+
+## 3. 計装の指針
+
+### 3.1 Pythonコードへの計装
+
+Debugモードのログパス（NDJSONファイル）に直接書き込む：
+
+```python
+# #region agent log
+import json
+with open("/home/statuser/lyra/.cursor/debug.log", "a") as f:
+    f.write(json.dumps({
+        "location": "src/xxx.py:LINE",
+        "message": "desc",
+        "data": {"key": "value"},
+        "timestamp": __import__("time").time() * 1000,
+        "sessionId": "debug-session",
+        "hypothesisId": "A"
+    }) + "\n")
+# #endregion
+```
+
+### 3.2 計装の配置ルール
+
+1. **関数エントリ**: 引数の値を記録
+2. **関数イグジット**: 戻り値を記録
+3. **分岐ポイント**: どのブランチが実行されたか
+4. **外部呼び出し前後**: API/DB呼び出しの入出力
+5. **例外キャッチ**: 例外の型とメッセージ
+
+### 3.3 仮説IDの命名規約
+
+- `A`, `B`, `C`, ... : 主仮説
+- `A1`, `A2`, ... : サブ仮説
+- 各ログに `hypothesisId` を付与し、分析時に絞り込めるようにする
+
+---
+
+## 4. Makefileコマンド活用
+
+### 4.1 テスト実行
+
+```bash
+# 単体テストのみ
+make test-unit
+
+# 統合テストのみ
+make test-integration
+
+# E2Eテスト
+make test-e2e
+
+# 特定ファイルのテスト
+make test TARGET=tests/test_specific.py
+```
+
+### 4.2 品質チェック
+
+```bash
+# Lint + Type check
+make quality
+
+# Lintのみ
+make lint
+
+# 型チェックのみ
+make typecheck
+```
+
+### 4.3 コンテナ操作
+
+```bash
+# ログ確認
+make dev-logs-f
+
+# シェル接続
+make dev-shell
+
+# 再ビルド
+make dev-rebuild
+```
+
+---
+
+## 5. トラブルシューティングテンプレート
+
+### 5.1 検索が進まない場合
+
+```
+仮説候補:
+1. Workerが起動していない → dev-logs-fでWorker起動ログを確認
+2. ジョブがキューに入っていない → jobs テーブルを確認
+3. Rate limiterでブロック → adapters テーブルの state を確認
+4. Chrome CDP切断 → make chrome-diagnose
+5. 認証キューにブロック → intervention_queue テーブルを確認
+```
+
+### 5.2 NLI判定が失敗する場合
+
+```
+仮説候補:
+1. モデルファイルが存在しない → models/ ディレクトリを確認
+2. GPU/CPUメモリ不足 → リソース使用量を確認
+3. 入力テキストが長すぎる → トークン数を確認
+4. モデルロード時のエラー → NLI初期化ログを確認
+5. Fragment text_content が空 → fragments テーブルを確認
+```
+
+### 5.3 Evidence Graphが空の場合
+
+```
+仮説候補:
+1. task_id に紐づく claims が存在しない → claims テーブルを確認
+2. edges が作成されていない → edges テーブルを確認
+3. グラフロードのフィルタ条件が不正 → load_graph() の引数を確認
+4. fragments が pages に紐づいていない → page_id の整合性を確認
+5. soft delete で論理削除されている → is_active フラグを確認
+```
+
+### 5.4 MCPハンドラーの直接テストがハングする場合
+
+**原因**: MCPサーバーがDB書き込みロック（WAL WRITER lock）を保持しており、別プロセスからの `executescript` がロック待ちでハング。
+
+**確認方法**:
+```bash
+fuser data/lyra.db  # DBを使用しているプロセスを確認
+```
+
+**回避策**:
+1. **E2Eシナリオ**: MCPサーバー経由でツールを呼び出す（正規ルート、問題なし）
+2. **直接テスト**: テスト用隔離DB（`tests/conftest.py` の `test_database` fixture）を使用
+3. **緊急時**: MCPサーバー再起動後にテスト（ユーザー操作必要）
+
+**注意**: `from src.storage.database import get_database` で `get_database()` を呼ぶとハングするが、`import src.storage.database as db_module` 経由で呼ぶと成功する場合がある（import順序依存）。根本原因はDBロック競合。
+
+---
+
+## 6. S_FULL_E2E 実行チェックリスト
+
+### 6.1 事前準備
+- [ ] `make doctor` で環境チェック完了
+- [ ] `make chrome-start` でChrome CDP起動
+- [ ] `make dev-up` でコンテナ起動
+- [ ] `make mcp` でMCP Server起動
+
+### 6.2 タスク実行
+- [ ] `create_task` でタスク作成、task_id取得
+- [ ] `queue_searches` で検索クエリ投入
+- [ ] `get_status(wait=30)` で進捗確認
+- [ ] 認証キューがあれば `get_auth_queue` → `resolve_auth`
+- [ ] 検索完了まで `get_status` を繰り返す
+
+### 6.3 素材取得・評価
+- [ ] `get_materials(include_graph=true)` で素材取得
+- [ ] Evidence Graph の構造を確認
+- [ ] NLI判定結果の30件サンプル抽出（決め打ちSQL）
+- [ ] 専門家評価シートへ記録
+
+### 6.4 クリーンアップ
+- [ ] `stop_task` でタスク停止
+- [ ] デバッグログの計装を削除（検証成功後のみ）
+
+---
+
+## 7. 参照ドキュメント
+
+| ドキュメント | パス | 目的 |
+|-------------|------|------|
+| ケーススタディ設計 | `docs/S_FULL_E2E.md` | 実験プロトコル |
+| ADR一覧 | `docs/adr/` | アーキテクチャ決定 |
+| Makefile | `Makefile` | 利用可能コマンド |
+| スキーマ | `src/storage/schema.sql` | テーブル構造 |
+| MCPツール | `src/mcp/server.py` | ツール定義 |

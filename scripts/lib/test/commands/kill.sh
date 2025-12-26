@@ -21,11 +21,19 @@ cmd_kill() {
 
     if [[ "$run_id" == "--all" ]]; then
         # Emergency cleanup: kill all pytest and remove all test artifacts
+        # Note: Use timeout to prevent hanging on unresponsive containers
+        local my_pid=$$
         if is_container_running_selected; then
-            container_exec_sh "pkill -9 -f pytest 2>/dev/null || true"
-            container_exec_sh "rm -rf \"$TEST_RESULT_DIR\" \"$LEGACY_RESULT_FILE\" \"$LEGACY_PID_FILE\" 2>/dev/null || true"
+            timeout 10 container_exec_sh "pkill -9 -f pytest 2>/dev/null || true" 2>/dev/null || true
+            timeout 10 container_exec_sh "rm -rf \"$TEST_RESULT_DIR\" \"$LEGACY_RESULT_FILE\" \"$LEGACY_PID_FILE\" 2>/dev/null || true" 2>/dev/null || true
         fi
-        pkill -9 -f "pytest" 2>/dev/null || true
+        # Kill pytest processes but exclude this script and its parent make process
+        # Using pgrep to get PIDs first, then kill them individually
+        local pids
+        pids=$(pgrep -f "pytest" 2>/dev/null | grep -v "^${my_pid}$" || true)
+        if [[ -n "$pids" ]]; then
+            echo "$pids" | xargs -r kill -9 2>/dev/null || true
+        fi
         rm -rf "$TEST_RESULT_DIR" "$LEGACY_RESULT_FILE" "$LEGACY_PID_FILE" "$TEST_STATE_FILE" 2>/dev/null || true
         if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
             cat <<EOF
