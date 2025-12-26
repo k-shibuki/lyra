@@ -318,6 +318,21 @@ class SearchExecutor:
                 # Check for ALL_FETCHES_FAILED condition
                 # If we attempted fetches but got no successful pages
                 search_state_check = self.state.get_search(search_id)
+
+                # #region agent log (hypothesis H6-H8)
+                logger.info(
+                    "ALL_FETCHES_FAILED check",
+                    search_id=search_id,
+                    fetch_attempted=fetch_attempted,
+                    search_state_check_exists=search_state_check is not None,
+                    search_state_check_pages=(
+                        search_state_check.pages_fetched if search_state_check else None
+                    ),
+                    search_state_pages=search_state.pages_fetched if search_state else None,
+                    search_state_is_same=(search_state_check is search_state),
+                )
+                # #endregion
+
                 all_fetches_failed = (
                     fetch_attempted > 0
                     and search_state_check
@@ -533,6 +548,14 @@ class SearchExecutor:
                 return
 
             # Record page fetch
+            # #region agent log (hypothesis H8)
+            logger.info(
+                "record_page_fetch called",
+                search_id=search_id,
+                domain=domain_short,
+                url=url[:80],
+            )
+            # #endregion
             self.state.record_page_fetch(
                 search_id=search_id,
                 domain=domain_short,

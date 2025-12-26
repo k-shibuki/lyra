@@ -69,6 +69,25 @@ make dev-status
 make mcp
 ```
 
+## Log access
+
+MCPサーバーのログは `logs/lyra_YYYYMMDD.log` に出力される:
+
+```bash
+# Show recent logs (tail -100)
+make mcp-logs
+
+# Follow logs in real-time (tail -f)
+make mcp-logs-f
+
+# Search logs by pattern
+make mcp-logs-grep PATTERN="ALL_FETCHES_FAILED"
+make mcp-logs-grep PATTERN="error"
+
+# Direct file access (for advanced filtering)
+tail -f logs/lyra_$(date +%Y%m%d).log | jq -r 'select(.level == "WARNING")'
+```
+
 ---
 
 ## Phase-specific debugging (Lyra E2E)
@@ -211,6 +230,11 @@ make test-kill-all
 
 # Query DB directly
 timeout 10 sqlite3 data/lyra.db "SELECT * FROM tasks LIMIT 5;"
+
+# MCP Server logs
+make mcp-logs                      # Recent 100 lines
+make mcp-logs-f                    # Follow (real-time)
+make mcp-logs-grep PATTERN="error" # Search by pattern
 
 # Container logs
 make dev-logs-f

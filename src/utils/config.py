@@ -524,8 +524,88 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
+# Cache for local.yaml content (loaded once per process)
+_local_overrides_cache: dict[str, Any] | None = None
+
+
+def _load_local_overrides(config_dir: Path) -> dict[str, Any]:
+    """Load local.yaml overrides (cached).
+
+    local.yaml provides unified local overrides for all YAML config files.
+    Top-level keys correspond to config file names (without .yaml extension).
+
+    Example local.yaml:
+        settings:
+          task_limits:
+            cursor_idle_timeout_seconds: 180
+        academic_apis:
+          apis:
+            semantic_scholar:
+              enabled: false
+
+    Args:
+        config_dir: Configuration directory path.
+
+    Returns:
+        Local overrides dictionary (cached after first load).
+    """
+    global _local_overrides_cache
+
+    if _local_overrides_cache is not None:
+        return _local_overrides_cache
+
+    local_path = config_dir / "local.yaml"
+    if local_path.exists():
+        with open(local_path, encoding="utf-8") as f:
+            _local_overrides_cache = yaml.safe_load(f) or {}
+    else:
+        _local_overrides_cache = {}
+
+    return _local_overrides_cache
+
+
+def _load_yaml_with_local_override(
+    config_dir: Path,
+    filename: str,
+    section_key: str | None = None,
+) -> dict[str, Any]:
+    """Load YAML file with local.yaml override support.
+
+    This is the unified loader for all YAML config files.
+    It loads the base file, then applies overrides from local.yaml.
+
+    Args:
+        config_dir: Configuration directory path.
+        filename: YAML filename (e.g., "settings.yaml").
+        section_key: Key in local.yaml for overrides.
+                     Defaults to filename without extension.
+
+    Returns:
+        Merged configuration dictionary.
+    """
+    config: dict[str, Any] = {}
+
+    # Load base file
+    base_path = config_dir / filename
+    if base_path.exists():
+        with open(base_path, encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+
+    # Apply local.yaml overrides
+    local_overrides = _load_local_overrides(config_dir)
+    if section_key is None:
+        section_key = Path(filename).stem  # e.g., "settings.yaml" -> "settings"
+
+    if section_key in local_overrides:
+        config = _deep_merge(config, local_overrides[section_key])
+
+    return config
+
+
 def _load_yaml_config(config_dir: Path) -> dict[str, Any]:
-    """Load configuration from YAML files.
+    """Load main settings configuration.
+
+    Loads settings.yaml with local.yaml overrides (settings section).
 
     Args:
         config_dir: Configuration directory path.
@@ -533,20 +613,13 @@ def _load_yaml_config(config_dir: Path) -> dict[str, Any]:
     Returns:
         Merged configuration dictionary.
     """
-    config: dict[str, Any] = {}
-
-    # Load settings.yaml
-    settings_path = config_dir / "settings.yaml"
-    if settings_path.exists():
-        with open(settings_path, encoding="utf-8") as f:
-            settings_data = yaml.safe_load(f) or {}
-            config = _deep_merge(config, settings_data)
-
-    return config
+    return _load_yaml_with_local_override(config_dir, "settings.yaml", "settings")
 
 
 def _load_academic_apis_config(config_dir: Path) -> dict[str, Any]:
-    """Load academic APIs configuration from YAML file.
+    """Load academic APIs configuration.
+
+    Loads academic_apis.yaml with local.yaml overrides (academic_apis section).
 
     Args:
         config_dir: Configuration directory path.
@@ -554,13 +627,7 @@ def _load_academic_apis_config(config_dir: Path) -> dict[str, Any]:
     Returns:
         Academic APIs configuration dictionary.
     """
-    config_path = config_dir / "academic_apis.yaml"
-    if not config_path.exists():
-        return {}
-
-    with open(config_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-        return data
+    return _load_yaml_with_local_override(config_dir, "academic_apis.yaml", "academic_apis")
 
 
 @lru_cache(maxsize=1)

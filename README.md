@@ -504,10 +504,49 @@ stop_task(task_id="task_abc123", reason="completed")
 |------|---------|
 | `.env` | Environment variables (ports, paths, model selection) |
 | `config/settings.yaml` | Core settings (timeouts, budgets, thresholds) |
+| `config/local.yaml` | Local overrides (gitignored, see `local.yaml.example`) |
 | `config/engines.yaml` | Search engine definitions and priorities |
 | `config/domains.yaml` | Domain trust levels and rate policies |
 | `config/search_parsers.yaml` | HTML selectors for search result parsing |
 | `config/academic_apis.yaml` | Academic API endpoints (Semantic Scholar, OpenAlex, etc.) |
+
+### Local Configuration Overrides
+
+For local customization without modifying tracked files, create `config/local.yaml`:
+
+```bash
+cp config/local.yaml.example config/local.yaml
+```
+
+**Override priority** (lowest to highest):
+
+1. Base YAML files (`settings.yaml`, `academic_apis.yaml`, etc.)
+2. `local.yaml` (section-based overrides)
+3. Environment variables (`LYRA_*` prefix)
+
+**Example `local.yaml`**:
+
+```yaml
+# Top-level keys = target config file (without .yaml)
+settings:
+  task_limits:
+    cursor_idle_timeout_seconds: 180
+  concurrency:
+    browser_serp:
+      max_tabs: 2
+
+academic_apis:
+  apis:
+    semantic_scholar:
+      enabled: false
+```
+
+**Environment variable alternative** (for CI/containers):
+
+```bash
+LYRA_TASK_LIMITS__CURSOR_IDLE_TIMEOUT_SECONDS=180
+LYRA_GENERAL__LOG_LEVEL=DEBUG
+```
 
 ### Key Settings
 

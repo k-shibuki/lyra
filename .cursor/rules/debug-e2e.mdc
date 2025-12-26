@@ -45,7 +45,17 @@ uv run python -c "..."
 | 検索実行（queue_searches） | 120秒 |
 | ページ取得・抽出 | 60秒 |
 
-### 0.3 仮説→計装→検証サイクル
+### 0.3 MCPサーバーログの確認
+
+MCPサーバーのログは `logs/lyra_YYYYMMDD.log` に出力される。以下のコマンドで確認:
+
+```bash
+make mcp-logs           # 最新100行を表示
+make mcp-logs-f         # リアルタイムで追跡（tail -f）
+make mcp-logs-grep PATTERN="error"  # パターン検索
+```
+
+### 0.4 仮説→計装→検証サイクル
 
 1. **仮説形成**: 症状から原因候補を列挙する
 2. **計装**: 仮説を検証できるログ/アサーションを追加する
