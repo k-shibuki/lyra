@@ -1,6 +1,13 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2025-12-26
+
 # 非同期アーキテクチャ改善
 
-> **Status**: ✅ IMPLEMENTED（Phase 1-3 全完了）
+> **Status**: ✅ IMPLEMENTED（Phase 1-6 全完了）
 
 > **Scope / Assumptions (Dev Phase)**:
 > - **Breaking changes are allowed** (no backward compatibility required at this phase).
@@ -1037,7 +1044,7 @@ Worker-1: search_action → BrowserSearchProvider.search(engine="mojeek")
 - [x] テスト追加
 - [x] 全テストパス
 
-#### 4.C Config-driven concurrency + Safe Auto-Backoff 🚧 IN PROGRESS
+#### 4.C Config-driven concurrency + Safe Auto-Backoff ✅ DONE
 
 > **ADR**: [ADR-0015: Adaptive Concurrency Control](adr/0015-adaptive-concurrency-control.md)
 >
@@ -1540,11 +1547,11 @@ await resolve_auth(
 
 ---
 
-**文書バージョン:** 1.7
+**文書バージョン:** 1.8
 **作成日:** 2025-12-21
-**最終更新:** 2025-12-25（Phase 4.C 実装中）
+**最終更新:** 2025-12-26（Phase 1-6 全完了）
 **著者:** Claude (Sonnet 4.5 / Opus 4.5)
-**レビュー状態:** 🚧 Phase 4.C 実装中
+**レビュー状態:** ✅ 実装完了
 
 **関連ドキュメント:**
 - `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR

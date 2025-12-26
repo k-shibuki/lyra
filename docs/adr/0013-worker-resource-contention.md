@@ -235,5 +235,4 @@ def get_academic_client(name: str) -> BaseAcademicClient:
 - [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - ワーカー並列実行の基盤
 - [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - ブラウザSERPリソース制御（TabPool: max_tabs=2）
 - [ADR-0006: 8-Layer Security Model](0006-8-layer-security-model.md) - ステルス要件
-- [Q_ASYNC_ARCHITECTURE.md](../Q_ASYNC_ARCHITECTURE.md) - Phase 4 実装計画
 - [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md) - Phase 5 ページネーション詳細設計

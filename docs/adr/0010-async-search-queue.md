@@ -213,9 +213,7 @@ class StatusResult:
 
 ## Implementation Status
 
-**Status**: Phase 1-4 ✅ 完了 / Phase 5-6 🔜 計画中
-
-詳細は `docs/Q_ASYNC_ARCHITECTURE.md` を参照。
+**Status**: Phase 1-6 ✅ 完了
 
 ### フェーズ一覧
 
@@ -225,8 +223,8 @@ class StatusResult:
 | Phase 2 | `search`, `notify_user`, `wait_for_user` ツール削除 | ✅ 完了 (2025-12-24) |
 | Phase 3 | 一次検証、`stop_task` の `mode` パラメータ（graceful/immediate）追加 | ✅ 完了 (2025-12-24) |
 | Phase 4 | Search Resource Control（学術API + ブラウザSERP） | ✅ 完了 (2025-12-25) ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
-| Phase 5 | SERP Enhancement（ページネーション） | 🔜 計画中 ([R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md)) |
-| Phase 6 | calibration_metrics action削除 | 🔜 計画中 |
+| Phase 5 | SERP Enhancement（ページネーション） | ✅ 完了 (2025-12-25) ([R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md)) |
+| Phase 6 | calibration_metrics action削除、adaptersテーブル追加 | ✅ 完了 (2025-12-25) |
 
 ### Phase 1-3 実装サマリー
 
@@ -289,15 +287,15 @@ When running multiple queue workers, external rate limits must still be respecte
 | **HTTP fetch** | `RateLimiter` per domain | ✅ Implemented | - |
 
 **Note**: 
-- Academic API rate limiting is tracked as **Phase 4.A** in [Q_ASYNC_ARCHITECTURE.md](../Q_ASYNC_ARCHITECTURE.md).
-- Browser SERP resource control is tracked as **Phase 4.B**. See [ADR-0014](0014-browser-serp-resource-control.md) for design details.
-- SERP Enhancement (pagination) is tracked as **Phase 5**. See [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md).
+- Academic API rate limiting (**Phase 4.A**): See [ADR-0013](0013-worker-resource-contention.md).
+- Browser SERP resource control (**Phase 4.B**): See [ADR-0014](0014-browser-serp-resource-control.md).
+- SERP Enhancement / pagination (**Phase 5**): See [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md).
 
 ## References
-- `docs/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計
 - [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4.A 学術APIリソース競合制御
 - [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Phase 4.B ブラウザSERPリソース制御
 - [R_SERP_ENHANCEMENT.md](../R_SERP_ENHANCEMENT.md) - Phase 5 ページネーション詳細設計
+- `docs/archive/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ詳細設計（アーカイブ）
 - `src/mcp/server.py` - MCPツール定義
 - `src/research/executor.py` - 検索実行
 - `src/research/pipeline.py` - パイプラインオーケストレーション

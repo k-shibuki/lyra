@@ -23,6 +23,8 @@ Tests the background worker that processes search queue jobs per ADR-0010.
 | TC-JT-04 | cancel nonexistent task | Boundary – empty | Returns 0, no error | Empty result |
 | TC-WK-CANCEL-01 | search_task cancelled | Equivalence – cancel | Worker continues to next job | Worker survives |
 | TC-WK-CANCEL-02 | run_server() stops | Equivalence – shutdown | Worker exits loop | Worker shutdown |
+| TC-WK-OPT-01 | input_json with options | Wiring – options propagation | options passed to search_action | Propagation |
+| TC-WK-OPT-02 | budget_pages in options | Effect – budget propagation | search_action receives budget_pages | Effect |
 """
 
 from __future__ import annotations
@@ -1863,3 +1865,173 @@ class TestSearchQueuePerformance:
         )
         assert row is not None
         assert row["state"] == "completed"
+
+
+class TestSearchQueueWorkerOptionsPropagation:
+    """Wiring/Effect tests for options propagation from jobs.input_json to search_action.
+
+    Per test rules: New parameters must have wiring tests that verify
+    propagation to downstream components.
+    """
+
+    @pytest.mark.asyncio
+    async def test_options_passed_to_search_action(self, test_database: Database) -> None:
+        """
+        TC-WK-OPT-01: Worker passes options from input_json to search_action.
+
+        // Given: Job with options (budget_pages, engines) in input_json
+        // When: Worker processes the job
+        // Then: search_action receives those options
+        """
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_wk_opt01", "Test task", "exploring"),
+        )
+
+        # Queue job with options
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_wk_opt01",
+                "task_wk_opt01",
+                "search_queue",
+                50,
+                "network_client",
+                "queued",
+                json.dumps({
+                    "query": "test query",
+                    "options": {
+                        "budget_pages": 7,
+                        "engines": ["mojeek"],
+                    },
+                }),
+                now,
+            ),
+        )
+
+        # Track options passed to search_action
+        captured_options: dict[str, Any] = {}
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            nonlocal captured_options
+            captured_options = options or {}
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                worker_task = asyncio.create_task(_search_queue_worker(0))
+                await asyncio.sleep(0.2)
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify options were passed to search_action
+        assert "budget_pages" in captured_options, (
+            f"budget_pages not in captured options: {captured_options}"
+        )
+        assert captured_options["budget_pages"] == 7
+        assert "engines" in captured_options
+        assert captured_options["engines"] == ["mojeek"]
+
+    @pytest.mark.asyncio
+    async def test_budget_pages_effect_propagation(self, test_database: Database) -> None:
+        """
+        TC-WK-OPT-02: budget_pages propagates through worker to search_action options.
+
+        // Given: Job with budget_pages=3 in input_json
+        // When: Worker processes the job
+        // Then: search_action options contain budget_pages=3, and
+        //       options also include task_id and search_job_id (ADR-0007)
+        """
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_wk_opt02", "Test task", "exploring"),
+        )
+
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_wk_opt02",
+                "task_wk_opt02",
+                "search_queue",
+                50,
+                "network_client",
+                "queued",
+                json.dumps({
+                    "query": "budget effect test",
+                    "options": {"budget_pages": 3},
+                }),
+                now,
+            ),
+        )
+
+        captured_options: dict[str, Any] = {}
+
+        mock_state = MagicMock()
+        mock_state.notify_status_change = MagicMock()
+
+        async def mock_search_action(
+            task_id: str,
+            query: str,
+            state: ExplorationState,
+            options: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            nonlocal captured_options
+            captured_options = options or {}
+            return {"ok": True, "status": "satisfied", "pages_fetched": 1}
+
+        with patch(
+            "src.scheduler.search_worker._get_exploration_state",
+            new=AsyncMock(return_value=mock_state),
+        ):
+            with patch(
+                "src.research.pipeline.search_action",
+                side_effect=mock_search_action,
+            ):
+                from src.scheduler.search_worker import _search_queue_worker
+
+                worker_task = asyncio.create_task(_search_queue_worker(0))
+                await asyncio.sleep(0.2)
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Verify budget_pages propagated
+        assert captured_options.get("budget_pages") == 3
+
+        # Verify ADR-0007: task_id and search_job_id are added by worker
+        assert captured_options.get("task_id") == "task_wk_opt02"
+        assert captured_options.get("search_job_id") == "s_wk_opt02"

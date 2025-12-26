@@ -114,7 +114,7 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 #### calibration_metricsとの関係
 
 - `calibration_metrics(get_stats)` / `(get_evaluations)`: 状態確認・履歴参照（MCPツール）
-- `evaluate` / `get_diagram_data`: **MCPツールから削除済み**（Q_ASYNC_ARCHITECTURE.md Phase 6完了）。バッチ評価・可視化はスクリプトで実施。
+- `evaluate` / `get_diagram_data`: MCPツールから削除済み（ADR-0010）。バッチ評価・可視化はスクリプトで実施。
 
 ### 学習トリガー条件
 

@@ -13,6 +13,9 @@ Tests the async search queue tool per ADR-0010.
 | TC-Q-05 | priority="high" | Equivalence – option | priority_value=10 in DB | Priority mapping |
 | TC-Q-06 | priority="low" | Equivalence – option | priority_value=90 in DB | Priority mapping |
 | TC-Q-07 | Multiple queries | Equivalence – normal | All queued with separate IDs | Batch |
+| TC-Q-08 | budget_pages=5 | Wiring – option propagation | budget_pages in input_json | Propagation |
+| TC-Q-09 | engines=["duckduckgo"] | Wiring – option propagation | engines in input_json | Propagation |
+| TC-Q-10 | budget_pages + engines | Effect – options preserved | Both in input_json, priority excluded | Full options |
 | TC-QS-01 | get_status after queue | Equivalence – normal | queue.depth shows queued count | Integration |
 | TC-QS-02 | get_status wait=0 | Boundary – minimum | Returns immediately | Long polling |
 | TC-QS-03 | get_status wait=60 | Boundary – maximum | Waits up to 60s | Long polling |
@@ -243,6 +246,133 @@ class TestQueueSearchesExecution:
         )
         assert row is not None
         assert row["priority"] == 90
+
+
+class TestQueueSearchesOptionsPropagation:
+    """Wiring/Effect tests for queue_searches options propagation.
+
+    Per test rules: New parameters must have wiring tests that verify
+    propagation to downstream components.
+    """
+
+    @pytest.mark.asyncio
+    async def test_budget_pages_stored_in_input_json(self, test_database: Database) -> None:
+        """
+        TC-Q-08: options.budget_pages is stored in jobs.input_json.
+
+        // Given: Valid task
+        // When: queue_searches with options.budget_pages=5
+        // Then: input_json contains {"options": {"budget_pages": 5}}
+        """
+        from src.mcp.server import _handle_queue_searches
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_q08", "Test task", "exploring"),
+        )
+
+        result = await _handle_queue_searches(
+            {
+                "task_id": "task_q08",
+                "queries": ["budget test query"],
+                "options": {"budget_pages": 5},
+            }
+        )
+
+        row = await db.fetch_one(
+            "SELECT input_json FROM jobs WHERE id = ?",
+            (result["search_ids"][0],),
+        )
+        assert row is not None
+
+        input_data = json.loads(row["input_json"])
+        assert "options" in input_data
+        assert input_data["options"].get("budget_pages") == 5
+
+    @pytest.mark.asyncio
+    async def test_engines_stored_in_input_json(self, test_database: Database) -> None:
+        """
+        TC-Q-09: options.engines is stored in jobs.input_json.
+
+        // Given: Valid task
+        // When: queue_searches with options.engines=["duckduckgo"]
+        // Then: input_json contains {"options": {"engines": ["duckduckgo"]}}
+        """
+        from src.mcp.server import _handle_queue_searches
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_q09", "Test task", "exploring"),
+        )
+
+        result = await _handle_queue_searches(
+            {
+                "task_id": "task_q09",
+                "queries": ["engine test query"],
+                "options": {"engines": ["duckduckgo"]},
+            }
+        )
+
+        row = await db.fetch_one(
+            "SELECT input_json FROM jobs WHERE id = ?",
+            (result["search_ids"][0],),
+        )
+        assert row is not None
+
+        input_data = json.loads(row["input_json"])
+        assert "options" in input_data
+        assert input_data["options"].get("engines") == ["duckduckgo"]
+
+    @pytest.mark.asyncio
+    async def test_full_options_propagation(self, test_database: Database) -> None:
+        """
+        TC-Q-10: Full options (budget_pages + engines) stored correctly.
+
+        // Given: Valid task
+        // When: queue_searches with budget_pages, engines, and priority
+        // Then: budget_pages and engines in input_json.options, priority excluded (stored in jobs.priority)
+        """
+        from src.mcp.server import _handle_queue_searches
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_q10", "Test task", "exploring"),
+        )
+
+        result = await _handle_queue_searches(
+            {
+                "task_id": "task_q10",
+                "queries": ["full options query"],
+                "options": {
+                    "budget_pages": 10,
+                    "engines": ["mojeek", "duckduckgo"],
+                    "priority": "high",
+                },
+            }
+        )
+
+        row = await db.fetch_one(
+            "SELECT input_json, priority FROM jobs WHERE id = ?",
+            (result["search_ids"][0],),
+        )
+        assert row is not None
+
+        # Priority is stored in jobs.priority column, not in input_json
+        assert row["priority"] == 10
+
+        input_data = json.loads(row["input_json"])
+        assert "options" in input_data
+        # budget_pages and engines are stored in input_json.options
+        assert input_data["options"].get("budget_pages") == 10
+        assert input_data["options"].get("engines") == ["mojeek", "duckduckgo"]
+        # priority is NOT in input_json.options (it's in jobs.priority)
+        assert "priority" not in input_data["options"]
 
 
 class TestGetStatusWithWait:
