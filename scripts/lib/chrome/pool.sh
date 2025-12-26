@@ -60,7 +60,7 @@ EOF
             
             if try_connect "$port" > /dev/null 2>&1; then
                 status="[CONNECTED]"
-                ((connected++))
+                ((connected++)) || true
             fi
             
             printf "  Worker %d: port=%d profile=%s %s\n" "$i" "$port" "$profile" "$status"
@@ -105,8 +105,8 @@ start_chrome_pool() {
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
                 echo "  Worker $i (port=$port): Already running"
             fi
-            ((already_running++))
-            ((success++))
+            ((already_running++)) || true
+            ((success++)) || true
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"already_running\"}")
             continue
         fi
@@ -133,13 +133,13 @@ start_chrome_pool() {
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
                 echo "OK"
             fi
-            ((success++))
+            ((success++)) || true
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"started\"}")
         else
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
                 echo "FAILED"
             fi
-            ((failed++))
+            ((failed++)) || true
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"failed\"}")
         fi
     done
@@ -198,7 +198,7 @@ stop_chrome_pool() {
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
                 echo "  Worker $i (port=$port): Not running"
             fi
-            ((not_running++))
+            ((not_running++)) || true
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"not_running\"}")
             continue
         fi
@@ -216,7 +216,7 @@ stop_chrome_pool() {
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
                 echo "OK"
             fi
-            ((stopped++))
+            ((stopped++)) || true
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"stopped\"}")
         else
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
