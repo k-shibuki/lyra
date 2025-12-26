@@ -35,17 +35,17 @@
 
 COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Core paths / flags first
+# Core paths first
 # shellcheck source=/dev/null
 source "${COMMON_DIR}/lib/paths.sh"
-# shellcheck source=/dev/null
-source "${COMMON_DIR}/lib/output_flags.sh"
 
-# Exit codes and logging
+# Exit codes
 # shellcheck source=/dev/null
 source "${COMMON_DIR}/lib/exit_codes.sh"
+
+# Output utilities (JSON, logging, result formatting)
 # shellcheck source=/dev/null
-source "${COMMON_DIR}/lib/log.sh"
+source "${COMMON_DIR}/lib/output.sh"
 
 # Error handling / debug
 # shellcheck source=/dev/null
@@ -55,14 +55,8 @@ source "${COMMON_DIR}/lib/error_handling.sh"
 # shellcheck source=/dev/null
 source "${COMMON_DIR}/lib/env_load.sh"
 load_env 2>/dev/null || true
-# shellcheck source=/dev/null
-source "${COMMON_DIR}/lib/constants.sh"
 
-# Output helpers and argument parsing
-# shellcheck source=/dev/null
-source "${COMMON_DIR}/lib/json.sh"
-# shellcheck source=/dev/null
-source "${COMMON_DIR}/lib/result.sh"
+# CLI flag parsing (includes output mode flags initialization)
 # shellcheck source=/dev/null
 source "${COMMON_DIR}/lib/flags.sh"
 
