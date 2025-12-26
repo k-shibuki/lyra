@@ -70,7 +70,13 @@ json_num() {
 # Arguments:
 #   $*: Message to log
 log_info() {
-    echo "[INFO] $*"
+    # NOTE: When running in JSON output mode or stdio-protocol mode (e.g., MCP),
+    # stdout must remain machine-readable. Route logs to stderr in that case.
+    if [[ "${LYRA_OUTPUT_JSON:-}" == "true" ]] || [[ "${LYRA_LOG_TO_STDERR:-}" == "true" ]]; then
+        echo "[INFO] $*" >&2
+    else
+        echo "[INFO] $*"
+    fi
 }
 
 # Function: log_warn

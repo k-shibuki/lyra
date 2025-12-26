@@ -18,6 +18,22 @@
 set -euo pipefail
 
 # =============================================================================
+# STDIO PROTOCOL GUARD (Cursor MCP)
+# =============================================================================
+#
+# Cursor expects the MCP server to speak JSON-RPC over stdout.
+# Any human-readable logs printed to stdout before the server starts will break
+# the protocol (e.g., "Unexpected token 'I', \"[INFO] ...\" is not valid JSON").
+# We therefore:
+#   - route script logs to stderr
+#   - keep stdout reserved for the Python MCP server
+#
+# NOTE: Python logging is already configured to use stderr (src/utils/logging.py).
+exec 3>&1
+exec 1>&2
+export LYRA_LOG_TO_STDERR="true"
+
+# =============================================================================
 # INITIALIZATION
 # =============================================================================
 
@@ -94,4 +110,7 @@ export LYRA_BROWSER__CHROME_PORT="${LYRA_BROWSER__CHROME_PORT:-9222}"
 
 # 6. Start MCP server on host (enables chrome.sh auto-start)
 cd "${PROJECT_DIR}"
+
+# Restore stdout for JSON-RPC protocol before launching the server.
+exec 1>&3 3>&-
 exec uv run python -m src.mcp.server
