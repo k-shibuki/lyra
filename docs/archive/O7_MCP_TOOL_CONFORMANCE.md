@@ -423,24 +423,21 @@ SearchExecutor.execute()
 
 ### Phase 1: searchパイプライン（O.7.2）
 
-1. シーケンス図作成: `docs/sequences/search_pipeline_flow.md`
-2. デバッグスクリプト作成: `tests/scripts/debug_search_pipeline_flow.py`
-3. 実行・問題特定
-4. 修正実装
+1. デバッグスクリプト作成: `tests/scripts/debug_search_pipeline_flow.py`
+2. 実行・問題特定
+3. 修正実装
 
 ### Phase 2: get_status（O.7.3）
 
-1. シーケンス図作成: `docs/sequences/get_status_flow.md`
-2. デバッグスクリプト作成: `tests/scripts/debug_get_status_flow.py`
-3. 実行・問題特定
-4. 修正実装
+1. デバッグスクリプト作成: `tests/scripts/debug_get_status_flow.py`
+2. 実行・問題特定
+3. 修正実装
 
 ### Phase 3: get_materials（O.7.4）
 
-1. シーケンス図作成: `docs/sequences/get_materials_flow.md`
-2. デバッグスクリプト作成: `tests/scripts/debug_get_materials_flow.py`
-3. 実行・問題特定
-4. 修正実装
+1. デバッグスクリプト作成: `tests/scripts/debug_get_materials_flow.py`
+2. 実行・問題特定
+3. 修正実装
 
 ### Phase 4: その他ツール（O.7.5）
 

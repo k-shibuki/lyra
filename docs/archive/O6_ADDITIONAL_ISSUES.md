@@ -444,7 +444,6 @@ async def search(self, query: str, options: SearchOptions | None = None) -> Sear
 | `src/storage/database.py` | `get_engine_health_metrics()` メソッド追加 |
 | `src/utils/policy_engine.py` | `calculate_dynamic_weight()`, `get_dynamic_engine_weight()` メソッド追加 |
 | `src/search/browser_search_provider.py` | `search()`で動的重みを使用するよう修正 |
-| `docs/sequences/dynamic_weight_flow.md` | シーケンス図作成 |
 | `tests/test_policy_engine.py` | `TestDynamicWeightCalculation` クラス追加（11テスト） |
 | `tests/test_browser_search_provider.py` | `TestDynamicWeightUsage` クラス追加（3テスト） |
 | `tests/scripts/debug_dynamic_weight_flow.py` | デバッグスクリプト作成 |
@@ -482,7 +481,6 @@ pytest tests/test_browser_search_provider.py::TestDynamicWeightUsage -v
 python tests/scripts/debug_dynamic_weight_flow.py
 ```
 
-詳細な実装については `docs/sequences/dynamic_weight_flow.md` を参照。
 
 ---
 
@@ -490,8 +488,7 @@ python tests/scripts/debug_dynamic_weight_flow.py
 
 **実装完了日**: 2025-12-15  
 **実装ファイル**: `src/search/browser_search_provider.py:155-158` (_last_search_times追加), `src/search/browser_search_provider.py:311-339` (_rate_limit拡張), `src/search/browser_search_provider.py:484` (search呼び出し修正)  
-**検証スクリプト**: `tests/scripts/debug_engine_qps_flow.py`  
-**シーケンス図**: `docs/sequences/engine_qps_flow.md`
+**検証スクリプト**: `tests/scripts/debug_engine_qps_flow.py`
 
 ### 影響範囲
 
@@ -572,8 +569,7 @@ async def _rate_limit(self, engine: str | None = None) -> None:
 - `src/utils/metrics.py`: `get_today_tor_metrics()`, `get_domain_tor_metrics()`, `record_request()`, `record_tor_usage()` メソッド追加
 - `src/crawler/fetcher.py`: `_can_use_tor()` ヘルパー関数追加、`fetch_url()` に日次上限チェック統合
 
-**検証スクリプト**: `tests/scripts/debug_tor_daily_limit_flow.py`  
-**シーケンス図**: `docs/sequences/tor_daily_limit_flow.md`
+**検証スクリプト**: `tests/scripts/debug_tor_daily_limit_flow.py`
 
 ### 影響範囲
 
@@ -710,8 +706,7 @@ if not result.ok and result.status in (403, 429) and not use_tor:
 - `config/domains.yaml`: 日次予算設定追加
 - `src/crawler/fetcher.py`: `fetch_url()` に日次予算チェック統合
 
-**検証スクリプト**: `tests/scripts/debug_domain_daily_budget_flow.py`  
-**シーケンス図**: `docs/sequences/domain_daily_budget_flow.md`
+**検証スクリプト**: `tests/scripts/debug_domain_daily_budget_flow.py`
 
 ### 実装内容
 
@@ -872,8 +867,7 @@ async def fetch(self, url: str, ...):
 - `src/utils/schemas.py:104-130` (`LastmileCheckResult` モデル追加)
 - `src/storage/schema.sql:253-264` (`lastmile_usage` テーブル追加)
 
-**検証スクリプト**: `tests/scripts/debug_lastmile_slot_flow.py`  
-**シーケンス図**: `docs/sequences/lastmile_slot_flow.md`
+**検証スクリプト**: `tests/scripts/debug_lastmile_slot_flow.py`
 
 ### 実装内容
 

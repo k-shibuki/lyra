@@ -1,6 +1,6 @@
 # SERP Enhancement（ブラウザ検索強化）
 
-> **Status**: 🚧 IN PROGRESS（実装中）
+> **Status**: ⚠️ MOSTLY DONE（残タスクあり）
 >
 > **Phase Mapping**: [ADR-0010](adr/0010-async-search-queue.md) **Phase 5** として実装
 > **Related ADRs**: ADR-0014（Browser SERP Resource Control）, ADR-0015（Adaptive Concurrency）
@@ -9,7 +9,7 @@
 > - ADR-0010 Phase 4 完了後に着手（Phase 5 で実装）
 > - ADR-0014（Browser SERP Resource Control）を前提
 > - 既存コード資産の拡張で実装可能
-> - **実装開始**: 2025-12-25（設定ファイル追加完了）
+> - **実装**: 2025-12-25（主要機能完了、一部残タスクあり）
 
 ## Executive Summary
 
@@ -325,30 +325,89 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={max_page
 
 ## 8. 実装タスク
 
-### Phase 1: 基盤整備
+### Phase 1: 基盤整備 ✅
 - [x] `config/search_parsers.yaml` にページネーションパラメータ追加（pagination_type, results_per_page, offset/page テンプレート）
-- [ ] `src/search/parser_config.py` でページネーション設定読み込み
-- [ ] `build_search_url()` にoffset/page引数追加
+- [x] `src/search/parser_config.py` でページネーション設定読み込み（`PaginationConfig` dataclass, `EngineParserConfig.pagination`）
+- [x] `build_search_url()` にoffset/page引数追加（`serp_page` パラメータ対応）
 
-### Phase 2: 検索プロバイダー対応
-- [ ] `browser_search_provider.py` で `options.serp_page` を使用
-- [ ] キャッシュキーにページ番号含める（`serp_page` を使用、`budget_pages` はクロール予算であり別概念）
-- [ ] `SearchResponse` にページ情報追加（任意）
+### Phase 2: 検索プロバイダー対応 ✅
+- [x] `browser_search_provider.py` で `options.serp_page` を使用（ページネーションループ実装済み: 931-1169行）
+- [x] キャッシュキーに `serp_max_pages` 含める（`search_api.py` の `_get_cache_key()` 関数）
+- [ ] `SearchResponse` にページ情報追加（任意 / 未実装だが動作に影響なし）
 
-### Phase 3: 停止判断ロジック
-- [ ] `pagination_strategy.py` 新規作成
-- [ ] 飽和検知ロジック実装
-- [ ] 収穫率ベース停止実装
-- [ ] 設定可能なストラテジー選択
+### Phase 3: 停止判断ロジック ✅
+- [x] `pagination_strategy.py` 新規作成
+- [x] 飽和検知ロジック実装（`calculate_novelty_rate()`）
+- [x] 収穫率ベース停止実装（ロジックは実装済み）
+- [x] 設定可能なストラテジー選択（`fixed`, `auto`, `exhaustive`）
 
-### Phase 4: 統合・テスト
-- [ ] 単体テスト追加
-- [ ] 結合テスト（実エンジン）
-- [ ] Q_ASYNC / ADR更新
+### Phase 4: 統合・テスト ✅
+- [x] 単体テスト追加（`test_pagination_strategy.py`: 17テストケース）
+- [ ] 結合テスト（実エンジン）- 手動検証のみ
+- [x] Q_ASYNC / ADR更新（Q_ASYNC_ARCHITECTURE.md Phase 5 完了マーク済み）
 
-### Phase 5: DB拡張（必須）
-- [ ] `serp_items.page_number` カラム追加（監査/再現性をDB側で担保）
-- [ ] スキーマを更新し、DBを作り直し（開発フェーズなので破壊的にやる。マイグレーションではない）
+### Phase 5: DB拡張 ⚠️ 一部未完了
+- [x] `serp_items.page_number` カラム追加（`schema.sql` 64行目に追加済み）
+- [x] スキーマを更新し、DBを作り直し
+- [ ] **`page_number` の保存処理が未実装**（詳細は §8.1 参照）
+
+---
+
+### 8.1 残タスク詳細
+
+#### 🔴 Issue 1: `page_number` がDBに保存されていない
+
+**現状:**
+- `schema.sql` に `serp_items.page_number` カラムは追加済み（デフォルト値 `1`）
+- しかし `search_api.py` の `search_serp()` 関数（812-826行）で `serp_items` に INSERT する際、`page_number` フィールドが含まれていない
+
+**影響:**
+- 監査/再現性の担保ができない（どのSERPページから取得されたか追跡不可）
+- ドキュメントで「必須」としている機能が未実装
+
+**修正箇所:**
+
+```python
+# src/search/search_api.py:812-826
+# 現在:
+await db.insert(
+    "serp_items",
+    {
+        "query_id": query_id,
+        "engine": result["engine"],
+        "rank": result["rank"],
+        "url": result["url"],
+        "title": result["title"],
+        "snippet": result["snippet"],
+        "published_date": result.get("date"),
+        "source_tag": result["source_tag"],
+        "cause_id": trace.id,
+        # "page_number" が欠落
+    },
+)
+```
+
+**対応方針:**
+1. `SearchResult` / `BrowserSearchProvider` で `page_number` を結果に含める
+2. `search_serp()` で INSERT 時に `page_number` を保存
+
+**Done定義:** `serp_items` INSERT時に `page_number` が正しく保存される + テストで検証済み
+
+#### 🟡 Issue 2: `harvest_rate` が計算されていない
+
+**現状:**
+- `browser_search_provider.py` の 1155行目で `harvest_rate=None` のまま `PaginationContext` に渡している
+- `pagination_strategy.py` のロジックは実装済みだが、実際の値が渡されていない
+
+**影響:**
+- 収穫率ベースの停止判断が機能しない（`novelty_rate` のみで判断）
+- 実用上は `novelty_rate` で十分な場合が多いため、優先度は低い
+
+**対応方針:**
+- `harvest_rate` の計算は研究パイプライン（`ExplorationState`）との連携が必要
+- 中期的な改善タスクとして扱う（現状の動作に大きな問題なし）
+
+**Done定義:** `harvest_rate` が計算されて `PaginationContext` に渡され、停止判断に使用される
 
 ---
 
@@ -360,5 +419,6 @@ cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={max_page
 - `config/search_parsers.yaml` - パーサー設定
 - `docs/adr/0010-async-search-queue.md` - 非同期検索キューADR（Phase 5で本機能実装）
 - `docs/adr/0014-browser-serp-resource-control.md` - ブラウザSERPリソース制御ADR
+- `docs/archive/Q_ASYNC_ARCHITECTURE.md` - 非同期アーキテクチャ改善（Phase 5でSERP Enhancement実装: アーカイブ済み）
 - `src/storage/schema.sql` - DBスキーマ
 
