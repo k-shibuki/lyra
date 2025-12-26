@@ -24,6 +24,7 @@ class TaskLimitsConfig(BaseModel):
     max_manual_interventions: int = 3
     max_manual_intervention_time_minutes: int = 5
     cursor_idle_timeout_seconds: int = 60  # ADR-0002: Cursor AI idle timeout
+    auth_queue_ttl_hours: int = 3  # Default expiration for intervention queue items
 
 
 class WebCitationDetectionConfig(BaseModel):

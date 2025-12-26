@@ -82,10 +82,15 @@ CREATE TABLE intervention_queue (
     priority TEXT DEFAULT 'medium',
     status TEXT DEFAULT 'pending',
     queued_at DATETIME,
+    expires_at DATETIME,  -- Queue item expiration time (default: 3 hours from queued_at)
     search_job_id TEXT,  -- 関連する検索ジョブID
     FOREIGN KEY (search_job_id) REFERENCES jobs(id)
 );
 ```
+
+**expires_at の仕様**:
+- デフォルト値: `queued_at` から3時間後（`TaskLimitsConfig.auth_queue_ttl_hours` で設定可能）
+- 期限切れ処理: `cleanup_expired()` で `status='expired'` に更新（定期実行は未実装、必要に応じて手動実行）
 
 ### ユーザーワークフロー
 
@@ -98,10 +103,13 @@ CREATE TABLE intervention_queue (
 3. **バッチ通知**: 30秒経過 or 検索キュー空になったら通知
 4. **手動認証**: ユーザーがまとめてCAPTCHAを解決
 5. **resolve_auth**: AIに「解決した」と伝えると：
-   - `resolve_auth(domain)` が呼ばれる
+   - `resolve_auth(domain)` または `resolve_auth(task_id=..., target=task)` が呼ばれる
    - 関連ジョブが `queued` に戻る
    - CircuitBreakerがリセット
 6. **自動リトライ**: SearchWorkerがジョブを再実行
+7. **タスク停止時**: `stop_task` が呼ばれると：
+   - そのタスクの `pending`/`in_progress` 状態の認証待ちアイテムが自動的に `cancelled` に更新される
+   - 検索ジョブのキャンセルと同時に実行される
 
 ### 通知タイミング（ハイブリッド方式）
 
@@ -131,17 +139,34 @@ class BatchNotificationManager:
 | CAPTCHA検出 | キューに追加、バックオフ、他ドメイン継続 |
 | 同一ドメインで繰り返し | CircuitBreakerで一時停止 |
 | resolve_auth後 | 自動再キュー、CircuitBreakerリセット |
+| stop_task時 | そのタスクの認証待ちアイテムを `cancelled` に更新 |
+
+### resolve_auth の操作粒度
+
+`resolve_auth` MCPツールは3つの操作粒度をサポート:
+
+| target | 必須パラメータ | 効果 |
+|--------|---------------|------|
+| `item` | `queue_id` | 単一アイテムを complete/skip |
+| `domain` | `domain` | 全タスクにまたがる同一ドメインの認証待ちを一括処理 |
+| `task` | `task_id` | 特定タスクの認証待ちのみを一括処理 |
+
+**ユースケース例**:
+- `target=item`: 1件だけ処理したい場合
+- `target=domain`: ドメイン単位でまとめて処理したい場合（複数タスクにまたがる）
+- `target=task`: 特定タスクの認証待ちだけ処理したい場合（タスク継続中に認証待ちだけスキップなど）
 
 ### 実装ファイル
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/storage/schema.sql` | `intervention_queue.search_job_id` 追加 |
+| `src/storage/schema.sql` | `intervention_queue.search_job_id`, `expires_at` 追加 |
 | `src/scheduler/jobs.py` | `JobState.AWAITING_AUTH` 追加 |
-| `src/utils/notification.py` | `BatchNotificationManager`, `enqueue()` 拡張 |
+| `src/utils/config.py` | `TaskLimitsConfig.auth_queue_ttl_hours` 追加（デフォルト3時間） |
+| `src/utils/notification.py` | `BatchNotificationManager`, `enqueue()` 拡張、`skip()` に `status` パラメータ追加 |
 | `src/search/browser_search_provider.py` | CAPTCHA時にキュー登録 |
 | `src/scheduler/search_worker.py` | `awaiting_auth` 状態処理 |
-| `src/mcp/server.py` | `resolve_auth` 自動再キュー、`get_status` pending_auth |
+| `src/mcp/server.py` | `resolve_auth` 自動再キュー・`target=task` 追加、`stop_task` で auth queue キャンセル、`get_status` pending_auth |
 | `src/search/provider.py` | `SearchOptions.task_id/search_job_id` 追加 |
 
 ## Consequences

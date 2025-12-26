@@ -15,14 +15,18 @@ Tests authentication queue management per ADR-0003 and ADR-0007.
 | TC-N-07 | action=skip, target=item | Equivalence – normal | Single item skipped | Single skip |
 | TC-N-08 | action=complete, target=domain | Equivalence – normal | All domain items completed | Domain completion |
 | TC-N-09 | action=skip, target=domain | Equivalence – normal | All domain items skipped | Domain skip |
+| TC-N-10 | action=complete, target=task | Equivalence – normal | All task items completed | Task completion |
+| TC-N-11 | action=skip, target=task | Equivalence – normal | All task items skipped | Task skip |
 | TC-A-01 | Missing action | Equivalence – error | InvalidParamsError | Required param |
 | TC-A-02 | target=item, missing queue_id | Equivalence – error | InvalidParamsError | Conditional required |
 | TC-A-03 | target=domain, missing domain | Equivalence – error | InvalidParamsError | Conditional required |
-| TC-A-04 | target=invalid | Equivalence – error | InvalidParamsError | Invalid enum |
-| TC-A-05 | action=invalid | Equivalence – error | InvalidParamsError | Invalid enum |
+| TC-A-04 | target=task, missing task_id | Equivalence – error | InvalidParamsError | Conditional required |
+| TC-A-05 | target=invalid | Equivalence – error | InvalidParamsError | Invalid enum |
+| TC-A-06 | action=invalid | Equivalence – error | InvalidParamsError | Invalid enum |
 | TC-B-01 | Empty queue (0 items) | Boundary – empty | total_count=0, items=[] | Zero items |
 | TC-B-02 | Single item in queue | Boundary – min | total_count=1 | Minimal case |
 | TC-B-03 | group_by with 0 items | Boundary – empty groups | groups={} empty dict | Empty grouping |
+| TC-B-04 | target=task with 0 items | Boundary – empty | ok=True, resolved_count=0 | Empty task queue |
 """
 
 from typing import Any
@@ -424,6 +428,28 @@ class TestResolveAuthValidation:
 
         assert "action" in str(exc_info.value.details.get("param_name"))
 
+    @pytest.mark.asyncio
+    async def test_task_target_missing_task_id_raises_error(self) -> None:
+        """
+        TC-A-04: Missing task_id for task target.
+
+        // Given: target=task but no task_id
+        // When: Calling resolve_auth
+        // Then: Raises InvalidParamsError
+        """
+        from src.mcp.errors import InvalidParamsError
+        from src.mcp.server import _handle_resolve_auth
+
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_resolve_auth(
+                {
+                    "target": "task",
+                    "action": "complete",
+                }
+            )
+
+        assert exc_info.value.details.get("param_name") == "task_id"
+
 
 class TestResolveAuthExecution:
     """Tests for resolve_auth execution."""
@@ -593,6 +619,158 @@ class TestResolveAuthExecution:
         assert result["target"] == "domain"
         assert result["resolved_count"] == 2
         mock_queue.skip.assert_called_once_with(domain="example.com")
+
+    @pytest.mark.asyncio
+    async def test_complete_task(self) -> None:
+        """
+        TC-N-10: Complete all auth items for a task.
+
+        // Given: Valid task_id with pending items
+        // When: Calling resolve_auth with action=complete, target=task
+        // Then: Completes all items for that task
+        """
+        from src.mcp.server import _handle_resolve_auth
+
+        mock_queue = AsyncMock()
+        mock_queue.get_pending.return_value = [
+            {
+                "id": "q_001",
+                "domain": "example.com",
+                "url": "https://example.com/page1",
+            },
+            {
+                "id": "q_002",
+                "domain": "test.org",
+                "url": "https://test.org/page1",
+            },
+            {
+                "id": "q_003",
+                "domain": "example.com",
+                "url": "https://example.com/page2",
+            },
+        ]
+        mock_queue.complete.return_value = {
+            "ok": True,
+            "queue_id": "q_001",
+            "status": "completed",
+        }
+
+        with (
+            patch(
+                "src.utils.notification.get_intervention_queue",
+                return_value=mock_queue,
+            ),
+            patch(
+                "src.mcp.server._capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value={"cookies": []},
+            ) as mock_capture,
+            patch(
+                "src.mcp.server._requeue_awaiting_auth_jobs",
+                new_callable=AsyncMock,
+                return_value=2,
+            ) as mock_requeue,
+            patch(
+                "src.mcp.server._reset_circuit_breaker_for_engine",
+                new_callable=AsyncMock,
+            ) as mock_reset,
+        ):
+            result = await _handle_resolve_auth(
+                {
+                    "target": "task",
+                    "task_id": "task_abc",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
+
+        assert result["ok"] is True
+        assert result["target"] == "task"
+        assert result["task_id"] == "task_abc"
+        assert result["action"] == "complete"
+        assert result["resolved_count"] == 3
+        assert result["requeued_count"] == 4  # 2 per domain (example.com + test.org)
+        # Verify get_pending was called with task_id
+        mock_queue.get_pending.assert_called_once_with(task_id="task_abc")
+        # Verify complete was called for each item
+        assert mock_queue.complete.call_count == 3
+        # Verify cookie capture was called once per unique domain
+        assert mock_capture.call_count == 2  # example.com and test.org
+        # Verify requeue was called for each domain
+        assert mock_requeue.call_count == 2
+        assert mock_reset.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_skip_task(self) -> None:
+        """
+        TC-N-11: Skip all auth items for a task.
+
+        // Given: Valid task_id
+        // When: Calling resolve_auth with action=skip, target=task
+        // Then: Skips all items for that task
+        """
+        from src.mcp.server import _handle_resolve_auth
+
+        mock_queue = AsyncMock()
+        mock_queue.skip.return_value = {
+            "ok": True,
+            "skipped": 3,
+        }
+
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ):
+            result = await _handle_resolve_auth(
+                {
+                    "target": "task",
+                    "task_id": "task_abc",
+                    "action": "skip",
+                }
+            )
+
+        assert result["ok"] is True
+        assert result["target"] == "task"
+        assert result["task_id"] == "task_abc"
+        assert result["action"] == "skip"
+        assert result["resolved_count"] == 3
+        assert result["requeued_count"] == 0
+        mock_queue.skip.assert_called_once_with(task_id="task_abc")
+
+    @pytest.mark.asyncio
+    async def test_complete_task_empty_queue(self) -> None:
+        """
+        TC-B-04: Complete task with empty queue.
+
+        // Given: task_id with no pending items
+        // When: Calling resolve_auth with action=complete, target=task
+        // Then: Returns ok=True with resolved_count=0
+        """
+        from src.mcp.server import _handle_resolve_auth
+
+        mock_queue = AsyncMock()
+        mock_queue.get_pending.return_value = []
+
+        with patch(
+            "src.utils.notification.get_intervention_queue",
+            return_value=mock_queue,
+        ):
+            result = await _handle_resolve_auth(
+                {
+                    "target": "task",
+                    "task_id": "task_abc",
+                    "action": "complete",
+                    "success": True,
+                }
+            )
+
+        assert result["ok"] is True
+        assert result["target"] == "task"
+        assert result["task_id"] == "task_abc"
+        assert result["resolved_count"] == 0
+        assert result["requeued_count"] == 0
+        mock_queue.get_pending.assert_called_once_with(task_id="task_abc")
+        mock_queue.complete.assert_not_called()
 
 
 class TestCaptureAuthSessionCookies:

@@ -106,6 +106,9 @@ class SearchOptions:
     """Options for search execution."""
 
     engines: list[str] | None = None  # Use None for Lyra-selected engines
+    # NOTE: AcademicSearchProvider expects `options.limit` (see src/search/academic_provider.py).
+    # This dataclass is passed through that interface via duck-typing.
+    limit: int = 10  # Max results per Academic API query
     budget_pages: int | None = None
     # SERP pagination:
     # This is distinct from budget_pages (crawl budget). It controls how many SERP pages

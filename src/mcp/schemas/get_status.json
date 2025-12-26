@@ -87,6 +87,31 @@
       "type": ["object", "null"],
       "description": "Authentication queue info (may be null)"
     },
+    "pending_auth": {
+      "type": ["object", "null"],
+      "description": "Pending authentication summary for agents (ADR-0007).",
+      "properties": {
+        "awaiting_auth_jobs": {"type": "integer"},
+        "pending_captchas": {"type": "integer"},
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "domain": {"type": "string"},
+              "auth_types": {"type": "array", "items": {"type": "string"}},
+              "count": {"type": "integer"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "pending_auth_count": {
+      "type": "integer",
+      "description": "Convenience field: number of pending auth items (e.g., CAPTCHAs)."
+    },
     "warnings": {
       "type": "array",
       "items": {"type": "string"}

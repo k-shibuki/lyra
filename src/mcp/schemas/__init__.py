@@ -11,8 +11,10 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-# Cache for loaded schemas
+# Cache for loaded schemas (tool_name -> schema)
 _schema_cache: dict[str, dict[str, Any]] = {}
+# Cache for schema file mtimes (tool_name -> mtime)
+_schema_mtime: dict[str, float] = {}
 
 SCHEMAS_DIR = Path(__file__).parent
 
@@ -27,17 +29,23 @@ def get_schema(tool_name: str) -> dict[str, Any] | None:
     Returns:
         Schema dict or None if not found.
     """
-    if tool_name in _schema_cache:
-        return _schema_cache[tool_name]
-
     schema_path = SCHEMAS_DIR / f"{tool_name}.json"
     if not schema_path.exists():
         return None
+
+    # Hot-reload schema if file changed (keeps allowlist in sync without requiring restart)
+    try:
+        mtime = schema_path.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    if tool_name in _schema_cache and _schema_mtime.get(tool_name) == mtime:
+        return _schema_cache[tool_name]
 
     with open(schema_path, encoding="utf-8") as f:
         schema = cast(dict[str, Any], json.load(f))
 
     _schema_cache[tool_name] = schema
+    _schema_mtime[tool_name] = mtime
     return schema
 
 
@@ -54,3 +62,4 @@ def list_available_schemas() -> list[str]:
 def clear_cache() -> None:
     """Clear the schema cache (for testing)."""
     _schema_cache.clear()
+    _schema_mtime.clear()
