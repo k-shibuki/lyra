@@ -3,7 +3,7 @@
 > **L**ocal **Y**ielding **R**esearch **A**ide — An MCP Toolkit with Embedded ML for AI-Collaborative Desktop Research
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-3000%2B-success.svg)](tests/)
 
 ---
@@ -272,7 +272,7 @@ Sources are classified by institutional authority:
 ### Prerequisites
 
 - **OS**: Windows 11 + WSL2 (Ubuntu 22.04 or 24.04)
-- **Python**: 3.12+
+- **Python**: 3.13.* (required, see `pyproject.toml`)
 - **Browser**: Google Chrome (for CDP remote debugging)
 - **Container Runtime**: Podman (recommended) or Docker
 
@@ -289,19 +289,23 @@ The default `podman-compose.yml` expects GPU access via CDI. **CPU-only operatio
 ### Quick Start
 
 ```bash
-# 1. Clone and setup Python environment (using uv)
+# 1. Clone and check environment
 git clone https://github.com/k-shibuki/lyra.git
 cd lyra
+make doctor             # Check dependencies and configuration
+
+# 2. Setup Python environment (using uv)
 curl -LsSf https://astral.sh/uv/install.sh | sh  # Install uv if needed
 make setup              # Install MCP server dependencies
 
-# 2. Configure and start services
+# 3. Configure and start services
 cp .env.example .env
 make dev-build          # Build containers (first time or after changes)
 make dev-up             # Start containers (requires dev-build first)
+make doctor-chrome-fix  # Fix WSL2 networking if needed
 make chrome-start       # Start Chrome with CDP
 
-# 3. Configure MCP client (see below)
+# 4. Configure MCP client (see below)
 ```
 
 ### Makefile Commands
@@ -312,6 +316,7 @@ All operations are available via `make`. Run `make help` for the full list.
 
 | Command | Purpose |
 |---------|---------|
+| `make doctor` | Check environment dependencies and configuration |
 | `make setup` | Install dependencies with uv (MCP extras) |
 | `make setup-full` | Install all dependencies (full development) |
 | `make setup-dev` | Install development dependencies |
@@ -328,6 +333,13 @@ All operations are available via `make`. Run `make help` for the full list.
 | `make dev-status` | Show container status |
 | `make dev-clean` | Remove containers and images |
 
+**Doctor (Environment Check):**
+
+| Command | Purpose |
+|---------|---------|
+| `make doctor` | Check environment dependencies and configuration |
+| `make doctor-chrome-fix` | Fix WSL2 Chrome networking issues |
+
 **Chrome / Browser:**
 
 | Command | Purpose |
@@ -336,7 +348,6 @@ All operations are available via `make`. Run `make help` for the full list.
 | `make chrome-start` | Start Chrome with CDP on port 9222 |
 | `make chrome-stop` | Stop Chrome |
 | `make chrome-diagnose` | Diagnose connection issues |
-| `make chrome-fix` | Auto-fix WSL2 networking |
 
 **Testing:**
 
@@ -379,6 +390,10 @@ All commands (`make lint`, `make typecheck`, `make test-env`, `make dev-status`,
 ### WSL2 Network Configuration
 
 For WSL2 to communicate with Windows Chrome via CDP:
+
+Run `make doctor-chrome-fix` to automatically configure mirrored networking mode.
+
+Alternatively, manually:
 
 1. Create or edit `%USERPROFILE%\.wslconfig`:
    ```ini

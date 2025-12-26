@@ -44,6 +44,12 @@ fi
 # CHROME_PORT is already set from common.sh with .env override
 
 # =============================================================================
+# CONTAINER GUARD (allow help)
+# =============================================================================
+
+require_host_execution_unless "chrome.sh" "manages Windows Chrome via CDP from WSL" "$ACTION" "help" "--help" "-h"
+
+# =============================================================================
 # CONSTANTS
 # =============================================================================
 

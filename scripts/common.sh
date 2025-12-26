@@ -21,6 +21,7 @@
 #   chrome.sh  <- common.sh, curl, (WSL: powershell.exe)
 #   test.sh    <- common.sh, pytest, uv
 #   mcp.sh     <- common.sh, dev.sh, uv, playwright
+#   doctor.sh  <- common.sh, (WSL: powershell.exe for chrome checks)
 
 # =============================================================================
 # INITIALIZATION
@@ -65,6 +66,10 @@ source "${COMMON_DIR}/lib/flags.sh"
 source "${COMMON_DIR}/lib/platform.sh"
 detect_container
 detect_cloud_agent
+
+# Host execution guard (requires platform.sh for IN_CONTAINER)
+# shellcheck source=/dev/null
+source "${COMMON_DIR}/lib/host_guard.sh"
 
 # Runtime/infra helpers
 # shellcheck source=/dev/null

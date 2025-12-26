@@ -11,6 +11,7 @@
 #   ./scripts/test_scripts.sh chrome # Test chrome.sh only
 #   ./scripts/test_scripts.sh test  # Test test.sh only
 #   ./scripts/test_scripts.sh mcp   # Test mcp.sh only
+#   ./scripts/test_scripts.sh doctor # Test doctor.sh only
 
 set -euo pipefail
 
@@ -299,6 +300,57 @@ test_mcp() {
 }
 
 # =============================================================================
+# DOCTOR.SH TESTS
+# =============================================================================
+
+test_doctor() {
+    echo ""
+    echo "=== Testing doctor.sh ==="
+    
+    # Test 1: Help command works
+    if "${SCRIPT_DIR}/doctor.sh" help > /dev/null 2>&1; then
+        test_pass "doctor.sh help command works"
+    else
+        test_fail "doctor.sh help command works" "Help command failed"
+    fi
+    
+    # Test 2: Unknown command shows help
+    local output
+    output=$("${SCRIPT_DIR}/doctor.sh" unknown_command 2>&1 || true)
+    if echo "$output" | grep -q "Usage:"; then
+        test_pass "doctor.sh shows help for unknown commands"
+    else
+        test_fail "doctor.sh shows help for unknown commands" "Help not shown for unknown command"
+    fi
+    
+    # Test 3: Check command (should not crash even if dependencies are missing)
+    if "${SCRIPT_DIR}/doctor.sh" check > /dev/null 2>&1; then
+        test_pass "doctor.sh check command works"
+    else
+        # Check may fail if dependencies are missing, which is OK
+        test_info "doctor.sh check failed (dependencies may be missing - this is OK)"
+    fi
+    
+    # Test 4: JSON output mode works
+    local json_output
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/doctor.sh" check 2>&1 || true)
+    if echo "$json_output" | grep -qE '"status"|"exit_code"'; then
+        test_pass "doctor.sh JSON output mode works"
+    else
+        test_fail "doctor.sh JSON output mode works" "JSON output not detected"
+    fi
+    
+    # Test 5: Doctor modules can be sourced
+    if source "${SCRIPT_DIR}/lib/doctor/checks.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/doctor/help.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/doctor/commands.sh" 2>&1; then
+        test_pass "doctor.sh modules can be sourced"
+    else
+        test_fail "doctor.sh modules can be sourced" "Failed to source doctor modules"
+    fi
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -324,16 +376,20 @@ main() {
         mcp)
             test_mcp
             ;;
+        doctor)
+            test_doctor
+            ;;
         all)
             test_common
             test_dev
             test_chrome
             test_test
             test_mcp
+            test_doctor
             ;;
         *)
             echo "Unknown test target: $test_target"
-            echo "Usage: $0 {all|common|dev|chrome|test|mcp}"
+            echo "Usage: $0 {all|common|dev|chrome|test|mcp|doctor}"
             exit 1
             ;;
     esac

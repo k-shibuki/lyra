@@ -36,6 +36,6 @@ show_help() {
     echo ""
     echo "WSL2 Note:"
     echo "  WSL2 requires mirrored networking mode for localhost access."
-    echo "  Run 'make chrome-fix' if connection fails after WSL2 update."
+    echo "  Run 'make doctor-chrome-fix' if connection fails after WSL2 update."
 }
 

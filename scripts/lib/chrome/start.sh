@@ -96,7 +96,7 @@ EOF
   "status": "timeout",
   "exit_code": ${EXIT_TIMEOUT},
   "message": "Chrome started but could not connect from WSL",
-  "hint": "make chrome-fix"
+  "hint": "make doctor-chrome-fix"
 }
 EOF
     else
@@ -104,7 +104,7 @@ EOF
         echo "Chrome started but could not connect from WSL"
         echo ""
         echo "Ensure WSL2 mirrored networking is enabled:"
-        echo "  make chrome-fix"
+        echo "  make doctor-chrome-fix"
     fi
     return 1
 }

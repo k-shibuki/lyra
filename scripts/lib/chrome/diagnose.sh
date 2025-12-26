@@ -152,7 +152,7 @@ run_diagnose() {
         
         if [ "$mirrored_status" != "ENABLED" ]; then
             echo "SOLUTION: Enable mirrored networking mode"
-            echo "  -> Run: make chrome-fix"
+            echo "  -> Run: make doctor-chrome-fix"
         else
             echo "Mirrored mode is enabled but connection failed."
             echo "  -> Try: wsl.exe --shutdown"

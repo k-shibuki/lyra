@@ -78,6 +78,16 @@ mcp: ## Start MCP server (for Cursor)
 	@$(SCRIPTS)/mcp.sh
 
 # =============================================================================
+# DOCTOR (Environment Check)
+# =============================================================================
+
+doctor: ## Check environment dependencies and configuration
+	@$(SCRIPTS)/doctor.sh check
+
+doctor-chrome-fix: ## Fix WSL2 Chrome networking (via doctor)
+	@$(SCRIPTS)/doctor.sh chrome-fix
+
+# =============================================================================
 # CHROME / BROWSER
 # =============================================================================
 
@@ -92,9 +102,6 @@ chrome-stop: ## Stop Lyra Chrome instance
 
 chrome-diagnose: ## Diagnose Chrome connection issues
 	@$(SCRIPTS)/chrome.sh diagnose
-
-chrome-fix: ## Auto-fix WSL2 networking for Chrome
-	@$(SCRIPTS)/chrome.sh fix
 
 # =============================================================================
 # TESTING
@@ -201,6 +208,10 @@ help: ## Show this help
 	@echo ""
 	@echo "MCP:"
 	@grep -E '^mcp:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Doctor:"
+	@grep -E '^doctor[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Chrome:"
