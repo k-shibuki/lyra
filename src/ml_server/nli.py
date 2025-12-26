@@ -35,7 +35,7 @@ class NLIService:
             return
 
         try:
-            from transformers import pipeline
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
             model_path = get_nli_path()
             use_local = is_using_local_paths()
@@ -48,11 +48,22 @@ class NLIService:
 
             local_only = use_local or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
 
+            # Load tokenizer and model separately to avoid local_files_only
+            # being passed to tokenizer's _batch_encode_plus() during inference
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_path,
+                local_files_only=local_only,
+            )
+            model = AutoModelForSequenceClassification.from_pretrained(
+                model_path,
+                local_files_only=local_only,
+            )
+
             self._model = pipeline(
                 "text-classification",
-                model=model_path,
+                model=model,
+                tokenizer=tokenizer,
                 device=0,
-                local_files_only=local_only,
             )
 
             logger.info(
