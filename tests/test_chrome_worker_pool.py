@@ -9,7 +9,6 @@ Each worker gets its own Chrome instance with dedicated port and profile:
 - Worker N: port=base_port+N, profile=prefix+{N:02d}
 """
 
-import pytest
 
 from src.utils.config import (
     get_all_chrome_ports,

@@ -551,16 +551,20 @@ class SearchPipeline:
                             paper=entry.paper,
                             task_id=self.task_id,
                             search_id=search_id,
+                            worker_id=options.worker_id,
                         )
-                        pages_created += 1
-                        fragments_created += 1
+                        # Skip counting if already processed (fragment_id is None)
+                        if fragment_id is not None:
+                            pages_created += 1
+                            fragments_created += 1
 
-                        # Track mapping for citation graph
-                        paper_to_page_map[entry.paper.id] = page_id
+                        # Track mapping for citation graph (only if page_id is valid)
+                        if page_id is not None:
+                            paper_to_page_map[entry.paper.id] = page_id
 
-                        # Add to evidence graph
-                        graph = await get_evidence_graph(self.task_id)
-                        graph.add_node(NodeType.PAGE, page_id)
+                            # Add to evidence graph
+                            graph = await get_evidence_graph(self.task_id)
+                            graph.add_node(NodeType.PAGE, page_id)
 
                     except Exception as e:
                         logger.warning(
@@ -626,10 +630,13 @@ class SearchPipeline:
                                 paper=rp,
                                 task_id=self.task_id,
                                 search_id=search_id,
+                                worker_id=options.worker_id,
                             )
-                            paper_to_page_map[rp.id] = cited_page_id
-                            graph = await get_evidence_graph(self.task_id)
-                            graph.add_node(NodeType.PAGE, cited_page_id)
+                            # Only add to map if we got a valid page_id
+                            if cited_page_id:
+                                paper_to_page_map[rp.id] = cited_page_id
+                                graph = await get_evidence_graph(self.task_id)
+                                graph.add_node(NodeType.PAGE, cited_page_id)
                         except Exception as e:
                             logger.debug(
                                 "Failed to persist citation paper",
@@ -898,19 +905,23 @@ class SearchPipeline:
         paper: "Paper",
         task_id: str,
         search_id: str,
-    ) -> tuple[str, str]:
+        worker_id: int = 0,
+    ) -> tuple[str | None, str | None]:
         """Persist abstract as fragment (Abstract Only strategy).
 
         Saves academic paper metadata to pages table and abstract to fragments table,
         skipping fetch/extract for papers with abstracts from academic APIs.
 
+        Uses resource deduplication to prevent duplicate processing across workers.
+
         Args:
             paper: Paper object with abstract
             task_id: Task ID
             search_id: Search ID
+            worker_id: Worker ID for resource claiming
 
         Returns:
-            (page_id, fragment_id) tuple
+            (page_id, fragment_id) tuple, or (existing_page_id, None) if already processed
         """
         import json
 
@@ -921,6 +932,42 @@ class SearchPipeline:
         if not reference_url:
             # Fallback to paper ID-based URL
             reference_url = f"https://paper/{paper.id}"
+
+        # Determine identifier for deduplication (DOI preferred, then URL)
+        if paper.doi:
+            identifier_type = "doi"
+            identifier_value = paper.doi.lower().strip()
+        else:
+            identifier_type = "url"
+            identifier_value = reference_url
+
+        # Claim resource (prevents duplicate processing across workers)
+        is_new, existing_page_id = await db.claim_resource(
+            identifier_type=identifier_type,
+            identifier_value=identifier_value,
+            task_id=task_id,
+            worker_id=worker_id,
+        )
+
+        if not is_new:
+            # Already processed by another worker
+            # Retrieve existing fragment_id for edge creation (ADR-0005: pages/fragments are global)
+            existing_fragment_id = None
+            if existing_page_id:
+                fragment_row = await db.fetch_one(
+                    "SELECT id FROM fragments WHERE page_id = ? AND fragment_type = 'abstract' LIMIT 1",
+                    (existing_page_id,),
+                )
+                if fragment_row:
+                    existing_fragment_id = fragment_row.get("id")
+
+            logger.debug(
+                "Paper already processed (returning existing)",
+                doi=paper.doi,
+                existing_page_id=existing_page_id,
+                existing_fragment_id=existing_fragment_id,
+            )
+            return existing_page_id, existing_fragment_id
 
         # Prepare paper_metadata JSON
         paper_metadata = {
@@ -943,48 +990,67 @@ class SearchPipeline:
         # Generate page ID
         page_id = f"page_{uuid.uuid4().hex[:8]}"
 
-        # Insert into pages table
-        await db.insert(
-            "pages",
-            {
-                "id": page_id,
-                "url": reference_url,
-                "final_url": reference_url,
-                "domain": self._extract_domain(reference_url),
-                "page_type": "academic_paper",
-                "fetch_method": "academic_api",
-                "title": paper.title,
-                "paper_metadata": json.dumps(paper_metadata),
-                "fetched_at": time.time(),
-            },
-            auto_id=False,
-        )
+        try:
+            # Insert into pages table (use or_ignore for safety)
+            await db.insert(
+                "pages",
+                {
+                    "id": page_id,
+                    "url": reference_url,
+                    "final_url": reference_url,
+                    "domain": self._extract_domain(reference_url),
+                    "page_type": "academic_paper",
+                    "fetch_method": "academic_api",
+                    "title": paper.title,
+                    "paper_metadata": json.dumps(paper_metadata),
+                    "fetched_at": time.time(),
+                },
+                auto_id=False,
+                or_ignore=True,
+            )
 
-        # Insert abstract as fragment
-        fragment_id = f"frag_{uuid.uuid4().hex[:8]}"
-        await db.insert(
-            "fragments",
-            {
-                "id": fragment_id,
-                "page_id": page_id,
-                "fragment_type": "abstract",
-                "text_content": paper.abstract or "",
-                "heading_context": "Abstract",
-                "position": 0,
-                "created_at": time.time(),
-            },
-            auto_id=False,
-        )
+            # Insert abstract as fragment
+            fragment_id = f"frag_{uuid.uuid4().hex[:8]}"
+            await db.insert(
+                "fragments",
+                {
+                    "id": fragment_id,
+                    "page_id": page_id,
+                    "fragment_type": "abstract",
+                    "text_content": paper.abstract or "",
+                    "heading_context": "Abstract",
+                    "position": 0,
+                    "created_at": time.time(),
+                },
+                auto_id=False,
+                or_ignore=True,
+            )
 
-        logger.info(
-            "Persisted abstract as fragment",
-            page_id=page_id,
-            fragment_id=fragment_id,
-            paper_title=paper.title[:60],
-            has_abstract=bool(paper.abstract),
-        )
+            # Mark resource as completed
+            await db.complete_resource(
+                identifier_type=identifier_type,
+                identifier_value=identifier_value,
+                page_id=page_id,
+            )
 
-        return page_id, fragment_id
+            logger.info(
+                "Persisted abstract as fragment",
+                page_id=page_id,
+                fragment_id=fragment_id,
+                paper_title=paper.title[:60],
+                has_abstract=bool(paper.abstract),
+            )
+
+            return page_id, fragment_id
+
+        except Exception as e:
+            # Mark resource as failed
+            await db.fail_resource(
+                identifier_type=identifier_type,
+                identifier_value=identifier_value,
+                error_message=str(e),
+            )
+            raise
 
     def _extract_domain(self, url: str) -> str:
         """Extract domain from URL.

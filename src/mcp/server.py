@@ -1004,11 +1004,33 @@ async def _handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
         priority_map = {"high": 10, "medium": 50, "low": 90}
         priority_value = priority_map.get(priority_str, 50)
 
-        # Queue each search
+        # Queue each search (with duplicate detection)
         search_ids = []
+        skipped_count = 0
         now = datetime.now(UTC).isoformat()
 
         for query in queries:
+            # Check for duplicate query in same task (queued or running)
+            existing = await db.fetch_one(
+                """
+                SELECT id FROM jobs
+                WHERE task_id = ? AND kind = 'search_queue'
+                  AND state IN ('queued', 'running')
+                  AND json_extract(input_json, '$.query') = ?
+                """,
+                (task_id, query),
+            )
+            if existing:
+                # Skip duplicate query
+                logger.debug(
+                    "Skipping duplicate query",
+                    task_id=task_id,
+                    query=query[:50],
+                    existing_id=existing.get("id"),
+                )
+                skipped_count += 1
+                continue
+
             search_id = f"s_{uuid.uuid4().hex[:12]}"
 
             # Prepare input JSON
@@ -1040,15 +1062,22 @@ async def _handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
         logger.info(
             "Searches queued",
             task_id=task_id,
-            count=len(search_ids),
+            queued=len(search_ids),
+            skipped=skipped_count,
             priority=priority_str,
         )
+
+        message = f"{len(search_ids)} searches queued"
+        if skipped_count > 0:
+            message += f" ({skipped_count} duplicates skipped)"
+        message += ". Use get_status(wait=N) to monitor progress."
 
         return {
             "ok": True,
             "queued_count": len(search_ids),
+            "skipped_count": skipped_count,
             "search_ids": search_ids,
-            "message": f"{len(search_ids)} searches queued. Use get_status(wait=N) to monitor progress.",
+            "message": message,
         }
 
 
@@ -1068,7 +1097,8 @@ async def _check_chrome_cdp_ready() -> bool:
 
     settings = get_settings()
     chrome_host = settings.browser.chrome_host
-    chrome_port = settings.browser.chrome_port
+    # Use base port (worker 0) for health check
+    chrome_port = settings.browser.chrome_base_port
     cdp_url = f"http://{chrome_host}:{chrome_port}/json/version"
 
     try:
@@ -1522,7 +1552,8 @@ async def _capture_auth_session_cookies(domain: str) -> dict | None:
 
         settings = get_settings()
         chrome_host = getattr(settings.browser, "chrome_host", "localhost")
-        chrome_port = getattr(settings.browser, "chrome_port", 9222)
+        # Use base port (worker 0) for page retrieval
+        chrome_port = getattr(settings.browser, "chrome_base_port", 9222)
         cdp_url = f"http://{chrome_host}:{chrome_port}"
 
         playwright = await async_playwright().start()

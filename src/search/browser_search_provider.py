@@ -1555,7 +1555,7 @@ async def cleanup_browser_search_provider(worker_id: int | None = None) -> None:
             logger.debug("Cleaned up BrowserSearchProvider", worker_id=worker_id)
     else:
         # Cleanup all providers
-        for wid, provider in list(_providers.items()):
+        for _wid, provider in list(_providers.items()):
             await provider.close()
         _providers.clear()
         logger.debug("Cleaned up all BrowserSearchProviders")

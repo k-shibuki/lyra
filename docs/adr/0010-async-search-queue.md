@@ -246,6 +246,26 @@ class StatusResult:
   - `output_json` stores the full result JSON produced by the pipeline execution.
 - For **auditability**, completed items store the **full result JSON** (`jobs.output_json`).
 
+### Query Deduplication
+
+`queue_searches` prevents duplicate queries within the same task:
+
+- Before inserting a new job, check if an identical query already exists for the task with `state IN ('queued', 'running')`.
+- If found, skip the duplicate (log and continue).
+- **Rationale**: Parallel workers may discover the same query via different code paths. Preventing duplicates avoids redundant work and database bloat.
+
+```python
+# Pseudocode (server.py: _handle_queue_searches)
+existing = await db.fetch_one(
+    "SELECT id FROM jobs WHERE task_id = ? AND kind = 'search_queue' "
+    "AND state IN ('queued', 'running') AND json_extract(input_json, '$.query') = ?",
+    (task_id, query),
+)
+if existing:
+    logger.info("Skipping duplicate query", task_id=task_id, query=query[:50])
+    continue
+```
+
 ### stop_task Semantics (Two Modes)
 
 `stop_task` supports two stop modes:

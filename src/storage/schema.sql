@@ -757,6 +757,29 @@ CREATE INDEX IF NOT EXISTS idx_domain_override_events_rule
     ON domain_override_events(rule_id);
 
 -- ============================================================
+-- Resource Deduplication Index (Cross-Worker Coordination)
+-- ============================================================
+
+-- Tracks claimed resources to prevent duplicate processing across workers
+-- Uses INSERT OR IGNORE + SELECT pattern for race-condition-safe claims
+CREATE TABLE IF NOT EXISTS resource_index (
+    id TEXT PRIMARY KEY,
+    identifier_type TEXT NOT NULL,  -- 'doi', 'pmid', 'arxiv', 'url'
+    identifier_value TEXT NOT NULL, -- Normalized identifier value
+    page_id TEXT,                   -- Associated page (if fetched/created)
+    task_id TEXT,                   -- First task that discovered this resource
+    status TEXT DEFAULT 'pending',  -- pending, processing, completed, failed
+    worker_id INTEGER,              -- Worker that claimed this resource
+    claimed_at DATETIME,
+    completed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(identifier_type, identifier_value)
+);
+CREATE INDEX IF NOT EXISTS idx_resource_index_status ON resource_index(status);
+CREATE INDEX IF NOT EXISTS idx_resource_index_page ON resource_index(page_id);
+CREATE INDEX IF NOT EXISTS idx_resource_index_type_value ON resource_index(identifier_type, identifier_value);
+
+-- ============================================================
 -- Query A/B Testing (ADR-0010)
 -- ============================================================
 

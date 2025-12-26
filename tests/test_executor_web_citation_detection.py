@@ -90,6 +90,9 @@ async def test_executor_web_citation_detection_happy_path() -> None:
     mock_db_instance.fetch_one = AsyncMock(return_value=None)
     mock_db_instance.insert = AsyncMock(return_value="page_target")
     mock_db_instance.execute = AsyncMock()
+    # Mock resource dedup methods
+    mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+    mock_db_instance.complete_resource = AsyncMock()
 
     with (
         patch("src.research.executor.get_settings", return_value=settings),
@@ -246,6 +249,9 @@ async def test_executor_web_citation_detection_caps_edges_per_page() -> None:
     mock_db_instance.fetch_one = AsyncMock(return_value=None)
     mock_db_instance.insert = AsyncMock(return_value="page_target")
     mock_db_instance.execute = AsyncMock()
+    # Mock resource dedup methods
+    mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+    mock_db_instance.complete_resource = AsyncMock()
 
     with (
         patch("src.research.executor.get_settings", return_value=settings),

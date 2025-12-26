@@ -4057,7 +4057,7 @@ class TestBrowserSearchProviderWorkerIsolation:
     """
 
     @pytest.fixture(autouse=True)
-    def reset_providers(self) -> Generator[None, None, None]:
+    def reset_providers(self) -> Generator[None]:
         """Reset all providers before and after each test."""
         reset_browser_search_provider()
         yield
