@@ -258,7 +258,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         self._playwright = None
 
                     raise CDPConnectionError(
-                        f"CDP connection failed: {cdp_error}. Start Chrome with: ./scripts/chrome.sh start"
+                        f"CDP connection failed: {cdp_error}. Start Chrome with: make chrome-start"
                     ) from cdp_error
 
                 # Reuse existing context if available (preserves profile cookies per ADR-0007)

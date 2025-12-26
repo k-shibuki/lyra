@@ -178,6 +178,29 @@ test_chrome() {
     else
         test_fail "chrome.sh shows error for unknown commands" "Error not shown for unknown command"
     fi
+    
+    # Test 4: JSON output mode works
+    local json_output
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/chrome.sh" check 2>&1 || true)
+    if echo "$json_output" | grep -qE '"status"|"exit_code"'; then
+        test_pass "chrome.sh JSON output mode works"
+    else
+        test_fail "chrome.sh JSON output mode works" "JSON output not detected"
+    fi
+    
+    # Test 5: Chrome modules can be sourced
+    if source "${SCRIPT_DIR}/lib/chrome/ps.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/chrome/connect.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/chrome/status.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/chrome/start.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/chrome/stop.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/chrome/diagnose.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/chrome/fix.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/chrome/help.sh" 2>&1; then
+        test_pass "chrome.sh modules can be sourced"
+    else
+        test_fail "chrome.sh modules can be sourced" "Failed to source chrome modules"
+    fi
 }
 
 # =============================================================================
@@ -210,6 +233,27 @@ test_test() {
     else
         # Check may fail if container isn't running, which is OK
         test_info "test.sh check failed (container may not be running - this is OK)"
+    fi
+    
+    # Test 4: JSON output mode works
+    local json_output
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/test.sh" env 2>&1 || true)
+    if echo "$json_output" | grep -qE '"environment"|"exit_code"'; then
+        test_pass "test.sh JSON output mode works"
+    else
+        test_fail "test.sh JSON output mode works" "JSON output not detected"
+    fi
+    
+    # Test 5: Test modules can be sourced (in dependency order)
+    if source "${SCRIPT_DIR}/lib/test/args.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/test/state.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/test/runtime.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/test/markers.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/test/check_helpers.sh" 2>&1 && \
+       source "${SCRIPT_DIR}/lib/test/commands.sh" 2>&1; then
+        test_pass "test.sh modules can be sourced"
+    else
+        test_fail "test.sh modules can be sourced" "Failed to source test modules"
     fi
 }
 

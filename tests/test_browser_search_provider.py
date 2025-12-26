@@ -751,7 +751,7 @@ class TestCDPConnection:
 
         Validates:
         - No headless fallback (per ADR-0006)
-        - Error message includes chrome.sh guidance
+        - Error message includes make chrome-start guidance
         - connection_mode is None when CDP fails
         """
         provider = BrowserSearchProvider()
@@ -782,7 +782,7 @@ class TestCDPConnection:
                 assert response.error is not None
                 assert response.error is not None
                 assert "CDP connection failed" in response.error
-                assert "chrome.sh" in response.error
+                assert "make chrome-start" in response.error
                 assert response.connection_mode is None
 
     @pytest.mark.asyncio

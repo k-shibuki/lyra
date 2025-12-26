@@ -41,7 +41,8 @@ trap 'cleanup_on_error ${LINENO}' ERR
 setup_venv "mcp"
 
 # Install Playwright browsers if needed (first run only)
-if [[ ! -d "${VENV_DIR}/lib/python"*"/site-packages/playwright" ]] || \
+# Note: -d doesn't work with globs, so we use ls to check
+if ! ls -d "${VENV_DIR}/lib/python"*"/site-packages/playwright" >/dev/null 2>&1 || \
    [[ ! -d "$HOME/.cache/ms-playwright" ]]; then
     log_info "Installing Playwright browsers..." >&2
     uv run playwright install chromium --with-deps 2>/dev/null || {
