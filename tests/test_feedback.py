@@ -675,11 +675,11 @@ class TestEdgeCorrect:
 
     async def test_edge_correct_same_label(self, test_database: Any) -> None:
         """
-        TC-EC-02: Same label should still accumulate sample.
+        TC-EC-02: Same label should mark as reviewed but not accumulate correction sample.
 
         // Given: Edge with supports relation
         // When: Confirming supports (same label)
-        // Then: Sample accumulated for ground-truth collection
+        // Then: Edge is marked as human-reviewed and no nli_corrections record is created
         """
         db = test_database
         edge_id = f"edge_{uuid.uuid4().hex[:8]}"
@@ -717,12 +717,21 @@ class TestEdgeCorrect:
         assert result["previous_relation"] == "supports"
         assert result["new_relation"] == "supports"
 
-        # Sample should still be accumulated
+        # Edge should be marked as reviewed
+        edge = await db.fetch_one(
+            "SELECT * FROM edges WHERE id = ?",
+            (edge_id,),
+        )
+        assert edge is not None
+        assert edge["edge_human_corrected"] == 1
+        assert edge["edge_corrected_at"] is not None
+
+        # No correction sample should be accumulated
         correction = await db.fetch_one(
             "SELECT * FROM nli_corrections WHERE edge_id = ?",
             (edge_id,),
         )
-        assert correction is not None
+        assert correction is None
 
     async def test_edge_correct_not_found(self, test_database: Any) -> None:
         """
