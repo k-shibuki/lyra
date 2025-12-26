@@ -1126,7 +1126,11 @@ class BrowserSearchProvider(BaseSearchProvider):
                         break
 
                     # Merge results: deduplicate by URL
-                    page_results = [r.to_search_result(engine) for r in parse_result.results]
+                    # Pass current_page for audit/reproducibility (R_SERP_ENHANCEMENT Issue 1)
+                    page_results = [
+                        r.to_search_result(engine, serp_page=current_page)
+                        for r in parse_result.results
+                    ]
                     new_urls = [r.url for r in page_results]
 
                     # Calculate novelty rate before merging
@@ -1149,10 +1153,12 @@ class BrowserSearchProvider(BaseSearchProvider):
                     )
 
                     # Check stop condition (auto strategy)
+                    # harvest_rate from search() parameter for pagination decision
+                    # (R_SERP_ENHANCEMENT Issue 2)
                     context = PaginationContext(
                         current_page=current_page,
                         novelty_rate=novelty_rate,
-                        harvest_rate=None,  # TODO: implement harvest rate
+                        harvest_rate=harvest_rate,
                     )
 
                     if not pagination_strategy.should_fetch_next(context):
