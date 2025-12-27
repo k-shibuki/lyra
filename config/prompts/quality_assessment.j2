@@ -1,0 +1,27 @@
+{# Quality Assessment Prompt Template
+   Parameters:
+   - text: Content to analyze (first 2000 characters)
+   - lang: Output language ("en" or "ja", default "en")
+#}
+You are an expert in evaluating web content quality. Analyze the following text and assess its quality.
+
+Text (first 2000 characters):
+{{ text }}
+
+Evaluate based on the following criteria and respond in JSON format:
+1. quality_score: 0.0 (lowest) to 1.0 (highest) quality score
+2. is_ai_generated: Whether it appears to be AI-generated content (true/false)
+3. is_spam: Whether it appears to be SEO spam/low-quality content (true/false)
+4. is_aggregator: Whether it's aggregated content from other sites (true/false)
+5. reason: Brief explanation of your assessment{% if lang == "ja" %} (in Japanese){% endif %}
+
+Evaluation criteria:
+- Does it contain original insights or analysis?
+- Is it based on primary sources?
+- Is the writing natural and human-like?
+- Is there excessive advertising or affiliate content?
+- Does the information appear accurate and trustworthy?
+
+Respond in JSON format:
+{"quality_score": 0.0-1.0, "is_ai_generated": true/false, "is_spam": true/false, "is_aggregator": true/false, "reason": "explanation"}
+
