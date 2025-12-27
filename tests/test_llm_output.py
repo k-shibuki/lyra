@@ -525,6 +525,8 @@ class TestParseAndValidate:
         assert len(rows) >= 1
         assert rows[-1]["template_name"] == "extract_facts"
         assert rows[-1]["error_type"] in ("json_parse", "schema_validation", "unknown")
+        # No llm_call provided -> no retries attempted
+        assert rows[-1]["retry_count"] == 0
 
     @pytest.mark.asyncio
     async def test_parse_and_validate_retry_call_failure_records_db(self, test_database) -> None:
@@ -549,10 +551,11 @@ class TestParseAndValidate:
         # Then: Returns None and records a DB row
         assert validated is None
         rows = await test_database.fetch_all(
-            "SELECT template_name, error_type, context_json FROM llm_extraction_errors WHERE template_name = ?",
+            "SELECT template_name, error_type, retry_count, context_json FROM llm_extraction_errors WHERE template_name = ?",
             ("extract_facts",),
         )
         assert len(rows) >= 1
+        assert rows[-1]["retry_count"] == 1
         # Verify exception type and message are captured in context
         import json
 
@@ -615,10 +618,11 @@ class TestParseAndValidate:
         assert len(calls) == 1
         assert validated is None
         rows = await test_database.fetch_all(
-            "SELECT error_type FROM llm_extraction_errors WHERE template_name = ?",
+            "SELECT error_type, retry_count FROM llm_extraction_errors WHERE template_name = ?",
             ("extract_facts",),
         )
         assert len(rows) >= 1
+        assert rows[-1]["retry_count"] == 1
 
     @pytest.mark.asyncio
     async def test_parse_and_validate_task_id_context_propagation(self, test_database) -> None:

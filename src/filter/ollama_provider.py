@@ -162,6 +162,10 @@ class OllamaProvider(BaseLLMProvider):
         if options:
             if options.system:
                 payload["system"] = options.system
+            if options.response_format:
+                # Ollama supports {"format":"json"} to force valid JSON output.
+                # Keep this optional and provider-specific.
+                payload["format"] = options.response_format
             if options.max_tokens:
                 payload["options"]["num_predict"] = options.max_tokens
             if options.top_p is not None:
@@ -169,7 +173,8 @@ class OllamaProvider(BaseLLMProvider):
             if options.top_k is not None:
                 payload["options"]["top_k"] = options.top_k
             if options.stop:
-                payload["stop"] = options.stop
+                # Ollama expects stop sequences under "options".
+                payload["options"]["stop"] = options.stop
 
         start_time = time.perf_counter()
         self._request_count += 1
@@ -186,6 +191,39 @@ class OllamaProvider(BaseLLMProvider):
                 if response.status != 200:
                     self._error_count += 1
                     error_text = await response.text()
+                    # Fallback: if response_format is rejected by the server/proxy, retry once without it.
+                    if options and options.response_format and "format" in payload:
+                        try:
+                            logger.warning(
+                                "Ollama generate rejected response_format; retrying without format",
+                                status=response.status,
+                                error=error_text[:200],
+                                response_format=options.response_format,
+                            )
+                            payload.pop("format", None)
+                            async with session.post(url, json=payload, timeout=timeout) as retry_resp:
+                                if retry_resp.status == 200:
+                                    data = await retry_resp.json()
+                                    text = data.get("response", "")
+                                    usage = {}
+                                    if "prompt_eval_count" in data:
+                                        usage["prompt_tokens"] = data["prompt_eval_count"]
+                                    if "eval_count" in data:
+                                        usage["completion_tokens"] = data["eval_count"]
+                                    if usage:
+                                        usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get(
+                                            "completion_tokens", 0
+                                        )
+                                    return LLMResponse.success(
+                                        text=text,
+                                        model=model,
+                                        provider=self._name,
+                                        elapsed_ms=elapsed_ms,
+                                        usage=usage,
+                                    )
+                                # If retry also fails, fall through to regular error.
+                        except Exception:
+                            pass
                     logger.error(
                         "Ollama generate error",
                         status=response.status,
@@ -286,12 +324,16 @@ class OllamaProvider(BaseLLMProvider):
         }
 
         if options:
+            if options.response_format:
+                payload["format"] = options.response_format
             if options.max_tokens:
                 payload["options"]["num_predict"] = options.max_tokens
             if options.top_p is not None:
                 payload["options"]["top_p"] = options.top_p
             if options.top_k is not None:
                 payload["options"]["top_k"] = options.top_k
+            if options.stop:
+                payload["options"]["stop"] = options.stop
 
         start_time = time.perf_counter()
         self._request_count += 1

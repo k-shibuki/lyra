@@ -1,7 +1,7 @@
 """
 Tests for citation relevance filtering .
 
-## Test Perspectives Table - Stage 0 citation_count threshold
+## Test Perspectives Table - Stage 0 citation_count threshold + Stage 2 LLM parsing
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
@@ -14,6 +14,7 @@ Tests for citation relevance filtering .
 | TC-S0-B-05 | All papers below threshold | Boundary – empty result | Empty list returned | All filtered |
 | TC-S0-A-01 | min_citation_count=-1 (invalid) | Abnormal – negative | Pydantic validation error at config load | Config validation (out of scope for filter_relevant_citations test) |
 | TC-S0-A-02 | citation_count is negative | Abnormal – negative | Pydantic validation error at Paper creation | Paper schema validation (out of scope for filter_relevant_citations test) |
+| TC-S2-A-01 | Stage 2 LLM returns unparseable output then valid integer on retry | Abnormal – invalid format | Second call parses; uses retry result | Tiered prompting for judge task |
 
 """
 
@@ -208,6 +209,91 @@ async def test_stage0_min_citation_count_default() -> None:
         assert mock_ml.embed.call_count == 1
         call_args = mock_ml.embed.call_args[0][0]
         assert len(call_args) == 4  # 1 source + 3 candidates
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_stage2_llm_retry_on_unparseable_output() -> None:
+    """TC-S2-A-01: Retry Stage 2 once if LLM output is not parseable as 0-10.
+
+    Given: Stage 2 LLM returns "N/A" then "7"
+    When: filter_relevant_citations() runs stage 2 scoring
+    Then: provider.generate is called twice and score is parsed from retry output
+    """
+    from src.search.citation_filter import filter_relevant_citations
+    from src.utils.config import CitationFilterConfig
+    from src.utils.schemas import Author, Paper
+
+    source_paper = Paper(
+        id="source",
+        title="Source",
+        abstract="Source abstract",
+        authors=[Author(name="Author", affiliation=None, orcid=None)],
+        year=2020,
+        published_date=None,
+        doi=None,
+        arxiv_id=None,
+        venue=None,
+        citation_count=10,
+        reference_count=0,
+        is_open_access=False,
+        oa_url=None,
+        pdf_url=None,
+        source_api="semantic_scholar",
+    )
+
+    candidate = Paper(
+        id="p1",
+        title="Paper 1",
+        abstract="Target abstract",
+        authors=[Author(name="Author", affiliation=None, orcid=None)],
+        year=2020,
+        published_date=None,
+        doi=None,
+        arxiv_id=None,
+        venue=None,
+        citation_count=5,
+        reference_count=0,
+        is_open_access=False,
+        oa_url=None,
+        pdf_url=None,
+        source_api="semantic_scholar",
+    )
+
+    cfg = CitationFilterConfig(stage1_top_k=1, stage2_top_k=1, min_citation_count=0)
+    mock_settings = MagicMock()
+    mock_settings.search.citation_filter = cfg
+    mock_settings.embedding.batch_size = 10
+
+    with (
+        patch("src.search.citation_filter.get_settings", return_value=mock_settings),
+        patch("src.search.citation_filter.get_ml_client") as mock_ml_client,
+        patch("src.search.citation_filter.create_ollama_provider") as mock_ollama,
+    ):
+        mock_ml = MagicMock()
+        mock_ml.embed = AsyncMock(
+            return_value=[
+                [0.1] * 384,  # source embedding
+                [0.2] * 384,  # candidate embedding
+            ]
+        )
+        mock_ml_client.return_value = mock_ml
+
+        mock_provider = MagicMock()
+        mock_provider.generate = AsyncMock(
+            side_effect=[MagicMock(ok=True, text="N/A"), MagicMock(ok=True, text="7")]
+        )
+        mock_provider.close = AsyncMock()
+        mock_ollama.return_value = mock_provider
+
+        result = await filter_relevant_citations(
+            query="test query",
+            source_paper=source_paper,
+            candidate_papers=[candidate],
+        )
+
+        assert len(result) == 1
+        assert mock_provider.generate.await_count == 2
 
 
 @pytest.mark.asyncio

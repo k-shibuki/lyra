@@ -541,6 +541,7 @@ class ChainOfDensityCompressor:
             model=self._settings.llm.model,
             temperature=0.3,
             max_tokens=1000,
+            response_format="json",
         )
 
         async def _retry_llm_call(retry_prompt: str) -> str:
@@ -549,6 +550,7 @@ class ChainOfDensityCompressor:
                 model=self._settings.llm.model,
                 temperature=0.3,
                 max_tokens=1000,
+                response_format="json",
             )
 
         validated = await parse_and_validate(
@@ -603,6 +605,7 @@ class ChainOfDensityCompressor:
             model=self._settings.llm.model,
             temperature=0.3,
             max_tokens=1000,
+            response_format="json",
         )
 
         async def _retry_llm_call(retry_prompt: str) -> str:
@@ -611,6 +614,7 @@ class ChainOfDensityCompressor:
                 model=self._settings.llm.model,
                 temperature=0.3,
                 max_tokens=1000,
+                response_format="json",
             )
 
         validated = await parse_and_validate(

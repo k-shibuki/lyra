@@ -20,6 +20,21 @@ A single defense layer is insufficient. Even if an attacker breaches one layer, 
 
 **Adopt an 8-layer defense-in-depth model with independent security checks at each layer.**
 
+## Implementation Notes (Lyra)
+
+This ADR describes the defense-in-depth principle. In the current Lyra codebase, the *layer naming/numbering* used in comments and documentation may differ from the illustrative L1-L8 table below.
+
+Practical integration points (current):
+
+| Area | Implementation | Notes |
+|---|---|---|
+| Input sanitization | `src/filter/llm_security.py:sanitize_llm_input()` | Removes zero-width chars, control chars, dangerous patterns, and strips LYRA-style tags from user-provided text. |
+| Session tags (default ON) | `src/filter/llm_security.py:generate_session_tag()` + `build_secure_prompt()` / `LLMSecurityContext` | Provides an in-band wrapper using a random `<LYRA-...>` tag to enclose INPUT DATA and create a hard boundary. Enabled by default and can be disabled via `LYRA_LLM__SESSION_TAGS_ENABLED=false`. The wrapper text is English-only. |
+| Output validation / leakage detection | `src/filter/llm_security.py:validate_llm_output()` | Detects URLs/IPs and prompt leakage (including LYRA tag patterns); supports masking. |
+| Structured output safety | `src/filter/llm_output.py:parse_and_validate()` | Extracts JSON, validates with Pydantic, retries once, records failures to DB (`llm_extraction_errors`). |
+
+The session-tag wrapper exists as a defense-in-depth tool, but prompt-building integration depends on which caller uses `build_secure_prompt()` / `LLMSecurityContext`. Even when not used, the tag patterns are still handled in sanitization/leakage detection.
+
 ### 8-Layer Model
 
 ```

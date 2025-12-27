@@ -58,6 +58,7 @@ from src.filter.provider import (
     get_llm_registry,
     reset_llm_registry,
 )
+from src.filter.schemas import OllamaChatRequest, OllamaGenerateRequest
 
 # ============================================================================
 # Fixtures
@@ -108,6 +109,7 @@ class TestLLMOptions:
         assert options.top_k is None, "top_k should default to None"
         assert options.stop is None, "stop should default to None"
         assert options.system is None, "system should default to None"
+        assert options.response_format is None, "response_format should default to None"
         assert options.timeout is None, "timeout should default to None"
 
     def test_to_dict_excludes_none(self) -> None:
@@ -126,6 +128,7 @@ class TestLLMOptions:
             max_tokens=100,
             top_p=0.9,
             stop=[".", "!"],
+            response_format="json",
         )
         result = options.to_dict()
 
@@ -134,6 +137,7 @@ class TestLLMOptions:
         assert result["max_tokens"] == 100, f"Expected 100, got {result.get('max_tokens')}"
         assert result["top_p"] == 0.9, f"Expected 0.9, got {result.get('top_p')}"
         assert result["stop"] == [".", "!"], f"Expected ['.', '!'], got {result.get('stop')}"
+        assert result["response_format"] == "json", f"Expected 'json', got {result.get('response_format')}"
 
 
 class TestChatMessage:
@@ -623,17 +627,76 @@ class TestOllamaProviderGenerate:
                 temperature=0.8,
                 max_tokens=500,
                 system="You are helpful",
+                response_format="json",
+                stop=["\n"],
             )
             await ollama_provider.generate("Test", options)
 
         assert isinstance(captured_payload["model"], str)
         assert captured_payload["model"] == "custom-model"
+        # Contract validation (integration boundary)
+        _ = OllamaGenerateRequest.model_validate(captured_payload)
         options_dict = captured_payload["options"]
         assert isinstance(options_dict, dict)
         assert options_dict["temperature"] == 0.8
         assert options_dict["num_predict"] == 500
+        assert options_dict["stop"] == ["\n"]
         assert isinstance(captured_payload["system"], str)
         assert captured_payload["system"] == "You are helpful"
+        assert captured_payload["format"] == "json"
+
+    @pytest.mark.asyncio
+    async def test_generate_retries_without_format_on_rejection(
+        self,
+        ollama_provider: OllamaProvider,
+    ) -> None:
+        """TC-OP-06: generate() retries once without response_format if server rejects it.
+
+        # Given: first response is non-200 with response_format set; second is 200
+        # When: calling generate() with response_format="json"
+        # Then: provider retries once with payload that omits "format"
+        """
+        captured_payloads: list[dict[str, object]] = []
+
+        mock_bad = MagicMock()
+        mock_bad.status = 400
+        mock_bad.text = AsyncMock(return_value="unknown field: format")
+
+        mock_ok = MagicMock()
+        mock_ok.status = 200
+        mock_ok.json = AsyncMock(return_value={"response": "OK"})
+
+        # Create async context managers for both responses
+        cm1 = AsyncMock()
+        cm1.__aenter__.return_value = mock_bad
+        cm1.__aexit__.return_value = None
+
+        cm2 = AsyncMock()
+        cm2.__aenter__.return_value = mock_ok
+        cm2.__aexit__.return_value = None
+
+        call_count = {"n": 0}
+
+        def capture_post(url: str, json: dict[str, object], timeout: float | None = None) -> AsyncMock:
+            captured_payloads.append(dict(json))
+            call_count["n"] += 1
+            return cm1 if call_count["n"] == 1 else cm2
+
+        mock_session = MagicMock()
+        mock_session.post = capture_post
+
+        with patch.object(ollama_provider, "_get_session", AsyncMock(return_value=mock_session)):
+            resp = await ollama_provider.generate(
+                "Test",
+                LLMOptions(response_format="json"),
+            )
+
+        assert resp.ok is True
+        assert resp.text == "OK"
+        assert len(captured_payloads) == 2
+        assert captured_payloads[0].get("format") == "json"
+        assert "format" not in captured_payloads[1]
+        _ = OllamaGenerateRequest.model_validate(captured_payloads[1])
 
     @pytest.mark.asyncio
     async def test_generate_api_error(self, ollama_provider: OllamaProvider) -> None:
@@ -740,7 +803,10 @@ class TestOllamaProviderChat:
                 ChatMessage(role="system", content="Be helpful"),
                 ChatMessage(role="user", content="Hello"),
             ]
-            await ollama_provider.chat(messages)
+            await ollama_provider.chat(
+                messages,
+                LLMOptions(response_format="json", stop=["\n"]),
+            )
 
         messages_list = captured_payload["messages"]
         assert isinstance(messages_list, list)
@@ -749,6 +815,11 @@ class TestOllamaProviderChat:
         assert isinstance(messages_list[1], dict)
         assert messages_list[0]["role"] == "system"
         assert messages_list[1]["content"] == "Hello"
+        assert captured_payload["format"] == "json"
+        options_dict = captured_payload["options"]
+        assert isinstance(options_dict, dict)
+        assert options_dict["stop"] == ["\n"]
+        _ = OllamaChatRequest.model_validate(captured_payload)
 
 
 class TestOllamaProviderEmbed:

@@ -392,7 +392,7 @@ class TestBuildSecurePrompt:
         assert "<LYRA-evil>" not in prompt
 
     def test_includes_rules(self) -> None:
-        """Prompt includes system instruction rules."""
+        """Prompt includes instruction rules and INPUT DATA boundary."""
         # Given: Instructions and input
         tag = generate_session_tag()
         instructions = "Do something."
@@ -401,10 +401,15 @@ class TestBuildSecurePrompt:
         # When: Build prompt
         prompt, _ = build_secure_prompt(instructions, user_input, tag)
 
-        # Then: Rules are included
-        assert "システムインストラクション" in prompt
-        assert "ユーザープロンプト" in prompt
-        assert "矛盾する場合" in prompt
+        # Then: Rules are included; INPUT DATA is inside tags
+        assert "INSTRUCTIONS:" in prompt
+        assert "INPUT DATA" in prompt
+        assert "data only" in prompt.lower()
+        # Verify structure: tags wrap user input, not instructions
+        open_idx = prompt.index(tag.open_tag)
+        close_idx = prompt.index(tag.close_tag)
+        assert user_input in prompt[open_idx:close_idx]
+        assert instructions not in prompt[open_idx:close_idx]
 
 
 class TestLLMSecurityContext:

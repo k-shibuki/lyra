@@ -339,6 +339,7 @@ async def parse_and_validate[T: BaseModel](
     hint = _schema_hint(schema, expect_array=expect_array)
 
     last_error_type: str | None = None
+    retries_attempted = 0
 
     for attempt in range(max_retries + 1):
         parsed = extract_json(current_response, expect_array=expect_array)
@@ -370,6 +371,7 @@ async def parse_and_validate[T: BaseModel](
                 f"Please output ONLY valid {type_hint}, no explanations:"
             )
             try:
+                retries_attempted += 1
                 current_response = await llm_call(retry_prompt)
                 continue
             except Exception as e:
@@ -384,7 +386,7 @@ async def parse_and_validate[T: BaseModel](
         error_type=last_error_type or "unknown",
         template_name=template_name,
         task_id=task_id,
-        retry_count=min(max_retries, attempt),
+        retry_count=retries_attempted,
         context=context,
         response=current_response,
     )

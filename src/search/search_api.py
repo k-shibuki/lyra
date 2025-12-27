@@ -18,8 +18,8 @@ BrowserSearchProvider handles all searches:
 
 import hashlib
 import json
-import re
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast

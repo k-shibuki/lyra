@@ -53,6 +53,8 @@ class LLMOptions:
         top_k: Top-k sampling parameter.
         stop: Stop sequences.
         system: System prompt.
+        response_format: Optional response format hint (provider-specific).
+            For Ollama: "json" sets payload {"format":"json"} to force valid JSON output.
         timeout: Request timeout in seconds.
     """
 
@@ -63,6 +65,7 @@ class LLMOptions:
     top_k: int | None = None
     stop: list[str] | None = None
     system: str | None = None
+    response_format: str | None = None
     timeout: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -77,6 +80,7 @@ class LLMOptions:
                 "top_k": self.top_k,
                 "stop": self.stop,
                 "system": self.system,
+                "response_format": self.response_format,
                 "timeout": self.timeout,
             }.items()
             if v is not None

@@ -453,8 +453,8 @@ class TestTemplateValidation:
         result = real_manager.render("extract_facts", text=text)
 
         # Then: Template renders correctly (empty input is valid)
-        # Template should contain "Input" section with empty text
-        assert "## Input" in result or "Input" in result
+        # Template should contain INPUT DATA section
+        assert "INPUT DATA" in result
 
     def test_very_long_text_input(self, real_manager: PromptManager) -> None:
         """TC-B-02: Test template renders with very long text (4000+ chars)."""
@@ -578,7 +578,7 @@ class TestTemplateValidation:
         assert current_summary in result
         assert original_content in result
         assert missing_entities in result
-        assert "density" in result.lower()
+        assert "densify" in result.lower()
 
     def test_initial_summary_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-07: Test initial_summary template renders with valid input."""
@@ -606,7 +606,7 @@ class TestTemplateValidation:
         # Then: Query context is included
         assert content in result
         assert query_context in result
-        assert "Research Context" in result
+        assert "Research question" in result
 
     def test_quality_assessment_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-09: Test quality_assessment template renders with valid input."""
@@ -686,7 +686,8 @@ class TestTemplateValidation:
 
         # Then: Should use single braces
         assert '"summary":' in result
-        assert '"claims":' in result
+        assert '"entities":' in result
+        assert '"conflicts":' in result
         assert '{{"summary":' not in result
 
     def test_json_format_quality_assessment(self, real_manager: PromptManager) -> None:
