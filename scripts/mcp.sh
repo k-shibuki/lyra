@@ -128,11 +128,8 @@ export LYRA_BROWSER__CHROME_HOST="${LYRA_BROWSER__CHROME_HOST:-localhost}"
 export LYRA_BROWSER__CHROME_BASE_PORT="${LYRA_BROWSER__CHROME_BASE_PORT:-9222}"
 export LYRA_BROWSER__CHROME_PROFILE_PREFIX="${LYRA_BROWSER__CHROME_PROFILE_PREFIX:-Lyra-}"
 
-# 6. Auto-start Chrome Pool for all workers
-log_info "Starting Chrome Pool for worker pool..." >&2
-"${SCRIPT_DIR}/chrome.sh" start >&2 || {
-    log_warn "Chrome Pool start failed. Workers will auto-start Chrome as needed." >&2
-}
+# 6. Chrome is started lazily when needed (via _auto_start_chrome in browser providers)
+# No pre-startup required - workers call chrome.sh start-worker N on demand
 
 # 7. Start MCP server on host
 cd "${PROJECT_DIR}"

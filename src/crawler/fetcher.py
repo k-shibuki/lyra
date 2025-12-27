@@ -962,19 +962,21 @@ class BrowserFetcher:
                         task_id,
                     )
 
-                # Per ADR-0014 Phase 3: Each worker gets its own isolated BrowserContext
-                # Worker 0 can reuse Chrome's default context for cookie preservation
-                # Other workers always create new isolated contexts
+                # Per ADR-0014 Phase 3: Each worker connects to its own Chrome instance
+                # Each Chrome instance has its own profile, so reuse existing context
+                # This preserves cookies and avoids creating incognito-like contexts
                 if self._headful_browser is not None:
                     existing_contexts = self._headful_browser.contexts
-                    if self._worker_id == 0 and existing_contexts:
+                    if existing_contexts:
+                        # Reuse the Chrome profile's default context (preserves cookies)
                         self._headful_context = existing_contexts[0]
                         logger.info(
-                            "Worker 0 reusing existing browser context for cookie preservation",
+                            "Reusing existing browser context for cookie preservation",
                             worker_id=self._worker_id,
                             context_count=len(existing_contexts),
                         )
                     else:
+                        # Fallback: create new context if none exists
                         self._headful_context = await self._headful_browser.new_context(
                             viewport={
                                 "width": browser_settings.viewport_width,
@@ -984,7 +986,7 @@ class BrowserFetcher:
                             timezone_id="Asia/Tokyo",
                         )
                         logger.info(
-                            "Created new isolated browser context for worker",
+                            "Created new browser context (no existing context found)",
                             worker_id=self._worker_id,
                             total_contexts=len(self._headful_browser.contexts),
                         )

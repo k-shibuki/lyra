@@ -71,7 +71,7 @@ make mcp
 
 ## Log access
 
-MCPサーバーのログは `logs/lyra_YYYYMMDD.log` に出力される:
+MCP Server logs are written to `logs/lyra_YYYYMMDD.log`:
 
 ```bash
 # Show recent logs (tail -100)
@@ -256,6 +256,41 @@ make test-check RUN_ID=<run_id>
 
 ---
 
+## Debug report template
+
+Create a report in `docs/debug/DEBUG_E2E_NN.md` for significant debugging sessions:
+
+```markdown
+# E2E Debug Report (YYYY-MM-DD)
+
+## Summary
+One-line result: ✅ Resolved / ❌ Ongoing / ⚠️ Partial
+
+## Symptoms
+- Expected: ...
+- Actual: ...
+
+## Error Analysis
+| Category | Count | Event | Cause |
+|----------|-------|-------|-------|
+| ... | ... | ... | ... |
+
+## Hypotheses and Results
+| ID | Hypothesis | Result |
+|----|------------|--------|
+| A | ... | ✅ Adopted / ❌ Rejected |
+
+## Fixes Applied
+1. File: change summary
+2. File: change summary
+
+## Verification
+- Test command and result
+- Remaining issues (if any)
+```
+
+---
+
 ## Reference documents
 
 | Document | Path | Purpose |
@@ -264,6 +299,88 @@ make test-check RUN_ID=<run_id>
 | ADRs | `docs/adr/` | Architecture decisions |
 | Schema | `src/storage/schema.sql` | Table structure |
 | MCP tools | `src/mcp/server.py` | Tool definitions |
+| Debug reports | `docs/debug/` | Past debugging sessions |
+
+---
+
+## Isolated debugging (when MCP Server holds DB lock)
+
+When the MCP Server is running, it holds a WAL write lock on `data/lyra.db`. 
+Direct DB writes from test scripts will hang. Use **isolated DB + debug scripts** instead.
+
+### Debug script pattern
+
+```bash
+# Run with timeout (required to prevent hangs)
+timeout 120 uv run python scripts/debug_e2e_test.py
+```
+
+The script uses `isolated_database_path()` context manager to create a temporary DB:
+
+```python
+from src.storage.isolation import isolated_database_path
+
+async def main():
+    async with isolated_database_path() as db_path:
+        # Your test code here - uses temp DB, not data/lyra.db
+        client = SomeAPIClient()
+        result = await client.search("test query")
+```
+
+**Key benefits**:
+- No DB lock conflicts with MCP Server
+- Clean state for each run
+- Auto-cleanup after test
+
+### When to use isolated debugging
+
+| Scenario | Use isolated script | Use MCP tools |
+|----------|---------------------|---------------|
+| API client bugs | ✅ | ❌ |
+| Rate limiter issues | ✅ | ❌ |
+| Parse/validation errors | ✅ | ❌ |
+| DB state issues | ❌ | ✅ |
+| Full E2E flow | ❌ | ✅ |
+
+### Instrumentation logs
+
+Debug logs are written to `.cursor/debug.log` in NDJSON format:
+
+```bash
+# View all logs as JSON array
+cat .cursor/debug.log | jq -s '.'
+
+# Filter by hypothesis ID
+cat .cursor/debug.log | jq -s 'map(select(.hypothesisId == "A"))'
+
+# Count by location
+cat .cursor/debug.log | jq -s 'group_by(.location) | map({loc: .[0].location, count: length})'
+
+# Clear logs before new run
+> .cursor/debug.log
+```
+
+### Adding instrumentation
+
+Use `#region agent log` markers for easy cleanup:
+
+```python
+# #region agent log
+import json
+with open("/home/statuser/lyra/.cursor/debug.log", "a") as f:
+    f.write(json.dumps({
+        "location": "src/module.py:func",
+        "message": "description",
+        "data": {"key": "value"},
+        "timestamp": __import__("time").time() * 1000,
+        "hypothesisId": "A"
+    }) + "\n")
+# #endregion
+```
+
+After debugging, search and remove all `#region agent log` blocks.
+
+---
 
 ## Related rules
 

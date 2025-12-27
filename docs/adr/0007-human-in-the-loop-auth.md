@@ -113,24 +113,12 @@ CREATE TABLE intervention_queue (
 
 ### Notification Timing (Hybrid Approach)
 
-```python
-# BatchNotificationManager
-class BatchNotificationManager:
-    BATCH_TIMEOUT_SECONDS = 30
-
-    async def on_captcha_queued(self, queue_id, domain):
-        # Start timer (notify after 30 seconds)
-        ...
-
-    async def on_search_queue_empty(self):
-        # Notify immediately when queue is empty
-        ...
-```
-
 | Trigger | Condition | Benefit |
 |---------|-----------|---------|
 | Timeout | 30 seconds after first CAPTCHA | Prevents accumulation |
 | Queue Empty | Search queue becomes empty | Efficient batch processing |
+
+Notifications are batched to avoid frequent user interruptions.
 
 ### CAPTCHA Handling
 
@@ -155,19 +143,6 @@ The `resolve_auth` MCP tool supports 3 granularity levels:
 - `target=item`: Process just one item
 - `target=domain`: Batch process by domain (across multiple tasks)
 - `target=task`: Process only a specific task's auth waits (e.g., skip auth waits while task continues)
-
-### Implementation Files
-
-| File | Changes |
-|------|---------|
-| `src/storage/schema.sql` | `intervention_queue.search_job_id`, `expires_at` added |
-| `src/scheduler/jobs.py` | `JobState.AWAITING_AUTH` added |
-| `src/utils/config.py` | `TaskLimitsConfig.auth_queue_ttl_hours` added (default 3 hours) |
-| `src/utils/notification.py` | `BatchNotificationManager`, `enqueue()` extension, `skip()` status parameter |
-| `src/search/browser_search_provider.py` | Queue registration on CAPTCHA |
-| `src/scheduler/search_worker.py` | `awaiting_auth` state processing |
-| `src/mcp/server.py` | `resolve_auth` auto-requeue, `target=task` added, `stop_task` auth queue cancel, `get_status` pending_auth |
-| `src/search/provider.py` | `SearchOptions.task_id/search_job_id` added |
 
 ## Consequences
 
