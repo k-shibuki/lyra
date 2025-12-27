@@ -1,0 +1,44 @@
+{
+  "decompose.j2": {
+    "key_count": 6,
+    "keys": [
+      "granularity",
+      "hints",
+      "keywords",
+      "polarity",
+      "text",
+      "type"
+    ]
+  },
+  "detect_citation.j2": {
+    "key_count": 0,
+    "keys": []
+  },
+  "extract_claims.j2": {
+    "key_count": 3,
+    "keys": [
+      "claim",
+      "confidence",
+      "type"
+    ]
+  },
+  "extract_facts.j2": {
+    "key_count": 2,
+    "keys": [
+      "confidence",
+      "fact"
+    ]
+  },
+  "relevance_evaluation.j2": {
+    "key_count": 0,
+    "keys": []
+  },
+  "summarize.j2": {
+    "key_count": 0,
+    "keys": []
+  },
+  "translate.j2": {
+    "key_count": 0,
+    "keys": []
+  }
+}

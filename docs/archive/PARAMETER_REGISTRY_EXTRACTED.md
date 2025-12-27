@@ -1,6 +1,6 @@
 # Parameter Registry (Extracted)
 **Generated**: 2025-12-27
-This file is an *inventory* of parameters extracted from DB schema, MCP JSON Schemas, config YAMLs, and code contracts (BaseModel/dataclass/TypedDict).
+This file is an *inventory* of parameters extracted from DB schema, MCP JSON Schemas, config YAMLs, Settings models, code contracts (BaseModel/dataclass/TypedDict), and prompt templates (`config/prompts/*.j2` JSON output keys).
 
 ## DB: tables and columns
 - tables: **32**
@@ -1144,6 +1144,16 @@ This file is an *inventory* of parameters extracted from DB schema, MCP JSON Sch
 - fields (5): `auto_escalate_block_score`, `auto_escalate_captcha_rate`, `cloudflare_timeout`, `enabled`, `prefer_headless`
 ### `WebCitationDetectionConfig`
 - fields (8): `budget_pages_per_task`, `create_placeholder_pages`, `enabled`, `max_candidates_per_page`, `max_edges_per_page`, `min_text_chars`, `require_useful_text`, `run_on_primary_sources_only`
+
+## Prompt templates (config/prompts/*.j2): JSON output keys (heuristic extraction)
+- files: **7**
+- JSON-keyed templates (found example objects): **3**
+### `extract_claims.j2`
+- keys (3): `claim`, `type`, `confidence`
+### `extract_facts.j2`
+- keys (2): `fact`, `confidence`
+### `decompose.j2`
+- keys (6): `text`, `polarity`, `granularity`, `type`, `keywords`, `hints`
 
 ## Code contracts: fields (BaseModel / dataclass / TypedDict)
 - items: **1730** (unique field names: **1108**)

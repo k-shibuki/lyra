@@ -1,7 +1,7 @@
 ## Parameter Normalization Plan (Destructive / DB Rebuild)
 
 **Date**: 2025-12-27  
-**Scope**: DB schema, MCP tool schemas/responses, source code, tests  
+**Scope**: DB schema, MCP tool schemas/responses, source code, tests, prompt templates (`config/prompts/*.j2`)  
 **Out of scope**: Backward compatibility (explicitly *not required*)  
 
 ### 1. 結論（今すぐ実行すべきか？）
@@ -20,8 +20,8 @@
 `<producer>_<object>_<metric>[_<qualifier>]`
 
 - **producer**（生成元）: `rank | llm | nli | bayes | calib | meta | policy | crawl | search`
-- **object**（対象）: `fragment | claim | edge | page | citation | domain | engine | task | job`
-- **metric**（指標）: `score | confidence | prob | logit | label | weight | uncertainty | controversy | count | ratio | status`
+- **object**（対象）: `fragment | claim | fact | edge | page | citation | domain | engine | task | job`
+- **metric**（指標）: `text | keywords | hints | score | confidence | prob | logit | label | weight | uncertainty | controversy | count | ratio | status`
 - **qualifier**（任意）: `raw | calibrated | bm25 | embed | rerank | final | category | before | after | expected | predicted`
 
 例:
@@ -90,6 +90,24 @@
 | `passage["final_score"]` | `passage["rank_fragment_score_final"]` |
 | `passage["category_weight"]` | `passage["rank_fragment_weight_category"]` |
 
+#### 4.4 Prompt templates（`config/prompts/*.j2`）: 出力JSONキー（契約）rename map（初版）
+
+> NOTE: prompt出力キーは「プロンプト ↔ パーサ」の契約そのものなので、正規化するなら **テンプレとパーサの同時変更**が必須。
+
+| 現状 | 新（提案） | 備考 |
+|---|---|---|
+| `prompt:extract_claims.j2:claim` | `claim_text`（または `llm_claim_text`） | 文字列（識別子/本文系）。canonicalの例外扱い候補 |
+| `prompt:extract_claims.j2:type` | `llm_claim_type` | enum（`fact|opinion|prediction`）。`*_label` へ寄せるかは要決定 |
+| `prompt:extract_claims.j2:confidence` | `llm_claim_confidence_raw` | DB `claims.claim_confidence` の正規化と揃える |
+| `prompt:extract_facts.j2:fact` | `fact_text`（または `llm_fact_text`） | 現状DBに “facts” が無いなら、後段の保存設計とセットで確定 |
+| `prompt:extract_facts.j2:confidence` | `llm_fact_confidence_raw` | “fact”導入時の命名 |
+| `prompt:decompose.j2:text` | `claim_text`（または `meta_claim_text`） | atomic claim本文 |
+| `prompt:decompose.j2:polarity` | `meta_claim_label_polarity_expected` | `expected`/`predicted` の語順は要統一 |
+| `prompt:decompose.j2:granularity` | `meta_claim_label_granularity` | enum |
+| `prompt:decompose.j2:type` | `meta_claim_label_type` | enum（`factual|causal|...`） |
+| `prompt:decompose.j2:keywords` | `meta_claim_keywords` | list[str]（canonical formatの適用方法は要決定） |
+| `prompt:decompose.j2:hints` | `meta_claim_hints` | list[str]（canonical formatの適用方法は要決定） |
+
 ### 5. 「すべてのパラメータ」を正規化するための拡張手順（漏れゼロ化）
 
 “全パラメータ”を文字通り実施するには、まず **自動抽出でカタログ化**してから、置換と検証を機械的に回す。
@@ -99,6 +117,13 @@
 - **DB**: `schema.sql` から列名・テーブル名を抽出（SQLパーサ or 正規表現）
 - **MCP**: `src/mcp/schemas/*.json` の `properties` を全列挙
 - **コード/テスト**: `src/` と `tests/` を文字列/属性アクセスで走査（`["..."]`, `.field`, `Field(...)`）
+- **Prompt templates**: `config/prompts/*.j2` から **出力JSON例のキー**を抽出（例: `{"confidence": ...}` の `"..."` キー）
+
+このリポジトリでは、棚卸しの機械抽出結果を `docs/archive/` に保存している:
+- `docs/archive/PARAMETER_REGISTRY_EXTRACTED.md`
+- `docs/archive/parameter-registry.prompts-json-keys.json`
+- `docs/archive/PARAMETER_RENAME_MAP_TEMPLATE.json`（old→canonical の作業台・未確定）
+- `docs/archive/PARAMETER_RENAME_MAP_DRAFT.json`（初版ドラフト: “keep or rename” を機械充填）
 
 #### 5.2 Parameter Registry（単一の真実）
 
