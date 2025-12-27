@@ -2,7 +2,7 @@
 
 This module provides common utilities for extracting and validating JSON
 from LLM responses. Implements the retry policy from ADR-0006:
-- 2 retries with format correction prompt
+- 1 retry with format correction prompt
 - Error recording on final failure
 - Process continues without stopping
 
@@ -11,8 +11,9 @@ Per docs/review-prompt-templates.md Phase 2.
 
 import json
 import re
+import uuid
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, ValidationError
 
@@ -162,17 +163,82 @@ def validate_list_with_schema[T: BaseModel](
     return results
 
 
+def _schema_hint[T: BaseModel](schema: type[T], *, expect_array: bool) -> str:
+    """Build a compact schema hint for retry prompts (English-only)."""
+    # Keep this short to avoid inflating tokens.
+    try:
+        fields = []
+        for name, field in schema.model_fields.items():
+            # annotation may be None for computed/aliased fields; fall back to repr
+            ann = field.annotation
+            ann_str = getattr(ann, "__name__", None) or str(ann)
+            fields.append(f"{name}: {ann_str}")
+        fields_part = ", ".join(fields[:20])
+        suffix = "" if len(fields) <= 20 else ", ..."
+        shape = "JSON array of objects" if expect_array else "JSON object"
+        return f"Expected {shape} with fields: {fields_part}{suffix}"
+    except Exception:
+        return "Output must be valid JSON matching the required schema."
+
+
+async def record_extraction_error_to_db(
+    *,
+    error_type: str,
+    template_name: str,
+    task_id: str | None,
+    retry_count: int,
+    context: dict[str, Any] | None = None,
+    response: str | None = None,
+) -> None:
+    """Persist an extraction failure record to SQLite for audit/debug.
+
+    NOTE: This function must never raise; failures are logged and ignored.
+    """
+    try:
+        from src.storage.database import get_database
+
+        db = await get_database()
+        record_id = str(uuid.uuid4())
+        response_preview = (response or "")[:500] or None
+        context_json = json.dumps(context or {}, ensure_ascii=False)
+
+        await db.execute(
+            """
+            INSERT INTO llm_extraction_errors (
+                id, task_id, template_name, error_type,
+                response_preview, context_json, retry_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record_id,
+                task_id,
+                template_name,
+                error_type,
+                response_preview,
+                context_json,
+                retry_count,
+            ),
+        )
+    except Exception as e:
+        logger.warning(
+            "Failed to record extraction error to DB",
+            error=str(e),
+            template_name=template_name,
+            error_type=error_type,
+        )
+
+
 async def parse_with_retry(
     response: str,
     llm_call: LLMCallFn,
     expect_array: bool = False,
-    max_retries: int = 2,
+    max_retries: int = 1,
     schema_hint: str | None = None,
 ) -> dict | list | None:
     """Parse LLM response with retry on format errors.
 
     Implements the retry policy:
-    - Up to 2 retries with format correction prompt
+    - Up to 1 retry with format correction prompt
     - Returns None on final failure (caller handles fallback)
 
     Args:
@@ -217,6 +283,111 @@ async def parse_with_retry(
                 logger.warning("Retry LLM call failed", error=str(e))
                 break
 
+    return None
+
+
+@overload
+async def parse_and_validate[T: BaseModel](
+    *,
+    response: str,
+    schema: type[T],
+    template_name: str,
+    expect_array: Literal[True],
+    llm_call: LLMCallFn | None = None,
+    max_retries: int = 1,
+    task_id: str | None = None,
+    context: dict[str, Any] | None = None,
+    lenient: bool = True,
+) -> list[T] | None: ...
+
+
+@overload
+async def parse_and_validate[T: BaseModel](
+    *,
+    response: str,
+    schema: type[T],
+    template_name: str,
+    expect_array: Literal[False],
+    llm_call: LLMCallFn | None = None,
+    max_retries: int = 1,
+    task_id: str | None = None,
+    context: dict[str, Any] | None = None,
+    lenient: bool = True,
+) -> T | None: ...
+
+
+async def parse_and_validate[T: BaseModel](
+    *,
+    response: str,
+    schema: type[T],
+    template_name: str,
+    expect_array: bool,
+    llm_call: LLMCallFn | None = None,
+    max_retries: int = 1,
+    task_id: str | None = None,
+    context: dict[str, Any] | None = None,
+    lenient: bool = True,
+) -> T | list[T] | None:
+    """Parse, validate, optionally retry, and persist failure to DB.
+
+    Retry policy:
+    - Retry up to `max_retries` times (default: 1)
+    - Retries are triggered on JSON parse failure OR schema validation failure
+    - Final failure is recorded to DB and returns None (caller must continue)
+    """
+    current_response = response
+    hint = _schema_hint(schema, expect_array=expect_array)
+
+    last_error_type: str | None = None
+
+    for attempt in range(max_retries + 1):
+        parsed = extract_json(current_response, expect_array=expect_array)
+        if parsed is None:
+            last_error_type = "json_parse"
+        else:
+            if expect_array:
+                if not isinstance(parsed, list):
+                    last_error_type = "schema_validation"
+                else:
+                    items = validate_list_with_schema(parsed, schema, lenient=lenient)
+                    if items:
+                        return items
+                    last_error_type = "schema_validation"
+            else:
+                model = validate_with_schema(parsed, schema, lenient=lenient)
+                if model is not None:
+                    return model
+                last_error_type = "schema_validation"
+
+        if attempt < max_retries and llm_call is not None:
+            type_hint = "JSON array" if expect_array else "JSON object"
+            retry_prompt = (
+                f"Your previous response could not be accepted.\n"
+                f"Failure: {last_error_type}\n"
+                f"Expected: valid {type_hint}\n"
+                f"{hint}\n"
+                f"Previous response (truncated): {current_response[:500]}\n"
+                f"Please output ONLY valid {type_hint}, no explanations:"
+            )
+            try:
+                current_response = await llm_call(retry_prompt)
+                continue
+            except Exception as e:
+                logger.warning(
+                    "Retry LLM call failed",
+                    error=str(e),
+                    template_name=template_name,
+                )
+                break
+
+    await record_extraction_error_to_db(
+        error_type=last_error_type or "unknown",
+        template_name=template_name,
+        task_id=task_id,
+        retry_count=min(max_retries, attempt),
+        context=context,
+        response=current_response,
+    )
     return None
 
 

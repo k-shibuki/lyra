@@ -25,7 +25,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from src.filter.llm_output import extract_json
+from src.filter.llm_output import parse_and_validate
+from src.filter.llm_schemas import QualityAssessmentOutput
 from src.utils.logging import get_logger
 from src.utils.prompt_manager import render_prompt
 
@@ -603,6 +604,8 @@ class ContentQualityAnalyzer:
         if self._ollama_client is None:
             return None
 
+        client = self._ollama_client
+
         try:
             # Detect language for response
             is_japanese = self._is_japanese_text(text)
@@ -616,26 +619,38 @@ class ContentQualityAnalyzer:
             )
 
             # Generate assessment
-            response = await self._ollama_client.generate(
+            response = await client.generate(
                 prompt=formatted_prompt,
                 temperature=0.1,  # Low temperature for consistent assessment
                 max_tokens=500,
             )
 
-            # Parse JSON response
-            result = extract_json(response, expect_array=False)
-            if result is not None and isinstance(result, dict):
-                # Validate and normalize
-                return {
-                    "quality_score": float(result.get("quality_score", 0.5)),
-                    "is_ai_generated": bool(result.get("is_ai_generated", False)),
-                    "is_spam": bool(result.get("is_spam", False)),
-                    "is_aggregator": bool(result.get("is_aggregator", False)),
-                    "reason": str(result.get("reason", "")),
-                }
-            else:
-                logger.warning("LLM quality assessment: no JSON found in response")
+            async def _retry_llm_call(retry_prompt: str) -> str:
+                return await client.generate(
+                    prompt=retry_prompt,
+                    temperature=0.1,
+                    max_tokens=500,
+                )
+
+            validated = await parse_and_validate(
+                response=response,
+                schema=QualityAssessmentOutput,
+                template_name="quality_assessment",
+                expect_array=False,
+                llm_call=_retry_llm_call,
+                max_retries=1,
+                context={
+                    "component": "quality_analyzer",
+                    "input_len": len(truncated_text),
+                    "lang": "ja" if is_japanese else "en",
+                },
+            )
+
+            if validated is None:
+                logger.warning("LLM quality assessment: invalid structured output")
                 return None
+
+            return validated.model_dump()
         except Exception as e:
             logger.warning("LLM quality assessment failed", error=str(e))
             return None

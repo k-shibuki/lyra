@@ -17,7 +17,8 @@ from datetime import datetime
 from typing import Any
 
 from src.filter.llm import _get_client
-from src.filter.llm_output import extract_json
+from src.filter.llm_output import parse_and_validate
+from src.filter.llm_schemas import DenseSummaryOutput, InitialSummaryOutput
 from src.report.generator import generate_deep_link
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -542,11 +543,30 @@ class ChainOfDensityCompressor:
             max_tokens=1000,
         )
 
-        # Parse response
-        parsed = self._parse_llm_response(response)
+        async def _retry_llm_call(retry_prompt: str) -> str:
+            return await client.generate(
+                prompt=retry_prompt,
+                model=self._settings.llm.model,
+                temperature=0.3,
+                max_tokens=1000,
+            )
 
-        summary_text = parsed.get("summary", "")
-        entities = parsed.get("entities", [])
+        validated = await parse_and_validate(
+            response=response,
+            schema=InitialSummaryOutput,
+            template_name="initial_summary",
+            expect_array=False,
+            llm_call=_retry_llm_call,
+            max_retries=1,
+            context={"phase": "initial_summary"},
+        )
+
+        if validated is None:
+            summary_text = response.strip()
+            entities: list[str] = []
+        else:
+            summary_text = validated.summary
+            entities = validated.entities
 
         # Count words (handle Japanese)
         word_count = self._count_words(summary_text)
@@ -585,11 +605,30 @@ class ChainOfDensityCompressor:
             max_tokens=1000,
         )
 
-        # Parse response
-        parsed = self._parse_llm_response(response)
+        async def _retry_llm_call(retry_prompt: str) -> str:
+            return await client.generate(
+                prompt=retry_prompt,
+                model=self._settings.llm.model,
+                temperature=0.3,
+                max_tokens=1000,
+            )
 
-        summary_text = parsed.get("summary", current.text)
-        entities = parsed.get("entities", [])
+        validated = await parse_and_validate(
+            response=response,
+            schema=DenseSummaryOutput,
+            template_name="densify",
+            expect_array=False,
+            llm_call=_retry_llm_call,
+            max_retries=1,
+            context={"phase": "densify", "iteration": iteration},
+        )
+
+        if validated is None:
+            summary_text = current.text
+            entities: list[str] = []
+        else:
+            summary_text = validated.summary
+            entities = validated.entities
 
         word_count = self._count_words(summary_text)
 
@@ -601,15 +640,6 @@ class ChainOfDensityCompressor:
             density_score=len(entities) / max(word_count, 1),
             claims=claims,
         )
-
-    def _parse_llm_response(self, response: str) -> dict[str, Any]:
-        """Parse LLM JSON response."""
-        result = extract_json(response, expect_array=False)
-        if result is not None and isinstance(result, dict):
-            return result
-
-        # Fallback: extract summary text
-        return {"summary": response.strip(), "entities": []}
 
     def _extract_all_entities(
         self,
