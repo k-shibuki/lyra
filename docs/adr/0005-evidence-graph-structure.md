@@ -227,25 +227,4 @@ def calculate_reliability(fragment: Fragment) -> float:
 ## References
 - `src/storage/schema.sql` - Graph schema (edges, claims, fragments tables)
 - `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)
-
-## Open Issues / Gaps (ADR-correct but not fully implemented)
-
-The following items are **intentionally recorded as gaps**: the ADR considers them desirable for transparency/reproducibility,
-but the current implementation does not fully realize them yet.
-
-1. **Explicit extraction provenance edge**
-   - **ADR intent**: Represent `EXTRACTED_FROM (Fragment → Page)` as an explicit graph edge to unify provenance modeling.
-   - **Current implementation**: Provenance is implicit via `fragments.page_id → pages.id`; no `edges` row exists.
-   - **Impact**: Harder to traverse provenance purely through `edges` without joining relational tables.
-
-2. **Fragment-level citation edges**
-   - **ADR intent**: `CITES (Fragment → Fragment)` for fine-grained citation/provenance at excerpt level.
-   - **Current implementation**: `CITES` is stored as `Page → Page` (from academic APIs or HTML citation detection).
-   - **Impact**: Citation chains are source-level, not excerpt-level; adequate for many use cases but less precise.
-
-3. **Source reliability weighting**
-   - **ADR intent**: Incorporate a reliability term (e.g., source trust signals) into confidence aggregation.
-   - **Current implementation**: Domain category is not used in confidence by design (to avoid bias); no alternative
-     source reliability signal is currently multiplied into evidence weights.
-   - **Impact**: All evidence weights come from NLI only; future work could add *evidence-quality* features without
-     domain-level bias (e.g., citation quality, study type, recency flags) if needed.
+- `docs/confidence-calibration-design.md` - Confidence/Calibration design (including implementation gaps)

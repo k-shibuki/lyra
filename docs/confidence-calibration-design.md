@@ -317,7 +317,12 @@ final_score = rerank_score * category_weight
 
 #### 3.4.2 To-Be（提案：MCPクライアントへ渡す契約）
 
-`get_materials` の `claims[]` に、**“真偽推定”と“抽出品質”の分離**を明示する（※本提案はドキュメントでの契約案であり、実装変更は別PR/別フェーズ）。
+`get_materials` の `claims[]` に、**"真偽推定"と"抽出品質"の分離**を明示する。
+
+**実装方針（確定）**:
+- **後方互換性は不要**（破壊的変更として実施）
+- **前提条件**: E2Eデバッグが完了してから着手する
+- 理由: E2E完了前に契約を変えると、デバッグ対象が増え収束しない
 
 - **提案フィールド（例）**
   - `bayesian_confidence`: 現在 `confidence` に入っている値（証拠集約後）
@@ -597,8 +602,7 @@ class CalibrationHistory:
 
 | 項目 | オプション | 推奨 | 参照 |
 |------|-----------|------|------|
-| **llm-confidence の扱い** | A: 削除, B: フィルタ, C: 弱い事前分布, D: 抽出品質スコアとしてのみ活用 | （結論は §8.4-8.5） | §8 |
-| **prior_strength 値** | 0.3, 0.5, 1.0 | 0.5 | §8 |
+| **llm-confidence の扱い** | ~~A: 削除, B: フィルタ, C: 弱い事前分布~~, **D: 抽出品質スコアとしてのみ活用** | **D で確定** | §8.5 |
 | **MCP ツールリネーム** | calibration → nli_calibration | 未定 | §9 |
 
 ### 7.3 ❌ 未実装・将来計画
@@ -712,14 +716,15 @@ def calculate_claim_confidence(
 | 真偽推定の意味論を壊しにくい（学術的にも説明しやすい） | “証拠ゼロ時のヒント”にはならない |
 | 校正データ無しでも運用できる | 抽出品質の評価設計は別途必要 |
 
-### 8.5 学術的ベスト（結論）
+### 8.5 結論（確定）
 
-このプロダクト（証拠グラフ + NLIで支持/反証を集約）における学術的ベストは原則として:
+**Option D を採用する。Option C は採用しない。**
 
-- **Best**: **Option D**（`llm-confidence` は抽出品質スコアとしてのみ活用し、真偽推定に混ぜない）
-- **条件付きで許容**: Option C（弱い事前分布）
-  - 条件: 「証拠ゼロ/少数時の表示」をどう扱うかがプロダクト上重要で、かつ prior が誤誘導しないことを
-    事後評価（ホールドアウト、時間分割、レビュー付きデータ）で確認できる場合
+- `llm-confidence` は「抽出品質スコア」としてのみ活用し、真偽推定（bayesian-confidence）には混ぜない
+- 理由:
+  - 真偽推定の意味論を壊しにくい（学術的にも説明しやすい）
+  - 校正データ無しでも運用できる
+  - 「証拠ゼロ時の見かけの確信」という誤解を招くリスクを回避
 
 ---
 
@@ -962,10 +967,50 @@ MCPクライアントが「どのモデルの何のスコアか」を誤解し�
   - 現状: `source` が自由文字列で、何のモデルかが曖昧になり得る。
   - 提案: `source` は `nli` 等の固定namespaceを含める（例: `nli_judge` を正規化して `nli.edge.confidence` の系統に揃える）。
 
-### 13.5 スコープ注記
+### 13.5 実装アプローチ（確定）
 
-本節は **ドキュメント上の命名体系提案**であり、DBカラム名や既存APIの破壊的変更は行わない。
-実装反映は別フェーズで、後方互換（旧フィールドの並存期間）を設計した上で実施する。
+**段階的に実施する**:
+
+1. **Phase 1: Split keys の解決**（人手確認必須）
+   - `confidence` / `type` / `status` など、同名で複数の意味を持つキーを特定
+   - AIが文脈を確認しながら「どの意味か」を判定し、修正テーブルを作成
+   - 例: `edges.confidence` は Fragment→Claim では `nli_edge_confidence_raw`、CITES では削除または別名
+
+2. **Phase 2: 機械的置換**（Phase 1 確定後）
+   - 一意に対応が決まるキーの変換テーブルを作成
+   - grep/sed または AST ベースで一括変換
+
+**後方互換性は不要**（破壊的変更として実施）。E2Eデバッグ完了後に着手する。
+
+## Appendix: Implementation Gaps（ADR-0005 関連）
+
+以下は ADR-0005 で望ましいとされているが、現在の実装では完全に実現されていない項目。
+
+### Gap 1: Explicit extraction provenance edge
+
+| 項目 | 内容 |
+|------|------|
+| **ADR intent** | `EXTRACTED_FROM (Fragment → Page)` を明示的なグラフエッジとして表現し、provenance モデリングを統一する |
+| **Current implementation** | Provenance は `fragments.page_id → pages.id` のリレーショナルリンクで暗黙的に表現。`edges` レコードは存在しない |
+| **Impact** | `edges` テーブルだけで provenance を辿れない（リレーショナルテーブルとの JOIN が必要） |
+
+### Gap 2: Fragment-level citation edges
+
+| 項目 | 内容 |
+|------|------|
+| **ADR intent** | `CITES (Fragment → Fragment)` で抜粋レベルの細粒度 citation/provenance を表現 |
+| **Current implementation** | `CITES` は `Page → Page` として保存（学術 API または HTML 引用検出由来） |
+| **Impact** | 引用チェーンはソースレベルであり、抜粋レベルではない。多くのユースケースでは十分だが精度は低い |
+
+### Gap 3: Source reliability weighting
+
+| 項目 | 内容 |
+|------|------|
+| **ADR intent** | 信頼性項（例: ソース信頼シグナル）を confidence 集約に組み込む |
+| **Current implementation** | Domain category は設計上 confidence 計算に使用しない（バイアス回避）。代替の信頼性シグナルも現状では乗算されていない |
+| **Impact** | 全ての evidence weight は NLI のみから来る。将来的には domain レベルのバイアスなしに evidence-quality 特徴量（引用品質、研究タイプ、新しさフラグ等）を追加可能 |
+
+---
 
 ## Appendix A: コード参照
 
