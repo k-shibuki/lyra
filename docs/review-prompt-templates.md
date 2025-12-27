@@ -496,24 +496,29 @@ response = await client.messages.create(
 )
 ```
 
-### 4.4 Missing: Confidence Calibration
+### 4.4 ~~Missing: Confidence Calibration~~ → 既存実装あり
 
-**Current state:** LLM self-reports confidence without calibration.
+> **注意**: 信頼度キャリブレーションは `src/utils/calibration.py` に完全実装済み。
 
-**Problem:** LLM confidence is often poorly calibrated.
+**既存実装:**
+- Platt Scaling / Temperature Scaling
+- Brier Score / ECE (Expected Calibration Error) 評価
+- 自動劣化検知 + ロールバック
+- 増分再キャリブレーション（サンプル蓄積トリガー）
 
-**Proposed: Post-hoc calibration**
+**MCP ツール:**
+- `calibration_metrics(get_stats)`: 現在のパラメータと履歴
+- `calibration_metrics(get_evaluations)`: 評価履歴
+- `calibration_rollback`: 以前のパラメータへロールバック
+
+**参照:** ADR-0011 (LoRA Fine-tuning Strategy) §Relationship with calibration_metrics
 
 ```python
-def calibrate_confidence(raw_confidence: float, task: str) -> float:
-    """Apply task-specific calibration curve."""
-    # Based on empirical validation data
-    calibration_curves = {
-        "extract_facts": lambda x: x * 0.8,  # LLM overconfident
-        "extract_claims": lambda x: x * 0.85,
-        "relevance": lambda x: x,  # Well-calibrated
-    }
-    return calibration_curves.get(task, lambda x: x)(raw_confidence)
+# 既存 API (src/utils/calibration.py)
+from src.utils.calibration import get_calibrator
+
+calibrator = get_calibrator()
+calibrated_prob = calibrator.calibrate(raw_prob, source="llm_extract")
 ```
 
 ### 4.5 Recommendation: Standardize Prompt Structure
@@ -582,13 +587,19 @@ Output {{ output_format }} only:
 | Add output language parameter | All templates | 1h |
 | Create prompt testing framework | `tests/prompts/` (new) | 4h |
 
-### Phase 4: Advanced Features (Long-term)
+### ~~Phase 4: Advanced Features~~ (削除 - 実装済み)
 
-| Task | Description | Effort |
-|------|-------------|--------|
-| Confidence calibration | Empirical validation + calibration curves | 8h |
-| A/B testing framework | Compare prompt variants | 8h |
-| Prompt versioning system | Track prompt changes with metrics | 4h |
+> **注意**: 以下の機能はすべて既存実装済みのため、Phase 4 は不要。
+
+| 当初の提案 | 既存実装 | 参照 |
+|------------|----------|------|
+| Confidence calibration | ✅ Platt/Temperature scaling, Brier score, 自動ロールバック | `src/utils/calibration.py`, ADR-0011 |
+| A/B testing framework | ✅ クエリA/Bテスト (表記/助詞/語順バリアント) | `src/search/ab_test.py`, ADR-0010 |
+| Prompt versioning | ✅ git 管理で十分 (専用システム不要) | `config/prompts/*.j2` |
+
+**MCP ツール (既存):**
+- `calibration_metrics`: 統計取得、評価履歴
+- `calibration_rollback`: パラメータロールバック
 
 ---
 
