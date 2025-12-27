@@ -76,9 +76,10 @@ class OpenAlexClient(BaseAcademicClient):
         """Get paper metadata."""
         # Apply rate limiting (fix for hypothesis B)
         from src.search.apis.rate_limiter import get_academic_rate_limiter
+
         limiter = get_academic_rate_limiter()
         await limiter.acquire(self.name)
-        
+
         try:
             session = await self._get_session()
 
@@ -113,9 +114,10 @@ class OpenAlexClient(BaseAcademicClient):
 
         # Apply rate limiting for the referenced_works fetch
         from src.search.apis.rate_limiter import get_academic_rate_limiter
+
         limiter = get_academic_rate_limiter()
         await limiter.acquire(self.name)
-        
+
         try:
             # Fetch full work JSON to obtain referenced_works list (IDs/URLs)
             session = await self._get_session()
@@ -131,7 +133,9 @@ class OpenAlexClient(BaseAcademicClient):
             try:
                 data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
             except Exception as e:
-                logger.debug("OpenAlex referenced_works fetch failed", paper_id=paper_id, error=str(e))
+                logger.debug(
+                    "OpenAlex referenced_works fetch failed", paper_id=paper_id, error=str(e)
+                )
                 return []
         finally:
             limiter.release(self.name)
@@ -158,9 +162,10 @@ class OpenAlexClient(BaseAcademicClient):
         """Get citing papers via filter=cites:{work_id}."""
         # Apply rate limiting
         from src.search.apis.rate_limiter import get_academic_rate_limiter
+
         limiter = get_academic_rate_limiter()
         await limiter.acquire(self.name)
-        
+
         try:
             pid = self._normalize_work_id(paper_id)
             session = await self._get_session()
@@ -231,7 +236,9 @@ class OpenAlexClient(BaseAcademicClient):
             doi=doi if doi else None,
             arxiv_id=None,  # OpenAlex does not provide arXiv ID
             venue=(
-                (location.get("source") or {}).get("display_name") if location.get("source") else None
+                (location.get("source") or {}).get("display_name")
+                if location.get("source")
+                else None
             ),
             citation_count=data.get("cited_by_count", 0),
             reference_count=data.get("referenced_works_count", 0),

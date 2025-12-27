@@ -78,9 +78,10 @@ class SemanticScholarClient(BaseAcademicClient):
         """Get paper metadata."""
         # Apply rate limiting (fix for hypothesis B)
         from src.search.apis.rate_limiter import get_academic_rate_limiter
+
         limiter = get_academic_rate_limiter()
         await limiter.acquire(self.name)
-        
+
         try:
             session = await self._get_session()
 
@@ -135,9 +136,10 @@ class SemanticScholarClient(BaseAcademicClient):
         """Get references (papers cited by this paper)."""
         # Apply rate limiting
         from src.search.apis.rate_limiter import get_academic_rate_limiter
+
         limiter = get_academic_rate_limiter()
         await limiter.acquire(self.name)
-        
+
         try:
             session = await self._get_session()
 
@@ -180,9 +182,10 @@ class SemanticScholarClient(BaseAcademicClient):
         """Get citations (papers that cite this paper)."""
         # Apply rate limiting
         from src.search.apis.rate_limiter import get_academic_rate_limiter
+
         limiter = get_academic_rate_limiter()
         await limiter.acquire(self.name)
-        
+
         try:
             session = await self._get_session()
 
@@ -244,7 +247,7 @@ class SemanticScholarClient(BaseAcademicClient):
         if not paper_id:
             # Skip papers without paperId (malformed entries from API)
             raise ValueError(f"Paper has no paperId: {data.get('title', 'Unknown')[:50]}")
-        
+
         return Paper(
             id=f"s2:{paper_id}",
             title=data.get("title") or "",

@@ -28,8 +28,9 @@ cmd_check() {
             pid_file="${LYRA_TEST__PID_FILE}"
             container_name="${LYRA_TEST__CONTAINER_NAME:-}"
             # Update CONTAINER_NAME_SELECTED for runtime_* functions
+            # shellcheck disable=SC2034  # Used by runtime.sh functions (is_container_running_selected, runtime_exec, etc.)
             if [[ -n "$container_name" ]]; then
-                CONTAINER_NAME_SELECTED="$container_name"
+                export CONTAINER_NAME_SELECTED="$container_name"
             fi
         else
             # Use RUNTIME_MODE if explicitly set, otherwise default to venv
@@ -54,8 +55,9 @@ cmd_check() {
         container_name="${LYRA_TEST__CONTAINER_NAME:-}"
         run_id="${LYRA_TEST__RUN_ID:-}"
         # Update CONTAINER_NAME_SELECTED for runtime_* functions
+        # shellcheck disable=SC2034  # Used by runtime.sh functions (is_container_running_selected, runtime_exec, etc.)
         if [[ -n "$container_name" ]]; then
-            CONTAINER_NAME_SELECTED="$container_name"
+            export CONTAINER_NAME_SELECTED="$container_name"
         fi
     fi
 

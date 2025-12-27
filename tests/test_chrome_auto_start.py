@@ -113,7 +113,9 @@ class TestCdpAvailableCheck:
         mock_response.status = 200
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response)))
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response))
+        )
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
 
@@ -161,7 +163,6 @@ class TestAutoStartLockBehavior:
             # Extract worker ID from event names
             start_worker = start_event.split("_")[1]
             end_worker = end_event.split("_")[1]
-            assert start_worker == end_worker, (
-                f"Lock did not serialize execution: {execution_order}"
-            )
-
+            assert (
+                start_worker == end_worker
+            ), f"Lock did not serialize execution: {execution_order}"

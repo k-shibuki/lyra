@@ -29,7 +29,9 @@ def test_render_prompt_injects_session_tags_by_default(monkeypatch) -> None:
     open_tag, close_tag = _extract_lyra_tag_pair(rendered)
     assert open_tag in rendered
     assert close_tag in rendered
-    assert rendered.index(open_tag) < rendered.index("UNTRUSTED_TEXT_ABC") < rendered.index(close_tag)
+    assert (
+        rendered.index(open_tag) < rendered.index("UNTRUSTED_TEXT_ABC") < rendered.index(close_tag)
+    )
 
 
 def test_render_prompt_can_disable_session_tags(monkeypatch) -> None:
@@ -65,5 +67,3 @@ def test_render_prompt_does_not_override_explicit_tag_vars(monkeypatch) -> None:
     # Then
     assert "<LYRA-00000000000000000000000000000000>" in rendered
     assert "</LYRA-00000000000000000000000000000000>" in rendered
-
-
