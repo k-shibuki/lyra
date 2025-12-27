@@ -109,6 +109,13 @@ if paper.venue in ["arXiv", "bioRxiv", "medRxiv"]:
     paper.preprint = True
 ```
 
+**Implementation note (2025-12-27)**:
+- The current implementation stores academic metadata in `pages.paper_metadata` and may surface `year/doi/venue`
+  into evidence materials, but it does **not** yet explicitly model `peer_reviewed/preprint` nor adjust
+  Bayesian uncertainty based on venue class.
+- Treating preprints as higher-uncertainty sources remains a desirable behavior, but it should be implemented
+  carefully to avoid re-introducing coarse domain/venue bias (see ADR-0005).
+
 ### API Client Configuration
 
 ```python

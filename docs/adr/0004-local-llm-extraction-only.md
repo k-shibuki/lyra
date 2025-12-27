@@ -43,8 +43,14 @@ Additionally, as specified in ADR-0002, **strategic decisions (query design, exp
 
 | Model | Size | Purpose | Selection Reason |
 |-------|------|---------|------------------|
-| Qwen2.5-3B-Instruct | 3B | NLI, extraction | Japanese performance, size efficiency |
-| (Backup) Phi-3-mini | 3.8B | English-focused | High English performance |
+| Qwen2.5-3B-Instruct | 3B | Claim extraction, summarization | Japanese performance, size efficiency |
+| DeBERTa-v3-* (Transformers) | 70-140M | NLI stance classification | Robust NLI specialization (supports/refutes/neutral) |
+| (Backup) Phi-3-mini | 3.8B | English-focused extraction/summarization | High English performance |
+
+**Implementation note (2025-12-27)**:
+- In the current codebase, NLI is implemented via a Transformers sequence-classification model
+  (local or via the ML server) rather than via the Ollama LLM. See `src/filter/nli.py` and `src/ml_server/nli.py`.
+  Ollama/Qwen is used for structured claim extraction (`config/prompts/extract_claims.j2`) and summarization.
 
 ### Prompt Design
 

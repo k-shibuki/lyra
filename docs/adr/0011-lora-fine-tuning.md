@@ -113,8 +113,10 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 
 #### Relationship with calibration_metrics
 
-- `calibration_metrics(get_stats)` / `(get_evaluations)`: State check/history reference (MCP tools)
-- `evaluate` / `get_diagram_data`: Removed from MCP tools (ADR-0010). Batch evaluation/visualization done via scripts.
+- `calibration_metrics(get_stats)` / `(get_evaluations)`: **State check/history reference only** (MCP tools).
+- `evaluate` / `fit` / reliability-diagram visualization:
+  - Not exposed as MCP tools in the current implementation.
+  - Intended to be performed by offline scripts / notebooks to avoid timeouts and to keep training/evaluation reviewable.
 
 ### Training Trigger Conditions
 
@@ -154,8 +156,12 @@ See `docs/T_LORA.md` for detailed task list.
 
 ### Current State (Implemented)
 - `feedback(edge_correct)` accumulates NLI correction samples in `nli_corrections` table
-- `calibration_metrics` tool enables probability calibration evaluation (Platt Scaling/Temperature Scaling)
+- `src/utils/calibration.py` provides probability calibration primitives (Platt Scaling / Temperature Scaling) and rollback-ready history.
 - `calibration_rollback` tool enables parameter rollback
+
+**Implementation note (important)**:
+- NLI inference (`src/filter/nli.py`) currently emits `confidence` directly from the model and persists it as `edges.nli_confidence`.
+- The calibration module exists, but calibrated probabilities are not yet applied to `edges.nli_confidence` in the main ingestion path.
 
 ### Prerequisites (Phase 6)
 To start LoRA training, the following are required:
