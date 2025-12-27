@@ -38,7 +38,7 @@ import json
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -711,16 +711,21 @@ class TestNLIService:
         mock_pipeline = MagicMock()
         mock_pipeline.return_value = [{"label": "ENTAILMENT", "score": 0.95}]
 
-        service = NLIService()
+        # Patch at load() level to avoid AutoTokenizer validation
+        with (
+            patch.object(NLIService, "load", new_callable=AsyncMock) as mock_load,
+        ):
+            service = NLIService()
+            service._model = mock_pipeline
 
-        with patch("transformers.pipeline", return_value=mock_pipeline):
-            with patch("src.ml_server.nli.get_nli_path", return_value="/mock/path"):
-                with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
-                    # When
-                    result = await service.predict(
-                        premise="The sky is blue.",
-                        hypothesis="The weather is clear.",
-                    )
+            # When
+            result = await service.predict(
+                premise="The sky is blue.",
+                hypothesis="The weather is clear.",
+            )
+
+            # Then: load() was called
+            mock_load.assert_called_once()
 
         # Then
         assert result["label"] == "supports"
@@ -745,18 +750,23 @@ class TestNLIService:
             {"label": "NEUTRAL", "score": 0.7},
         ]
 
-        service = NLIService()
+        # Patch at load() level to avoid AutoTokenizer validation
+        with (
+            patch.object(NLIService, "load", new_callable=AsyncMock) as mock_load,
+        ):
+            service = NLIService()
+            service._model = mock_pipeline
 
-        with patch("transformers.pipeline", return_value=mock_pipeline):
-            with patch("src.ml_server.nli.get_nli_path", return_value="/mock/path"):
-                with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
-                    # When
-                    pairs = [
-                        ("premise1", "hypothesis1"),
-                        ("premise2", "hypothesis2"),
-                        ("premise3", "hypothesis3"),
-                    ]
-                    result = await service.predict_batch(pairs)
+            # When
+            pairs = [
+                ("premise1", "hypothesis1"),
+                ("premise2", "hypothesis2"),
+                ("premise3", "hypothesis3"),
+            ]
+            result = await service.predict_batch(pairs)
+
+            # Then: load() was called
+            mock_load.assert_called_once()
 
         # Then
         assert len(result) == 3
@@ -777,20 +787,21 @@ class TestNLIService:
 
         service = NLIService()
 
-        with patch(
-            "transformers.pipeline",
+        # Patch load() to simulate model loading failure
+        with patch.object(
+            NLIService,
+            "load",
+            new_callable=AsyncMock,
             side_effect=RuntimeError("NLI model loading failed"),
         ):
-            with patch("src.ml_server.nli.get_nli_path", return_value="/nonexistent/path"):
-                with patch("src.ml_server.nli.is_using_local_paths", return_value=True):
-                    # When/Then
-                    with pytest.raises(RuntimeError) as exc_info:
-                        await service.predict(
-                            premise="Test premise",
-                            hypothesis="Test hypothesis",
-                        )
+            # When/Then
+            with pytest.raises(RuntimeError) as exc_info:
+                await service.predict(
+                    premise="Test premise",
+                    hypothesis="Test hypothesis",
+                )
 
-                    assert "NLI model loading failed" in str(exc_info.value)
+            assert "NLI model loading failed" in str(exc_info.value)
 
 
 # =============================================================================

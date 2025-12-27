@@ -19,9 +19,14 @@ Test Perspectives Table:
 | TC-L-01 | List validation valid items | List validation | Returns valid items | - |
 | TC-L-02 | List validation mixed items | List validation | Skips invalid | - |
 | TC-P-01 | parse_and_validate success (object) | Integration - normal | Returns validated model | - |
-| TC-P-02 | parse_and_validate json_parse then retry | Integration - error recovery | Retries once and succeeds | - |
-| TC-P-03 | parse_and_validate schema_validation then retry | Integration - error recovery | Retries once and succeeds | - |
-| TC-P-04 | parse_and_validate final failure | Integration - error | Returns None and records DB row | Uses test_database fixture |
+| TC-P-02 | parse_and_validate success (array) | Integration - normal | Returns validated list | - |
+| TC-P-03 | parse_and_validate json_parse then retry | Integration - error recovery | Retries once and succeeds | - |
+| TC-P-04 | parse_and_validate schema_validation then retry | Integration - error recovery | Retries once and succeeds | - |
+| TC-P-05 | parse_and_validate final failure | Integration - error | Returns None and records DB row | Uses test_database fixture |
+| TC-P-06 | parse_and_validate retry call failure | Integration - error | Returns None and records DB row | Exception type/message validated |
+| TC-P-07 | parse_and_validate max_retries=0 | Boundary - min | No retry, records DB on failure | - |
+| TC-P-08 | parse_and_validate type mismatch (expect array, get object) | Error case | Returns None after retry | - |
+| TC-P-09 | parse_and_validate task_id/context propagation | Wiring - effect | task_id and context recorded in DB | - |
 """
 
 import pytest
@@ -415,8 +420,32 @@ class TestParseAndValidate:
         assert validated.is_aggregator is True
 
     @pytest.mark.asyncio
+    async def test_parse_and_validate_success_array(self) -> None:
+        """TC-P-02: parse_and_validate returns a validated list for array output."""
+        # Given: Valid JSON array for ExtractedFact
+        response = '[{"fact":"A","confidence":"0.8"},{"fact":"B","confidence":"0.9"}]'
+
+        # When: Parsing and validating
+        validated = await parse_and_validate(
+            response=response,
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=None,
+            max_retries=1,
+            context={"case": "tc-p-02"},
+        )
+
+        # Then: Returns validated list
+        assert validated is not None
+        assert isinstance(validated, list)
+        assert len(validated) == 2
+        assert validated[0].fact == "A"
+        assert validated[1].fact == "B"
+
+    @pytest.mark.asyncio
     async def test_parse_and_validate_json_parse_then_retry(self) -> None:
-        """TC-P-02: parse_and_validate retries once on json_parse and succeeds."""
+        """TC-P-03: parse_and_validate retries once on json_parse and succeeds."""
         # Given: Invalid initial response and a retry function that returns valid JSON
         calls: list[str] = []
 
@@ -446,7 +475,7 @@ class TestParseAndValidate:
 
     @pytest.mark.asyncio
     async def test_parse_and_validate_schema_validation_then_retry(self) -> None:
-        """TC-P-03: parse_and_validate retries once on schema_validation and succeeds."""
+        """TC-P-04: parse_and_validate retries once on schema_validation and succeeds."""
         # Given: JSON parses but fails schema validation; retry returns valid item
         calls: list[str] = []
 
@@ -473,7 +502,7 @@ class TestParseAndValidate:
 
     @pytest.mark.asyncio
     async def test_parse_and_validate_final_failure_records_db(self, test_database) -> None:
-        """TC-P-04: parse_and_validate records failure to DB and returns None."""
+        """TC-P-05: parse_and_validate records failure to DB and returns None."""
         # Given: No retry function and an invalid response
         # When: Parsing and validating
         validated = await parse_and_validate(
@@ -499,10 +528,12 @@ class TestParseAndValidate:
 
     @pytest.mark.asyncio
     async def test_parse_and_validate_retry_call_failure_records_db(self, test_database) -> None:
-        """TC-P-05: parse_and_validate records DB row if retry call itself fails."""
-        # Given: Invalid response and a retry function that raises
+        """TC-P-06: parse_and_validate records DB row if retry call itself fails."""
+        # Given: Invalid response and a retry function that raises RuntimeError
+        error_msg = "retry failed"
+
         async def llm_call(_: str) -> str:
-            raise RuntimeError("retry failed")
+            raise RuntimeError(error_msg)
 
         # When: Parsing and validating (retry will fail)
         validated = await parse_and_validate(
@@ -512,16 +543,122 @@ class TestParseAndValidate:
             expect_array=True,
             llm_call=llm_call,
             max_retries=1,
-            context={"case": "tc-p-05"},
+            context={"case": "tc-p-06"},
         )
 
         # Then: Returns None and records a DB row
         assert validated is None
         rows = await test_database.fetch_all(
-            "SELECT template_name, error_type FROM llm_extraction_errors WHERE template_name = ?",
+            "SELECT template_name, error_type, context_json FROM llm_extraction_errors WHERE template_name = ?",
             ("extract_facts",),
         )
         assert len(rows) >= 1
+        # Verify exception type and message are captured in context
+        import json
+
+        context_data = json.loads(rows[-1]["context_json"] or "{}")
+        assert context_data.get("case") == "tc-p-06"
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_max_retries_zero(self, test_database) -> None:
+        """TC-P-07: parse_and_validate with max_retries=0 does not retry and records DB."""
+        # Given: Invalid response and max_retries=0
+        calls: list[str] = []
+
+        async def llm_call(prompt: str) -> str:
+            calls.append(prompt)
+            return '{"fact":"should not be called"}'
+
+        # When: Parsing and validating with max_retries=0
+        validated = await parse_and_validate(
+            response="not json",
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=llm_call,
+            max_retries=0,
+            context={"case": "tc-p-07"},
+        )
+
+        # Then: No retry attempted and DB row recorded
+        assert len(calls) == 0
+        assert validated is None
+        rows = await test_database.fetch_all(
+            "SELECT retry_count FROM llm_extraction_errors WHERE template_name = ?",
+            ("extract_facts",),
+        )
+        assert len(rows) >= 1
+        assert rows[-1]["retry_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_type_mismatch_after_retry(self, test_database) -> None:
+        """TC-P-08: parse_and_validate returns None when type mismatch persists after retry."""
+        # Given: Response with wrong type (expect array, get object) and retry returns same type
+        calls: list[str] = []
+
+        async def llm_call(prompt: str) -> str:
+            calls.append(prompt)
+            return '{"fact":"wrong type"}'
+
+        # When: Parsing and validating with expect_array=True
+        validated = await parse_and_validate(
+            response='{"fact":"wrong type"}',
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=llm_call,
+            max_retries=1,
+            context={"case": "tc-p-08"},
+        )
+
+        # Then: Retries once but still returns None due to type mismatch
+        assert len(calls) == 1
+        assert validated is None
+        rows = await test_database.fetch_all(
+            "SELECT error_type FROM llm_extraction_errors WHERE template_name = ?",
+            ("extract_facts",),
+        )
+        assert len(rows) >= 1
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_task_id_context_propagation(self, test_database) -> None:
+        """TC-P-09: parse_and_validate propagates task_id and context to DB record."""
+        # Given: Create a task first (for foreign key constraint)
+        task_id = "test_task_123"
+        await test_database.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            (task_id, "test query", "pending"),
+        )
+
+        context = {"case": "tc-p-09", "custom_key": "custom_value"}
+
+        # When: Parsing and validating with task_id and context
+        validated = await parse_and_validate(
+            response="not json",
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=None,
+            max_retries=1,
+            task_id=task_id,
+            context=context,
+        )
+
+        # Then: Returns None
+        assert validated is None
+
+        # And: DB row contains task_id and context
+        rows = await test_database.fetch_all(
+            "SELECT task_id, context_json FROM llm_extraction_errors WHERE template_name = ? ORDER BY created_at DESC LIMIT 1",
+            ("extract_facts",),
+        )
+        assert len(rows) == 1
+        assert rows[0]["task_id"] == task_id
+        import json
+
+        context_data = json.loads(rows[0]["context_json"] or "{}")
+        assert context_data.get("case") == "tc-p-09"
+        assert context_data.get("custom_key") == "custom_value"
 
 
 class TestSchemaValidators:
