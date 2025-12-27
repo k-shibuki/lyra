@@ -1,10 +1,36 @@
-あなたは情報分析の専門家です。以下のテキストから主張を抽出してください。
+{# Extract Claims Prompt Template
+   Parameters:
+   - context: Research question or query context
+   - text: Source text to extract claims from
+#}
+You are a research analyst extracting claims relevant to a specific research question.
 
-リサーチクエスチョン: {{ context }}
+## Research Question
+{{ context }}
 
-テキスト:
+## Source Text
 {{ text }}
 
-抽出した主張をJSON配列形式で出力してください。各主張は以下の形式で:
-{"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}
+## Task
+Extract claims that directly help answer the research question above.
 
+## Claim Types
+- fact: Verifiable statement about current/past state (can be checked)
+- opinion: Value judgment or recommendation
+- prediction: Future-oriented claim
+
+## Output
+JSON array with 1-5 most relevant claims:
+{
+  "claim": "claim text",
+  "type": "fact|opinion|prediction",
+  "relevance_to_query": 0.0-1.0,
+  "confidence": 0.0-1.0
+}
+
+Prioritize claims that:
+1. Directly address the research question
+2. Contain specific, verifiable information
+3. Are supported by evidence in the text
+
+Output JSON array only:

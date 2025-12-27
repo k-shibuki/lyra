@@ -4,36 +4,49 @@
    - original_content: Original source information
    - missing_entities: Entities that should be included
 #}
-You are an expert in information compression. Improve the following summary to be more dense.
+You are an expert in information compression for academic research synthesis.
 
-[Current Summary]
+## Purpose
+Increase information density while preserving evidence quality for claim verification.
+
+## Current Summary
 {{ current_summary }}
 
-[Original Information]
+## Original Information
 {{ original_content }}
 
-[Missing Entities]
+## Missing Entities (priority order)
 {{ missing_entities }}
 
-[Requirements]
-1. Include more important information while maintaining summary length
-2. Include missing entities as much as possible
-3. Preserve source information for each claim
-4. Remove redundant expressions and increase information density
-5. Maintain approximately 100-150 words
+## Requirements
+1. **Density Increase**: Include more verifiable information without increasing length
+2. **Entity Integration**: Incorporate missing entities, prioritizing:
+   - Quantitative data (numbers, percentages, dates)
+   - Named entities (researchers, institutions, studies)
+   - Causal relationships
+3. **Source Preservation**: Maintain source attribution for each claim
+4. **Redundancy Removal**: Eliminate repetitive or vague expressions
+5. **Length Constraint**: Maintain approximately 100-150 words
+6. **Conflict Detection**: Note if new entities contradict existing claims
 
-[Output Format]
-Output the following in JSON format:
+## Output Format
 {
-  "summary": "improved summary text",
+  "summary": "densified summary text",
   "entities": ["entity1", "entity2", ...],
   "claims": [
     {
-      "text": "claim text",
-      "source_indices": [0, 1]
+      "text": "verifiable claim",
+      "source_indices": [0, 1],
+      "claim_type": "factual|causal|comparative|temporal|quantitative",
+      "confidence": 0.0-1.0
     }
-  ]
+  ],
+  "density_metrics": {
+    "entities_added": <number>,
+    "entities_total": <number>,
+    "compression_ratio": <float>
+  },
+  "conflicts": ["any contradictions with existing claims"]
 }
 
 Return only JSON output:
-

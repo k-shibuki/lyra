@@ -1,30 +1,42 @@
 {# Initial Summary Prompt Template for Chain-of-Density
    Parameters:
    - content: Input information to summarize
+   - query_context: Research context (optional)
 #}
-You are an expert in information summarization. Summarize the following information.
+You are an expert in summarizing research materials for evidence synthesis.
 
-[Input Information]
+## Purpose
+This summary will be used in an evidence graph to support or refute research claims.
+Focus on extractable, verifiable information.
+
+## Input Information
 {{ content }}
 
-[Requirements]
-1. Extract key facts and claims
-2. Preserve source information corresponding to each claim
-3. Create a summary of approximately 100-150 words
-4. Include important entities (person names, organization names, dates, numbers)
+{% if query_context is defined and query_context %}
+## Research Context
+{{ query_context }}
+{% endif %}
 
-[Output Format]
-Output the following in JSON format:
+## Requirements
+1. Extract claims that can be independently verified
+2. Preserve source attribution for each claim
+3. Prioritize quantitative data (statistics, measurements, dates)
+4. Create a summary of approximately 100-150 words
+5. Flag conflicting or contradictory information
+
+## Output Format
 {
   "summary": "summary text",
   "entities": ["entity1", "entity2", ...],
   "claims": [
     {
-      "text": "claim text",
-      "source_indices": [0, 1]  // indices of input information
+      "text": "verifiable claim",
+      "source_indices": [0, 1],
+      "claim_type": "factual|causal|comparative|temporal|quantitative",
+      "confidence": 0.0-1.0
     }
-  ]
+  ],
+  "conflicts": ["any contradictions noted"]
 }
 
 Return only JSON output:
-

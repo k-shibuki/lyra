@@ -1,32 +1,44 @@
-あなたは情報分析の専門家です。以下のリサーチクエスチョンを検証可能な原子主張（atomic claims）に分解してください。
+{# Decompose Prompt Template
+   Parameters:
+   - question: Research question to decompose into atomic claims
+#}
+You are an expert in information analysis. Decompose the following research question into verifiable atomic claims.
 
-リサーチクエスチョン:
+## Research Question
 {{ question }}
 
-各主張について以下の情報を含むJSON配列を出力してください：
-- text: 主張の内容（検証可能な形式で記述）
-- polarity: "positive"（真であることを主張）, "negative"（偽であることを主張）, "neutral"（中立的な問い）
-- granularity: "atomic"（これ以上分解不可）, "composite"（さらに分解可能）
-- type: "factual", "causal", "comparative", "definitional", "temporal", "quantitative"
-- keywords: 検索に有用なキーワードのリスト
-- hints: 検証のためのヒント（どこで情報を探すべきか）
+## Task
+Break down the question into atomic claims that can be independently verified.
 
-出力例:
+## Output Schema
+For each claim, provide the following in a JSON array:
+- text: The claim content (in verifiable form)
+- polarity: "positive" (asserting truth), "negative" (asserting falsity), "neutral" (neutral inquiry)
+- granularity: "atomic" (cannot be further decomposed), "composite" (can be further decomposed)
+- type: "factual", "causal", "comparative", "definitional", "temporal", "quantitative"
+- keywords: List of keywords useful for searching
+- hints: Verification hints (where to find information)
+
+## Guidance for hints
+hints should specify concrete source types:
+- Good: "PubMed RCTs", "FDA approval documents", "Cochrane reviews"
+- Bad: "search online", "check news"
+
+## Example
 [
   {
-    "text": "GPT-4は2023年3月にリリースされた",
+    "text": "GPT-4 was released in March 2023",
     "polarity": "positive",
     "granularity": "atomic",
     "type": "temporal",
-    "keywords": ["GPT-4", "リリース", "2023年"],
-    "hints": ["OpenAI公式発表", "テクノロジーニュース"]
+    "keywords": ["GPT-4", "release", "2023"],
+    "hints": ["OpenAI official announcements", "technology news archives"]
   }
 ]
 
-注意:
-- 各主張は独立して検証可能であること
-- 曖昧な表現は避け、具体的に記述すること
-- 複合的な問いは複数の原子主張に分解すること
-- 日本語で出力すること
+## Requirements
+- Each claim must be independently verifiable
+- Avoid vague expressions; be specific
+- Decompose composite questions into multiple atomic claims
 
-JSON配列のみを出力してください：
+Output JSON array only:
