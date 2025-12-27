@@ -276,7 +276,7 @@ class TestRealTemplates:
         """Test extract_facts template renders correctly."""
         result = real_manager.render("extract_facts", text="Sample text for testing.")
         assert "Sample text for testing." in result
-        assert "情報抽出" in result or "事実" in result
+        assert "fact" in result.lower()
 
     def test_extract_claims_renders(self, real_manager: PromptManager) -> None:
         """Test extract_claims template renders correctly."""
@@ -290,7 +290,7 @@ class TestRealTemplates:
         """Test summarize template renders correctly."""
         result = real_manager.render("summarize", text="Long text to summarize.")
         assert "Long text to summarize." in result
-        assert "要約" in result
+        assert "summary" in result.lower()
 
     def test_translate_renders(self, real_manager: PromptManager) -> None:
         """Test translate template renders correctly."""
@@ -302,7 +302,7 @@ class TestRealTemplates:
         """Test decompose template renders correctly."""
         result = real_manager.render("decompose", question="What is AI?")
         assert "What is AI?" in result
-        assert "atomic" in result.lower() or "原子" in result
+        assert "atomic" in result.lower()
 
     def test_quality_assessment_template_exists(self, real_manager: PromptManager) -> None:
         """Test quality_assessment template exists."""
@@ -385,7 +385,7 @@ class TestTemplateValidation:
 
         # Then: Template renders correctly with injected variable
         assert text in result
-        assert "情報抽出" in result or "事実" in result
+        assert "fact" in result.lower()
         assert "JSON" in result
 
     def test_extract_claims_renders_correctly(self, real_manager: PromptManager) -> None:
@@ -400,7 +400,7 @@ class TestTemplateValidation:
         # Then: Template renders correctly with both variables injected
         assert text in result
         assert context in result
-        assert "主張" in result or "claim" in result
+        assert "claim" in result.lower()
 
     def test_decompose_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-03: Test decompose template renders with valid input."""
@@ -412,7 +412,7 @@ class TestTemplateValidation:
 
         # Then: Template renders correctly with question injected
         assert question in result
-        assert "atomic" in result.lower() or "原子" in result
+        assert "atomic" in result.lower()
 
     def test_summarize_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-04: Test summarize template renders with valid input."""
@@ -424,7 +424,7 @@ class TestTemplateValidation:
 
         # Then: Template renders correctly
         assert text in result
-        assert "要約" in result
+        assert "summary" in result.lower()
 
     def test_translate_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-05: Test translate template renders with valid input."""
@@ -438,7 +438,7 @@ class TestTemplateValidation:
         # Then: Template renders correctly with both variables
         assert text in result
         assert target_lang in result
-        assert "翻訳" in result
+        assert "translat" in result.lower()
 
     # -------------------------------------------------------------------------
     # TC-B-01 to TC-B-04: Boundary cases
@@ -453,8 +453,8 @@ class TestTemplateValidation:
         result = real_manager.render("extract_facts", text=text)
 
         # Then: Template renders correctly (empty input is valid)
-        assert "テキスト:" in result
-        assert result.count("テキスト:") >= 1
+        # Template should contain "Input" section with empty text
+        assert "## Input" in result or "Input" in result
 
     def test_very_long_text_input(self, real_manager: PromptManager) -> None:
         """TC-B-02: Test template renders with very long text (4000+ chars)."""
@@ -538,7 +538,7 @@ class TestTemplateValidation:
 
         # When: Checking the JSON example format
         # Then: Should use single braces {, not double {{
-        assert '{"claim":' in result, "JSON example should use single braces"
+        assert '"claim":' in result, "JSON example should use single braces"
         assert '{{"claim":' not in result, "JSON example should NOT use double braces"
 
     def test_json_format_decompose(self, real_manager: PromptManager) -> None:
@@ -554,3 +554,159 @@ class TestTemplateValidation:
         # Verify specific JSON structure
         assert '"text":' in result
         assert '"polarity":' in result
+
+    # -------------------------------------------------------------------------
+    # TC-N-06 to TC-N-10: New/updated templates (Phase 1 additions)
+    # -------------------------------------------------------------------------
+
+    def test_densify_renders_correctly(self, real_manager: PromptManager) -> None:
+        """TC-N-06: Test densify template renders with valid input."""
+        # Given: Valid input parameters
+        current_summary = "Initial summary text."
+        original_content = "Original source content."
+        missing_entities = "Entity1, Entity2"
+
+        # When: Rendering the template
+        result = real_manager.render(
+            "densify",
+            current_summary=current_summary,
+            original_content=original_content,
+            missing_entities=missing_entities,
+        )
+
+        # Then: Template renders correctly with all variables
+        assert current_summary in result
+        assert original_content in result
+        assert missing_entities in result
+        assert "density" in result.lower()
+
+    def test_initial_summary_renders_correctly(self, real_manager: PromptManager) -> None:
+        """TC-N-07: Test initial_summary template renders with valid input."""
+        # Given: Valid input parameters
+        content = "Source content to summarize."
+
+        # When: Rendering the template
+        result = real_manager.render("initial_summary", content=content)
+
+        # Then: Template renders correctly
+        assert content in result
+        assert "summary" in result.lower()
+
+    def test_initial_summary_with_query_context(self, real_manager: PromptManager) -> None:
+        """TC-N-08: Test initial_summary with optional query_context."""
+        # Given: Content with query context
+        content = "Source content."
+        query_context = "What is the effect of X on Y?"
+
+        # When: Rendering with optional parameter
+        result = real_manager.render(
+            "initial_summary", content=content, query_context=query_context
+        )
+
+        # Then: Query context is included
+        assert content in result
+        assert query_context in result
+        assert "Research Context" in result
+
+    def test_quality_assessment_renders_correctly(self, real_manager: PromptManager) -> None:
+        """TC-N-09: Test quality_assessment template renders with valid input."""
+        # Given: Valid text input
+        text = "Content to analyze for quality."
+
+        # When: Rendering the template
+        result = real_manager.render("quality_assessment", text=text)
+
+        # Then: Template renders correctly
+        assert text in result
+        assert "quality" in result.lower()
+        assert "academic" in result.lower()
+
+    def test_detect_citation_renders_correctly(self, real_manager: PromptManager) -> None:
+        """TC-N-10: Test detect_citation template renders with valid input."""
+        # Given: Valid input parameters
+        context = "According to the study..."
+        url = "https://example.com/paper"
+        link_text = "Smith et al., 2023"
+
+        # When: Rendering the template
+        result = real_manager.render(
+            "detect_citation", context=context, url=url, link_text=link_text
+        )
+
+        # Then: Template renders correctly with all variables
+        assert context in result
+        assert url in result
+        assert link_text in result
+        assert "citation" in result.lower()
+
+    def test_relevance_evaluation_renders_correctly(self, real_manager: PromptManager) -> None:
+        """TC-N-11: Test relevance_evaluation template renders with valid input."""
+        # Given: Valid input parameters
+        query = "What is the effect of drug X?"
+        source_abstract = "This study examines drug X..."
+        target_abstract = "A related study on drug X..."
+
+        # When: Rendering the template
+        result = real_manager.render(
+            "relevance_evaluation",
+            query=query,
+            source_abstract=source_abstract,
+            target_abstract=target_abstract,
+        )
+
+        # Then: Template renders correctly with all variables
+        assert query in result
+        assert source_abstract in result
+        assert target_abstract in result
+        assert "0-10" in result
+
+    # -------------------------------------------------------------------------
+    # TC-V-04 to TC-V-07: JSON format validation for new templates
+    # -------------------------------------------------------------------------
+
+    def test_json_format_densify(self, real_manager: PromptManager) -> None:
+        """TC-V-04: Verify densify JSON example uses single braces."""
+        # Given: Valid input
+        result = real_manager.render(
+            "densify",
+            current_summary="test",
+            original_content="test",
+            missing_entities="test",
+        )
+
+        # Then: Should use single braces
+        assert '"summary":' in result
+        assert '"entities":' in result
+        assert '{{"summary":' not in result
+
+    def test_json_format_initial_summary(self, real_manager: PromptManager) -> None:
+        """TC-V-05: Verify initial_summary JSON example uses single braces."""
+        # Given: Valid input
+        result = real_manager.render("initial_summary", content="test")
+
+        # Then: Should use single braces
+        assert '"summary":' in result
+        assert '"claims":' in result
+        assert '{{"summary":' not in result
+
+    def test_json_format_quality_assessment(self, real_manager: PromptManager) -> None:
+        """TC-V-06: Verify quality_assessment JSON example uses single braces."""
+        # Given: Valid input
+        result = real_manager.render("quality_assessment", text="test")
+
+        # Then: Should use single braces
+        assert '"quality_score":' in result
+        assert '{{"quality_score":' not in result
+
+    def test_summarize_with_max_words(self, real_manager: PromptManager) -> None:
+        """TC-V-07: Verify summarize template supports max_words parameter."""
+        # Given: Text with custom max_words
+        text = "Test content"
+        max_words = 50
+
+        # When: Rendering with max_words
+        result = real_manager.render("summarize", text=text, max_words=max_words)
+
+        # Then: max_words is included
+        assert "50" in result
+        assert "words" in result.lower()

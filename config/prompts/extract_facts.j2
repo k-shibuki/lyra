@@ -1,9 +1,30 @@
-あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
+{# Extract Facts Prompt Template
+   Parameters:
+   - text: Source text to extract facts from
+#}
+You are an expert in information extraction for academic research.
 
-テキスト:
+## Task
+Extract verifiable factual statements from the text below.
+
+## Definition of "Fact"
+- Empirically verifiable claims (not opinions or predictions)
+- Contains specific entities (names, numbers, dates, locations)
+- Can be traced to a primary source
+
+## Input
 {{ text }}
 
-抽出した事実をJSON配列形式で出力してください。各事実は以下の形式で:
-{"fact": "事実の内容", "confidence": 0.0-1.0の信頼度}
+## Output Requirements
+- Return 3-10 most important facts as JSON array
+- Each fact: {"fact": "...", "confidence": 0.0-1.0, "evidence_type": "statistic|citation|observation"}
+- Confidence criteria:
+  - 1.0: Directly stated with explicit source
+  - 0.7-0.9: Stated clearly without source
+  - 0.5-0.6: Implied or paraphrased
+  - 0.3-0.4: Inferred from context
 
-事実のみを出力し、意見や推測は含めないでください。
+## Example
+[{"fact": "DPP-4 inhibitors reduced HbA1c by 0.5-1.0%", "confidence": 0.9, "evidence_type": "statistic"}]
+
+Output JSON array only:

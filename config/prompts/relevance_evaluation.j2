@@ -1,26 +1,32 @@
-以下の研究クエリと2つの論文アブストラクトを読んで、
-「引用先論文が、クエリに答えるため／主張を評価するための**有用なエビデンスまたは重要な背景**になり得るか」を
-0-10で評価してください。
+{# Relevance Evaluation Prompt Template
+   Parameters:
+   - query: Research query
+   - source_abstract: Abstract of the source paper
+   - target_abstract: Abstract of the cited/target paper
+#}
+Read the following research query and two paper abstracts, then evaluate whether
+the target paper could serve as **useful evidence or important background** for
+answering the query or evaluating claims on a scale of 0-10.
 
-**クエリ**:
+## Query
 {{ query }}
 
-**元論文アブストラクト**:
+## Source Paper Abstract
 {{ source_abstract }}
 
-**引用先論文アブストラクト**:
+## Target Paper Abstract
 {{ target_abstract }}
 
-**評価基準（“有用性”）**:
-- 10: クエリの中心に直接関係し、検証・比較・根拠付けに使える（同じ問い・アウトカム・仮説・主要変数・データ/手法）
-- 7-9: 近接領域で重要な背景・関連研究・方法論として有用（評価の材料として十分近い）
-- 4-6: ある程度関連するが、間接的／周辺的（補助的な背景）
-- 1-3: わずかに関連
-- 0: 無関係
+## Evaluation Criteria ("Usefulness")
+- 10: Directly related to the query's core; can be used for verification, comparison, or supporting evidence (same question, outcome, hypothesis, key variables, data/methods)
+- 7-9: Closely related field; useful as important background, related research, or methodology reference (close enough to serve as evaluation material)
+- 4-6: Somewhat related but indirect/peripheral (supplementary background)
+- 1-3: Slightly related
+- 0: Unrelated
 
-**注意（重要）**:
-- 「支持/反論（SUPPORTS/REFUTES）」の**判定はしないでください**。方向づけは不要です。
-- “主題的な近さ”だけでなく、「評価の材料として使えるか」という観点で有用性を判断してください。
-- 回答は半角数字のみ（0〜10）で返してください。
+## Important Notes
+- Do NOT determine "SUPPORTS/REFUTES" stance. Direction is not needed.
+- Judge usefulness not just by topical proximity, but by whether it can serve as evaluation material.
+- Respond with a single digit (0-10) only.
 
-回答:
+Answer:

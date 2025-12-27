@@ -1,14 +1,32 @@
-以下のテキストとリンクを見て、このリンクが「情報源への引用」かどうかを判定してください。
+{# Detect Citation Prompt Template
+   Parameters:
+   - context: Text surrounding the link
+   - url: The link URL
+   - link_text: The anchor text of the link
+#}
+Analyze the following text and link to determine if this link is a "citation to an information source".
 
-テキスト（リンク周辺）:
+## Context (text surrounding the link)
 {{ context }}
 
-リンクURL: {{ url }}
-リンクテキスト: {{ link_text }}
+## Link URL
+{{ url }}
 
-「情報源への引用」とは：
-- 主張の根拠として参照されている
-- 「〜によると」「出典：」「参考：」「参照」「引用」などの文脈
-- 単なるナビゲーション、関連記事、広告、SNS共有、ログイン誘導ではない
+## Link Text
+{{ link_text }}
 
-回答: YES または NO のみ
+## Definition of "Citation to Information Source"
+A link is considered a citation if:
+- It is referenced as evidence or support for a claim
+- It appears in contexts like "according to...", "source:", "reference:", "cited from:", "see:"
+- It is NOT: navigation, related articles, ads, social sharing, login prompts
+
+## Academic Citation Indicators (high confidence)
+- DOI links (doi.org/10.xxxx/...)
+- PubMed links (pubmed.ncbi.nlm.nih.gov/...)
+- arXiv links (arxiv.org/abs/...)
+- Reference markers: [1], [2], (Smith et al., 2023)
+- Academic phrases: "et al.", "Fig.", "Table", "Supplementary"
+
+## Output
+Answer: YES or NO only
