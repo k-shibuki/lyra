@@ -14,9 +14,10 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from src.filter.llm import _get_client
+from src.filter.llm_output import extract_json
 from src.report.generator import generate_deep_link
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
@@ -603,13 +604,9 @@ class ChainOfDensityCompressor:
 
     def _parse_llm_response(self, response: str) -> dict[str, Any]:
         """Parse LLM JSON response."""
-        try:
-            # Find JSON object in response
-            json_match = re.search(r"\{.*\}", response, re.DOTALL)
-            if json_match:
-                return cast(dict[str, Any], json.loads(json_match.group()))
-        except json.JSONDecodeError:
-            pass
+        result = extract_json(response, expect_array=False)
+        if result is not None and isinstance(result, dict):
+            return result
 
         # Fallback: extract summary text
         return {"summary": response.strip(), "entities": []}
