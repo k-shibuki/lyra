@@ -592,6 +592,1147 @@ Output {{ output_format }} only:
 
 ---
 
+## Part 6: Phase 2 Detailed Technical Design
+
+**Date Added:** 2025-12-27
+**Status:** Proposal
+
+This section provides a detailed technical design for Phase 2 (Schema Validation & Retry Mechanism), aligned with Lyra's existing architecture.
+
+---
+
+### 6.1 Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LLM Output Pipeline                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐  │
+│  │  Prompt  │───▶│  LLM Call    │───▶│  Security Validation │  │
+│  │ Template │    │  (Provider)  │    │  (validate_llm_output)│  │
+│  └──────────┘    └──────────────┘    └──────────┬───────────┘  │
+│                                                  │              │
+│                                                  ▼              │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                 NEW: Schema Validation Layer              │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐   │  │
+│  │  │ JSON Extract│─▶│ Pydantic    │─▶│ Retry w/Feedback│   │  │
+│  │  │ (regex)     │  │ Validation  │  │ (max 2 retries) │   │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────────┘   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                  │              │
+│                                                  ▼              │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    Existing Fallback                      │  │
+│  │              (Rule-based / Default Value)                 │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 6.2 New File: `src/filter/llm_schemas.py`
+
+Pydantic models for LLM outputs, aligned with existing type conventions.
+
+```python
+"""
+Pydantic schemas for LLM output validation.
+
+These schemas define the expected structure of LLM outputs for various tasks.
+They integrate with the existing type system:
+- ClaimType, ClaimPolarity, ClaimGranularity from claim_decomposition.py
+- EvidenceItem, ClaimConfidenceAssessment from schemas.py
+- RelationType from evidence_graph.py
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+# =============================================================================
+# Enums (reuse from existing modules where possible)
+# =============================================================================
+
+class EvidenceType(str, Enum):
+    """Type of evidence supporting a fact."""
+    STATISTIC = "statistic"      # Numerical data, percentages, p-values
+    CITATION = "citation"        # Reference to another source
+    OBSERVATION = "observation"  # Direct observation or statement
+    EXPERIMENT = "experiment"    # Experimental result
+    EXPERT = "expert"            # Expert opinion/statement
+
+
+class ClaimTypeExtended(str, Enum):
+    """Extended claim type taxonomy (superset of ClaimType)."""
+    FACTUAL = "factual"
+    CAUSAL = "causal"
+    COMPARATIVE = "comparative"
+    PREDICTIVE = "predictive"
+    NORMATIVE = "normative"
+    DEFINITIONAL = "definitional"
+    TEMPORAL = "temporal"
+    QUANTITATIVE = "quantitative"
+
+
+# =============================================================================
+# Extract Facts Output Schema
+# =============================================================================
+
+class ExtractedFact(BaseModel):
+    """Single fact extracted from text.
+
+    Corresponds to extract_facts.j2 output.
+    """
+    fact: str = Field(..., min_length=10, description="Factual statement")
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score"
+    )
+    evidence_type: EvidenceType = Field(
+        default=EvidenceType.OBSERVATION,
+        description="Type of evidence"
+    )
+
+    @field_validator("evidence_type", mode="before")
+    @classmethod
+    def normalize_evidence_type(cls, v: Any) -> EvidenceType:
+        if isinstance(v, str):
+            v = v.lower().strip()
+            try:
+                return EvidenceType(v)
+            except ValueError:
+                return EvidenceType.OBSERVATION
+        return v
+
+
+class ExtractFactsResponse(BaseModel):
+    """Response from extract_facts task."""
+    facts: list[ExtractedFact] = Field(
+        default_factory=list,
+        max_length=20,  # Prevent token waste
+        description="Extracted facts"
+    )
+
+    @model_validator(mode="after")
+    def deduplicate_facts(self) -> "ExtractFactsResponse":
+        """Remove near-duplicate facts."""
+        seen = set()
+        unique = []
+        for fact in self.facts:
+            # Simple dedup by first 50 chars
+            key = fact.fact[:50].lower()
+            if key not in seen:
+                seen.add(key)
+                unique.append(fact)
+        self.facts = unique
+        return self
+
+
+# =============================================================================
+# Extract Claims Output Schema
+# =============================================================================
+
+class ExtractedClaim(BaseModel):
+    """Single claim extracted from text.
+
+    Corresponds to extract_claims.j2 output.
+    Aligned with claims table schema.
+    """
+    claim: str = Field(
+        ...,
+        min_length=10,
+        alias="claim_text",  # DB column name
+        description="Claim text"
+    )
+    type: ClaimTypeExtended = Field(
+        default=ClaimTypeExtended.FACTUAL,
+        alias="claim_type",  # DB column name
+        description="Claim type"
+    )
+    relevance_to_query: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Relevance to research question"
+    )
+    confidence: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        alias="claim_confidence",  # DB column name
+        description="Confidence score"
+    )
+
+    class Config:
+        populate_by_name = True  # Allow both alias and field name
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_claim_type(cls, v: Any) -> ClaimTypeExtended:
+        if isinstance(v, str):
+            v = v.lower().strip()
+            # Map legacy types
+            legacy_map = {
+                "fact": "factual",
+                "opinion": "normative",
+                "prediction": "predictive",
+            }
+            v = legacy_map.get(v, v)
+            try:
+                return ClaimTypeExtended(v)
+            except ValueError:
+                return ClaimTypeExtended.FACTUAL
+        return v
+
+
+class ExtractClaimsResponse(BaseModel):
+    """Response from extract_claims task."""
+    claims: list[ExtractedClaim] = Field(
+        default_factory=list,
+        max_length=10,  # Limit per extract_claims.j2 proposal
+        description="Extracted claims"
+    )
+
+
+# =============================================================================
+# Summarize Output Schema
+# =============================================================================
+
+class SummaryResponse(BaseModel):
+    """Structured summary response.
+
+    Corresponds to proposed summarize.j2 output.
+    """
+    summary: str = Field(..., min_length=20, description="Summary text")
+    key_claims: list[str] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Key claims extracted"
+    )
+    key_statistics: list[str] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Key statistics extracted"
+    )
+    word_count: int = Field(default=0, ge=0, description="Word count")
+
+    @model_validator(mode="after")
+    def compute_word_count(self) -> "SummaryResponse":
+        if self.word_count == 0:
+            self.word_count = len(self.summary.split())
+        return self
+
+
+# =============================================================================
+# Quality Assessment Output Schema
+# =============================================================================
+
+class QualityAssessmentResponse(BaseModel):
+    """LLM quality assessment response.
+
+    Corresponds to LLM_QUALITY_ASSESSMENT_PROMPT output.
+    """
+    quality_score: float = Field(..., ge=0.0, le=1.0)
+    is_ai_generated: bool = Field(default=False)
+    is_spam: bool = Field(default=False)
+    is_aggregator: bool = Field(default=False)
+    reason: str = Field(default="", max_length=500)
+
+    @field_validator("quality_score", mode="before")
+    @classmethod
+    def clamp_score(cls, v: Any) -> float:
+        if isinstance(v, (int, float)):
+            return max(0.0, min(1.0, float(v)))
+        return 0.5  # Default on parse error
+
+
+# =============================================================================
+# Relevance Score Output Schema
+# =============================================================================
+
+class RelevanceScoreResponse(BaseModel):
+    """Relevance evaluation response (0-10 scale).
+
+    Corresponds to relevance_evaluation.j2 output.
+    """
+    score: int = Field(..., ge=0, le=10)
+
+    @field_validator("score", mode="before")
+    @classmethod
+    def parse_and_clamp(cls, v: Any) -> int:
+        if isinstance(v, str):
+            # Extract first integer from string
+            import re
+            match = re.search(r"\d+", v)
+            if match:
+                v = int(match.group())
+            else:
+                return 5  # Default
+        if isinstance(v, (int, float)):
+            return max(0, min(10, int(v)))
+        return 5
+
+    @property
+    def normalized(self) -> float:
+        """Return normalized 0.0-1.0 score."""
+        return self.score / 10.0
+
+
+# =============================================================================
+# Chain-of-Density Output Schema
+# =============================================================================
+
+class DensityClaim(BaseModel):
+    """Claim with source indices for CoD."""
+    text: str = Field(..., min_length=5)
+    source_indices: list[int] = Field(default_factory=list)
+
+
+class DensitySummaryResponse(BaseModel):
+    """Chain-of-Density summary response.
+
+    Corresponds to INITIAL_SUMMARY_PROMPT / DENSIFY_PROMPT output.
+    """
+    summary: str = Field(..., min_length=20)
+    entities: list[str] = Field(default_factory=list, max_length=50)
+    claims: list[DensityClaim] = Field(default_factory=list)
+
+
+# =============================================================================
+# Citation Detection Output Schema
+# =============================================================================
+
+class CitationDetectionResponse(BaseModel):
+    """Citation detection response.
+
+    Corresponds to detect_citation.j2 output.
+    """
+    is_citation: bool = Field(...)
+
+    @field_validator("is_citation", mode="before")
+    @classmethod
+    def parse_yes_no(cls, v: Any) -> bool:
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            v = v.strip().upper()
+            # Remove non-alpha characters
+            import re
+            v = re.sub(r"[^A-Z]", "", v)
+            return v.startswith("YES")
+        return False
+
+
+# =============================================================================
+# Decomposition Output Schema
+# =============================================================================
+
+class DecomposedClaim(BaseModel):
+    """Atomic claim from decomposition.
+
+    Corresponds to decompose.j2 output.
+    Aligned with AtomicClaim dataclass.
+    """
+    text: str = Field(..., min_length=10)
+    polarity: Literal["positive", "negative", "neutral"] = Field(
+        default="neutral"
+    )
+    granularity: Literal["atomic", "composite", "meta"] = Field(
+        default="atomic"
+    )
+    type: str = Field(default="factual")
+    keywords: list[str] = Field(default_factory=list, max_length=10)
+    hints: list[str] = Field(default_factory=list, max_length=5)
+    confidence: float = Field(default=0.9, ge=0.0, le=1.0)
+
+    @field_validator("polarity", mode="before")
+    @classmethod
+    def normalize_polarity(cls, v: Any) -> str:
+        if isinstance(v, str):
+            v = v.lower().strip()
+            if v in ("positive", "negative", "neutral"):
+                return v
+        return "neutral"
+
+    @field_validator("granularity", mode="before")
+    @classmethod
+    def normalize_granularity(cls, v: Any) -> str:
+        if isinstance(v, str):
+            v = v.lower().strip()
+            if v in ("atomic", "composite", "meta"):
+                return v
+        return "atomic"
+
+
+class DecomposeResponse(BaseModel):
+    """Response from decompose task."""
+    claims: list[DecomposedClaim] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Decomposed atomic claims"
+    )
+
+
+# =============================================================================
+# Schema Registry
+# =============================================================================
+
+TASK_SCHEMAS: dict[str, type[BaseModel]] = {
+    "extract_facts": ExtractFactsResponse,
+    "extract_claims": ExtractClaimsResponse,
+    "summarize": SummaryResponse,
+    "quality_assessment": QualityAssessmentResponse,
+    "relevance_evaluation": RelevanceScoreResponse,
+    "chain_of_density": DensitySummaryResponse,
+    "detect_citation": CitationDetectionResponse,
+    "decompose": DecomposeResponse,
+}
+
+
+def get_schema_for_task(task: str) -> type[BaseModel] | None:
+    """Get Pydantic schema for a given task."""
+    return TASK_SCHEMAS.get(task)
+```
+
+---
+
+### 6.3 New File: `src/filter/llm_output_parser.py`
+
+Unified parsing with retry mechanism.
+
+```python
+"""
+LLM output parser with schema validation and retry mechanism.
+
+Integrates with:
+- llm_security.py for security validation
+- llm_schemas.py for schema validation
+- provider.py for LLM calls
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, TypeVar
+
+import structlog
+
+from pydantic import BaseModel, ValidationError
+
+from .llm_schemas import TASK_SCHEMAS, get_schema_for_task
+from .llm_security import validate_llm_output
+from .provider import LLMOptions, LLMResponse, default_provider
+
+logger = structlog.get_logger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class ParseStatus(str, Enum):
+    """Status of parse attempt."""
+    SUCCESS = "success"
+    JSON_ERROR = "json_error"
+    SCHEMA_ERROR = "schema_error"
+    EMPTY_RESPONSE = "empty_response"
+    RETRY_EXHAUSTED = "retry_exhausted"
+
+
+@dataclass
+class ParseResult:
+    """Result of LLM output parsing."""
+    status: ParseStatus
+    data: BaseModel | None = None
+    raw_response: str = ""
+    errors: list[str] = field(default_factory=list)
+    attempts: int = 1
+
+    @property
+    def ok(self) -> bool:
+        return self.status == ParseStatus.SUCCESS and self.data is not None
+
+
+# =============================================================================
+# JSON Extraction
+# =============================================================================
+
+def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
+    """Extract JSON from LLM response text.
+
+    Handles common LLM output patterns:
+    - Pure JSON
+    - JSON wrapped in markdown code blocks
+    - JSON preceded by explanatory text
+
+    Args:
+        text: Raw LLM response
+        expect_array: If True, extract JSON array; otherwise JSON object
+
+    Returns:
+        Parsed JSON or None if extraction fails
+    """
+    if not text or not text.strip():
+        return None
+
+    # Try direct parse first
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+
+    # Pattern for JSON in markdown code blocks
+    code_block_pattern = r"```(?:json)?\s*([\[\{].*?[\]\}])\s*```"
+    match = re.search(code_block_pattern, text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # Pattern for raw JSON (array or object)
+    if expect_array:
+        pattern = r"\[.*\]"
+    else:
+        pattern = r"\{.*\}"
+
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+
+# =============================================================================
+# Schema Validation
+# =============================================================================
+
+def validate_with_schema(
+    data: dict | list,
+    schema: type[T],
+    task: str,
+) -> tuple[T | None, list[str]]:
+    """Validate parsed data against Pydantic schema.
+
+    Args:
+        data: Parsed JSON data
+        schema: Pydantic model class
+        task: Task name for error context
+
+    Returns:
+        Tuple of (validated model or None, list of error messages)
+    """
+    errors = []
+
+    try:
+        # Handle list vs single object
+        if isinstance(data, list):
+            # Wrap in container if schema expects it
+            if hasattr(schema, "__fields__"):
+                # Find the list field name
+                for field_name, field_info in schema.model_fields.items():
+                    if "list" in str(field_info.annotation).lower():
+                        data = {field_name: data}
+                        break
+
+        validated = schema.model_validate(data)
+        return validated, []
+
+    except ValidationError as e:
+        for error in e.errors():
+            loc = ".".join(str(x) for x in error["loc"])
+            msg = f"{loc}: {error['msg']}"
+            errors.append(msg)
+        return None, errors
+
+
+# =============================================================================
+# Retry Mechanism
+# =============================================================================
+
+CORRECTION_PROMPT_TEMPLATE = """Your previous response had format issues.
+
+## Errors
+{errors}
+
+## Original Response (truncated)
+{original_response}
+
+## Required Format
+Output must be valid JSON matching this structure:
+{schema_example}
+
+## Instructions
+1. Fix the format errors listed above
+2. Output ONLY valid JSON, no explanations
+3. Ensure all required fields are present
+
+Output JSON only:"""
+
+
+async def retry_with_feedback(
+    original_response: str,
+    errors: list[str],
+    schema: type[BaseModel],
+    task: str,
+    model: str | None = None,
+) -> LLMResponse:
+    """Retry LLM call with error feedback.
+
+    Args:
+        original_response: The original malformed response
+        errors: List of validation errors
+        schema: Expected schema
+        task: Task name
+        model: Optional model override
+
+    Returns:
+        New LLM response
+    """
+    # Generate schema example
+    schema_example = schema.model_json_schema()
+
+    # Truncate original response
+    truncated = original_response[:500]
+    if len(original_response) > 500:
+        truncated += "..."
+
+    prompt = CORRECTION_PROMPT_TEMPLATE.format(
+        errors="\n".join(f"- {e}" for e in errors[:5]),  # Limit errors
+        original_response=truncated,
+        schema_example=json.dumps(schema_example, indent=2),
+    )
+
+    options = LLMOptions(model=model, temperature=0.1, max_tokens=2000)
+    return await default_provider.generate(prompt, options)
+
+
+# =============================================================================
+# Main Parser
+# =============================================================================
+
+@dataclass
+class ParserConfig:
+    """Configuration for LLM output parser."""
+    max_retries: int = 2
+    enable_security_validation: bool = True
+    enable_schema_validation: bool = True
+    enable_retry: bool = True
+    model: str | None = None
+
+
+async def parse_llm_output(
+    response: str | LLMResponse,
+    task: str,
+    config: ParserConfig | None = None,
+    system_prompt: str | None = None,
+) -> ParseResult:
+    """Parse and validate LLM output.
+
+    Args:
+        response: Raw LLM response text or LLMResponse object
+        task: Task name (must match TASK_SCHEMAS key)
+        config: Parser configuration
+        system_prompt: System prompt for leakage detection
+
+    Returns:
+        ParseResult with validated data or error information
+    """
+    config = config or ParserConfig()
+
+    # Extract text from LLMResponse if needed
+    if isinstance(response, LLMResponse):
+        if not response.ok:
+            return ParseResult(
+                status=ParseStatus.EMPTY_RESPONSE,
+                errors=[response.error_message or "LLM call failed"],
+            )
+        raw_text = response.text
+    else:
+        raw_text = response
+
+    if not raw_text or not raw_text.strip():
+        return ParseResult(
+            status=ParseStatus.EMPTY_RESPONSE,
+            errors=["Empty response from LLM"],
+        )
+
+    # Get schema for task
+    schema = get_schema_for_task(task)
+    if schema is None and config.enable_schema_validation:
+        logger.warning(f"No schema defined for task: {task}")
+        config.enable_schema_validation = False
+
+    # Security validation (ADR-0005 L4)
+    if config.enable_security_validation:
+        validation_result = validate_llm_output(
+            raw_text,
+            system_prompt=system_prompt,
+            mask_leakage=True,
+        )
+        raw_text = validation_result.validated_text
+
+    # Determine if we expect array or object
+    expect_array = task in ("extract_facts", "extract_claims", "decompose")
+
+    # Parse loop with retry
+    attempts = 0
+    errors: list[str] = []
+
+    while attempts <= config.max_retries:
+        attempts += 1
+
+        # Step 1: Extract JSON
+        parsed = extract_json(raw_text, expect_array=expect_array)
+
+        if parsed is None:
+            errors.append(f"Attempt {attempts}: Failed to extract JSON from response")
+            if attempts <= config.max_retries and config.enable_retry:
+                # Retry with feedback
+                retry_response = await retry_with_feedback(
+                    raw_text,
+                    ["Could not find valid JSON in response"],
+                    schema or BaseModel,
+                    task,
+                    config.model,
+                )
+                if retry_response.ok:
+                    raw_text = retry_response.text
+                    continue
+
+            return ParseResult(
+                status=ParseStatus.JSON_ERROR,
+                raw_response=raw_text,
+                errors=errors,
+                attempts=attempts,
+            )
+
+        # Step 2: Schema validation (if enabled)
+        if config.enable_schema_validation and schema:
+            validated, validation_errors = validate_with_schema(parsed, schema, task)
+
+            if validated is None:
+                errors.extend(f"Attempt {attempts}: {e}" for e in validation_errors)
+
+                if attempts <= config.max_retries and config.enable_retry:
+                    # Retry with validation errors
+                    retry_response = await retry_with_feedback(
+                        raw_text,
+                        validation_errors,
+                        schema,
+                        task,
+                        config.model,
+                    )
+                    if retry_response.ok:
+                        raw_text = retry_response.text
+                        continue
+
+                return ParseResult(
+                    status=ParseStatus.SCHEMA_ERROR,
+                    raw_response=raw_text,
+                    errors=errors,
+                    attempts=attempts,
+                )
+
+            # Success with schema validation
+            return ParseResult(
+                status=ParseStatus.SUCCESS,
+                data=validated,
+                raw_response=raw_text,
+                attempts=attempts,
+            )
+
+        # Success without schema validation (return raw parsed data)
+        # Wrap in a generic model for consistency
+        return ParseResult(
+            status=ParseStatus.SUCCESS,
+            data=None,  # No schema, so no model
+            raw_response=raw_text,
+            attempts=attempts,
+        )
+
+    # Exhausted retries
+    return ParseResult(
+        status=ParseStatus.RETRY_EXHAUSTED,
+        raw_response=raw_text,
+        errors=errors,
+        attempts=attempts,
+    )
+
+
+# =============================================================================
+# Convenience Functions
+# =============================================================================
+
+async def extract_facts(
+    text: str,
+    model: str | None = None,
+) -> ParseResult:
+    """Extract facts from text with validation."""
+    from .llm import render_prompt
+
+    prompt = render_prompt("extract_facts", text=text[:4000])
+    options = LLMOptions(model=model, temperature=0.1)
+    response = await default_provider.generate(prompt, options)
+
+    return await parse_llm_output(
+        response,
+        task="extract_facts",
+        config=ParserConfig(model=model),
+    )
+
+
+async def extract_claims(
+    text: str,
+    context: str = "",
+    model: str | None = None,
+) -> ParseResult:
+    """Extract claims from text with validation."""
+    from .llm import render_prompt
+
+    prompt = render_prompt(
+        "extract_claims",
+        text=text[:4000],
+        context=context or "General research",
+    )
+    options = LLMOptions(model=model, temperature=0.1)
+    response = await default_provider.generate(prompt, options)
+
+    return await parse_llm_output(
+        response,
+        task="extract_claims",
+        config=ParserConfig(model=model),
+    )
+```
+
+---
+
+### 6.4 Integration Points
+
+#### 6.4.1 Modify `src/filter/llm.py`
+
+```python
+# Add import at top
+from .llm_output_parser import parse_llm_output, ParserConfig, ParseResult
+
+# Replace current parsing logic (lines 474-482) with:
+async def _process_extraction(
+    response_text: str,
+    task: str,
+    passage_id: str,
+    source_url: str,
+) -> dict:
+    """Process extraction with schema validation."""
+
+    result = await parse_llm_output(
+        response_text,
+        task=task,
+        config=ParserConfig(
+            max_retries=1,  # Single retry for extraction
+            enable_retry=True,
+        ),
+    )
+
+    if result.ok and result.data:
+        # Convert Pydantic model to dict
+        if task == "extract_facts":
+            extracted = [f.model_dump() for f in result.data.facts]
+        elif task == "extract_claims":
+            extracted = [c.model_dump() for c in result.data.claims]
+        else:
+            extracted = result.data.model_dump()
+    else:
+        # Fallback to raw extraction (backward compatibility)
+        extracted = [{"raw_response": response_text, "parse_errors": result.errors}]
+
+    return {
+        "id": passage_id,
+        "source_url": source_url,
+        "extracted": extracted,
+        "parse_attempts": result.attempts,
+    }
+```
+
+#### 6.4.2 Modify `src/filter/claim_decomposition.py`
+
+```python
+# Add import
+from .llm_output_parser import parse_llm_output, ParserConfig
+
+# Replace _parse_llm_response method:
+async def _parse_llm_response_validated(
+    self,
+    response: str,
+    source_question: str,
+) -> list[AtomicClaim]:
+    """Parse LLM response with schema validation."""
+
+    result = await parse_llm_output(
+        response,
+        task="decompose",
+        config=ParserConfig(max_retries=1),
+    )
+
+    if not result.ok:
+        logger.warning(
+            "LLM decomposition parse failed, using rule-based",
+            errors=result.errors,
+        )
+        return self._decompose_with_rules(source_question).claims
+
+    # Convert to AtomicClaim objects
+    claims = []
+    for item in result.data.claims:
+        claim = AtomicClaim(
+            claim_id=f"claim_{uuid.uuid4().hex[:8]}",
+            text=item.text,
+            expected_polarity=ClaimPolarity(item.polarity),
+            granularity=ClaimGranularity(item.granularity),
+            claim_type=ClaimType(item.type) if item.type in ClaimType.__members__.values() else ClaimType.FACTUAL,
+            source_question=source_question,
+            confidence=item.confidence,
+            keywords=item.keywords,
+            verification_hints=item.hints,
+        )
+        claims.append(claim)
+
+    return claims
+```
+
+#### 6.4.3 Modify `src/search/citation_filter.py`
+
+```python
+# Add import
+from src.filter.llm_output_parser import parse_llm_output, ParserConfig
+
+# Replace _parse_llm_score_0_10 usage:
+async def _evaluate_relevance_validated(
+    response_text: str,
+) -> float:
+    """Evaluate relevance with schema validation."""
+
+    result = await parse_llm_output(
+        response_text,
+        task="relevance_evaluation",
+        config=ParserConfig(max_retries=1),
+    )
+
+    if result.ok and result.data:
+        return result.data.normalized  # 0.0-1.0
+
+    # Fallback to legacy parser
+    score = _parse_llm_score_0_10(response_text)
+    return (score / 10.0) if score is not None else 0.5
+```
+
+---
+
+### 6.5 Database Alignment
+
+The schemas align with existing DB columns:
+
+| Schema Field | DB Table | DB Column | Notes |
+|--------------|----------|-----------|-------|
+| `ExtractedClaim.claim` | claims | claim_text | alias="claim_text" |
+| `ExtractedClaim.type` | claims | claim_type | alias="claim_type" |
+| `ExtractedClaim.confidence` | claims | claim_confidence | alias="claim_confidence" |
+| `DecomposedClaim.polarity` | claims | expected_polarity | Enum to string |
+| `DecomposedClaim.granularity` | claims | granularity | Enum to string |
+
+---
+
+### 6.6 Testing Strategy
+
+#### Unit Tests (`tests/filter/test_llm_schemas.py`)
+
+```python
+import pytest
+from pydantic import ValidationError
+
+from src.filter.llm_schemas import (
+    ExtractedFact,
+    ExtractedClaim,
+    ExtractFactsResponse,
+    RelevanceScoreResponse,
+)
+
+
+class TestExtractedFact:
+    def test_valid_fact(self):
+        fact = ExtractedFact(
+            fact="DPP-4 inhibitors reduce HbA1c by 0.5-1.0%",
+            confidence=0.9,
+            evidence_type="statistic",
+        )
+        assert fact.confidence == 0.9
+        assert fact.evidence_type.value == "statistic"
+
+    def test_confidence_clamping(self):
+        # Should not allow out-of-range
+        with pytest.raises(ValidationError):
+            ExtractedFact(fact="test fact here", confidence=1.5)
+
+    def test_evidence_type_normalization(self):
+        fact = ExtractedFact(
+            fact="test fact here",
+            confidence=0.5,
+            evidence_type="STATISTIC",  # Uppercase
+        )
+        assert fact.evidence_type.value == "statistic"
+
+    def test_unknown_evidence_type_defaults(self):
+        fact = ExtractedFact(
+            fact="test fact here",
+            confidence=0.5,
+            evidence_type="unknown_type",
+        )
+        assert fact.evidence_type.value == "observation"
+
+
+class TestRelevanceScoreResponse:
+    def test_parse_integer(self):
+        score = RelevanceScoreResponse(score=7)
+        assert score.score == 7
+        assert score.normalized == 0.7
+
+    def test_parse_string(self):
+        score = RelevanceScoreResponse(score="8")
+        assert score.score == 8
+
+    def test_parse_with_text(self):
+        score = RelevanceScoreResponse(score="Score: 9 out of 10")
+        assert score.score == 9
+
+    def test_clamp_high(self):
+        score = RelevanceScoreResponse(score=15)
+        assert score.score == 10
+
+    def test_clamp_low(self):
+        score = RelevanceScoreResponse(score=-5)
+        assert score.score == 0
+```
+
+#### Integration Tests (`tests/filter/test_llm_output_parser.py`)
+
+```python
+import pytest
+from src.filter.llm_output_parser import (
+    extract_json,
+    parse_llm_output,
+    ParserConfig,
+    ParseStatus,
+)
+
+
+class TestExtractJson:
+    def test_pure_json(self):
+        result = extract_json('[{"fact": "test", "confidence": 0.9}]')
+        assert result == [{"fact": "test", "confidence": 0.9}]
+
+    def test_markdown_code_block(self):
+        text = """Here are the facts:
+```json
+[{"fact": "test", "confidence": 0.9}]
+```
+"""
+        result = extract_json(text, expect_array=True)
+        assert result == [{"fact": "test", "confidence": 0.9}]
+
+    def test_with_preamble(self):
+        text = """Based on my analysis, here are the extracted facts:
+[{"fact": "test", "confidence": 0.9}]
+I hope this helps!"""
+        result = extract_json(text, expect_array=True)
+        assert result == [{"fact": "test", "confidence": 0.9}]
+
+
+@pytest.mark.asyncio
+class TestParseWithRetry:
+    async def test_success_first_attempt(self):
+        response = '[{"fact": "DPP-4 inhibitors reduce HbA1c", "confidence": 0.9}]'
+        result = await parse_llm_output(
+            response,
+            task="extract_facts",
+            config=ParserConfig(enable_retry=False),
+        )
+        assert result.ok
+        assert result.attempts == 1
+        assert len(result.data.facts) == 1
+
+    async def test_schema_validation_error(self):
+        # Missing required field
+        response = '[{"fact": "short"}]'  # Too short, missing confidence
+        result = await parse_llm_output(
+            response,
+            task="extract_facts",
+            config=ParserConfig(enable_retry=False),
+        )
+        assert result.status == ParseStatus.SCHEMA_ERROR
+        assert "confidence" in str(result.errors).lower() or "min_length" in str(result.errors).lower()
+```
+
+---
+
+### 6.7 Migration Plan
+
+#### Step 1: Add new files (no breaking changes)
+1. Create `src/filter/llm_schemas.py`
+2. Create `src/filter/llm_output_parser.py`
+3. Add tests
+
+#### Step 2: Parallel operation
+1. Use feature flag to enable new parser
+2. Log both old and new results for comparison
+3. Monitor for discrepancies
+
+```python
+# In llm.py
+USE_NEW_PARSER = os.getenv("LYRA_USE_NEW_LLM_PARSER", "false").lower() == "true"
+
+if USE_NEW_PARSER:
+    result = await parse_llm_output(response_text, task)
+    extracted = result.data.model_dump() if result.ok else legacy_parse(response_text)
+else:
+    extracted = legacy_parse(response_text)
+```
+
+#### Step 3: Full migration
+1. Enable new parser by default
+2. Remove legacy parsing code
+3. Update documentation
+
+---
+
+### 6.8 Metrics & Monitoring
+
+Track these metrics to evaluate the new system:
+
+```python
+# Metrics to log
+metrics = {
+    "llm_parse_success_rate": success_count / total_count,
+    "llm_parse_retry_rate": retry_count / total_count,
+    "llm_schema_validation_error_rate": schema_error_count / total_count,
+    "llm_json_extraction_error_rate": json_error_count / total_count,
+    "llm_average_parse_attempts": sum(attempts) / total_count,
+}
+```
+
+---
+
 ## Appendix A: Validation Function Reference
 
 ### `validate_llm_output()` — Main Entry Point
