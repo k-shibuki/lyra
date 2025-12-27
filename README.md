@@ -360,6 +360,8 @@ All operations are available via `make`. Run `make help` for the full list.
 | `make test-e2e` | Run E2E tests (TARGET= for specific files) |
 | `make test-check` | Check test run status (RUN_ID= optional) |
 | `make test-env` | Show environment detection info |
+| `make test-prompts` | Run prompt template tests (syntax, rendering, structure) |
+| `make test-llm-output` | Run LLM output parsing tests |
 
 **Code Quality:**
 

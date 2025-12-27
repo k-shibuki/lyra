@@ -884,13 +884,24 @@ prompt = render_prompt("quality_assessment", text=text)
 | Pydanticスキーマ | `src/filter/llm_schemas.py`（新規） | `ExtractedFact`, `ExtractedClaim` 等 |
 | フォーマット修正リトライ | `src/filter/llm_output.py` | 2回までリトライ、失敗時DB記録 |
 
-### Phase 3: プロンプトテストフレームワーク
+### Phase 3: プロンプトテストフレームワーク（完了）
 
 > **注:** 英語化はPhase 1で完了。`output_lang` パラメータは導入しない（英語固定）。
 
 | タスク | ファイル | 内容 |
 |--------|---------|------|
 | テストフレームワーク作成 | `tests/prompts/`（新規） | テンプレート構文検証、サンプル入出力テスト |
+
+**実装済みファイル:**
+- `tests/prompts/conftest.py` - 共有フィクスチャ（sample_inputs, json_output_templates）
+- `tests/prompts/test_template_syntax.py` - 構文検証、英語のみチェック、完全性検証
+- `tests/prompts/test_template_rendering.py` - レンダリングテスト、JSON形式検証、境界値テスト
+
+**実行方法:**
+```bash
+make test-prompts      # プロンプトテンプレートテストのみ
+make test-llm-output   # LLM出力パースのテスト（Phase 2関連）
+```
 
 ### ~~Phase 4: 高度な機能~~（削除 - 実装済みまたは別設計）
 
