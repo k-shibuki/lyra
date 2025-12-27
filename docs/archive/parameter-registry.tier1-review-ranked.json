@@ -1,0 +1,2060 @@
+{
+  "items": [
+    {
+      "key": "templates",
+      "occ": 20,
+      "files": 1,
+      "kinds": {
+        "research": 20
+      }
+    },
+    {
+      "key": "budget",
+      "occ": 20,
+      "files": 5,
+      "kinds": {
+        "mcp": 6,
+        "research": 13,
+        "src_other": 1
+      }
+    },
+    {
+      "key": "priority",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "crawler": 1,
+        "mcp": 4,
+        "research": 15
+      }
+    },
+    {
+      "key": "task_id",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "filter": 1,
+        "mcp": 19
+      }
+    },
+    {
+      "key": "description",
+      "occ": 20,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "mcp": 19
+      }
+    },
+    {
+      "key": "query",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "crawler": 1,
+        "mcp": 11,
+        "ml": 1,
+        "report": 4,
+        "research": 3
+      }
+    },
+    {
+      "key": "action",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "crawler": 1,
+        "mcp": 17,
+        "src_other": 2
+      }
+    },
+    {
+      "key": "title",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 1,
+        "src_other": 3,
+        "report": 3,
+        "research": 13
+      }
+    },
+    {
+      "key": "properties",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "mcp": 16,
+        "tests": 4
+      }
+    },
+    {
+      "key": "claim_text",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "filter": 1,
+        "report": 11,
+        "research": 4,
+        "tests": 4
+      }
+    },
+    {
+      "key": "target_type",
+      "occ": 20,
+      "files": 3,
+      "kinds": {
+        "filter": 5,
+        "report": 3,
+        "research": 12
+      }
+    },
+    {
+      "key": "source_type",
+      "occ": 20,
+      "files": 5,
+      "kinds": {
+        "crawler": 2,
+        "filter": 6,
+        "report": 3,
+        "storage": 9
+      }
+    },
+    {
+      "key": "default",
+      "occ": 20,
+      "files": 3,
+      "kinds": {
+        "mcp": 12,
+        "search": 8
+      }
+    },
+    {
+      "key": "summary",
+      "occ": 20,
+      "files": 10,
+      "kinds": {
+        "crawler": 2,
+        "filter": 1,
+        "report": 7,
+        "research": 4,
+        "tests": 6
+      }
+    },
+    {
+      "key": "text_content",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "src_other": 1,
+        "report": 8,
+        "research": 3,
+        "tests": 8
+      }
+    },
+    {
+      "key": "heading_context",
+      "occ": 20,
+      "files": 6,
+      "kinds": {
+        "src_other": 3,
+        "report": 8,
+        "research": 3,
+        "tests": 6
+      }
+    },
+    {
+      "key": "total_claims",
+      "occ": 20,
+      "files": 13,
+      "kinds": {
+        "filter": 1,
+        "mcp": 3,
+        "report": 1,
+        "research": 5,
+        "storage": 1,
+        "src_other": 1,
+        "tests": 8
+      }
+    },
+    {
+      "key": "type",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 2,
+        "src_other": 1,
+        "filter": 7,
+        "mcp": 10
+      }
+    },
+    {
+      "key": "updated_at",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 3,
+        "mcp": 3,
+        "storage": 7,
+        "src_other": 3,
+        "tests": 4
+      }
+    },
+    {
+      "key": "domain_pattern",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "filter": 1,
+        "mcp": 10,
+        "tests": 9
+      }
+    },
+    {
+      "key": "harvest_rate",
+      "occ": 20,
+      "files": 11,
+      "kinds": {
+        "crawler": 2,
+        "mcp": 2,
+        "research": 6,
+        "storage": 1,
+        "src_other": 1,
+        "tests": 8
+      }
+    },
+    {
+      "key": "captcha_rate",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "crawler": 1,
+        "search": 3,
+        "storage": 9,
+        "src_other": 7
+      }
+    },
+    {
+      "key": "target",
+      "occ": 20,
+      "files": 6,
+      "kinds": {
+        "crawler": 1,
+        "filter": 3,
+        "mcp": 7,
+        "research": 2,
+        "tests": 7
+      }
+    },
+    {
+      "key": "claims",
+      "occ": 20,
+      "files": 11,
+      "kinds": {
+        "filter": 2,
+        "mcp": 1,
+        "report": 4,
+        "research": 3,
+        "src_other": 3,
+        "tests": 7
+      }
+    },
+    {
+      "key": "claim_id",
+      "occ": 20,
+      "files": 10,
+      "kinds": {
+        "filter": 7,
+        "mcp": 6,
+        "report": 2,
+        "tests": 5
+      }
+    },
+    {
+      "key": "success_rate_1h",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "search": 2,
+        "storage": 8,
+        "src_other": 5,
+        "tests": 5
+      }
+    },
+    {
+      "key": "engine",
+      "occ": 20,
+      "files": 10,
+      "kinds": {
+        "src_other": 2,
+        "mcp": 1,
+        "research": 5,
+        "search": 11,
+        "storage": 1
+      }
+    },
+    {
+      "key": "created_at",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 5,
+        "mcp": 2,
+        "report": 3,
+        "research": 1,
+        "storage": 1,
+        "tests": 8
+      }
+    },
+    {
+      "key": "source_tag",
+      "occ": 20,
+      "files": 6,
+      "kinds": {
+        "report": 7,
+        "search": 4,
+        "tests": 9
+      }
+    },
+    {
+      "key": "pages_fetched",
+      "occ": 20,
+      "files": 13,
+      "kinds": {
+        "mcp": 2,
+        "research": 3,
+        "src_other": 3,
+        "storage": 1,
+        "tests": 11
+      }
+    },
+    {
+      "key": "source",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 1,
+        "filter": 5,
+        "mcp": 4,
+        "research": 2,
+        "search": 2,
+        "src_other": 6
+      }
+    },
+    {
+      "key": "status",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 12,
+        "filter": 2,
+        "mcp": 6
+      }
+    },
+    {
+      "key": "page_id",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 1,
+        "src_other": 1,
+        "filter": 6,
+        "research": 4,
+        "storage": 2,
+        "tests": 6
+      }
+    },
+    {
+      "key": "snippet",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "research": 5,
+        "search": 6,
+        "tests": 9
+      }
+    },
+    {
+      "key": "options",
+      "occ": 20,
+      "files": 6,
+      "kinds": {
+        "filter": 8,
+        "mcp": 5,
+        "src_other": 1,
+        "tests": 6
+      }
+    },
+    {
+      "key": "fragments",
+      "occ": 19,
+      "files": 11,
+      "kinds": {
+        "src_other": 3,
+        "filter": 1,
+        "report": 3,
+        "research": 1,
+        "storage": 1,
+        "tests": 10
+      }
+    },
+    {
+      "key": "domains",
+      "occ": 20,
+      "files": 12,
+      "kinds": {
+        "crawler": 3,
+        "mcp": 3,
+        "research": 1,
+        "src_other": 3,
+        "tests": 10
+      }
+    },
+    {
+      "key": "queue_id",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 1,
+        "mcp": 3,
+        "research": 1,
+        "src_other": 3,
+        "search": 1,
+        "tests": 11
+      }
+    },
+    {
+      "key": "searches",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "mcp": 3,
+        "research": 1,
+        "tests": 16
+      }
+    },
+    {
+      "key": "error_code",
+      "occ": 20,
+      "files": 6,
+      "kinds": {
+        "mcp": 2,
+        "research": 2,
+        "tests": 16
+      }
+    },
+    {
+      "key": "warnings",
+      "occ": 20,
+      "files": 6,
+      "kinds": {
+        "mcp": 3,
+        "research": 1,
+        "tests": 16
+      }
+    },
+    {
+      "key": "html_path",
+      "occ": 20,
+      "files": 11,
+      "kinds": {
+        "crawler": 5,
+        "src_other": 4,
+        "research": 3,
+        "search": 2,
+        "tests": 6
+      }
+    },
+    {
+      "key": "name",
+      "occ": 20,
+      "files": 10,
+      "kinds": {
+        "crawler": 11,
+        "filter": 6,
+        "research": 3
+      }
+    },
+    {
+      "key": "reason",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 5,
+        "src_other": 6,
+        "filter": 6,
+        "mcp": 3
+      }
+    },
+    {
+      "key": "success",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 2,
+        "filter": 1,
+        "mcp": 3,
+        "tests": 14
+      }
+    },
+    {
+      "key": "version",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 2,
+        "mcp": 2,
+        "storage": 1,
+        "src_other": 4,
+        "tests": 11
+      }
+    },
+    {
+      "key": "independent_sources",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "filter": 3,
+        "mcp": 1,
+        "research": 2,
+        "tests": 14
+      }
+    },
+    {
+      "key": "queries",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "mcp": 2,
+        "storage": 1,
+        "src_other": 4,
+        "tests": 13
+      }
+    },
+    {
+      "key": "blocked_domains",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "mcp": 3,
+        "tests": 17
+      }
+    },
+    {
+      "key": "mode",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "crawler": 3,
+        "mcp": 3,
+        "tests": 14
+      }
+    },
+    {
+      "key": "timeline_json",
+      "occ": 20,
+      "files": 3,
+      "kinds": {
+        "filter": 3,
+        "report": 3,
+        "tests": 14
+      }
+    },
+    {
+      "key": "message",
+      "occ": 20,
+      "files": 14,
+      "kinds": {
+        "crawler": 1,
+        "filter": 2,
+        "mcp": 2,
+        "ml": 1,
+        "search": 1,
+        "src_other": 8,
+        "tests": 5
+      }
+    },
+    {
+      "key": "total",
+      "occ": 20,
+      "files": 13,
+      "kinds": {
+        "crawler": 3,
+        "filter": 2,
+        "report": 1,
+        "research": 1,
+        "search": 3,
+        "src_other": 6,
+        "tests": 4
+      }
+    },
+    {
+      "key": "timestamp",
+      "occ": 20,
+      "files": 12,
+      "kinds": {
+        "crawler": 2,
+        "filter": 3,
+        "mcp": 2,
+        "src_other": 8,
+        "tests": 5
+      }
+    },
+    {
+      "key": "date",
+      "occ": 20,
+      "files": 10,
+      "kinds": {
+        "crawler": 1,
+        "src_other": 5,
+        "research": 2,
+        "search": 4,
+        "tests": 8
+      }
+    },
+    {
+      "key": "year",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "filter": 11,
+        "research": 2,
+        "search": 1,
+        "tests": 6
+      }
+    },
+    {
+      "key": "doi",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "filter": 10,
+        "research": 2,
+        "search": 3,
+        "tests": 5
+      }
+    },
+    {
+      "key": "source_url",
+      "occ": 20,
+      "files": 7,
+      "kinds": {
+        "crawler": 5,
+        "filter": 12,
+        "src_other": 1,
+        "report": 2
+      }
+    },
+    {
+      "key": "count",
+      "occ": 20,
+      "files": 5,
+      "kinds": {
+        "mcp": 2,
+        "search": 1,
+        "src_other": 17
+      }
+    },
+    {
+      "key": "rank",
+      "occ": 20,
+      "files": 5,
+      "kinds": {
+        "research": 2,
+        "search": 4,
+        "tests": 14
+      }
+    },
+    {
+      "key": "state",
+      "occ": 20,
+      "files": 13,
+      "kinds": {
+        "crawler": 2,
+        "filter": 1,
+        "mcp": 1,
+        "src_other": 7,
+        "search": 2,
+        "tests": 7
+      }
+    },
+    {
+      "key": "details",
+      "occ": 20,
+      "files": 12,
+      "kinds": {
+        "crawler": 1,
+        "filter": 6,
+        "mcp": 1,
+        "src_other": 5,
+        "search": 1,
+        "tests": 6
+      }
+    },
+    {
+      "key": "method",
+      "occ": 20,
+      "files": 10,
+      "kinds": {
+        "crawler": 5,
+        "mcp": 1,
+        "src_other": 6,
+        "tests": 8
+      }
+    },
+    {
+      "key": "cookies",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 6,
+        "mcp": 1,
+        "src_other": 1,
+        "tests": 12
+      }
+    },
+    {
+      "key": "source_domain_category",
+      "occ": 20,
+      "files": 5,
+      "kinds": {
+        "filter": 8,
+        "mcp": 1,
+        "tests": 11
+      }
+    },
+    {
+      "key": "content",
+      "occ": 20,
+      "files": 11,
+      "kinds": {
+        "crawler": 2,
+        "src_other": 1,
+        "filter": 5,
+        "tests": 12
+      }
+    },
+    {
+      "key": "url",
+      "occ": 20,
+      "files": 10,
+      "kinds": {
+        "crawler": 18,
+        "filter": 1,
+        "src_other": 1
+      }
+    },
+    {
+      "key": "value",
+      "occ": 20,
+      "files": 9,
+      "kinds": {
+        "crawler": 8,
+        "src_other": 1,
+        "tests": 11
+      }
+    },
+    {
+      "key": "cause_id",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 1,
+        "filter": 4,
+        "src_other": 3,
+        "search": 2,
+        "tests": 10
+      }
+    },
+    {
+      "key": "domain",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 20
+      }
+    },
+    {
+      "key": "error",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 5,
+        "src_other": 9,
+        "filter": 6
+      }
+    },
+    {
+      "key": "ok",
+      "occ": 20,
+      "files": 8,
+      "kinds": {
+        "crawler": 8,
+        "src_other": 12
+      }
+    },
+    {
+      "key": "id",
+      "occ": 20,
+      "files": 5,
+      "kinds": {
+        "crawler": 2,
+        "filter": 18
+      }
+    },
+    {
+      "key": "text",
+      "occ": 20,
+      "files": 5,
+      "kinds": {
+        "src_other": 11,
+        "filter": 9
+      }
+    },
+    {
+      "key": "confidence",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "filter": 20
+      }
+    },
+    {
+      "key": "neutral_count",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "filter": 2,
+        "tests": 18
+      }
+    },
+    {
+      "key": "page_number",
+      "occ": 20,
+      "files": 4,
+      "kinds": {
+        "search": 4,
+        "tests": 16
+      }
+    },
+    {
+      "key": "domain_block_reason",
+      "occ": 20,
+      "files": 3,
+      "kinds": {
+        "filter": 2,
+        "tests": 18
+      }
+    },
+    {
+      "key": "domain_unblock_risk",
+      "occ": 20,
+      "files": 3,
+      "kinds": {
+        "filter": 2,
+        "tests": 18
+      }
+    },
+    {
+      "key": "fonts",
+      "occ": 20,
+      "files": 3,
+      "kinds": {
+        "crawler": 14,
+        "tests": 6
+      }
+    },
+    {
+      "key": "label",
+      "occ": 20,
+      "files": 3,
+      "kinds": {
+        "filter": 11,
+        "ml": 9
+      }
+    },
+    {
+      "key": "obj_id",
+      "occ": 20,
+      "files": 2,
+      "kinds": {
+        "filter": 13,
+        "tests": 7
+      }
+    },
+    {
+      "key": "published_date",
+      "occ": 20,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 19
+      }
+    },
+    {
+      "key": "test_provider",
+      "occ": 20,
+      "files": 2,
+      "kinds": {
+        "tests": 20
+      }
+    },
+    {
+      "key": "node_type",
+      "occ": 20,
+      "files": 1,
+      "kinds": {
+        "filter": 20
+      }
+    },
+    {
+      "key": "relation",
+      "occ": 20,
+      "files": 1,
+      "kinds": {
+        "filter": 20
+      }
+    },
+    {
+      "key": "success_rate",
+      "occ": 15,
+      "files": 10,
+      "kinds": {
+        "crawler": 3,
+        "filter": 1,
+        "search": 2,
+        "src_other": 5,
+        "tests": 4
+      }
+    },
+    {
+      "key": "category_weight",
+      "occ": 9,
+      "files": 3,
+      "kinds": {
+        "filter": 1,
+        "src_other": 1,
+        "tests": 7
+      }
+    },
+    {
+      "key": "raw_label",
+      "occ": 8,
+      "files": 4,
+      "kinds": {
+        "filter": 2,
+        "ml": 5,
+        "tests": 1
+      }
+    },
+    {
+      "key": "min_interval",
+      "occ": 8,
+      "files": 3,
+      "kinds": {
+        "search": 4,
+        "tests": 4
+      }
+    },
+    {
+      "key": "final_score",
+      "occ": 6,
+      "files": 2,
+      "kinds": {
+        "filter": 2,
+        "tests": 4
+      }
+    },
+    {
+      "key": "block_score",
+      "occ": 5,
+      "files": 4,
+      "kinds": {
+        "crawler": 1,
+        "src_other": 2,
+        "tests": 2
+      }
+    },
+    {
+      "key": "improvement_ratio",
+      "occ": 5,
+      "files": 3,
+      "kinds": {
+        "search": 1,
+        "src_other": 3,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_tabs",
+      "occ": 5,
+      "files": 3,
+      "kinds": {
+        "search": 1,
+        "tests": 4
+      }
+    },
+    {
+      "key": "browser_ratio_boost",
+      "occ": 5,
+      "files": 2,
+      "kinds": {
+        "crawler": 4,
+        "tests": 1
+      }
+    },
+    {
+      "key": "headful_ratio",
+      "occ": 5,
+      "files": 2,
+      "kinds": {
+        "crawler": 3,
+        "src_other": 2
+      }
+    },
+    {
+      "key": "integrity_score",
+      "occ": 5,
+      "files": 2,
+      "kinds": {
+        "filter": 2,
+        "tests": 3
+      }
+    },
+    {
+      "key": "qps_limit",
+      "occ": 5,
+      "files": 2,
+      "kinds": {
+        "crawler": 2,
+        "tests": 3
+      }
+    },
+    {
+      "key": "round_trip_count",
+      "occ": 5,
+      "files": 2,
+      "kinds": {
+        "filter": 3,
+        "tests": 2
+      }
+    },
+    {
+      "key": "score_rerank",
+      "occ": 5,
+      "files": 2,
+      "kinds": {
+        "filter": 1,
+        "tests": 4
+      }
+    },
+    {
+      "key": "switch_count",
+      "occ": 5,
+      "files": 2,
+      "kinds": {
+        "crawler": 3,
+        "tests": 2
+      }
+    },
+    {
+      "key": "captcha_count",
+      "occ": 4,
+      "files": 4,
+      "kinds": {
+        "search": 2,
+        "tests": 2
+      }
+    },
+    {
+      "key": "effective_max_tabs",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "search": 1,
+        "tests": 3
+      }
+    },
+    {
+      "key": "max_parallel",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "search": 1,
+        "tests": 3
+      }
+    },
+    {
+      "key": "meets_threshold",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "filter": 1,
+        "tests": 3
+      }
+    },
+    {
+      "key": "plugins_count",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "crawler": 1,
+        "tests": 3
+      }
+    },
+    {
+      "key": "primary_count",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "filter": 1,
+        "tests": 3
+      }
+    },
+    {
+      "key": "primary_ratio",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "filter": 1,
+        "tests": 3
+      }
+    },
+    {
+      "key": "secondary_count",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "filter": 1,
+        "tests": 3
+      }
+    },
+    {
+      "key": "similarity_ratio",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "crawler": 2,
+        "filter": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "text_to_html_ratio",
+      "occ": 4,
+      "files": 3,
+      "kinds": {
+        "src_other": 3,
+        "tests": 1
+      }
+    },
+    {
+      "key": "brier_score",
+      "occ": 4,
+      "files": 2,
+      "kinds": {
+        "src_other": 3,
+        "tests": 1
+      }
+    },
+    {
+      "key": "switch_success_count",
+      "occ": 4,
+      "files": 2,
+      "kinds": {
+        "crawler": 3,
+        "tests": 1
+      }
+    },
+    {
+      "key": "adjusted_confidence",
+      "occ": 3,
+      "files": 3,
+      "kinds": {
+        "crawler": 1,
+        "filter": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "degradation_threshold",
+      "occ": 3,
+      "files": 3,
+      "kinds": {
+        "src_other": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "duplicate_ratio",
+      "occ": 3,
+      "files": 3,
+      "kinds": {
+        "filter": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "max_retries",
+      "occ": 3,
+      "files": 3,
+      "kinds": {
+        "crawler": 1,
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "original_count",
+      "occ": 3,
+      "files": 3,
+      "kinds": {
+        "filter": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "paragraph_count",
+      "occ": 3,
+      "files": 3,
+      "kinds": {
+        "src_other": 2,
+        "tests": 1
+      }
+    },
+    {
+      "key": "recalibration_threshold",
+      "occ": 3,
+      "files": 3,
+      "kinds": {
+        "src_other": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "audit_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "avg_confidence",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 2,
+        "tests": 1
+      }
+    },
+    {
+      "key": "cited_by_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "consecutive_429_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 2,
+        "tests": 1
+      }
+    },
+    {
+      "key": "daily_limit",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "decision_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "effective_max_parallel",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 2,
+        "tests": 1
+      }
+    },
+    {
+      "key": "eval_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "filter": 2,
+        "tests": 1
+      }
+    },
+    {
+      "key": "loop_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "filter": 2,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_tokens",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "filter": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "min_interval_seconds",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "prompt_eval_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "filter": 2,
+        "tests": 1
+      }
+    },
+    {
+      "key": "rate_limit",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "src_other": 2
+      }
+    },
+    {
+      "key": "referenced_works_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "visited_count",
+      "occ": 3,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 2
+      }
+    },
+    {
+      "key": "brier_score_calibrated",
+      "occ": 3,
+      "files": 1,
+      "kinds": {
+        "src_other": 3
+      }
+    },
+    {
+      "key": "fallback_timeout",
+      "occ": 3,
+      "files": 1,
+      "kinds": {
+        "crawler": 3
+      }
+    },
+    {
+      "key": "learning_threshold",
+      "occ": 3,
+      "files": 1,
+      "kinds": {
+        "crawler": 3
+      }
+    },
+    {
+      "key": "min_samples",
+      "occ": 3,
+      "files": 1,
+      "kinds": {
+        "crawler": 3
+      }
+    },
+    {
+      "key": "quality_score",
+      "occ": 3,
+      "files": 1,
+      "kinds": {
+        "src_other": 3
+      }
+    },
+    {
+      "key": "wayback_failure_count",
+      "occ": 3,
+      "files": 1,
+      "kinds": {
+        "crawler": 3
+      }
+    },
+    {
+      "key": "wayback_success_count",
+      "occ": 3,
+      "files": 1,
+      "kinds": {
+        "crawler": 3
+      }
+    },
+    {
+      "key": "budget_pages_per_day",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 2
+      }
+    },
+    {
+      "key": "candidate_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "cookies_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "current_llm_ratio",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "deduplicated_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "filter": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "effective_delay",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "error_403_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "event_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "filter": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "failure_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "failure_threshold",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "heading_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "list_item_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_confidence",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "filter": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_fetch_time",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_history_per_source",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_llm_ratio",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_requests_per_day",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 2
+      }
+    },
+    {
+      "key": "max_sessions",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "max_time_seconds",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "pattern_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "src_other": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "problematic_node_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "filter": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "repair_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "repair_status",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "result_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "search": 1
+      }
+    },
+    {
+      "key": "retry_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "self_reference_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "filter": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "success_count",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "search": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "ttl_seconds",
+      "occ": 2,
+      "files": 2,
+      "kinds": {
+        "crawler": 1,
+        "tests": 1
+      }
+    },
+    {
+      "key": "actual_label",
+      "occ": 2,
+      "files": 1,
+      "kinds": {
+        "src_other": 2
+      }
+    },
+    {
+      "key": "ad_count",
+      "occ": 2,
+      "files": 1,
+      "kinds": {
+        "src_other": 2
+      }
+    },
+    {
+      "key": "max_candidates",
+      "occ": 2,
+      "files": 1,
+      "kinds": {
+        "tests": 2
+      }
+    },
+    {
+      "key": "ngram_score",
+      "occ": 2,
+      "files": 1,
+      "kinds": {
+        "src_other": 2
+      }
+    },
+    {
+      "key": "active_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "search": 1
+      }
+    },
+    {
+      "key": "added_lines_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "allowlist_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "auth_queue_ttl_hours",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "base_weight",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "boosted_domains_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "cached_domains_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "cert_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "citation_integrity_score",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "filter": 1
+      }
+    },
+    {
+      "key": "citation_loop_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "filter": 1
+      }
+    },
+    {
+      "key": "cloudflare_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "confirmation_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "filter": 1
+      }
+    },
+    {
+      "key": "correct_label",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "crawl_delay",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "denylist_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "disallowed_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "domain_qps",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "dynamic_weight",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "embeddings_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "filter": 1
+      }
+    },
+    {
+      "key": "fetch_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "form_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "graylist_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "initial_query_count_gpu",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "input_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "link_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "max_age_years",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "filter": 1
+      }
+    },
+    {
+      "key": "max_depth_reached",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "max_pages",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "min_request_interval",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "occurrence_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "search": 1
+      }
+    },
+    {
+      "key": "phrase_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "predicted_label",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "removed_lines_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "returned_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "sample_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "search": 1
+      }
+    },
+    {
+      "key": "score_bm25",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "filter": 1
+      }
+    },
+    {
+      "key": "score_embed",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "filter": 1
+      }
+    },
+    {
+      "key": "search_templates_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "should_retry",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "src_other": 1
+      }
+    },
+    {
+      "key": "support_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "tests": 1
+      }
+    },
+    {
+      "key": "think_time_max_ms",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "think_time_min_ms",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    },
+    {
+      "key": "usage_count",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "search": 1
+      }
+    },
+    {
+      "key": "word_count_change",
+      "occ": 1,
+      "files": 1,
+      "kinds": {
+        "crawler": 1
+      }
+    }
+  ]
+}

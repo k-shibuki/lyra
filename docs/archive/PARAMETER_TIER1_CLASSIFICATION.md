@@ -77,10 +77,10 @@ Tier 1 は “全部一撃でリネーム” ではなく、**Tier 0 へ吸収**
 
 ### 7. 次にやるべきこと（docs-only）
 
-- `parameter-registry.tier1-contract-keys.json` の **review 218件**をさらに
-  - “境界に出るので正規化必須”
-  - “局所キーなのでkeep”
-  - “外部契約なのでkeep”
-  に分割するための二次分類（ルール＋リスト）を作る
-- その結果を `PARAMETER_RENAME_MAP_DRAFT.json` の “notes/決定” に反映し、実装フェーズに渡せる確定表にする
+- Tier1 `review 218件` について、**私の判断で keep/normalize/split を確定**し、事故防止の置換ガイドも固定化する
+  - `docs/archive/parameter-registry.tier1-review-decisions.json`
+  - `docs/archive/RG_SAFE_REPLACEMENT_GUIDE.md`
+
+補足:
+- `confidence` / `type` / `status` のような汎用キーは **split** として扱い、グローバル置換を禁止する
 

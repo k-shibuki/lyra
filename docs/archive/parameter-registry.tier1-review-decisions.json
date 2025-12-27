@@ -1,0 +1,2597 @@
+{
+  "summary": {
+    "review_keys": 218,
+    "decision_counts": {
+      "normalize": 4,
+      "split": 3,
+      "keep": 211
+    }
+  },
+  "decisions": [
+    {
+      "key": "brier_score",
+      "decision": "normalize",
+      "to": "calib_brier_score_before",
+      "reason": "align with Tier0 model-signal canonical naming",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 2,
+      "rg_safety": [
+        "Replace quoted dict keys only: [\"key\"] / .get(\"key\") / {\"key\": ...}.",
+        "Prefer file-scoped replacement (one module at a time)."
+      ]
+    },
+    {
+      "key": "brier_score_calibrated",
+      "decision": "normalize",
+      "to": "calib_brier_score_after",
+      "reason": "align with Tier0 model-signal canonical naming",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 3,
+      "files": 1,
+      "rg_safety": [
+        "Replace quoted dict keys only: [\"key\"] / .get(\"key\") / {\"key\": ...}.",
+        "Prefer file-scoped replacement (one module at a time)."
+      ]
+    },
+    {
+      "key": "category_weight",
+      "decision": "normalize",
+      "to": "rank_fragment_weight_category",
+      "reason": "align with Tier0 model-signal canonical naming",
+      "kinds": [
+        "filter",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 9,
+      "files": 3,
+      "rg_safety": [
+        "Replace quoted dict keys only: [\"key\"] / .get(\"key\") / {\"key\": ...}.",
+        "Prefer file-scoped replacement (one module at a time)."
+      ]
+    },
+    {
+      "key": "final_score",
+      "decision": "normalize",
+      "to": "rank_fragment_score_final",
+      "reason": "align with Tier0 model-signal canonical naming",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 6,
+      "files": 2,
+      "rg_safety": [
+        "Replace quoted dict keys only: [\"key\"] / .get(\"key\") / {\"key\": ...}.",
+        "Prefer file-scoped replacement (one module at a time)."
+      ]
+    },
+    {
+      "key": "confidence",
+      "decision": "split",
+      "reason": "generic key with multiple semantics across modules; global replacement is unsafe",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 20,
+      "files": 4,
+      "replacements": [
+        {
+          "when": "src/filter/evidence_graph.py evidence dicts",
+          "to": "legacy_edge_confidence",
+          "notes": "maps from edges.confidence (legacy aggregate) — avoid mixing with nli/bayes/llm confidences",
+          "rg_scope_glob": "src/filter/evidence_graph.py",
+          "rg_patterns": [
+            "\"confidence\""
+          ]
+        },
+        {
+          "when": "src/filter/claim_decomposition.py AtomicClaim serialization",
+          "to": "keep",
+          "notes": "internal decomposition confidence; does not map to llm/nli/bayes without further design",
+          "rg_scope_glob": "src/filter/claim_decomposition.py",
+          "rg_patterns": []
+        },
+        {
+          "when": "src/filter/claim_timeline.py TimelineEvent serialization",
+          "to": "keep",
+          "notes": "timeline_json internal field; normalizing requires explicit JSON-column migration plan",
+          "rg_scope_glob": "src/filter/claim_timeline.py",
+          "rg_patterns": []
+        }
+      ],
+      "rg_safety": [
+        "Never do global replace of \"confidence\".",
+        "If renaming, only replace quoted dict keys in a single file at a time."
+      ]
+    },
+    {
+      "key": "status",
+      "decision": "split",
+      "reason": "generic status key across tasks/jobs/domains; not a single canonical mapping",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp"
+      ],
+      "occurrences": 20,
+      "files": 9,
+      "replacements": [],
+      "rg_safety": [
+        "Never global-replace \"status\"."
+      ]
+    },
+    {
+      "key": "type",
+      "decision": "split",
+      "reason": "generic enum key; multiple unrelated meanings (claim_type, task type, etc.)",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 8,
+      "replacements": [],
+      "rg_safety": [
+        "Never global-replace \"type\"."
+      ]
+    },
+    {
+      "key": "action",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "active_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "actual_label",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 2,
+      "files": 1
+    },
+    {
+      "key": "ad_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 2,
+      "files": 1
+    },
+    {
+      "key": "added_lines_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "adjusted_confidence",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "filter",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 3
+    },
+    {
+      "key": "allowlist_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "audit_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "auth_queue_ttl_hours",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "avg_confidence",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "base_weight",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "block_score",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 4
+    },
+    {
+      "key": "blocked_domains",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "mcp",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "boosted_domains_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "browser_ratio_boost",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 2
+    },
+    {
+      "key": "budget",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "mcp",
+        "research",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 5
+    },
+    {
+      "key": "budget_pages_per_day",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "cached_domains_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "candidate_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "captcha_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 4
+    },
+    {
+      "key": "captcha_rate",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "search",
+        "src_other",
+        "storage"
+      ],
+      "occurrences": 20,
+      "files": 7
+    },
+    {
+      "key": "cause_id",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler",
+        "filter",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "cert_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "citation_integrity_score",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "citation_loop_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "cited_by_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "claim_id",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "filter",
+        "mcp",
+        "report",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 10
+    },
+    {
+      "key": "claim_text",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "report",
+        "research",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 7
+    },
+    {
+      "key": "claims",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "mcp",
+        "report",
+        "research",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 11
+    },
+    {
+      "key": "cloudflare_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "confirmation_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "consecutive_429_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "content",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "filter",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 11
+    },
+    {
+      "key": "cookies",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "cookies_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "correct_label",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "count",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "mcp",
+        "search",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 5,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "crawl_delay",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "created_at",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "report",
+        "research",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 9
+    },
+    {
+      "key": "current_llm_ratio",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "daily_limit",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "date",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "research",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 10
+    },
+    {
+      "key": "decision_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "deduplicated_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "default",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "mcp",
+        "search"
+      ],
+      "occurrences": 20,
+      "files": 3,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "degradation_threshold",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 3
+    },
+    {
+      "key": "denylist_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "description",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "crawler",
+        "mcp"
+      ],
+      "occurrences": 20,
+      "files": 2,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "details",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 12,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "disallowed_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "doi",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "research",
+        "search",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 7
+    },
+    {
+      "key": "domain",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "domain_block_reason",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 3
+    },
+    {
+      "key": "domain_pattern",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "mcp",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "domain_qps",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "domain_unblock_risk",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 3
+    },
+    {
+      "key": "domains",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "research",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 12,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "duplicate_ratio",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 3
+    },
+    {
+      "key": "dynamic_weight",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "effective_delay",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "effective_max_parallel",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "effective_max_tabs",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "embeddings_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "engine",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "mcp",
+        "research",
+        "search",
+        "src_other",
+        "storage"
+      ],
+      "occurrences": 20,
+      "files": 10
+    },
+    {
+      "key": "error",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "error_403_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "error_code",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "mcp",
+        "research",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 6
+    },
+    {
+      "key": "eval_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "event_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "failure_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "failure_threshold",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "fallback_timeout",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 3,
+      "files": 1
+    },
+    {
+      "key": "fetch_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "fonts",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 3
+    },
+    {
+      "key": "form_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "fragments",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "report",
+        "research",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 19,
+      "files": 11
+    },
+    {
+      "key": "graylist_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "harvest_rate",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "research",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 11
+    },
+    {
+      "key": "headful_ratio",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "src_other"
+      ],
+      "occurrences": 5,
+      "files": 2
+    },
+    {
+      "key": "heading_context",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "report",
+        "research",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 6
+    },
+    {
+      "key": "heading_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "html_path",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "research",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 11
+    },
+    {
+      "key": "id",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler",
+        "filter"
+      ],
+      "occurrences": 20,
+      "files": 5
+    },
+    {
+      "key": "improvement_ratio",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 3
+    },
+    {
+      "key": "independent_sources",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "filter",
+        "mcp",
+        "research",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "initial_query_count_gpu",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "input_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "integrity_score",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 2
+    },
+    {
+      "key": "label",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "ml"
+      ],
+      "occurrences": 20,
+      "files": 3
+    },
+    {
+      "key": "learning_threshold",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 3,
+      "files": 1
+    },
+    {
+      "key": "link_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "list_item_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "loop_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "max_age_years",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "max_candidates",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 1
+    },
+    {
+      "key": "max_confidence",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "max_depth_reached",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "max_fetch_time",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "max_history_per_source",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "max_llm_ratio",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "max_pages",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "max_parallel",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "max_requests_per_day",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "max_retries",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 3
+    },
+    {
+      "key": "max_sessions",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "max_tabs",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 3
+    },
+    {
+      "key": "max_time_seconds",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "max_tokens",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "meets_threshold",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "message",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "ml",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 14
+    },
+    {
+      "key": "method",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 10
+    },
+    {
+      "key": "min_interval",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 8,
+      "files": 3
+    },
+    {
+      "key": "min_interval_seconds",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "min_request_interval",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "min_samples",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 3,
+      "files": 1
+    },
+    {
+      "key": "mode",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "name",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "research"
+      ],
+      "occurrences": 20,
+      "files": 10
+    },
+    {
+      "key": "neutral_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "ngram_score",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 2,
+      "files": 1
+    },
+    {
+      "key": "node_type",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 20,
+      "files": 1
+    },
+    {
+      "key": "obj_id",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 2
+    },
+    {
+      "key": "occurrence_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "ok",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "options",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "filter",
+        "mcp",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 6,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "original_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 3
+    },
+    {
+      "key": "page_id",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler",
+        "filter",
+        "research",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "page_number",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "pages_fetched",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "mcp",
+        "research",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 13
+    },
+    {
+      "key": "paragraph_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 3
+    },
+    {
+      "key": "pattern_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "phrase_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "plugins_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "predicted_label",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "primary_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "primary_ratio",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "priority",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "research"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "problematic_node_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "prompt_eval_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "properties",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "mcp",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 4,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "published_date",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 2
+    },
+    {
+      "key": "qps_limit",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 2
+    },
+    {
+      "key": "quality_score",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 3,
+      "files": 1
+    },
+    {
+      "key": "queries",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "mcp",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 7,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "query",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "ml",
+        "report",
+        "research"
+      ],
+      "occurrences": 20,
+      "files": 7
+    },
+    {
+      "key": "queue_id",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "research",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 9
+    },
+    {
+      "key": "rank",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "research",
+        "search",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 5
+    },
+    {
+      "key": "rate_limit",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "src_other"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "raw_label",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "ml",
+        "tests"
+      ],
+      "occurrences": 8,
+      "files": 4
+    },
+    {
+      "key": "reason",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 9
+    },
+    {
+      "key": "recalibration_threshold",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 3
+    },
+    {
+      "key": "referenced_works_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "relation",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 20,
+      "files": 1
+    },
+    {
+      "key": "removed_lines_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "repair_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "repair_status",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "result_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "search"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "retry_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "returned_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "round_trip_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 2
+    },
+    {
+      "key": "sample_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "score_bm25",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "score_embed",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "score_rerank",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 2
+    },
+    {
+      "key": "search_templates_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "searches",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "mcp",
+        "research",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "secondary_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "self_reference_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "filter",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "should_retry",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "similarity_ratio",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "filter",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "snippet",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "research",
+        "search",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "source",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "research",
+        "search",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 9
+    },
+    {
+      "key": "source_domain_category",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "mcp",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 5
+    },
+    {
+      "key": "source_tag",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "report",
+        "search",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 6
+    },
+    {
+      "key": "source_type",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "report",
+        "storage"
+      ],
+      "occurrences": 20,
+      "files": 5
+    },
+    {
+      "key": "source_url",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "report",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 7
+    },
+    {
+      "key": "state",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 13
+    },
+    {
+      "key": "success",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 9
+    },
+    {
+      "key": "success_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "search",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "success_rate",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "filter",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 15,
+      "files": 10
+    },
+    {
+      "key": "success_rate_1h",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 7
+    },
+    {
+      "key": "summary",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "report",
+        "research",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 10
+    },
+    {
+      "key": "support_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "switch_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 5,
+      "files": 2
+    },
+    {
+      "key": "switch_success_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 2
+    },
+    {
+      "key": "target",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "research",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 6
+    },
+    {
+      "key": "target_type",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "report",
+        "research"
+      ],
+      "occurrences": 20,
+      "files": 3
+    },
+    {
+      "key": "task_id",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "filter",
+        "mcp"
+      ],
+      "occurrences": 20,
+      "files": 4
+    },
+    {
+      "key": "templates",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "research"
+      ],
+      "occurrences": 20,
+      "files": 1,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "test_provider",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 2
+    },
+    {
+      "key": "text",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 5
+    },
+    {
+      "key": "text_content",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "report",
+        "research",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 7
+    },
+    {
+      "key": "text_to_html_ratio",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 4,
+      "files": 3
+    },
+    {
+      "key": "think_time_max_ms",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "think_time_min_ms",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "timeline_json",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "report",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 3
+    },
+    {
+      "key": "timestamp",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "filter",
+        "mcp",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 12
+    },
+    {
+      "key": "title",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "report",
+        "research",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "total",
+      "decision": "keep",
+      "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
+      "kinds": [
+        "crawler",
+        "filter",
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 13,
+      "rg_safety": [
+        "Do not global-replace this key without a full-field canonical map."
+      ]
+    },
+    {
+      "key": "total_claims",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "mcp",
+        "report",
+        "research",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 13
+    },
+    {
+      "key": "ttl_seconds",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 2,
+      "files": 2
+    },
+    {
+      "key": "updated_at",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8
+    },
+    {
+      "key": "url",
+      "decision": "keep",
+      "reason": "identifier/timestamp field (canonical exception rule)",
+      "kinds": [
+        "crawler",
+        "filter",
+        "src_other"
+      ],
+      "occurrences": 20,
+      "files": 10
+    },
+    {
+      "key": "usage_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "search"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "value",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "src_other",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 9
+    },
+    {
+      "key": "version",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler",
+        "mcp",
+        "src_other",
+        "storage",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 9
+    },
+    {
+      "key": "visited_count",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler",
+        "tests"
+      ],
+      "occurrences": 3,
+      "files": 2
+    },
+    {
+      "key": "warnings",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "mcp",
+        "research",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 6
+    },
+    {
+      "key": "wayback_failure_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 3,
+      "files": 1
+    },
+    {
+      "key": "wayback_success_count",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 3,
+      "files": 1
+    },
+    {
+      "key": "word_count_change",
+      "decision": "keep",
+      "reason": "likely internal/local key; keep unless promoted to an interface contract",
+      "kinds": [
+        "crawler"
+      ],
+      "occurrences": 1,
+      "files": 1
+    },
+    {
+      "key": "year",
+      "decision": "keep",
+      "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
+      "kinds": [
+        "filter",
+        "research",
+        "search",
+        "tests"
+      ],
+      "occurrences": 20,
+      "files": 8
+    }
+  ]
+}
