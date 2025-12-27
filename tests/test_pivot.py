@@ -130,9 +130,9 @@ class TestPivotExpander:
         )
 
         # Organization should generate at least 2 pivot suggestions
-        assert len(suggestions) >= 2, (
-            f"Expected >=2 suggestions for 'Google Inc', got {len(suggestions)}"
-        )
+        assert (
+            len(suggestions) >= 2
+        ), f"Expected >=2 suggestions for 'Google Inc', got {len(suggestions)}"
         # Should include English query variants
         subsidiary_pivot = next(s for s in suggestions if s.pivot_type == PivotType.ORG_SUBSIDIARY)
         assert "subsidiary" in " ".join(subsidiary_pivot.query_examples).lower()
@@ -385,9 +385,9 @@ class TestPivotExpander:
         )
 
         # Should still work with string type, generating suggestions
-        assert len(suggestions) >= 1, (
-            f"Expected >=1 suggestions with string type, got {len(suggestions)}"
-        )
+        assert (
+            len(suggestions) >= 1
+        ), f"Expected >=1 suggestions with string type, got {len(suggestions)}"
 
     def test_handle_unknown_string_entity_type(self, expander: PivotExpander) -> None:
         """Should handle unknown string entity types gracefully."""
@@ -450,6 +450,6 @@ class TestGetPivotExpander:
             entity_type=EntityType.ORGANIZATION,
         )
         # Singleton should return valid suggestions
-        assert len(suggestions) >= 1, (
-            f"Expected >=1 suggestions from singleton, got {len(suggestions)}"
-        )
+        assert (
+            len(suggestions) >= 1
+        ), f"Expected >=1 suggestions from singleton, got {len(suggestions)}"

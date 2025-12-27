@@ -487,9 +487,9 @@ class TestEdgeCases:
 
         # Should not raise exception, return valid result
         result = checker.check_consistency(claim_text, page_metadata)
-        assert isinstance(result, ConsistencyResult), (
-            f"Expected ConsistencyResult, got {type(result)}"
-        )
+        assert isinstance(
+            result, ConsistencyResult
+        ), f"Expected ConsistencyResult, got {type(result)}"
 
     def test_very_old_date(self, checker: TemporalConsistencyChecker) -> None:
         """Should handle very old dates."""
@@ -498,9 +498,9 @@ class TestEdgeCases:
 
         result = checker.check_consistency(claim_text, page_metadata)
         # 1800 is not matched by our patterns (20\d{2})
-        assert isinstance(result, ConsistencyResult), (
-            f"Expected ConsistencyResult, got {type(result)}"
-        )
+        assert isinstance(
+            result, ConsistencyResult
+        ), f"Expected ConsistencyResult, got {type(result)}"
 
     def test_future_page_date(self, checker: TemporalConsistencyChecker) -> None:
         """Should handle future page dates."""
@@ -509,9 +509,9 @@ class TestEdgeCases:
         current_time = datetime(2024, 6, 15, tzinfo=UTC)
 
         result = checker.check_consistency(claim_text, page_metadata, current_time)
-        assert isinstance(result, ConsistencyResult), (
-            f"Expected ConsistencyResult, got {type(result)}"
-        )
+        assert isinstance(
+            result, ConsistencyResult
+        ), f"Expected ConsistencyResult, got {type(result)}"
 
     def test_same_date_claim_and_page(self, checker: TemporalConsistencyChecker) -> None:
         """Should handle same date for claim and page."""
@@ -537,9 +537,9 @@ class TestEdgeCases:
         page_metadata = {"published_date": "2024-07-01"}
 
         result = checker.check_consistency(claim_text, page_metadata)
-        assert isinstance(result, ConsistencyResult), (
-            f"Expected ConsistencyResult, got {type(result)}"
-        )
+        assert isinstance(
+            result, ConsistencyResult
+        ), f"Expected ConsistencyResult, got {type(result)}"
         # Japanese era year should be parsed as 2024
         assert result.claim_date is not None, "Expected claim_date for Japanese era text"
 
@@ -549,9 +549,9 @@ class TestEdgeCases:
         page_metadata = {"published_date": "2024-07-01"}
 
         result = checker.check_consistency(claim_text, page_metadata)
-        assert isinstance(result, ConsistencyResult), (
-            f"Expected ConsistencyResult, got {type(result)}"
-        )
+        assert isinstance(
+            result, ConsistencyResult
+        ), f"Expected ConsistencyResult, got {type(result)}"
 
 
 # =============================================================================

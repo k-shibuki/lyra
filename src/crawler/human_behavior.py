@@ -842,13 +842,15 @@ class HumanBehaviorSimulator:
             max_scrolls: Maximum number of scroll actions.
         """
         try:
-            dimensions = await page.evaluate("""
+            dimensions = await page.evaluate(
+                """
                 () => ({
                     height: document.body.scrollHeight,
                     viewportHeight: window.innerHeight,
                     currentScroll: window.scrollY
                 })
-            """)
+            """
+            )
 
             page_height = dimensions.get("height", 2000)
             viewport_height = dimensions.get("viewportHeight", 1080)

@@ -202,9 +202,9 @@ class OpenAlexClient(BaseAcademicClient):
             published_date=None,  # OpenAlex does not provide date
             doi=doi if doi else None,
             arxiv_id=None,  # OpenAlex does not provide arXiv ID
-            venue=location.get("source", {}).get("display_name")
-            if location.get("source")
-            else None,
+            venue=(
+                location.get("source", {}).get("display_name") if location.get("source") else None
+            ),
             citation_count=data.get("cited_by_count", 0),
             reference_count=data.get("referenced_works_count", 0),
             is_open_access=oa.get("is_oa", False),

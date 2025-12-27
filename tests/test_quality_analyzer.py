@@ -189,7 +189,8 @@ class TestContentQualityAnalyzer:
         """Test detection of template-heavy content."""
         # Lots of HTML structure, very little text
         html = (
-            """
+            (
+                """
         <html>
             <head>
                 <title>Page</title>
@@ -223,7 +224,9 @@ class TestContentQualityAnalyzer:
             </body>
         </html>
         """
-        ) * 10  # Repeat to make it large enough
+            )
+            * 10
+        )  # Repeat to make it large enough
 
         result = analyzer.analyze(html)
 

@@ -50,10 +50,7 @@ _SENSITIVE_PATH_PATTERN = re.compile(
 
 # Pattern for stack trace fragments
 _STACK_TRACE_PATTERN = re.compile(
-    r"Traceback \(most recent call last\):|"
-    r"^\s+File |"
-    r"^\s+at \w+|"
-    r"^\s+raise \w+",
+    r"Traceback \(most recent call last\):|" r"^\s+File |" r"^\s+at \w+|" r"^\s+raise \w+",
     re.MULTILINE,
 )
 

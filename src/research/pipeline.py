@@ -884,9 +884,7 @@ class SearchPipeline:
 
                 # Run fetch/extract for the original query
                 # (no query expansion needed - SERP + Academic API already ran)
-                fetch_result = await self._execute_fetch_extract(
-                    search_id, query, options, result
-                )
+                fetch_result = await self._execute_fetch_extract(search_id, query, options, result)
 
                 # Accumulate stats: add fetch results to existing counts
                 # (fetch_result is the same object as result, so fetch_result.pages_fetched

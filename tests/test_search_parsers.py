@@ -132,9 +132,9 @@ class TestParserConfigManager:
         assert config.name == "duckduckgo"
         assert config.search_url is not None
         # URL should contain query placeholder
-        assert "{query}" in config.search_url, (
-            f"Expected '{{query}}' placeholder in search_url: {config.search_url}"
-        )
+        assert (
+            "{query}" in config.search_url
+        ), f"Expected '{{query}}' placeholder in search_url: {config.search_url}"
 
     def test_get_engine_config_case_insensitive(self) -> None:
         """Test engine config lookup is case-insensitive."""
@@ -168,9 +168,9 @@ class TestParserConfigManager:
         assert selector is not None
         assert selector.required is True
         # Diagnostic message should be meaningful for debugging
-        assert len(selector.diagnostic_message) >= 10, (
-            f"Expected diagnostic message >=10 chars, got: {selector.diagnostic_message}"
-        )
+        assert (
+            len(selector.diagnostic_message) >= 10
+        ), f"Expected diagnostic message >=10 chars, got: {selector.diagnostic_message}"
 
     def test_settings(self) -> None:
         """Test global settings are loaded."""
@@ -317,9 +317,9 @@ class TestDuckDuckGoParser:
 
         # Should fail with selector errors (at least 1 for missing container)
         assert result.ok is False
-        assert len(result.selector_errors) >= 1, (
-            f"Expected >=1 selector errors, got {result.selector_errors}"
-        )
+        assert (
+            len(result.selector_errors) >= 1
+        ), f"Expected >=1 selector errors, got {result.selector_errors}"
 
     def test_malformed_html(self) -> None:
         """Test handling of malformed HTML."""
@@ -560,15 +560,15 @@ class TestParserErrorHandling:
         result = parser.parse(html, "test query")
 
         assert result.ok is False
-        assert len(result.selector_errors) >= 1, (
-            f"Expected selector errors, got {result.selector_errors}"
-        )
+        assert (
+            len(result.selector_errors) >= 1
+        ), f"Expected selector errors, got {result.selector_errors}"
 
         # Check error messages contain diagnostics about the failed selector
         error_text = "\n".join(result.selector_errors)
-        assert "results_container" in error_text.lower(), (
-            f"Expected 'results_container' in error message: {error_text}"
-        )
+        assert (
+            "results_container" in error_text.lower()
+        ), f"Expected 'results_container' in error message: {error_text}"
 
     def test_html_saved_on_failure(self, tmp_path: Path) -> None:
         """Test HTML is saved when parsing fails."""

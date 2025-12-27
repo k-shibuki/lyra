@@ -749,9 +749,7 @@ class TestStopTaskAuthQueueCancellation:
     """Tests for stop_task auth queue cancellation per ADR-0007."""
 
     @pytest.mark.asyncio
-    async def test_stop_task_cancels_pending_auth_items(
-        self, test_database: Database
-    ) -> None:
+    async def test_stop_task_cancels_pending_auth_items(self, test_database: Database) -> None:
         """
         TC-ST-12: stop_task cancels pending auth queue items.
 
@@ -807,17 +805,19 @@ class TestStopTaskAuthQueueCancellation:
         item2 = await queue.get_item(queue_id2)
         assert item1 is not None
         assert item2 is not None
-        assert item1["status"] == "cancelled", f"Item 1 status should be cancelled, got {item1['status']}"
-        assert item2["status"] == "cancelled", f"Item 2 status should be cancelled, got {item2['status']}"
+        assert (
+            item1["status"] == "cancelled"
+        ), f"Item 1 status should be cancelled, got {item1['status']}"
+        assert (
+            item2["status"] == "cancelled"
+        ), f"Item 2 status should be cancelled, got {item2['status']}"
 
         # Verify no pending items remain
         pending_after = await queue.get_pending(task_id="task_st12")
         assert len(pending_after) == 0
 
     @pytest.mark.asyncio
-    async def test_stop_task_with_no_auth_items(
-        self, test_database: Database
-    ) -> None:
+    async def test_stop_task_with_no_auth_items(self, test_database: Database) -> None:
         """
         TC-ST-13: stop_task with no auth items completes normally.
 
@@ -848,9 +848,7 @@ class TestStopTaskAuthQueueCancellation:
         assert result["task_id"] == "task_st13"
 
     @pytest.mark.asyncio
-    async def test_stop_task_cancels_in_progress_auth_items(
-        self, test_database: Database
-    ) -> None:
+    async def test_stop_task_cancels_in_progress_auth_items(self, test_database: Database) -> None:
         """
         Test that stop_task cancels in_progress auth items as well.
 

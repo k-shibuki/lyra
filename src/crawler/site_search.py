@@ -797,24 +797,28 @@ async def get_site_search_stats(domain: str) -> dict[str, Any]:
         "domain": domain,
         "is_allowlisted": is_allowlisted,
         "has_template": template is not None,
-        "template": {
-            "search_input": template.search_input,
-            "search_button": template.search_button,
-            "results_selector": template.results_selector,
-        }
-        if template
-        else None,
-        "stats": {
-            "total_attempts": stats.total_attempts,
-            "successful_attempts": stats.successful_attempts,
-            "success_rate": stats.success_rate,
-            "harvest_rate": stats.harvest_rate,
-            "consecutive_failures": stats.consecutive_failures,
-            "is_skipped": stats.is_skipped(),
-            "skip_until": stats.skip_until.isoformat() if stats.skip_until else None,
-        }
-        if stats
-        else None,
+        "template": (
+            {
+                "search_input": template.search_input,
+                "search_button": template.search_button,
+                "results_selector": template.results_selector,
+            }
+            if template
+            else None
+        ),
+        "stats": (
+            {
+                "total_attempts": stats.total_attempts,
+                "successful_attempts": stats.successful_attempts,
+                "success_rate": stats.success_rate,
+                "harvest_rate": stats.harvest_rate,
+                "consecutive_failures": stats.consecutive_failures,
+                "is_skipped": stats.is_skipped(),
+                "skip_until": stats.skip_until.isoformat() if stats.skip_until else None,
+            }
+            if stats
+            else None
+        ),
     }
 
 

@@ -58,14 +58,14 @@ class TestSearchApiPageNumberWiring:
         ]
 
         with (
-            patch(
-                "src.search.search_api.get_database", AsyncMock(return_value=mock_db)
-            ),
+            patch("src.search.search_api.get_database", AsyncMock(return_value=mock_db)),
             patch(
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
+            patch(
+                "src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])
+            ),
         ):
             # When: search_serp() is called
             await search_serp(
@@ -77,9 +77,7 @@ class TestSearchApiPageNumberWiring:
             # Then: INSERT includes page_number=2
             # Find the serp_items INSERT call
             serp_insert_calls = [
-                call
-                for call in mock_db.insert.call_args_list
-                if call[0][0] == "serp_items"
+                call for call in mock_db.insert.call_args_list if call[0][0] == "serp_items"
             ]
             assert len(serp_insert_calls) == 1
 
@@ -118,14 +116,14 @@ class TestSearchApiPageNumberWiring:
         ]
 
         with (
-            patch(
-                "src.search.search_api.get_database", AsyncMock(return_value=mock_db)
-            ),
+            patch("src.search.search_api.get_database", AsyncMock(return_value=mock_db)),
             patch(
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
+            patch(
+                "src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])
+            ),
         ):
             # When: search_serp() is called
             await search_serp(
@@ -136,9 +134,7 @@ class TestSearchApiPageNumberWiring:
 
             # Then: INSERT includes page_number=1 (default)
             serp_insert_calls = [
-                call
-                for call in mock_db.insert.call_args_list
-                if call[0][0] == "serp_items"
+                call for call in mock_db.insert.call_args_list if call[0][0] == "serp_items"
             ]
             assert len(serp_insert_calls) == 1
 
@@ -180,14 +176,14 @@ class TestSearchApiPageNumberWiring:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
+            patch(
+                "src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])
+            ),
         ):
             await search_serp(query="test", task_id="task_123", use_cache=False)
 
             serp_insert_calls = [
-                call
-                for call in mock_db.insert.call_args_list
-                if call[0][0] == "serp_items"
+                call for call in mock_db.insert.call_args_list if call[0][0] == "serp_items"
             ]
             assert serp_insert_calls[0][0][1]["page_number"] == 1
 
@@ -225,14 +221,14 @@ class TestSearchApiPageNumberWiring:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
+            patch(
+                "src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])
+            ),
         ):
             await search_serp(query="test", task_id="task_123", use_cache=False)
 
             serp_insert_calls = [
-                call
-                for call in mock_db.insert.call_args_list
-                if call[0][0] == "serp_items"
+                call for call in mock_db.insert.call_args_list if call[0][0] == "serp_items"
             ]
             assert serp_insert_calls[0][0][1]["page_number"] == 10
 
@@ -285,15 +281,15 @@ class TestSearchApiPageNumberEffect:
                 "src.search.search_api._search_with_provider",
                 AsyncMock(return_value=mock_results),
             ),
-            patch("src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])),
+            patch(
+                "src.search.search_api.parse_query_operators", return_value=MagicMock(operators=[])
+            ),
         ):
             await search_serp(query="test", task_id="task_123", use_cache=False)
 
             # Then: Each result has correct page_number
             serp_insert_calls = [
-                call
-                for call in mock_db.insert.call_args_list
-                if call[0][0] == "serp_items"
+                call for call in mock_db.insert.call_args_list if call[0][0] == "serp_items"
             ]
             assert len(serp_insert_calls) == 2
 
@@ -301,4 +297,3 @@ class TestSearchApiPageNumberEffect:
             assert serp_insert_calls[0][0][1]["page_number"] == 1
             # Second result should have page_number=2
             assert serp_insert_calls[1][0][1]["page_number"] == 2
-

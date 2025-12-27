@@ -239,12 +239,14 @@ class TestMigrationExecution:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         migration_file = migrations_dir / "001_create_test.sql"
-        migration_file.write_text("""
+        migration_file.write_text(
+            """
             CREATE TABLE test_table (
                 id INTEGER PRIMARY KEY,
                 name TEXT
             );
-        """)
+        """
+        )
 
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)
@@ -282,9 +284,11 @@ class TestMigrationExecution:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         migration_file = migrations_dir / "001_add_column.sql"
-        migration_file.write_text("""
+        migration_file.write_text(
+            """
             ALTER TABLE domains ADD COLUMN new_column INTEGER DEFAULT 0;
-        """)
+        """
+        )
 
         # When: Apply migration
         apply_migration(conn, 1, "add_column", migration_file)
@@ -314,9 +318,11 @@ class TestMigrationExecution:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         migration_file = migrations_dir / "001_add_existing.sql"
-        migration_file.write_text("""
+        migration_file.write_text(
+            """
             ALTER TABLE domains ADD COLUMN existing_col INTEGER DEFAULT 0;
-        """)
+        """
+        )
 
         # When: Apply migration - should not raise
         apply_migration(conn, 1, "add_existing", migration_file)
@@ -579,11 +585,13 @@ class TestBoundaryConditions:
         migrations_dir = tmp_path / "migrations"
         migrations_dir.mkdir()
         migration_file = migrations_dir / "001_multi.sql"
-        migration_file.write_text("""
+        migration_file.write_text(
+            """
             CREATE TABLE table1 (id INTEGER);
             CREATE TABLE table2 (id INTEGER);
             CREATE INDEX idx_t1 ON table1(id);
-        """)
+        """
+        )
 
         db_path = tmp_path / "test.db"
         conn = get_connection(db_path)

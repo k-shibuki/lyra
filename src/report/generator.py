@@ -480,9 +480,9 @@ class ReportGenerator:
                     url=url,
                     title=frag.get("page_title", url),
                     heading_context=frag.get("heading_context"),
-                    excerpt=frag.get("text_content", "")[:200]
-                    if frag.get("text_content")
-                    else None,
+                    excerpt=(
+                        frag.get("text_content", "")[:200] if frag.get("text_content") else None
+                    ),
                     discovered_at=frag.get("created_at"),
                     source_tag=frag.get("source_tag"),
                 )
@@ -612,7 +612,9 @@ class ReportGenerator:
             (c, t)
             for c, t in claims_with_timeline
             if (c.get("claim_confidence") or 0) >= 0.7 and not t.is_retracted
-        ][:10]  # Limit to 10
+        ][
+            :10
+        ]  # Limit to 10
 
         if high_confidence_with_timeline:
             lines.append("### Timeline of Key Claims")

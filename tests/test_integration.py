@@ -128,9 +128,9 @@ class TestSearchToExtractPipeline:
         # Then: Scores array matches input length with positive healthcare scores
         assert len(scores) == len(texts)
         healthcare_scores = [scores[0], scores[2], scores[4]]
-        assert any(s > 0 for s in healthcare_scores), (
-            f"Expected positive score for healthcare passages, got: {healthcare_scores}"
-        )
+        assert any(
+            s > 0 for s in healthcare_scores
+        ), f"Expected positive score for healthcare passages, got: {healthcare_scores}"
 
 
 # =============================================================================
@@ -550,9 +550,9 @@ class TestCalibrationIntegration:
             calibrator = Calibrator()
 
             # Then: Instance is created
-            assert isinstance(calibrator, Calibrator), (
-                f"Expected Calibrator instance, got {type(calibrator)}"
-            )
+            assert isinstance(
+                calibrator, Calibrator
+            ), f"Expected Calibrator instance, got {type(calibrator)}"
 
 
 # =============================================================================
@@ -572,9 +572,9 @@ class TestMetricsPolicyIntegration:
         collector = MetricsCollector()
 
         # Then: Instance is created
-        assert isinstance(collector, MetricsCollector), (
-            f"Expected MetricsCollector, got {type(collector)}"
-        )
+        assert isinstance(
+            collector, MetricsCollector
+        ), f"Expected MetricsCollector, got {type(collector)}"
 
     @pytest.mark.asyncio
     async def test_policy_engine_initialization(self) -> None:
@@ -605,9 +605,9 @@ class TestNotificationIntegration:
         manager = InterventionManager()
 
         # Then: Instance is created
-        assert isinstance(manager, InterventionManager), (
-            f"Expected InterventionManager, got {type(manager)}"
-        )
+        assert isinstance(
+            manager, InterventionManager
+        ), f"Expected InterventionManager, got {type(manager)}"
 
     @pytest.mark.asyncio
     async def test_intervention_types(self) -> None:

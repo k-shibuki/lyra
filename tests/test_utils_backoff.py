@@ -201,9 +201,9 @@ class TestCalculateBackoff:
         max_expected = base_value * 1.1
 
         for delay in delays:
-            assert min_expected <= delay <= max_expected, (
-                f"Delay {delay} outside ±10% of {base_value}"
-            )
+            assert (
+                min_expected <= delay <= max_expected
+            ), f"Delay {delay} outside ±10% of {base_value}"
 
     def test_custom_config(self) -> None:
         """Test backoff with custom configuration."""

@@ -338,14 +338,16 @@ class TestRDAPClient:
         """Test successful WHOIS lookup (TC-RC-N-01)."""
         # Given: A mock fetcher returning valid HTML with WHOIS data
         html_path = tmp_path / "whois.html"
-        html_path.write_text("""
+        html_path.write_text(
+            """
         <pre>
         Domain Name: example.com
         Registrar: Test Registrar
         Created Date: 2020-01-01
         Name Server: ns1.example.com
         </pre>
-        """)
+        """
+        )
 
         result = MagicMock()
         result.ok = True
@@ -367,12 +369,14 @@ class TestRDAPClient:
         """Test that results are cached (TC-RC-N-02)."""
         # Given: A mock fetcher and a client with caching enabled
         html_path = tmp_path / "whois.html"
-        html_path.write_text("""
+        html_path.write_text(
+            """
         <pre>
         Domain Name: cached.com
         Registrar: Cached Registrar
         </pre>
-        """)
+        """
+        )
 
         result = MagicMock()
         result.ok = True
@@ -424,12 +428,14 @@ class TestRDAPClient:
         # Given: A mock fetcher and multiple domains to look up
         for i, domain in enumerate(["a.com", "b.com", "c.com"]):
             path = tmp_path / f"whois_{i}.html"
-            path.write_text(f"""
+            path.write_text(
+                f"""
             <pre>
             Domain Name: {domain}
             Registrar: Registrar {i}
             </pre>
-            """)
+            """
+            )
 
         call_count = [0]
 

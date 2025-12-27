@@ -247,12 +247,12 @@ class ClaimTimeline:
             "events": [e.to_dict() for e in self.events],
             "summary": {
                 "event_count": len(self.events),
-                "first_appeared_at": self.first_appeared.timestamp.isoformat()
-                if self.first_appeared
-                else None,
-                "latest_event_at": self.latest_event.timestamp.isoformat()
-                if self.latest_event
-                else None,
+                "first_appeared_at": (
+                    self.first_appeared.timestamp.isoformat() if self.first_appeared else None
+                ),
+                "latest_event_at": (
+                    self.latest_event.timestamp.isoformat() if self.latest_event else None
+                ),
                 "is_retracted": self.is_retracted,
                 "is_corrected": self.is_corrected,
                 "confirmation_count": self.confirmation_count,
@@ -784,9 +784,9 @@ class ClaimTimelineManager:
             "claims_retracted": claims_retracted,
             "claims_corrected": claims_corrected,
             "total_events": total_events,
-            "average_events_per_claim": total_events / claims_with_timeline
-            if claims_with_timeline > 0
-            else 0.0,
+            "average_events_per_claim": (
+                total_events / claims_with_timeline if claims_with_timeline > 0 else 0.0
+            ),
             "meets_target": coverage_rate >= 0.9,  # : ≥90%
         }
 

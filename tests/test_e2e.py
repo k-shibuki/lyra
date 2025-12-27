@@ -196,9 +196,9 @@ class TestSearchToReportPipeline:
         for field in required_fields:
             assert field in first_result, f"Missing required field: {field}"
 
-        assert first_result["url"].startswith(("http://", "https://")), (
-            f"Invalid URL: {first_result['url']}"
-        )
+        assert first_result["url"].startswith(
+            ("http://", "https://")
+        ), f"Invalid URL: {first_result['url']}"
 
         print(f"\n[E2E] Search returned {len(results)} results")
         print(f"[E2E] First result: {first_result['title'][:50]}...")
@@ -230,9 +230,9 @@ class TestSearchToReportPipeline:
 
         # Then: Fetch succeeds and returns html_path
         assert fetch_result["ok"] is True, f"Fetch failed: {fetch_result.get('reason')}"
-        assert "html_path" in fetch_result, (
-            f"Expected 'html_path' in fetch result, got keys: {list(fetch_result.keys())}"
-        )
+        assert (
+            "html_path" in fetch_result
+        ), f"Expected 'html_path' in fetch result, got keys: {list(fetch_result.keys())}"
 
         # Given: Fetched HTML content exists
         html_content = None
@@ -616,9 +616,9 @@ class TestAuthenticationQueueFlow:
         # Then: All items for that domain are resolved
         assert result["ok"] is True
         assert result["domain"] == "protected.gov"
-        assert result["resolved_count"] == 2, (
-            f"Should resolve 2 items, got {result['resolved_count']}"
-        )
+        assert (
+            result["resolved_count"] == 2
+        ), f"Should resolve 2 items, got {result['resolved_count']}"
         assert set(result["affected_tasks"]) == {task_a, task_b}
         assert result["session_stored"] is True
 

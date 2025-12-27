@@ -43,9 +43,7 @@ class TestClaimResource:
         assert page_id is None
 
     @pytest.mark.asyncio
-    async def test_second_worker_gets_existing_page_id(
-        self, test_database: Database
-    ) -> None:
+    async def test_second_worker_gets_existing_page_id(self, test_database: Database) -> None:
         """
         Given: DOI already claimed and completed by Worker 0
         When: Worker 1 claims same DOI
@@ -78,9 +76,7 @@ class TestClaimResource:
         assert page_id == "page_abc123"
 
     @pytest.mark.asyncio
-    async def test_concurrent_claims_only_one_succeeds(
-        self, test_database: Database
-    ) -> None:
+    async def test_concurrent_claims_only_one_succeeds(self, test_database: Database) -> None:
         """
         Given: Empty resource_index
         When: Two workers claim same DOI simultaneously
@@ -115,9 +111,7 @@ class TestClaimResource:
         assert new_claims[0][1] is None, "Winner should have no existing page_id"
 
     @pytest.mark.asyncio
-    async def test_empty_identifier_value_raises_error(
-        self, test_database: Database
-    ) -> None:
+    async def test_empty_identifier_value_raises_error(self, test_database: Database) -> None:
         """
         Given: Empty identifier_value
         When: claim_resource is called
@@ -136,9 +130,7 @@ class TestClaimResource:
             )
 
     @pytest.mark.asyncio
-    async def test_different_identifier_types_are_separate(
-        self, test_database: Database
-    ) -> None:
+    async def test_different_identifier_types_are_separate(self, test_database: Database) -> None:
         """
         Given: DOI claimed
         When: URL with same value is claimed
@@ -209,9 +201,7 @@ class TestFailResource:
     """Test fail_resource method."""
 
     @pytest.mark.asyncio
-    async def test_fail_resource_updates_status(
-        self, test_database: Database
-    ) -> None:
+    async def test_fail_resource_updates_status(self, test_database: Database) -> None:
         """
         Given: Resource claimed by worker
         When: fail_resource is called
@@ -247,9 +237,7 @@ class TestGetResource:
     """Test get_resource method."""
 
     @pytest.mark.asyncio
-    async def test_get_resource_returns_none_for_nonexistent(
-        self, test_database: Database
-    ) -> None:
+    async def test_get_resource_returns_none_for_nonexistent(self, test_database: Database) -> None:
         """
         Given: Empty resource_index
         When: get_resource is called
@@ -268,9 +256,7 @@ class TestGetResource:
         assert resource is None
 
     @pytest.mark.asyncio
-    async def test_get_resource_returns_all_fields(
-        self, test_database: Database
-    ) -> None:
+    async def test_get_resource_returns_all_fields(self, test_database: Database) -> None:
         """
         Given: Resource exists
         When: get_resource is called
@@ -404,9 +390,7 @@ class TestQueueSearchesDedup:
         assert existing["id"] == "s_first"
 
     @pytest.mark.asyncio
-    async def test_same_query_different_task_is_allowed(
-        self, test_database: Database
-    ) -> None:
+    async def test_same_query_different_task_is_allowed(self, test_database: Database) -> None:
         """
         Given: Query 'foo' queued for task_1
         When: Same query queued for task_2
@@ -455,9 +439,7 @@ class TestQueueSearchesDedup:
         assert existing is None
 
     @pytest.mark.asyncio
-    async def test_completed_query_can_be_requeued(
-        self, test_database: Database
-    ) -> None:
+    async def test_completed_query_can_be_requeued(self, test_database: Database) -> None:
         """
         Given: Query 'foo' completed for task
         When: Same query queued again
@@ -508,9 +490,7 @@ class TestResourceIndexIntegration:
     """Integration tests for resource deduplication flow."""
 
     @pytest.mark.asyncio
-    async def test_full_workflow_claim_complete_retrieve(
-        self, test_database: Database
-    ) -> None:
+    async def test_full_workflow_claim_complete_retrieve(self, test_database: Database) -> None:
         """
         Given: Fresh database
         When: Full workflow: claim -> complete -> retrieve by second worker
@@ -546,9 +526,7 @@ class TestResourceIndexIntegration:
         assert page_id == "page_arxiv_001"
 
     @pytest.mark.asyncio
-    async def test_url_normalization_not_applied(
-        self, test_database: Database
-    ) -> None:
+    async def test_url_normalization_not_applied(self, test_database: Database) -> None:
         """
         Given: URL with trailing slash
         When: Same URL without trailing slash is claimed
@@ -576,4 +554,3 @@ class TestResourceIndexIntegration:
         # Then: Treated as different (caller must normalize)
         assert is_new is True
         assert page_id is None
-

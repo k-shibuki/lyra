@@ -760,12 +760,12 @@ def assert_dict_contains(actual: dict, expected: dict) -> None:
     Provides clear error messages per .1.2 (Diagnosability).
     """
     for key, value in expected.items():
-        assert key in actual, (
-            f"Key '{key}' not found in actual dict. Keys present: {list(actual.keys())}"
-        )
-        assert actual[key] == value, (
-            f"Value mismatch for key '{key}': expected {value!r}, got {actual[key]!r}"
-        )
+        assert (
+            key in actual
+        ), f"Key '{key}' not found in actual dict. Keys present: {list(actual.keys())}"
+        assert (
+            actual[key] == value
+        ), f"Value mismatch for key '{key}': expected {value!r}, got {actual[key]!r}"
 
 
 def assert_async_called_with(mock: AsyncMock, *args: object, **kwargs: object) -> None:
@@ -786,9 +786,9 @@ def assert_in_range(value: float, min_val: float, max_val: float, name: str = "v
 
     Per .1.2: Range checks should be explicit with tolerance.
     """
-    assert min_val <= value <= max_val, (
-        f"{name} = {value} is outside expected range [{min_val}, {max_val}]"
-    )
+    assert (
+        min_val <= value <= max_val
+    ), f"{name} = {value} is outside expected range [{min_val}, {max_val}]"
 
 
 # =============================================================================

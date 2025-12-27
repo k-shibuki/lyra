@@ -198,9 +198,9 @@ class TestPlatform:
 
         for attr_name, expected_value in expected.items():
             plat = getattr(Platform, attr_name)
-            assert plat.value == expected_value, (
-                f"Platform.{attr_name} should be '{expected_value}', got '{plat.value}'"
-            )
+            assert (
+                plat.value == expected_value
+            ), f"Platform.{attr_name} should be '{expected_value}', got '{plat.value}'"
 
 
 # =============================================================================
@@ -216,12 +216,12 @@ class TestNotificationOptions:
         """Verify default values are set correctly."""
         options = NotificationOptions()
 
-        assert options.timeout_seconds == 10, (
-            f"Default timeout should be 10, got {options.timeout_seconds}"
-        )
-        assert options.urgency == NotificationUrgency.NORMAL, (
-            f"Default urgency should be NORMAL, got {options.urgency}"
-        )
+        assert (
+            options.timeout_seconds == 10
+        ), f"Default timeout should be 10, got {options.timeout_seconds}"
+        assert (
+            options.urgency == NotificationUrgency.NORMAL
+        ), f"Default urgency should be NORMAL, got {options.urgency}"
         assert options.icon is None, f"Default icon should be None, got {options.icon}"
         assert options.sound is True, f"Default sound should be True, got {options.sound}"
         assert options.category is None, f"Default category should be None, got {options.category}"

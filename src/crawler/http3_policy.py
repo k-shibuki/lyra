@@ -128,12 +128,12 @@ class HTTP3DomainStats:
         return {
             "domain": self.domain,
             "http3_detected": self.http3_detected,
-            "http3_first_seen_at": self.http3_first_seen_at.isoformat()
-            if self.http3_first_seen_at
-            else None,
-            "http3_last_seen_at": self.http3_last_seen_at.isoformat()
-            if self.http3_last_seen_at
-            else None,
+            "http3_first_seen_at": (
+                self.http3_first_seen_at.isoformat() if self.http3_first_seen_at else None
+            ),
+            "http3_last_seen_at": (
+                self.http3_last_seen_at.isoformat() if self.http3_last_seen_at else None
+            ),
             "browser_requests": self.browser_requests,
             "browser_http3_requests": self.browser_http3_requests,
             "browser_successes": self.browser_successes,

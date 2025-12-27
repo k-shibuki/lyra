@@ -435,9 +435,11 @@ class DomainPolicy:
             "tor_allowed": self.tor_allowed,
             "cooldown_minutes": self.cooldown_minutes,
             "max_retries": self.max_retries,
-            "domain_category": self.domain_category.value
-            if isinstance(self.domain_category, DomainCategory)
-            else self.domain_category,
+            "domain_category": (
+                self.domain_category.value
+                if isinstance(self.domain_category, DomainCategory)
+                else self.domain_category
+            ),
             "internal_search": self.internal_search,
             "skip": self.skip,
             "skip_reason": self.skip_reason,

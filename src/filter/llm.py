@@ -464,9 +464,11 @@ async def llm_extract(
                     # L8: Use audit logger for security events
                     audit_logger.log_prompt_leakage(
                         source="llm_extract",
-                        fragment_count=validation_result.leakage_result.total_leaks
-                        if validation_result.leakage_result
-                        else 1,
+                        fragment_count=(
+                            validation_result.leakage_result.total_leaks
+                            if validation_result.leakage_result
+                            else 1
+                        ),
                     )
                 response_text = validation_result.validated_text
 
@@ -556,9 +558,11 @@ async def llm_extract(
                     # L8: Use audit logger for security events (legacy path)
                     audit_logger.log_prompt_leakage(
                         source="llm_extract_legacy",
-                        fragment_count=validation_result.leakage_result.total_leaks
-                        if validation_result.leakage_result
-                        else 1,
+                        fragment_count=(
+                            validation_result.leakage_result.total_leaks
+                            if validation_result.leakage_result
+                            else 1
+                        ),
                     )
                 response_text = validation_result.validated_text
 

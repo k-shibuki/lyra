@@ -328,12 +328,12 @@ class TestReplayEngine:
         result = await engine.compare_decisions(original, replayed)
 
         assert result["diverged"] is True, "Decisions with different output should diverge"
-        assert len(result["differences"]) == 1, (
-            f"Expected 1 difference (output_data), got {len(result['differences'])}"
-        )
-        assert result["differences"][0]["field"] == "output_data", (
-            f"Difference should be in output_data, got {result['differences'][0]['field']}"
-        )
+        assert (
+            len(result["differences"]) == 1
+        ), f"Expected 1 difference (output_data), got {len(result['differences'])}"
+        assert (
+            result["differences"][0]["field"] == "output_data"
+        ), f"Difference should be in output_data, got {result['differences'][0]['field']}"
 
     async def test_load_decisions_from_file(self, tmp_path: Path) -> None:
         """Test loading decisions from file."""

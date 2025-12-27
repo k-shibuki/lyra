@@ -152,9 +152,9 @@ class TestMinHashDeduplicator:
         assert "f1" in cluster.fragment_ids, "f1 not in cluster"
         assert "f2" in cluster.fragment_ids, "f2 not in cluster"
         assert "f3" not in cluster.fragment_ids, "f3 should not be in cluster"
-        assert len(cluster.fragment_ids) == 2, (
-            f"Cluster should have 2 members, got {len(cluster.fragment_ids)}"
-        )
+        assert (
+            len(cluster.fragment_ids) == 2
+        ), f"Cluster should have 2 members, got {len(cluster.fragment_ids)}"
 
     def test_get_duplicate_ratio(self) -> None:
         """Test duplicate ratio calculation.
@@ -175,9 +175,9 @@ class TestMinHashDeduplicator:
 
         # Then: Ratio is approximately 1/3 (one duplicate out of three)
         expected_ratio = 1 / 3
-        assert abs(ratio - expected_ratio) < 0.1, (
-            f"Expected ratio ~{expected_ratio:.2f}, got {ratio:.2f}"
-        )
+        assert (
+            abs(ratio - expected_ratio) < 0.1
+        ), f"Expected ratio ~{expected_ratio:.2f}, got {ratio:.2f}"
 
     def test_deduplicate_keep_first(self) -> None:
         """Test deduplication with keep='first' strategy."""
