@@ -172,6 +172,88 @@ start_chrome_pool() {
     [ $failed -eq 0 ]
 }
 
+# Function: start_single_worker
+# Description: Start Chrome for a specific worker only
+# Arguments:
+#   $1: Worker ID (0-indexed)
+# Returns:
+#   0: Chrome started and ready (or already running)
+#   1: Failed to start Chrome
+start_single_worker() {
+    local worker_id="$1"
+    local base_port="${CHROME_BASE_PORT:-9222}"
+    local env_type="${ENV_TYPE:-wsl}"
+    
+    local port=$((base_port + worker_id))
+    local profile
+    profile=$(get_worker_profile "$worker_id")
+    
+    # Check if already running
+    if try_connect "$port" > /dev/null 2>&1; then
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "already_running",
+  "worker_id": $worker_id,
+  "port": $port,
+  "profile": "$profile"
+}
+EOF
+        else
+            echo "Worker $worker_id (port=$port): Already running"
+        fi
+        return 0
+    fi
+    
+    # Start Chrome for this worker
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo -n "Worker $worker_id (port=$port, profile=$profile): Starting... "
+    fi
+    
+    local start_result=0
+    case "$env_type" in
+        wsl)
+            start_chrome_worker_wsl "$worker_id" "$port" "$profile" || start_result=$?
+            ;;
+        linux)
+            start_chrome_worker_linux "$worker_id" "$port" "$profile" || start_result=$?
+            ;;
+        *)
+            start_result=1
+            ;;
+    esac
+    
+    if [ "$start_result" -eq 0 ]; then
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "started",
+  "worker_id": $worker_id,
+  "port": $port,
+  "profile": "$profile"
+}
+EOF
+        else
+            echo "OK"
+        fi
+        return 0
+    else
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            cat <<EOF
+{
+  "status": "failed",
+  "worker_id": $worker_id,
+  "port": $port,
+  "profile": "$profile"
+}
+EOF
+        else
+            echo "FAILED"
+        fi
+        return 1
+    fi
+}
+
 # Function: stop_chrome_pool
 # Description: Stop all Chrome instances in the pool
 # Returns:

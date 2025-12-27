@@ -240,6 +240,42 @@ make chrome-stop    # Stop all Chrome instances
 make chrome-restart # Restart
 ```
 
+**Shell Commands (for specific worker):**
+
+```bash
+./scripts/chrome.sh start-worker 0  # Start Chrome for Worker 0 only
+./scripts/chrome.sh start-worker 1  # Start Chrome for Worker 1 only
+```
+
+### Phase 3.1: Auto-Start Race Condition Prevention (2025-12-27 Complete)
+
+When multiple workers detect CDP unavailable simultaneously, they could all attempt to start Chrome, causing duplicate instances (e.g., 2 windows × 3 = 6 windows).
+
+**Solution:**
+
+1. **Global Lock**: `_chrome_start_lock` (asyncio.Lock) serializes auto-start attempts
+2. **Re-check After Lock**: After acquiring lock, re-check CDP availability (another worker may have started it)
+3. **Worker-Specific Start**: `chrome.sh start-worker N` starts only the specific worker's Chrome
+
+**Implementation:**
+
+```python
+# src/search/browser_search_provider.py
+_chrome_start_lock: asyncio.Lock | None = None
+
+async def _auto_start_chrome(self) -> bool:
+    lock = _get_chrome_start_lock()
+    async with lock:
+        # Re-check after lock (another worker may have started Chrome)
+        if await _check_cdp_available(host, port):
+            return True  # Already started
+        
+        # Start Chrome for this specific worker
+        await subprocess_exec("chrome.sh", "start-worker", str(worker_id))
+```
+
+**Sequence Diagram:** See `docs/sequences/chrome_auto_start_lock.md`
+
 **Benefits:**
 
 1. **Complete Isolation**: Process, profile, cookies are independent

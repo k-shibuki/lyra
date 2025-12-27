@@ -68,6 +68,52 @@ class CDPConnectionError(Exception):
 
 
 # =============================================================================
+# Chrome Auto-Start Lock (Race Condition Prevention)
+# =============================================================================
+# Prevents multiple workers from simultaneously calling chrome.sh start-worker,
+# which could cause duplicate Chrome instances to be spawned.
+
+_chrome_start_lock: asyncio.Lock | None = None
+
+
+def _get_chrome_start_lock() -> asyncio.Lock:
+    """Get or create the global Chrome start lock.
+
+    Returns:
+        asyncio.Lock instance for serializing Chrome auto-start calls.
+    """
+    global _chrome_start_lock
+    if _chrome_start_lock is None:
+        _chrome_start_lock = asyncio.Lock()
+    return _chrome_start_lock
+
+
+async def _check_cdp_available(host: str, port: int, timeout: float = 2.0) -> bool:
+    """Check if Chrome CDP endpoint is available.
+
+    Lightweight HTTP check without full Playwright initialization.
+
+    Args:
+        host: Chrome host (usually localhost).
+        port: Chrome CDP port.
+        timeout: Connection timeout in seconds.
+
+    Returns:
+        True if CDP is available, False otherwise.
+    """
+    import aiohttp
+
+    cdp_url = f"http://{host}:{port}/json/version"
+    try:
+        client_timeout = aiohttp.ClientTimeout(total=timeout)
+        async with aiohttp.ClientSession(timeout=client_timeout) as session:
+            async with session.get(cdp_url) as response:
+                return response.status == 200
+    except Exception:
+        return False
+
+
+# =============================================================================
 # Data Classes
 # =============================================================================
 
@@ -342,16 +388,21 @@ class BrowserSearchProvider(BaseSearchProvider):
         )
 
     async def _auto_start_chrome(self) -> bool:
-        """Auto-start Chrome using chrome.sh script.
+        """Auto-start Chrome for this worker using chrome.sh script.
 
         When a CDP (Chrome DevTools Protocol) connection is not detected,
-        Lyra automatically executes ./scripts/chrome.sh start to launch Chrome.
+        Lyra automatically executes ./scripts/chrome.sh start-worker N to launch
+        Chrome for the specific worker.
+
+        Uses a global lock to prevent race conditions where multiple workers
+        might simultaneously try to start Chrome instances.
 
         Returns:
-            True if chrome.sh start succeeded, False otherwise.
+            True if Chrome is ready (started or already running), False otherwise.
         """
-        import asyncio
         from pathlib import Path
+
+        from src.utils.config import get_chrome_port
 
         # Find chrome.sh script relative to project root
         # src/search/browser_search_provider.py -> scripts/chrome.sh
@@ -361,46 +412,79 @@ class BrowserSearchProvider(BaseSearchProvider):
             logger.warning("chrome.sh not found", path=str(script_path))
             return False
 
-        try:
-            logger.info("Auto-starting Chrome", script=str(script_path))
-            process = await asyncio.create_subprocess_exec(
-                str(script_path),
-                "start",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+        # Get Chrome connection info for this worker
+        chrome_host = getattr(self._settings.browser, "chrome_host", "localhost")
+        chrome_port = get_chrome_port(self._worker_id)
 
-            # Wait for process completion with timeout
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
-                    timeout=30.0,  # 30 second timeout for script execution
-                )
-            except TimeoutError:
-                logger.error("Chrome auto-start timed out")
-                process.kill()
-                await process.wait()
-                return False
-
-            stdout_text = stdout.decode() if stdout else ""
-            stderr_text = stderr.decode() if stderr else ""
-
-            if process.returncode == 0:
+        # Acquire lock to prevent race conditions between workers
+        lock = _get_chrome_start_lock()
+        async with lock:
+            # After acquiring lock, check if Chrome is already ready
+            # (another worker may have started it while we were waiting)
+            if await _check_cdp_available(chrome_host, chrome_port):
                 logger.info(
-                    "Chrome auto-start script completed",
-                    stdout=stdout_text[:200] if stdout_text else "",
+                    "Chrome already available (started by another worker or mcp.sh)",
+                    worker_id=self._worker_id,
+                    port=chrome_port,
                 )
                 return True
-            else:
-                logger.warning(
-                    "Chrome auto-start script failed",
-                    returncode=process.returncode,
-                    stderr=stderr_text[:200] if stderr_text else "",
+
+            # Start Chrome for this specific worker
+            try:
+                logger.info(
+                    "Auto-starting Chrome for worker",
+                    worker_id=self._worker_id,
+                    port=chrome_port,
+                    script=str(script_path),
+                )
+                process = await asyncio.create_subprocess_exec(
+                    str(script_path),
+                    "start-worker",
+                    str(self._worker_id),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+
+                # Wait for process completion with timeout
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        process.communicate(),
+                        timeout=30.0,  # 30 second timeout for script execution
+                    )
+                except TimeoutError:
+                    logger.error(
+                        "Chrome auto-start timed out",
+                        worker_id=self._worker_id,
+                    )
+                    process.kill()
+                    await process.wait()
+                    return False
+
+                stdout_text = stdout.decode() if stdout else ""
+                stderr_text = stderr.decode() if stderr else ""
+
+                if process.returncode == 0:
+                    logger.info(
+                        "Chrome auto-start script completed",
+                        worker_id=self._worker_id,
+                        stdout=stdout_text[:200] if stdout_text else "",
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        "Chrome auto-start script failed",
+                        worker_id=self._worker_id,
+                        returncode=process.returncode,
+                        stderr=stderr_text[:200] if stderr_text else "",
+                    )
+                    return False
+            except Exception as e:
+                logger.error(
+                    "Chrome auto-start error",
+                    worker_id=self._worker_id,
+                    error=str(e),
                 )
                 return False
-        except Exception as e:
-            logger.error("Chrome auto-start error", error=str(e))
-            return False
 
     async def _perform_health_audit(self) -> None:
         """Perform profile health audit on browser session initialization.
