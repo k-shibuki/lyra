@@ -745,18 +745,18 @@ class ExtractedClaim(BaseModel):
     """Single claim extracted from text.
 
     Corresponds to extract_claims.j2 output.
-    Aligned with claims table schema.
+    Direct field names - no aliases needed (DB rebuilt).
     """
-    claim: str = Field(
-        ...,
-        min_length=10,
-        alias="claim_text",  # DB column name
-        description="Claim text"
-    )
-    type: ClaimTypeExtended = Field(
+    claim_text: str = Field(..., min_length=10, description="Claim text")
+    claim_type: ClaimTypeExtended = Field(
         default=ClaimTypeExtended.FACTUAL,
-        alias="claim_type",  # DB column name
         description="Claim type"
+    )
+    claim_confidence: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score"
     )
     relevance_to_query: float = Field(
         default=0.5,
@@ -764,18 +764,8 @@ class ExtractedClaim(BaseModel):
         le=1.0,
         description="Relevance to research question"
     )
-    confidence: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        alias="claim_confidence",  # DB column name
-        description="Confidence score"
-    )
 
-    class Config:
-        populate_by_name = True  # Allow both alias and field name
-
-    @field_validator("type", mode="before")
+    @field_validator("claim_type", mode="before")
     @classmethod
     def normalize_claim_type(cls, v: Any) -> ClaimTypeExtended:
         if isinstance(v, str):
@@ -1422,13 +1412,14 @@ async def extract_claims(
 
 ### 6.4 Integration Points
 
-#### 6.4.1 Modify `src/filter/llm.py`
+#### 6.4.1 Replace `src/filter/llm.py` parsing
 
 ```python
-# Add import at top
-from .llm_output_parser import parse_llm_output, ParserConfig, ParseResult
+# Delete lines 474-482 (legacy regex parsing)
+# Replace with:
 
-# Replace current parsing logic (lines 474-482) with:
+from .llm_output_parser import parse_llm_output, ParserConfig
+
 async def _process_extraction(
     response_text: str,
     task: str,
@@ -1436,18 +1427,9 @@ async def _process_extraction(
     source_url: str,
 ) -> dict:
     """Process extraction with schema validation."""
+    result = await parse_llm_output(response_text, task=task)
 
-    result = await parse_llm_output(
-        response_text,
-        task=task,
-        config=ParserConfig(
-            max_retries=1,  # Single retry for extraction
-            enable_retry=True,
-        ),
-    )
-
-    if result.ok and result.data:
-        # Convert Pydantic model to dict
+    if result.ok:
         if task == "extract_facts":
             extracted = [f.model_dump() for f in result.data.facts]
         elif task == "extract_claims":
@@ -1455,102 +1437,83 @@ async def _process_extraction(
         else:
             extracted = result.data.model_dump()
     else:
-        # Fallback to raw extraction (backward compatibility)
-        extracted = [{"raw_response": response_text, "parse_errors": result.errors}]
+        # No fallback - raise or log error
+        raise ValueError(f"LLM parse failed: {result.errors}")
 
     return {
         "id": passage_id,
         "source_url": source_url,
         "extracted": extracted,
-        "parse_attempts": result.attempts,
     }
 ```
 
-#### 6.4.2 Modify `src/filter/claim_decomposition.py`
+#### 6.4.2 Replace `src/filter/claim_decomposition.py`
 
 ```python
-# Add import
-from .llm_output_parser import parse_llm_output, ParserConfig
+# Delete _parse_llm_response() method (lines 241-295)
+# Replace with:
 
-# Replace _parse_llm_response method:
-async def _parse_llm_response_validated(
-    self,
-    response: str,
-    source_question: str,
-) -> list[AtomicClaim]:
+from .llm_output_parser import parse_llm_output
+
+async def _parse_llm_response(self, response: str, source_question: str) -> list[AtomicClaim]:
     """Parse LLM response with schema validation."""
-
-    result = await parse_llm_output(
-        response,
-        task="decompose",
-        config=ParserConfig(max_retries=1),
-    )
+    result = await parse_llm_output(response, task="decompose")
 
     if not result.ok:
-        logger.warning(
-            "LLM decomposition parse failed, using rule-based",
-            errors=result.errors,
-        )
-        return self._decompose_with_rules(source_question).claims
+        raise ValueError(f"Decomposition parse failed: {result.errors}")
 
-    # Convert to AtomicClaim objects
-    claims = []
-    for item in result.data.claims:
-        claim = AtomicClaim(
+    return [
+        AtomicClaim(
             claim_id=f"claim_{uuid.uuid4().hex[:8]}",
             text=item.text,
             expected_polarity=ClaimPolarity(item.polarity),
             granularity=ClaimGranularity(item.granularity),
-            claim_type=ClaimType(item.type) if item.type in ClaimType.__members__.values() else ClaimType.FACTUAL,
+            claim_type=ClaimType(item.type),
             source_question=source_question,
             confidence=item.confidence,
             keywords=item.keywords,
             verification_hints=item.hints,
         )
-        claims.append(claim)
-
-    return claims
+        for item in result.data.claims
+    ]
 ```
 
-#### 6.4.3 Modify `src/search/citation_filter.py`
+#### 6.4.3 Replace `src/search/citation_filter.py`
 
 ```python
-# Add import
-from src.filter.llm_output_parser import parse_llm_output, ParserConfig
+# Delete _parse_llm_score_0_10() function (lines 111-122)
+# Replace with:
 
-# Replace _parse_llm_score_0_10 usage:
-async def _evaluate_relevance_validated(
-    response_text: str,
-) -> float:
+from src.filter.llm_output_parser import parse_llm_output
+
+async def _evaluate_relevance(response_text: str) -> float:
     """Evaluate relevance with schema validation."""
+    result = await parse_llm_output(response_text, task="relevance_evaluation")
 
-    result = await parse_llm_output(
-        response_text,
-        task="relevance_evaluation",
-        config=ParserConfig(max_retries=1),
-    )
+    if not result.ok:
+        raise ValueError(f"Relevance parse failed: {result.errors}")
 
-    if result.ok and result.data:
-        return result.data.normalized  # 0.0-1.0
-
-    # Fallback to legacy parser
-    score = _parse_llm_score_0_10(response_text)
-    return (score / 10.0) if score is not None else 0.5
+    return result.data.normalized  # 0.0-1.0
 ```
 
 ---
 
-### 6.5 Database Alignment
+### 6.5 Database Alignment (Direct Mapping)
 
-The schemas align with existing DB columns:
+No aliases needed - field names match DB columns directly:
 
-| Schema Field | DB Table | DB Column | Notes |
-|--------------|----------|-----------|-------|
-| `ExtractedClaim.claim` | claims | claim_text | alias="claim_text" |
-| `ExtractedClaim.type` | claims | claim_type | alias="claim_type" |
-| `ExtractedClaim.confidence` | claims | claim_confidence | alias="claim_confidence" |
-| `DecomposedClaim.polarity` | claims | expected_polarity | Enum to string |
-| `DecomposedClaim.granularity` | claims | granularity | Enum to string |
+| Pydantic Field | DB Column | Type |
+|----------------|-----------|------|
+| `claim_text` | `claim_text` | TEXT |
+| `claim_type` | `claim_type` | TEXT (enum string) |
+| `claim_confidence` | `claim_confidence` | REAL |
+| `relevance_to_query` | `relevance_to_query` | REAL (NEW) |
+| `expected_polarity` | `expected_polarity` | TEXT |
+| `granularity` | `granularity` | TEXT |
+
+**New columns to add:**
+- `claims.relevance_to_query REAL DEFAULT 0.5`
+- `claims.evidence_type TEXT` (for facts extraction)
 
 ---
 
@@ -1686,48 +1649,92 @@ class TestParseWithRetry:
 
 ---
 
-### 6.7 Migration Plan
+### 6.7 Implementation Plan (No Backward Compatibility)
 
-#### Step 1: Add new files (no breaking changes)
-1. Create `src/filter/llm_schemas.py`
-2. Create `src/filter/llm_output_parser.py`
-3. Add tests
+> **Premise:** DB is rebuilt from scratch. No migration needed. Legacy code can be deleted immediately.
 
-#### Step 2: Parallel operation
-1. Use feature flag to enable new parser
-2. Log both old and new results for comparison
-3. Monitor for discrepancies
+#### Single-Phase Implementation
+
+| Step | Task | Files | Delete |
+|------|------|-------|--------|
+| 1 | Create Pydantic schemas | `src/filter/llm_schemas.py` (new) | - |
+| 2 | Create unified parser | `src/filter/llm_output_parser.py` (new) | - |
+| 3 | Replace LLM parsing in llm.py | `src/filter/llm.py` | Legacy regex parsing |
+| 4 | Replace claim decomposition parsing | `src/filter/claim_decomposition.py` | `_parse_llm_response()` |
+| 5 | Replace citation filter parsing | `src/search/citation_filter.py` | `_parse_llm_score_0_10()` |
+| 6 | Update DB schema | `src/storage/schema.sql` | - |
+| 7 | Add tests | `tests/filter/test_llm_*.py` | - |
+
+#### Simplified Schema (No Aliases)
+
+Since DB is rebuilt, field names can match directly:
 
 ```python
-# In llm.py
-USE_NEW_PARSER = os.getenv("LYRA_USE_NEW_LLM_PARSER", "false").lower() == "true"
-
-if USE_NEW_PARSER:
-    result = await parse_llm_output(response_text, task)
-    extracted = result.data.model_dump() if result.ok else legacy_parse(response_text)
-else:
-    extracted = legacy_parse(response_text)
+class ExtractedClaim(BaseModel):
+    """Direct field names matching new DB schema."""
+    claim_text: str = Field(..., min_length=10)
+    claim_type: ClaimTypeExtended = Field(default=ClaimTypeExtended.FACTUAL)
+    claim_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    relevance_to_query: float = Field(default=0.5, ge=0.0, le=1.0)
+    # No aliases needed - direct mapping
 ```
 
-#### Step 3: Full migration
-1. Enable new parser by default
-2. Remove legacy parsing code
-3. Update documentation
+#### DB Schema Changes (`schema.sql`)
+
+```sql
+-- claims table: add new columns
+ALTER TABLE claims ADD COLUMN relevance_to_query REAL DEFAULT 0.5;
+ALTER TABLE claims ADD COLUMN evidence_type TEXT;  -- for facts
+
+-- Or simply recreate:
+CREATE TABLE claims (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    claim_text TEXT NOT NULL,
+    claim_type TEXT NOT NULL DEFAULT 'factual',  -- Extended enum
+    claim_confidence REAL DEFAULT 0.5,
+    relevance_to_query REAL DEFAULT 0.5,  -- NEW
+    granularity TEXT DEFAULT 'atomic',
+    expected_polarity TEXT DEFAULT 'neutral',
+    -- ... rest unchanged
+);
+```
+
+#### Code Deletion List
+
+Remove these legacy patterns:
+
+| File | Lines | Pattern |
+|------|-------|---------|
+| `llm.py` | 474-482 | `json_match = re.search(r"\[.*\]"...)` |
+| `claim_decomposition.py` | 241-295 | `_parse_llm_response()` method |
+| `citation_filter.py` | 111-122 | `_parse_llm_score_0_10()` function |
+| `quality_analyzer.py` | 670-692 | Inline JSON parsing |
+| `chain_of_density.py` | 663-674 | `_parse_llm_response()` |
 
 ---
 
 ### 6.8 Metrics & Monitoring
 
-Track these metrics to evaluate the new system:
-
 ```python
-# Metrics to log
-metrics = {
-    "llm_parse_success_rate": success_count / total_count,
-    "llm_parse_retry_rate": retry_count / total_count,
-    "llm_schema_validation_error_rate": schema_error_count / total_count,
-    "llm_json_extraction_error_rate": json_error_count / total_count,
-    "llm_average_parse_attempts": sum(attempts) / total_count,
+# Metrics logged automatically by ParseResult
+@dataclass
+class ParseMetrics:
+    task: str
+    status: ParseStatus
+    attempts: int
+    duration_ms: float
+    error_types: list[str]  # JSON_ERROR, SCHEMA_ERROR, etc.
+
+# Aggregate in task_metrics table
+llm_parse_metrics = {
+    "success_rate": success / total,
+    "retry_rate": retried / total,
+    "avg_attempts": sum(attempts) / total,
+    "error_breakdown": {
+        "json_error": json_errors / total,
+        "schema_error": schema_errors / total,
+    },
 }
 ```
 
