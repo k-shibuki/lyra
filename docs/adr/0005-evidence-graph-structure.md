@@ -25,6 +25,11 @@ Required capabilities:
 
 **Adopt an evidence graph structure with Claim as root, using Bayesian confidence calculation.**
 
+> NOTE (2025-12-27):
+> This ADR has been updated to reflect the current implementation in `src/filter/evidence_graph.py`
+> and `src/storage/schema.sql`. Where this ADR previously described an alternative modeling choice,
+> those items are captured as explicit "Open Issues / Gaps" instead of being left as ambiguous truth.
+
 ### Data Ownership & Scope (Global / Task-scoped Boundary)
 
 The "Evidence Graph" in this ADR does not have `task_id` column on all persisted data. In Lyra, **task-scoped** and **global (reusable)** data coexist, and task-specific materials are assembled by **"slicing" via task_id**.
@@ -111,7 +116,7 @@ Note:
 Fragment  Fragment  Fragment
 (SUPPORTS) (REFUTES) (NEUTRAL)
     │
-    └── Page ── Domain
+    └── Page ── Domain (reference only; not a persisted node)
 ```
 
 ### Node Types
@@ -123,6 +128,10 @@ Fragment  Fragment  Fragment
 | Page | Crawled web page | url, title, crawled_at |
 | Domain | Domain (reference info) | domain_name |
 
+**Implementation note**:
+- `Domain` is not currently represented as a first-class node type in the persisted graph.
+  Domain category is stored as edge metadata (for audit/UI) and separately in the `domains` table.
+
 ### Edge Types
 
 | Edge | From | To | Description |
@@ -130,38 +139,37 @@ Fragment  Fragment  Fragment
 | SUPPORTS | Fragment | Claim | Fragment supports claim |
 | REFUTES | Fragment | Claim | Fragment contradicts claim |
 | NEUTRAL | Fragment | Claim | Relationship unclear |
-| EXTRACTED_FROM | Fragment | Page | Source of extraction |
-| CITES | Fragment | Fragment | Citation relationship |
+| CITES | Page | Page | Citation relationship between sources |
+
+**Implementation note**:
+- `EXTRACTED_FROM (Fragment → Page)` is represented implicitly by the relational link `fragments.page_id → pages.id`,
+  not as an explicit `edges` record.
+- `CITES` is persisted as `edges` rows with `source_type='page'` and `target_type='page'`.
 
 ### Confidence Calculation (Bayesian Approach)
 
-```python
-def calculate_confidence(claim: Claim) -> float:
-    """
-    Calculate Claim confidence
+Current implementation uses **Beta distribution updating** (conjugate prior) with an uninformative prior `Beta(1, 1)`.
 
-    P(H|E) ∝ P(E|H) × P(H)
-    - P(H): Prior probability (default 0.5)
-    - P(E|H): Likelihood (depends on evidence quality and quantity)
-    """
-    supports = get_edges(claim, "SUPPORTS")
-    refutes = get_edges(claim, "REFUTES")
+- Evidence edges carry `edges.nli_confidence` (a model probability-like score).
+- For a claim, all incoming evidence edges of type `supports/refutes/neutral` are collected.
+- Only `supports/refutes` update the posterior; `neutral` is treated as "no information".
 
-    support_weight = sum(
-        edge.source.reliability_score * edge.nli_confidence
-        for edge in supports
-    )
-    refute_weight = sum(
-        edge.source.reliability_score * edge.nli_confidence
-        for edge in refutes
-    )
+Implementation-equivalent formulation:
 
-    # Normalize to 0-1 with logistic function
-    log_odds = support_weight - refute_weight
-    confidence = 1 / (1 + exp(-log_odds))
+```text
+Prior: Beta(α=1, β=1)
 
-    return confidence
+α = 1 + Σ nli_confidence(e) for e in SUPPORTS edges
+β = 1 + Σ nli_confidence(e) for e in REFUTES edges
+
+confidence  = α / (α + β)                       # posterior mean
+uncertainty = sqrt( (αβ) / ((α+β)^2 (α+β+1)) )   # posterior stddev
+controversy = min(α-1, β-1) / (α+β-2)            # conflict degree (0 when no evidence)
 ```
+
+**Important semantics**:
+- `edges.nli_confidence` is treated as *evidence weight* (not a calibrated probability unless calibration is applied).
+- `edges.confidence` exists for legacy compatibility; in the current ingestion path it is aligned to `nli_confidence`.
 
 ### Domain Category (Reference Only)
 
@@ -212,3 +220,25 @@ def calculate_reliability(fragment: Fragment) -> float:
 ## References
 - `src/storage/schema.sql` - Graph schema (edges, claims, fragments tables)
 - `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)
+
+## Open Issues / Gaps (ADR-correct but not fully implemented)
+
+The following items are **intentionally recorded as gaps**: the ADR considers them desirable for transparency/reproducibility,
+but the current implementation does not fully realize them yet.
+
+1. **Explicit extraction provenance edge**
+   - **ADR intent**: Represent `EXTRACTED_FROM (Fragment → Page)` as an explicit graph edge to unify provenance modeling.
+   - **Current implementation**: Provenance is implicit via `fragments.page_id → pages.id`; no `edges` row exists.
+   - **Impact**: Harder to traverse provenance purely through `edges` without joining relational tables.
+
+2. **Fragment-level citation edges**
+   - **ADR intent**: `CITES (Fragment → Fragment)` for fine-grained citation/provenance at excerpt level.
+   - **Current implementation**: `CITES` is stored as `Page → Page` (from academic APIs or HTML citation detection).
+   - **Impact**: Citation chains are source-level, not excerpt-level; adequate for many use cases but less precise.
+
+3. **Source reliability weighting**
+   - **ADR intent**: Incorporate a reliability term (e.g., source trust signals) into confidence aggregation.
+   - **Current implementation**: Domain category is not used in confidence by design (to avoid bias); no alternative
+     source reliability signal is currently multiplied into evidence weights.
+   - **Impact**: All evidence weights come from NLI only; future work could add *evidence-quality* features without
+     domain-level bias (e.g., citation quality, study type, recency flags) if needed.

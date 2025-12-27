@@ -1,7 +1,7 @@
 # Confidence & Calibration Design
 
 **Date:** 2025-12-27
-**Status:** Proposal (v2 - Comprehensive)
+**Status:** Proposal (v2 - Updated for implementation/ADR alignment)
 **Related:**
 - ADR-0005: Evidence Graph Structure
 - ADR-0011: LoRA Fine-tuning Strategy
@@ -10,6 +10,15 @@
 - `src/utils/calibration.py`
 
 ---
+
+## 0. この文書の位置づけ（重要）
+
+この文書は「confidence / calibration」に関する **現状分析（as-is）** と、プロダクトに対して有益な **改善提案（to-be）** をまとめる。
+
+**更新方針（2025-12-27）**:
+- 実装・スキーマ・ADRに対して断言している箇所は、一次情報（コード/ADR/DB schema）に合わせて修正する。
+- ADRの方が望ましいが未実装の項目は、ADR側に「Open Issues / Gaps」として明記し、本書でも同様に扱う。
+- 本書は設計議論の土台であり、今回のスコープは **ドキュメント修整のみ**（実装変更は行わない）。
 
 ## 1. 概念定義
 
@@ -96,7 +105,7 @@ Lyra のエビデンスグラフは以下の4つの主要エンティティで�
 | `claim_text` | TEXT | 主張のテキスト |
 | `claim_type` | TEXT | fact, opinion, prediction |
 | `granularity` | TEXT | atomic, composite |
-| `claim_confidence` | REAL | **llm-confidence**（LLM 自己報告、**未使用**） |
+| `claim_confidence` | REAL | **llm-confidence**（LLM 自己報告。ベイズ更新の入力には使わないが、材料整形で並び替え/フォールバックに使われ得る） |
 | `claim_adoption_status` | TEXT | adopted, pending, not_adopted |
 | `supporting_count` | INTEGER | 支持エビデンス数 |
 | `refuting_count` | INTEGER | 反論エビデンス数 |
@@ -140,8 +149,8 @@ Lyra のエビデンスグラフは以下の4つの主要エンティティで�
 
 | 用語 | 定義 | 生成元 | DB フィールド | 用途 | 校正可能性 |
 |------|------|--------|---------------|------|------------|
-| **llm-confidence** | LLM が抽出時に自己報告する確信度 | Ollama (extract_claims.j2) | `claims.claim_confidence` | **未使用** | 低（LoRA 困難） |
-| **nli-confidence** | NLI モデルによる証拠関係判定の確信度 | DeBERTa-v3 (nli_judge) | `edges.nli_confidence` | ベイズ更新の入力 | **高**（Platt/Temp） |
+| **llm-confidence** | LLM が抽出時に自己報告する確信度（抽出の自己評価） | Ollama (extract_claims.j2) | `claims.claim_confidence` | 並び替え・低証拠時の暫定表示など（※真偽の根拠としては扱わない） | 低 |
+| **nli-confidence** | NLI モデルによる証拠関係判定の確信度 | Transformers NLI (nli_judge) | `edges.nli_confidence` | ベイズ更新の入力（証拠の重み） | 中〜高（ただし校正適用は別途配線が必要） |
 | **bayesian-confidence** | 全証拠を集約した主張の信頼度 | `calculate_claim_confidence()` | 計算値（非永続） | レポート、UI | 導出値（N/A） |
 
 ### 2.2 意味論的な違い
@@ -156,7 +165,7 @@ Lyra のエビデンスグラフは以下の4つの主要エンティティで�
 │  │   └── 理由: LoRA ファインチューニング非現実的                            │
 │  │   └── 理由: サンプル収集コスト高                                         │
 │  │   └── 理由: LLM の自己評価は本質的に不安定                               │
-│  └── 現状: 保存されるが使われない（executor.py:928 で明示的に無視）         │
+│  └── 現状: ベイズ更新の入力には使わない（`SearchExecutor._persist_claim()` のコメントで明示）│
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -164,11 +173,11 @@ Lyra のエビデンスグラフは以下の4つの主要エンティティで�
 │  ├── 問い: 「Fragment は Claim を支持/反論するか？」                        │
 │  ├── 性質: 証拠関係の判定確率（NLI モデルの softmax 出力）                  │
 │  ├── 値域: 0.0 - 1.0（DeBERTa-v3 のモデル出力）                            │
-│  ├── 校正可能性: 高                                                        │
+│  ├── 校正可能性: 中〜高                                                    │
 │  │   ├── Platt Scaling: P = 1 / (1 + exp(A*logit + B))                   │
 │  │   ├── Temperature Scaling: P = sigmoid(logit / T)                     │
 │  │   └── LoRA Fine-tuning: フィードバックサンプルから適応学習              │
-│  └── 現状: ベイズ更新で使用、校正システム実装済み                           │
+│  └── 現状: ベイズ更新で使用。校正モジュールは存在するが、NLI推論経路への適用は未配線。│
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -232,7 +241,7 @@ Lyra のエビデンスグラフは以下の4つの主要エンティティで�
                      └─────────────────┼─────────────────┘
                                        │
                               ┌────────▼────────┐
-                              │   NLI Judgment  │  DeBERTa-v3
+                              │   NLI Judgment  │  Transformers NLI (DeBERTa系)
                               │   (nli_judge)   │  Fragment ↔ Claim
                               └────────┬────────┘
                                        │
@@ -261,13 +270,13 @@ Lyra のエビデンスグラフは以下の4つの主要エンティティで�
 | **BM25** | 語彙的 | 第1段ランキング | `bm25_score` | なし（ランキング用） |
 | **BGE-M3** | Embedding | 第2段ランキング | `embed_score` | なし（ランキング用） |
 | **BGE-Reranker-v2-m3** | Cross-Encoder | 第3段ランキング | `rerank_score` | なし（ランキング用） |
-| **Ollama (Qwen2.5-3B)** | LLM | Claim 抽出 | `claim_confidence` | **未使用**（llm-confidence） |
-| **DeBERTa-v3** | NLI Cross-Encoder | 証拠判定 | `nli_confidence` | **ベイズ更新の入力** |
+| **Ollama (Qwen2.5-3B)** | LLM | Claim 抽出 | `claim_confidence` | ベイズ更新の入力にはしない（ただし保持される） |
+| **Transformers NLI (DeBERTa系)** | NLI classifier | 証拠判定 | `nli_confidence` | **ベイズ更新の入力** |
 
 ### 3.3 ランキングパイプライン詳細
 
 ```python
-# 4段階ランキング（src/filter/ranking.py:318-429）
+# 多段ランキング（`src/filter/ranking.py`）
 
 # Stage 1: BM25 (keyword matching)
 bm25_scores = bm25_ranker.get_scores(query)
@@ -281,16 +290,8 @@ combined_score = 0.3 * bm25_score + 0.7 * embed_score  # 重み付け
 # Stage 4: Cross-Encoder Reranker
 rerank_scores = await reranker.rerank(query, texts, top_k)
 
-# Stage 5: Domain Category Weight (ranking adjustment only)
-CATEGORY_WEIGHTS = {
-    "primary": 1.0,       # iso.org, w3.org
-    "government": 0.95,   # .gov, .go.jp
-    "academic": 0.90,     # arxiv.org, pubmed
-    "trusted": 0.75,      # wikipedia.org
-    "low": 0.40,          # verified but low-trust
-    "unverified": 0.30,   # unknown domains
-    "blocked": 0.0,       # excluded
-}
+# Domain Category Weight (ranking adjustment only)
+# Weights live in `src/utils/domain_policy.py` (CATEGORY_WEIGHTS)
 final_score = rerank_score * category_weight
 ```
 
@@ -344,37 +345,17 @@ def calculate_claim_confidence(self, claim_id: str) -> dict[str, Any]:
     total_evidence = alpha + beta - 2.0
     controversy = min(alpha - 1.0, beta - 1.0) / total_evidence if total_evidence > 0 else 0.0
 
-    return {
-        "confidence": confidence,
-        "uncertainty": uncertainty,
-        "controversy": controversy,
-        "alpha": alpha,
-        "beta": beta,
-        "supporting_count": len(evidence["supports"]),
-        "refuting_count": len(evidence["refutes"]),
-        "neutral_count": len(evidence["neutral"]),
-        "independent_sources": len(unique_sources),
-        "evidence": evidence_list,
-        "evidence_years": {"oldest": min(years), "newest": max(years)},
-    }
+    # NOTE:
+    # - The real implementation includes rounding, evidence_count,
+    #   and year/DOI/venue enrichment when available.
+    # - This snippet is for conceptual correspondence only.
 ```
 
 ### 4.3 出力契約（src/filter/schemas.py:40-59）
 
 ```python
 class ClaimConfidenceAssessment(BaseModel):
-    confidence: float           # [0.0, 1.0] 主結果
-    uncertainty: float          # 標準偏差
-    controversy: float          # [0.0, 1.0] 対立度
-    supporting_count: int       # 支持エッジ数
-    refuting_count: int         # 反論エッジ数
-    neutral_count: int          # 中立エッジ数
-    independent_sources: int    # ユニークソース数
-    alpha: float                # Beta 分布パラメータ
-    beta: float                 # Beta 分布パラメータ
-    evidence_count: int         # 総エビデンス数
-    evidence: list[EvidenceItem]  # 詳細エビデンスリスト
-    evidence_years: EvidenceYears # {oldest: int, newest: int}
+    ...
 ```
 
 ---
@@ -505,8 +486,13 @@ class CalibrationHistory:
 
 | 条件 | 閾値 | 実装 |
 |------|------|------|
-| サンプル蓄積 | 10件以上 | `RECALIBRATION_THRESHOLD = 10` |
+| サンプル蓄積 | 10件以上 | `RECALIBRATION_THRESHOLD = 10`（※サンプル蓄積の“自動配線”は別途必要） |
 | 劣化検知 | Brier 5%悪化 | 自動ロールバック |
+
+**重要（現状の事実）**:
+- 校正モジュール（`src/utils/calibration.py`）は存在するが、NLI推論→`edges.nli_confidence` への適用は未配線。
+- MCPの `calibration_metrics` は **get_stats / get_evaluations** に限定される（評価/学習の実行はMCP経由では行わない設計）。
+- `calibration_evaluations` テーブルは存在するが、現状コードでは主に参照（SELECT）用途で、評価結果の永続化（INSERT）は未整備の可能性が高い。
 
 ---
 
@@ -520,7 +506,7 @@ class CalibrationHistory:
 | **Confidence 計算** | ベイズ更新（Beta 分布） |
 | **Domain Category** | **参照情報のみ**、Confidence 計算には使用しない |
 | **スコープ分離** | Claims は task-scoped、Pages/Fragments は global |
-| **ステータス** | ✅ 実装済み |
+| **ステータス** | ✅ 実装済み（ただし “明示的provenance edge” 等はOpen Issue） |
 
 ### 6.2 ADR-0011: LoRA Fine-tuning Strategy
 
@@ -554,8 +540,8 @@ class CalibrationHistory:
 |------|------|------|
 | Evidence Graph 構造 | NetworkX + SQLite | ADR-0005 |
 | ベイズ Confidence 計算 | Beta 分布更新 | evidence_graph.py:344-474 |
-| NLI モデル | DeBERTa-v3-small | ADR-0004 |
-| 校正システム | Platt/Temperature Scaling | calibration.py |
+| NLI モデル | Transformers sequence classifier（DeBERTa系） | ADR-0004 |
+| 校正モジュール | Platt/Temperature Scaling | calibration.py（※適用配線は別） |
 | フィードバックツール | 3レベル6アクション | ADR-0012 |
 | nli_corrections テーブル | LoRA 訓練データ蓄積 | schema.sql |
 | Domain Category 非使用 | Confidence 計算に影響しない | ADR-0005 |
@@ -564,7 +550,7 @@ class CalibrationHistory:
 
 | 項目 | オプション | 推奨 | 参照 |
 |------|-----------|------|------|
-| **llm-confidence の扱い** | A: 削除, B: フィルタ, C: 弱い事前分布 | Option C | §8 |
+| **llm-confidence の扱い** | A: 削除, B: フィルタ, C: 弱い事前分布, D: 抽出品質スコアとしてのみ活用 | （結論は §8.4-8.5） | §8 |
 | **prior_strength 値** | 0.3, 0.5, 1.0 | 0.5 | §8 |
 | **MCP ツールリネーム** | calibration → nli_calibration | 未定 | §9 |
 
@@ -585,8 +571,8 @@ class CalibrationHistory:
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  問題                                                                    │
-│  ├── LLM に confidence を要求しているが、使用していない                   │
-│  ├── DB に claim_confidence が存在するが意味不明                         │
+│  ├── LLM が出す confidence が「抽出品質」なのか「真偽」なのかが曖昧       │
+│  ├── claim_confidence は保持されるが、真偽推定（bayesian-confidence）の入力には使わない │
 │  ├── 用語の混乱を招く                                                    │
 │  └── 処理リソースの無駄                                                  │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -621,7 +607,7 @@ if claim.get("confidence", 0.5) < 0.3:
 | 抽出品質向上 | LLM confidence の校正が困難 |
 | 明確な閾値 | 閾値決定の根拠が弱い |
 
-#### Option C: 弱い事前分布（推奨）
+#### Option C: 弱い事前分布（条件付き）
 
 ```python
 # evidence_graph.py:calculate_claim_confidence()
@@ -664,6 +650,30 @@ def calculate_claim_confidence(
 
 **結論**: prior_strength=0.5 では、NLI 証拠が 1-2 件で prior の影響は消える。
 
+### 8.4 Option D（追加）: “抽出品質”としてのみ使う（推奨）
+
+**要点**: `llm-confidence` は「主張の真偽」ではなく「抽出の自己評価」として解釈し、真偽推定（bayesian-confidence）の事前分布には混ぜない。
+用途を限定して、意味論の混線と“証拠ゼロ時の見かけの確信”を避ける。
+
+- **用途例**:
+  - 低 `llm-confidence` の claim を「要再確認」「優先度低」として材料整形・UIで扱う
+  - （将来）低 `llm-confidence` を再抽出/人手レビューの優先度に使う
+  - `edges.nli_confidence`（証拠の重み）や bayesian-confidence には混ぜない
+
+| Pros | Cons |
+|------|------|
+| 真偽推定の意味論を壊しにくい（学術的にも説明しやすい） | “証拠ゼロ時のヒント”にはならない |
+| 校正データ無しでも運用できる | 抽出品質の評価設計は別途必要 |
+
+### 8.5 学術的ベスト（結論）
+
+このプロダクト（証拠グラフ + NLIで支持/反証を集約）における学術的ベストは原則として:
+
+- **Best**: **Option D**（`llm-confidence` は抽出品質スコアとしてのみ活用し、真偽推定に混ぜない）
+- **条件付きで許容**: Option C（弱い事前分布）
+  - 条件: 「証拠ゼロ/少数時の表示」をどう扱うかがプロダクト上重要で、かつ prior が誤誘導しないことを
+    事後評価（ホールドアウト、時間分割、レビュー付きデータ）で確認できる場合
+
 ---
 
 ## 9. 学術的ベストプラクティスとの比較
@@ -672,13 +682,15 @@ def calculate_claim_confidence(
 
 | 手法 | 概要 | Lyra での状況 |
 |------|------|---------------|
-| **Platt Scaling** | ロジスティック回帰による校正 | ✅ 実装済み |
-| **Temperature Scaling** | 単一パラメータスケーリング | ✅ 実装済み |
+| **Platt Scaling** | ロジスティック回帰による校正 | ✅ モジュール実装済み（適用配線は別途） |
+| **Temperature Scaling** | 単一パラメータスケーリング | ✅ モジュール実装済み（適用配線は別途） |
 | **Isotonic Regression** | 非パラメトリック校正 | ❌ 未実装 |
 | **Histogram Binning** | ビン別校正 | ❌ 未実装 |
 | **Beta Calibration** | Beta 分布ベース | ❌ 未実装 |
 
-**学術的ベスト**: Ensemble of multiple methods (Guo et al., 2017)
+**注意**: “学術的ベスト”はタスク・制約依存であり、本プロダクトでは
+「教師データの取り方（バイアス）」「3-class NLIの扱い」「運用コスト」が支配的になる。
+本節は“参考比較”として読む。
 
 **技術的実現策**:
 ```python
@@ -700,7 +712,8 @@ final_prob = np.mean(calibrated_probs)  # or weighted average
 | **Subjective Logic** | 不確実性モデリング | ❌ 未採用 |
 | **Weighted Voting** | 重み付け投票 | ❌ 未採用 |
 
-**学術的ベスト**: Subjective Logic for uncertainty modeling (Jøsang, 2016)
+**補足**: Subjective Logic 等は魅力的だが、現状のデータ構造（supports/refutes/neutral + 重み）では
+Beta更新が説明容易で、実装・運用の整合も取りやすい。
 
 **技術的実現策**:
 ```python
@@ -725,7 +738,8 @@ class SubjectiveOpinion:
 | **Temporal Decay** | 時間減衰 | ❌ 未実装 |
 | **Cross-validation** | 相互検証 | ❌ 未実装 |
 
-**学術的ベスト**: Dynamic trust modeling with temporal decay
+**注意**: Domain-based weightingはADR-0005で原則不採用。導入するなら、
+“ドメイン”ではなく“研究デザイン/査読/被引用/再現性”等の、より説明可能な特徴量に寄せる必要がある。
 
 **技術的実現策**:
 ```python
@@ -746,9 +760,10 @@ def apply_temporal_decay(confidence: float, publication_year: int) -> float:
 | 課題 | 詳細 | 優先度 |
 |------|------|--------|
 | **用語の混乱** | 3種類の confidence が混在 | 高 |
-| **llm-confidence 未使用** | リソースの無駄 | 中 |
+| **llm-confidence の意味論** | 抽出品質/真偽が混線しやすい | 中 |
 | **校正ファイル名** | `calibration.py` が NLI 専用に見えない | 中 |
 | **LoRA 未実装** | フィードバックが活用されていない | 低（将来） |
+| **校正の配線不足** | NLI推論→edgesへの校正適用、評価結果の永続化が未整備 | 高 |
 
 ### 10.2 技術的解決策
 
@@ -765,21 +780,10 @@ nli_confidence = ...      # NLI モデルの出力
 bayesian_confidence = ... # ベイズ更新後の信頼度
 ```
 
-#### 課題2: llm-confidence 未使用
+#### 課題2: llm-confidence の意味論（抽出品質 vs 真偽）
 
-**解決策**: Option C（弱い事前分布）を実装
-
-```python
-# evidence_graph.py
-def _get_claim_llm_confidence(self, claim_id: str) -> float:
-    """DB から llm-confidence を取得"""
-    db = get_database()
-    result = db.execute_single(
-        "SELECT claim_confidence FROM claims WHERE id = ?",
-        (claim_id,)
-    )
-    return result["claim_confidence"] if result else 0.5
-```
+**解決策**: Option D を基本とし、`llm-confidence` は「抽出品質の自己評価」としてのみ利用する（真偽推定の入力にはしない）。
+Option C（弱い事前分布）は、証拠ゼロ時のUX要件と評価計画が揃った場合に限り検討する。
 
 #### 課題3: 校正ファイル名
 
@@ -851,8 +855,8 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | 閾値 | 値 | 場所 | 用途 |
 |------|-----|------|------|
 | 高 Confidence | ≥ 0.7 | report/generator.py | レポート内分類 |
-| 反論検出 | > 0.6 | filter/nli.py | 矛盾検出 |
-| 抽出品質 | > 0.5 | extractor/content.py | 低品質フィルタ |
+| 反論検出 | > 0.7 | filter/nli.py | 矛盾検出 |
+| OCR 行信頼度 | > 0.5 | extractor/content.py | OCRの低信頼行を除外 |
 | 校正劣化 | 0.05 | utils/calibration.py | ロールバックトリガー |
 | 再校正 | ≥ 10 samples | utils/calibration.py | 再校正トリガー |
 | LoRA 訓練 | ≥ 100 samples | ADR-0011 | 訓練開始条件 |
@@ -861,27 +865,18 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 
 ## Appendix A: コード参照
 
-| 概念 | ファイル | 行 |
-|------|----------|-----|
-| NodeType, RelationType | `src/filter/evidence_graph.py` | 19-33 |
-| EvidenceGraph クラス | `src/filter/evidence_graph.py` | 36-474 |
-| calculate_claim_confidence() | `src/filter/evidence_graph.py` | 344-474 |
-| add_claim_evidence() | `src/filter/evidence_graph.py` | 1214-1327 |
-| ClaimConfidenceAssessment | `src/filter/schemas.py` | 40-59 |
-| Calibrator クラス | `src/utils/calibration.py` | 794-1317 |
-| PlattScaling | `src/utils/calibration.py` | 178-244 |
-| TemperatureScaling | `src/utils/calibration.py` | 247-312 |
-| CalibrationHistory | `src/utils/calibration.py` | 414-787 |
-| NLIJudge | `src/filter/nli.py` | 17-276 |
-| MultiStageRanker | `src/filter/ranking.py` | 318-429 |
-| claims テーブル | `src/storage/schema.sql` | 132-154 |
-| edges テーブル | `src/storage/schema.sql` | 156-186 |
-| pages テーブル | `src/storage/schema.sql` | 74-102 |
-| fragments テーブル | `src/storage/schema.sql` | 104-130 |
-| nli_corrections テーブル | `src/storage/schema.sql` | - |
-| llm-confidence 生成 | `config/prompts/extract_claims.j2` | 9 |
-| llm-confidence 保存 | `src/research/executor.py` | 723, 910-919 |
-| llm-confidence 未使用宣言 | `src/research/executor.py` | 928 |
+| 概念 | ファイル | 備考 |
+|------|----------|------|
+| NodeType, RelationType / EvidenceGraph | `src/filter/evidence_graph.py` | Graph構造・DBロード・Beta更新 |
+| calculate_claim_confidence() | `src/filter/evidence_graph.py` | Beta更新（supports/refutesのnli_confidenceを加算） |
+| add_claim_evidence() | `src/filter/evidence_graph.py` | edges永続化（nli_confidence/label含む） |
+| ClaimConfidenceAssessment | `src/filter/schemas.py` | get_materialsとの境界契約 |
+| Calibrator / Platt / Temperature | `src/utils/calibration.py` | 校正モジュール（ただし適用配線は別） |
+| NLI judge | `src/filter/nli.py` | local/remote NLI（Transformers） |
+| Ranking | `src/filter/ranking.py` | DomainCategory重みはrankingのみ |
+| DB schema | `src/storage/schema.sql` | pages/fragments/claims/edges/nli_corrections 等 |
+| llm-confidence 生成 | `config/prompts/extract_claims.j2` | JSON出力に confidence を含む |
+| llm-confidence をベイズ入力にしない | `src/research/executor.py` | NLIをedgesに保存し、LLM confidence は入力にしない旨をコメントで明示 |
 
 ## Appendix B: 関連 ADR 一覧
 
@@ -897,8 +892,8 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 
 | 用語 | 定義 |
 |------|------|
-| **llm-confidence** | LLM が抽出時に自己報告する確信度。現在未使用。 |
-| **nli-confidence** | NLI モデルが証拠関係を判定した確信度。ベイズ更新の入力。 |
+| **llm-confidence** | LLM が抽出時に自己報告する確信度（抽出品質の自己評価）。真偽推定の入力には使わない。 |
+| **nli-confidence** | NLI モデルが証拠関係（supports/refutes/neutral）を判定したスコア。ベイズ更新の入力（証拠の重み）。 |
 | **bayesian-confidence** | 全証拠を集約した主張の最終的な信頼度。 |
 | **Platt Scaling** | ロジスティック回帰による確率校正手法。 |
 | **Temperature Scaling** | 単一温度パラメータによる確率校正手法。 |
