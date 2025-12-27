@@ -174,6 +174,16 @@ case "$ACTION" in
         start_chrome_pool
         ;;
     
+    start-worker)
+        # Start Chrome for a specific worker only
+        WORKER_ID="${2:-0}"
+        if ! [[ "$WORKER_ID" =~ ^[0-9]+$ ]]; then
+            echo "Error: Worker ID must be a non-negative integer" >&2
+            exit 1
+        fi
+        start_single_worker "$WORKER_ID"
+        ;;
+    
     stop)
         # Stop all Chrome instances
         stop_chrome_pool
@@ -208,7 +218,7 @@ case "$ACTION" in
     
     *)
         echo "Unknown action: $ACTION"
-        echo "Use: $0 {status|start|stop|restart|diagnose|fix|help}"
+        echo "Use: $0 {status|start|start-worker|stop|restart|diagnose|fix|help}"
         exit 1
         ;;
 esac
