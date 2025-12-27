@@ -50,6 +50,17 @@
 - **Tier 2（任意 / “運用ノブ”）**: `.env.example` と `export VAR=...` で外部から設定され得る環境変数、Makefileの外部入力変数
   - **注意**: スクリプト内ローカル変数（例: `ACTION`）は Tier 2 から除外する（正規化対象にするとノイズ過多）
 
+#### 3.2 Tier 1 の分類（“一撃”の安全域を作る）
+
+Tier 1 はノイズが多いため、「正規化すべき契約キー」と「データ値」を機械分類してから扱う。
+
+- `docs/archive/parameter-registry.tier1-classification.json`
+  - `normalize / review / keep`（理由・優先度・出現箇所サンプル）
+- `docs/archive/parameter-registry.tier1-contract-keys.json`
+  - `normalize / review` のみ（= 契約キー候補）
+- `docs/archive/PARAMETER_TIER1_CLASSIFICATION.md`
+  - Tier 1 の正規化方針（汎用 `confidence` 禁止など）と決定ログ
+
 ### 4. 完全な変更リスト（初版）
 
 > NOTE: この表は「モデル系スコア/確信度/重み」をまず確実に正規化する最小核（High ROI）。

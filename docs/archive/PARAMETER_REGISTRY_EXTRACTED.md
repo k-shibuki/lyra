@@ -1164,6 +1164,14 @@ These are keys that often do *not* appear in structured contracts (BaseModel/dat
 - `docs/archive/parameter-registry.env-vars.json`
   - unique_env_vars: **27**
 
+### Tier 1 classification (contract keys vs data literals)
+- `docs/archive/parameter-registry.tier1-classification.json`
+  - `normalize / review / keep` classification for Tier 1 keys
+- `docs/archive/parameter-registry.tier1-contract-keys.json`
+  - `normalize / review` only
+- `docs/archive/PARAMETER_TIER1_CLASSIFICATION.md`
+  - policy decisions for Tier 1 normalization
+
 ## Shell/Make/.env: externally settable knobs (filtered extraction)
 These are operational knobs *intended to be set from outside* (e.g., `.env.example` and `export VAR=...`).
 Local shell variables are intentionally excluded to avoid noise.
