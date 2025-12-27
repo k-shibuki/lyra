@@ -1,7 +1,8 @@
 # プロンプトテンプレートのレビューと改善提案
 
 **作成日:** 2025-12-27
-**ステータス:** ドラフト
+**更新日:** 2025-12-27（Phase 1-3明確化）
+**ステータス:** 確定
 **関連:** ADR-0006 (8-Layer Security Model), `config/prompts/*.j2`, `src/filter/llm_security.py`
 
 ---
@@ -28,7 +29,8 @@
 - **LLM出力の扱い**: LLMは「JSON only」と指示しても前置き文字列やMarkdown code fenceを混ぜることがあるため、**JSON抽出は1箇所に集約**し、全コンポーネントで同じパーサーを使う。
 - **ADR整合**:
   - **ADR-0006**: `validate_llm_output()` によるセキュリティ（漏洩検知/URL検知等）を維持。
-  - ローカルLLM制約（トークン/処理比率）を維持し、**LLMによる“フォーマット修正リトライ”は現時点では入れない**。
+  - ローカルLLM制約（トークン/処理比率）を維持。
+- **出力言語**: プロンプト本体・LLM出力ともに **英語限定**（パフォーマンス最大化のため）。
 
 ## Part 1: プロンプトテンプレート一覧
 
@@ -282,10 +284,9 @@ Translated text only (no explanations or notes):
 hints should specify concrete source types:
 - Good: "PubMed RCTs", "FDA approval documents", "Cochrane reviews"
 - Bad: "search online", "check news"
-
-## Output Language
-{{ output_lang | default("Japanese") }}
 ```
+
+> **注:** 出力言語は英語固定（Part 2.11参照）。`output_lang` パラメータは導入しない。
 
 ---
 
@@ -541,33 +542,19 @@ Return only JSON output:"""
 
 ## Part 2.11: Lyra適合性の考慮事項
 
-### 言語の問題
+### 出力言語ポリシー
 
-**現状:** 既存プロンプトは日本語、改善案は英語
+**方針**: プロンプト本体・LLM出力ともに **英語限定**
 
-**Lyraの要件:**
-- 日本語クエリ、日本語ソースの処理
-- ただし学術論文は英語が多い
-- ローカルLLM（Ollama）は英語プロンプトの方が性能が良い傾向
+**理由:**
+- ローカルLLM（Ollama/Qwen）は英語プロンプトの方が性能が良い
+- 出力の一貫性とパース容易性を確保
+- 日本語ユーザー向けの翻訳は別レイヤー（MCP Client側）で対応
 
-**推奨方針:**
-1. **プロンプト本体は英語**（LLM性能を最大化）
-2. **出力言語はパラメータ化:** `{{ output_lang | default("Japanese") }}`
-3. **日本語例文を含める**（日本語出力の品質向上）
-
-```jinja2
-{# 全テンプレート共通のフッターパターン #}
-
-## Output Language
-Respond in {{ output_lang | default("Japanese") }}.
-
-{% if output_lang == "Japanese" %}
-Example output format (Japanese):
-{"claim": "DPP-4阻害薬はHbA1cを0.5-1.0%低下させる", "confidence": 0.9}
-{% endif %}
-
-Output JSON only:
-```
+**実装:**
+- 全テンプレートを英語化（Phase 1で実施）
+- `output_lang` パラメータは導入しない
+- Few-shot例も英語で統一
 
 ### ClaimType整合性
 
@@ -833,15 +820,15 @@ Output {{ output_format }} only:
 
 ## Part 5: 実装ロードマップ
 
-### Phase 0: アーキテクチャ整合性（最優先）
+### Phase 0: アーキテクチャ整合性（完了）
 
 > **問題:** `src/utils/prompt_manager.py` と `render_prompt()` により「LLM入力プロンプトは `config/prompts/*.j2` に外部化」という構造が既にあるが、インラインプロンプトが残っている。
 
-| タスク | 移動元 | 移動先 | 工数 |
-|--------|--------|--------|------|
-| Quality Assessment外部化 | `quality_analyzer.py` | `config/prompts/quality_assessment.j2` | 30m |
-| Initial Summary外部化 | `chain_of_density.py` | `config/prompts/initial_summary.j2` | 30m |
-| Densify外部化 | `chain_of_density.py` | `config/prompts/densify.j2` | 30m |
+| タスク | 移動元 | 移動先 |
+|--------|--------|--------|
+| Quality Assessment外部化 | `quality_analyzer.py` | `config/prompts/quality_assessment.j2` |
+| Initial Summary外部化 | `chain_of_density.py` | `config/prompts/initial_summary.j2` |
+| Densify外部化 | `chain_of_density.py` | `config/prompts/densify.j2` |
 
 **新規テンプレート作成後の構成:**
 ```
@@ -866,33 +853,44 @@ prompt = LLM_QUALITY_ASSESSMENT_PROMPT.format(text=text)
 
 # After
 from src.utils.prompt_manager import render_prompt
-prompt = render_prompt("quality_assessment", text=text, output_lang="Japanese")
+prompt = render_prompt("quality_assessment", text=text)
 ```
 
-### Phase 1: 緊急修正（即時）
+### Phase 1: プロンプト改善（全テンプレート英語化）
 
-| タスク | ファイル | 工数 |
-|------|------|--------|
-| `summarize.j2` の書き換え | `config/prompts/summarize.j2` | 1h |
-| `extract_claims.j2` の書き換え | `config/prompts/extract_claims.j2` | 1h |
-| `densify.j2` の言語統一（外部化後） | `config/prompts/densify.j2` | 15m |
+全10テンプレートを英語化し、Part 2の改善案を適用する。
 
-### Phase 2: スキーマバリデーション（短期）
+| テンプレート | Part 2参照 | 変更内容 |
+|-------------|-----------|---------|
+| `summarize.j2` | 2.3 | 全面書き換え（評価D→改善案） |
+| `extract_claims.j2` | 2.2 | 全面書き換え（評価C→改善案） |
+| `extract_facts.j2` | 2.1 | 全面書き換え（評価C→改善案） |
+| `translate.j2` | 2.4 | 全面書き換え（評価D→改善案） |
+| `densify.j2` | 2.8 | 全面書き換え（英語化+改善案） |
+| `initial_summary.j2` | 2.10 | 全面書き換え（改善案適用） |
+| `quality_assessment.j2` | 2.9 | 全面書き換え（改善案適用） |
+| `decompose.j2` | 2.5 | 軽微修正（hintsガイダンス追加、英語化） |
+| `detect_citation.j2` | 2.6 | 軽微修正（学術引用パターン追加、英語化） |
+| `relevance_evaluation.j2` | 2.7 | 英語化のみ（参照テンプレート） |
 
-| タスク | ファイル | 工数 |
-|------|------|--------|
-| JSON抽出/パースの共通化（単一モジュール化） | `src/filter/llm_output.py`（新規） | 2h |
-| パーサー適用（全ユースケース） | `src/filter/llm.py`, `src/filter/claim_decomposition.py`, `src/report/chain_of_density.py`, `src/extractor/quality_analyzer.py`, `src/search/citation_filter.py` | 2–4h |
-| （任意）Pydanticスキーマ導入 | `src/filter/llm_schemas.py`（新規） | 2–4h |
-| （任意）フォーマット修正リトライ | `src/filter/llm_output.py` | 3h |
+### Phase 2: LLM出力の型安全化
 
-### Phase 3: プロンプト標準化（中期）
+**スコープ:** LLM出力のみ対象。NLI/Embedding/Rerankerは既に `src/ml_server/schemas.py` でPydantic型安全のため対象外。
 
-| タスク | ファイル | 工数 |
-|------|------|--------|
-| 全プロンプトを英語に変換 | `config/prompts/*.j2` | 2h |
-| 出力言語パラメータ追加 | 全テンプレート | 1h |
-| プロンプトテストフレームワーク作成 | `tests/prompts/`（新規） | 4h |
+| タスク | ファイル | 内容 |
+|--------|---------|------|
+| JSON抽出共通化 | `src/filter/llm_output.py`（新規） | `extract_json()` + リトライ機構 |
+| パーサー適用 | `llm.py`, `claim_decomposition.py`, `chain_of_density.py`, `quality_analyzer.py` | 既存の `re.search()` を置き換え |
+| Pydanticスキーマ | `src/filter/llm_schemas.py`（新規） | `ExtractedFact`, `ExtractedClaim` 等 |
+| フォーマット修正リトライ | `src/filter/llm_output.py` | 2回までリトライ、失敗時DB記録 |
+
+### Phase 3: プロンプトテストフレームワーク
+
+> **注:** 英語化はPhase 1で完了。`output_lang` パラメータは導入しない（英語固定）。
+
+| タスク | ファイル | 内容 |
+|--------|---------|------|
+| テストフレームワーク作成 | `tests/prompts/`（新規） | テンプレート構文検証、サンプル入出力テスト |
 
 ### ~~Phase 4: 高度な機能~~（削除 - 実装済みまたは別設計）
 
@@ -953,11 +951,19 @@ prompt = render_prompt("quality_assessment", text=text, output_lang="Japanese")
 
 ### 6.2 実装方針
 
+#### スコープ
+
+**対象:** LLM出力のみ
+
+**対象外:** NLI / Embedding / Reranker
+- これらは既に `src/ml_server/schemas.py` でPydanticスキーマによる型安全が実装済み
+- 出力は数値・ラベル文字列であり、自由テキストではないためJSON抽出不要
+
 #### JSON抽出共通化
 
 `src/filter/llm_output.py` を新設し、JSON抽出ロジックを共通化する。
 
-**最小実装:**
+**実装:**
 
 ```python
 # src/filter/llm_output.py
@@ -986,7 +992,7 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
     except json.JSONDecodeError:
         pass
 
-    # 2. コードブロック内
+    # 2. コードブロック内（優先）
     match = re.search(r"```(?:json)?\s*([\[\{].*?[\]\}])\s*```", text, re.DOTALL)
     if match:
         try:
@@ -994,7 +1000,7 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
         except json.JSONDecodeError:
             pass
 
-    # 3. 生JSON
+    # 3. 生JSON（貪欲マッチ）
     pattern = r"\[.*\]" if expect_array else r"\{.*\}"
     match = re.search(pattern, text, re.DOTALL)
     if match:
@@ -1006,6 +1012,16 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
     return None
 ```
 
+#### エッジケース処理ポリシー
+
+| ケース | 処理 |
+|--------|------|
+| 複数JSONブロック | 最長マッチ（貪欲）を使用 |
+| Markdownコードブロック | ` ```json...``` ` を優先的に抽出 |
+| 抽出失敗時 | `None` を返す（フォールバックは呼び出し元の責任） |
+| ネストしたJSON | 外側のブラケットを取得 |
+| トランケートされたJSON | パース失敗 → `None` |
+
 #### 置き換え対象
 
 | ファイル | 現行パターン | 置き換え後 |
@@ -1015,15 +1031,36 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
 | `chain_of_density.py` | `_parse_llm_response()` 内のJSON抽出 | `extract_json(response)` |
 | `quality_analyzer.py` | インラインJSONパース | `extract_json(response)` |
 
-#### ADR-0004 との整合性
+#### リトライ＆エラー記録ポリシー
 
-フォーマット修正リトライは ADR-0004 と**矛盾しない**。
+1. **リトライ**: JSON抽出失敗時、最大2回までフォーマット修正リトライを実行
+2. **2回リトライしても失敗した場合**:
+   - DBに「エラーで値が取れなかった」ことを記録（`extraction_errors` 等）
+   - 処理は止めずに続行（次のパッセージ/タスクへ進む）
+   - ログレベル: `WARNING`
+3. **ADR-0004との整合性**: フォーマット修正リトライは「同じ機械的抽出タスクの再試行」であり、禁止されている「戦略的決定」には該当しない
 
-- ADR-0004 が禁止しているのは「戦略的決定」「複雑な推論」（クエリ設計、探索戦略など）
-- フォーマット修正リトライは「同じ機械的抽出タスクの再試行」であり、新しい推論ではない
-- ADR-0004 自体が `format="json"` 強制を許可しており、リトライはその fallback
+#### Pydanticスキーマ方針（寛容モード）
 
-ただし、リトライ機構の導入は**Phase 2以降のオプション**とし、MVPでは `extract_json()` のみ導入する。
+- 欠落フィールドはデフォルト値で補完
+- 型不一致は変換を試みる（`str` → `float` 等）
+- 変換不可の場合のみバリデーションエラー
+
+```python
+# src/filter/llm_schemas.py
+from pydantic import BaseModel, Field
+
+class ExtractedFact(BaseModel):
+    fact: str = Field(..., min_length=5)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    evidence_type: str = Field(default="observation")
+
+class ExtractedClaim(BaseModel):
+    claim: str = Field(..., min_length=5)
+    type: str = Field(default="fact")
+    relevance_to_query: float = Field(default=0.5, ge=0.0, le=1.0)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+```
 
 #### DBスキーマ変更
 
