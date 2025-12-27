@@ -496,9 +496,14 @@ response = await client.messages.create(
 )
 ```
 
-### 4.4 ~~Missing: Confidence Calibration~~ → 既存実装あり
+### 4.4 ~~Missing: Confidence Calibration~~ → NLI 専用として既存実装あり
 
-> **注意**: 信頼度キャリブレーションは `src/utils/calibration.py` に完全実装済み。
+> **注意**: 信頼度キャリブレーションは `src/utils/calibration.py` に **NLI モデル専用** として実装済み。
+> LLM 抽出 confidence との関係は [`docs/confidence-calibration-design.md`](./confidence-calibration-design.md) を参照。
+
+**スコープ:**
+- **対象**: `nli-confidence` (NLI モデル出力)
+- **非対象**: `llm-confidence` (LLM 自己報告) — 別設計で検討中
 
 **既存実装:**
 - Platt Scaling / Temperature Scaling
@@ -511,15 +516,9 @@ response = await client.messages.create(
 - `calibration_metrics(get_evaluations)`: 評価履歴
 - `calibration_rollback`: 以前のパラメータへロールバック
 
-**参照:** ADR-0011 (LoRA Fine-tuning Strategy) §Relationship with calibration_metrics
-
-```python
-# 既存 API (src/utils/calibration.py)
-from src.utils.calibration import get_calibrator
-
-calibrator = get_calibrator()
-calibrated_prob = calibrator.calibrate(raw_prob, source="llm_extract")
-```
+**参照:**
+- ADR-0011 (LoRA Fine-tuning Strategy)
+- [`docs/confidence-calibration-design.md`](./confidence-calibration-design.md) — 用語定義と設計提案
 
 ### 4.5 Recommendation: Standardize Prompt Structure
 
@@ -587,19 +586,22 @@ Output {{ output_format }} only:
 | Add output language parameter | All templates | 1h |
 | Create prompt testing framework | `tests/prompts/` (new) | 4h |
 
-### ~~Phase 4: Advanced Features~~ (削除 - 実装済み)
+### ~~Phase 4: Advanced Features~~ (削除 - 実装済みまたは別設計)
 
-> **注意**: 以下の機能はすべて既存実装済みのため、Phase 4 は不要。
+> **注意**: 以下の機能はすべて既存実装済みまたは別設計文書で検討中のため、Phase 4 は不要。
 
-| 当初の提案 | 既存実装 | 参照 |
-|------------|----------|------|
-| Confidence calibration | ✅ Platt/Temperature scaling, Brier score, 自動ロールバック | `src/utils/calibration.py`, ADR-0011 |
-| A/B testing framework | ✅ クエリA/Bテスト (表記/助詞/語順バリアント) | `src/search/ab_test.py`, ADR-0010 |
-| Prompt versioning | ✅ git 管理で十分 (専用システム不要) | `config/prompts/*.j2` |
+| 当初の提案 | 状態 | 参照 |
+|------------|------|------|
+| Confidence calibration (NLI) | ✅ 実装済み | `src/utils/calibration.py`, ADR-0011 |
+| Confidence calibration (LLM) | 📝 別設計 | [`confidence-calibration-design.md`](./confidence-calibration-design.md) |
+| A/B testing framework | ✅ 実装済み | `src/search/ab_test.py`, ADR-0010 |
+| Prompt versioning | ✅ git 管理で十分 | `config/prompts/*.j2` |
 
-**MCP ツール (既存):**
-- `calibration_metrics`: 統計取得、評価履歴
-- `calibration_rollback`: パラメータロールバック
+**MCP ツール (既存、NLI 専用):**
+- `calibration_metrics`: NLI 統計取得、評価履歴
+- `calibration_rollback`: NLI パラメータロールバック
+
+**用語の明確化:** [`confidence-calibration-design.md`](./confidence-calibration-design.md) を参照
 
 ---
 
