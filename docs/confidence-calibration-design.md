@@ -297,6 +297,53 @@ final_score = rerank_score * category_weight
 
 **重要**: Domain Category は**ランキング調整のみ**に使用。Confidence 計算には使用しない（ADR-0005）。
 
+### 3.4 MCPツールでの受け渡し（ワークフローへの接続）
+
+本プロダクトにおいて「抽出品質（llm-confidence）」を活用するには、**MCPクライアント（高推論LLM）が機械的に解釈できる形で材料に載ること**が必要である。
+結論として、主経路は `get_materials` である（レポート作成・次クエリ選定の両方の入力になる）。
+
+#### 3.4.1 As-Is（現状）
+
+- **MCPツール**
+  - `get_materials`: claimごとに `confidence/uncertainty/controversy/evidence_count/...` を返す。
+  - `queue_searches`: 次の探索クエリを投入する（クライアントが戦略決定）。
+  - `get_status`: 探索進捗・予算・キュー等の状態取得。
+  - `feedback`: claim/edge/domainの修正（教師データの種）。
+  - `calibration_metrics`: 統計/履歴の参照（get_stats/get_evaluations）。
+- **問題**
+  - `get_materials.claims[].confidence` は実質 **bayesian-confidence（証拠集約後）**であり、`claims.claim_confidence`（llm-confidence）が
+    **別フィールドとして露出していない**。
+  - 結果としてクライアントは「そのclaimが抽出品質として怪しい/堅い」という信号を**安定に受け取れない**。
+
+#### 3.4.2 To-Be（提案：MCPクライアントへ渡す契約）
+
+`get_materials` の `claims[]` に、**“真偽推定”と“抽出品質”の分離**を明示する（※本提案はドキュメントでの契約案であり、実装変更は別PR/別フェーズ）。
+
+- **提案フィールド（例）**
+  - `bayesian_confidence`: 現在 `confidence` に入っている値（証拠集約後）
+  - `llm_confidence`: `claims.claim_confidence`（抽出品質の自己評価の生値）
+  - `confidence_source`: `bayesian | llm_fallback`（混同防止）
+  - `extraction_quality_flag`: `low | medium | high`（クライアント側の意思決定を単純化）
+
+#### 3.4.3 次クエリ選定（queue_searches）をどう改善するか
+
+クライアントは `get_materials` の各claimを「探索価値」でスコアリングできる。例:
+
+- **Case A: llm_confidence 低 + evidence_count 低**
+  - 解釈: claim自体が不安定/抽出ミスの可能性が高い。探索予算を投下しても回収できない確率が高い。
+  - 次アクション: そのclaimは“要確認”枠に隔離。別claimへ探索を割り当てる／同トピックの一次資料を増やすクエリへ。
+- **Case B: llm_confidence 高 + (uncertainty 高 or controversy 高)**
+  - 解釈: 抽出は安定だが、証拠が不足/対立している（研究として重要な論点になり得る）。
+  - 次アクション: 反証探索や独立ソース追加のクエリを `queue_searches` に投入。
+- **Case C: llm_confidence 高 + bayesian_confidence 高 + uncertainty 低**
+  - 解釈: 抽出も証拠も堅い。探索を打ち切り、別論点へ予算を回す候補。
+
+#### 3.4.4 最終レポート（高推論LLM）をどう良くするか
+
+- **断言強度の制御**: “証拠が弱い”のか“抽出が怪しい”のかを分離し、文章の確信度表現を適切にする。
+- **レビュー誘導**: `llm_confidence` 低いclaimを「元文脈の確認が必要」と明示し、誤った断言の混入を防ぐ。
+- **論争点の抽出**: `controversy` 高いが `llm_confidence` 高いケースを、学術的に価値のある対立点として整理できる。
+
 ---
 
 ## 4. ベイズ更新アルゴリズム
@@ -862,6 +909,63 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | LoRA 訓練 | ≥ 100 samples | ADR-0011 | 訓練開始条件 |
 
 ---
+
+## 13. 用語・パラメータ命名体系（現状棚卸しと提案）
+
+### 13.1 問題意識
+
+現状は `confidence` / `score` という語が **複数のモデル・複数の対象（claim/edge/fragment/page）** で使い回されており、
+MCPクライアントが「どのモデルの何のスコアか」を誤解しやすい。
+
+目的は、MCPツール・コード・DBスキーマのパラメータが **prefix/suffix で機械的に識別できる**状態にすること。
+
+### 13.2 提案：命名ルール（ドキュメント上の正規名）
+
+**原則**: `"{producer}.{object}.{metric}[.{qualifier}]"` を正規名（canonical）とし、実装上の識別子は snake_case で表現する。
+
+- **producer（生成元）**: `rank | llm | nli | bayes | calib | meta`
+- **object（対象）**: `fragment | claim | edge | page | citation_candidate`
+- **metric（指標）**: `score | confidence | uncertainty | controversy | weight | label | prob | logit`
+- **qualifier（任意）**: `raw | calibrated | final | bm25 | embed | rerank | category | source`
+
+例（ドキュメント上の正規名）:
+- `llm.claim.confidence_raw`（抽出品質の自己評価）
+- `nli.edge.confidence_raw`（NLIの出力スコア、現状は未校正）
+- `bayes.claim.confidence` / `bayes.claim.uncertainty` / `bayes.claim.controversy`
+- `rank.fragment.score_bm25` / `rank.fragment.score_embed` / `rank.fragment.score_rerank` / `rank.fragment.score_final`
+
+### 13.3 現状の名前（DB / コード / MCP）の対応表
+
+| 正規名（提案） | 現状の主な実体 | 種別 | 備考 |
+|---|---|---|---|
+| `rank.fragment.score_bm25` | `fragments.bm25_score` / `passage["score_bm25"]` | score | ランキング用 |
+| `rank.fragment.score_embed` | `fragments.embed_score` / `passage["score_embed"]` | score | ランキング用 |
+| `rank.fragment.score_rerank` | `fragments.rerank_score` / `passage["score_rerank"]` | score | ランキング用 |
+| `rank.fragment.weight_category` | `passage["category_weight"]` / `CATEGORY_WEIGHTS` | weight | ranking調整のみ |
+| `rank.fragment.score_final` | `passage["final_score"]` | score | ranking最終 |
+| `llm.claim.confidence_raw` | `claims.claim_confidence`（promptの `confidence`） | confidence | 抽出品質（真偽ではない） |
+| `nli.edge.label` | `edges.nli_label` | label | supports/refutes/neutral |
+| `nli.edge.confidence_raw` | `edges.nli_confidence` | confidence | NLI出力スコア（現状未校正） |
+| `bayes.claim.confidence` | `get_materials.claims[].confidence`（現状） | confidence | EvidenceGraph集約後 |
+| `bayes.claim.uncertainty` | `get_materials.claims[].uncertainty` | uncertainty | Beta事後のstddev |
+| `bayes.claim.controversy` | `get_materials.claims[].controversy` | controversy | 支持/反証の対立度 |
+| `meta.claim.source_domain_category` | `_lyra_meta.claims[].source_domain_category` | meta | ranking由来の参照情報 |
+
+### 13.4 MCPツールの命名（提案）
+
+**ツール名は現状維持**しつつ、レスポンス内フィールドは上記の正規名に沿う（またはそれを明示できる構造）に寄せる。
+
+- `get_materials`
+  - 現状: `claims[].confidence` が “bayesian” なのか “llmフォールバック” なのか曖昧。
+  - 提案: `confidence_source` と `llm_confidence` / `bayesian_confidence` を併置して混同を防ぐ（§3.4）。
+- `calibration_metrics`
+  - 現状: `source` が自由文字列で、何のモデルかが曖昧になり得る。
+  - 提案: `source` は `nli` 等の固定namespaceを含める（例: `nli_judge` を正規化して `nli.edge.confidence` の系統に揃える）。
+
+### 13.5 スコープ注記
+
+本節は **ドキュメント上の命名体系提案**であり、DBカラム名や既存APIの破壊的変更は行わない。
+実装反映は別フェーズで、後方互換（旧フィールドの並存期間）を設計した上で実施する。
 
 ## Appendix A: コード参照
 
