@@ -91,7 +91,10 @@ def main() -> None:
                     "to": "legacy_edge_confidence",
                     "notes": "maps from edges.confidence (legacy aggregate) — avoid mixing with nli/bayes/llm confidences",
                     "rg_scope_glob": "src/filter/evidence_graph.py",
-                    "rg_patterns": ['\"confidence\"'],
+                    "rg_patterns": [
+                        "\"confidence\": edge_data.get(\"confidence\")",
+                    ],
+                    "expected_matches_in_scope": 3,
                 },
                 {
                     "when": "src/filter/claim_decomposition.py AtomicClaim serialization",
@@ -107,6 +110,13 @@ def main() -> None:
                     "rg_scope_glob": "src/filter/claim_timeline.py",
                     "rg_patterns": [],
                 },
+                {
+                    "when": "src/filter/nli.py NLIModel predict output",
+                    "to": "keep",
+                    "notes": "internal model output; normalize at persistence/MCP boundary rather than inside model primitive",
+                    "rg_scope_glob": "src/filter/nli.py",
+                    "rg_patterns": [],
+                },
             ],
             "rg_safety": [
                 "Never do global replace of \"confidence\".",
@@ -115,15 +125,61 @@ def main() -> None:
         },
         "type": {
             "decision": "split",
-            "reason": "generic enum key; multiple unrelated meanings (claim_type, task type, etc.)",
-            "replacements": [],
-            "rg_safety": ["Never global-replace \"type\"."],
+            "reason": "generic enum key; multiple unrelated meanings (claim_type, task type, JSON Schema keyword, etc.)",
+            "replacements": [
+                {
+                    "when": "MCP JSON Schemas / sanitizer / server tool definitions",
+                    "to": "keep",
+                    "notes": "JSON Schema keyword 'type' is external spec; never rename",
+                    "rg_scope_glob": "src/mcp/**",
+                    "rg_patterns": [],
+                },
+                {
+                    "when": "src/filter/claim_decomposition.py decompose-LLM output item.get(\"type\")",
+                    "to": "meta_claim_label_type",
+                    "notes": "ties to config/prompts/decompose.j2 output contract; rename prompt output key and parser together",
+                    "rg_scope_glob": "src/filter/claim_decomposition.py",
+                    "rg_patterns": [
+                        "item.get(\"type\"",
+                    ],
+                    "expected_matches_in_scope": 1,
+                },
+                {
+                    "when": "src/mcp/response_meta.py SecurityWarning.type",
+                    "to": "keep",
+                    "notes": "part of MCP meta contract; only rename under full-field normalization",
+                    "rg_scope_glob": "src/mcp/response_meta.py",
+                    "rg_patterns": [],
+                }
+            ],
+            "rg_safety": [
+                "Never global-replace \"type\".",
+                "Do not touch JSON Schema 'type' fields.",
+            ],
         },
         "status": {
             "decision": "split",
             "reason": "generic status key across tasks/jobs/domains; not a single canonical mapping",
-            "replacements": [],
-            "rg_safety": ["Never global-replace \"status\"."],
+            "replacements": [
+                {
+                    "when": "MCP get_status response and task lifecycle",
+                    "to": "keep",
+                    "notes": "aligns with DB tasks.status and MCP schema; full-field renaming requires coordinated migration",
+                    "rg_scope_glob": "src/mcp/**",
+                    "rg_patterns": [],
+                },
+                {
+                    "when": "src/filter/provider.py LLMResponse.to_dict()",
+                    "to": "keep",
+                    "notes": "provider response contract; renaming to llm_response_status is possible but intentionally postponed",
+                    "rg_scope_glob": "src/filter/provider.py",
+                    "rg_patterns": [],
+                },
+            ],
+            "rg_safety": [
+                "Never global-replace \"status\".",
+                "If a future full-field normalization renames it, do it per object (task_status/job_status/llm_response_status...).",
+            ],
         },
     }
 

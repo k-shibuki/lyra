@@ -84,3 +84,25 @@ Tier 1 は “全部一撃でリネーム” ではなく、**Tier 0 へ吸収**
 補足:
 - `confidence` / `type` / `status` のような汎用キーは **split** として扱い、グローバル置換を禁止する
 
+### 8. split キーを先に“人間判断で確定してから”機械置換へ進むプロセス（決定）
+
+目的: `rg` 一撃の誤爆を避けるため、意味が分岐するキー（split）を先に片付ける。
+
+- **Step 0: split-key 台帳を確定**
+  - `docs/archive/parameter-registry.tier1-review-decisions.json`
+    - `confidence/type/status` は split として扱い、**グローバル置換禁止**を明記
+
+- **Step 1: split-key をファイル単位で処理（置換する場合のみ）**
+  - 置換の可否/先は `parameter-registry.tier1-review-decisions.json` の `replacements[]` を正とする
+  - 例:
+    - `confidence` は `src/filter/evidence_graph.py` の **legacy edge** だけ `legacy_edge_confidence` に寄せる（他は keep）
+    - `type` は JSON Schema の `type` を絶対に触らず、`claim_decomposition` の LLM出力契約だけを `meta_claim_label_type` へ寄せる（promptと同時）
+
+- **Step 2: “問題ないことの確認”**
+  - `docs/archive/RG_SAFE_REPLACEMENT_GUIDE.md` の安全ルール（引用符キーのみ、ファイルスコープ、長い→短い順）に従う
+  - split キーは置換後に **対象スコープ内の旧キーが0件**であることを確認（`expected_matches_in_scope` を活用）
+
+- **Step 3: 残りを機械的に適用**
+  - split が片付いた後、`normalize` 対象（信号系）と Tier0 rename map を機械置換で進める
+  - 置換後に `rg` で旧語彙0件（対象語彙セット）を確認してからテストへ
+
