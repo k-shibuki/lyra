@@ -11,14 +11,9 @@
 
 ---
 
-## 0. この文書の位置づけ（重要）
+## 0. この文書の位置づけ
 
-この文書は「confidence / calibration」に関する **現状分析（as-is）** と、プロダクトに対して有益な **改善提案（to-be）** をまとめる。
-
-**更新方針（2025-12-27）**:
-- 実装・スキーマ・ADRに対して断言している箇所は、一次情報（コード/ADR/DB schema）に合わせて修正する。
-- ADRの方が望ましいが未実装の項目は、ADR側に「Open Issues / Gaps」として明記し、本書でも同様に扱う。
-- 本書は設計議論の土台であり、今回のスコープは **ドキュメント修整のみ**（実装変更は行わない）。
+この文書は「confidence / calibration」に関する **現状分析（as-is）** と、プロダクトに対する**改善提案（to-be）** をまとめる。
 
 ## 1. 概念定義
 
@@ -545,6 +540,7 @@ class CalibrationHistory:
 - 校正モジュール（`src/utils/calibration.py`）は存在するが、NLI推論→`edges.nli_confidence` への適用は未配線。
 - MCPの `calibration_metrics` は **get_stats / get_evaluations** に限定される（評価/学習の実行はMCP経由では行わない設計）。
 - `calibration_evaluations` テーブルは存在するが、現状コードでは主に参照（SELECT）用途で、評価結果の永続化（INSERT）は未整備の可能性が高い。
+- 校正自体を自動トリガーする想定は一切ない。
 
 ---
 
@@ -569,7 +565,7 @@ class CalibrationHistory:
 | **MCP ツール化** | ❌ 却下（GPU 競合、長時間処理） |
 | **運用方式** | スクリプトベース（オフラインバッチ） |
 | **訓練トリガー** | 100+サンプル蓄積、10%+誤分類率 |
-| **ステータス** | 📝 計画中（Phase R） |
+| **ステータス** | 📝 計画中（Phase T） |
 
 ### 6.3 ADR-0012: Feedback Tool Design
 
@@ -603,15 +599,14 @@ class CalibrationHistory:
 | 項目 | オプション | 推奨 | 参照 |
 |------|-----------|------|------|
 | **llm-confidence の扱い** | ~~A: 削除, B: フィルタ, C: 弱い事前分布~~, **D: 抽出品質スコアとしてのみ活用** | **D で確定** | §8.5 |
-| **MCP ツールリネーム** | calibration → nli_calibration | 未定 | §9 |
 
 ### 7.3 ❌ 未実装・将来計画
 
 | 項目 | フェーズ | 前提条件 |
 |------|----------|----------|
-| LoRA 訓練スクリプト | Phase R | PEFT ライブラリ統合 |
-| アダプタバージョン管理 | Phase R | 訓練スクリプト完成 |
-| シャドウ評価 | Phase R | 100+サンプル蓄積 |
+| LoRA 訓練スクリプト | Phase T | PEFT ライブラリ統合 |
+| アダプタバージョン管理 | Phase T | 訓練スクリプト完成 |
+| シャドウ評価 | Phase T | 100+サンプル蓄積 |
 
 ---
 
@@ -701,7 +696,7 @@ def calculate_claim_confidence(
 
 **結論**: prior_strength=0.5 では、NLI 証拠が 1-2 件で prior の影響は消える。
 
-### 8.4 Option D（追加）: “抽出品質”としてのみ使う（推奨）
+### 8.4 Option D: “抽出品質”としてのみ使う（推奨）
 
 **要点**: `llm-confidence` は「主張の真偽」ではなく「抽出の自己評価」として解釈し、真偽推定（bayesian-confidence）の事前分布には混ぜない。
 用途を限定して、意味論の混線と“証拠ゼロ時の見かけの確信”を避ける。
@@ -718,7 +713,7 @@ def calculate_claim_confidence(
 
 ### 8.5 結論（確定）
 
-**Option D を採用する。Option C は採用しない。**
+**パラメータ名の統一後、Option D を採用する。**
 
 - `llm-confidence` は「抽出品質スコア」としてのみ活用し、真偽推定（bayesian-confidence）には混ぜない
 - 理由:
@@ -834,22 +829,21 @@ bayesian_confidence = ... # ベイズ更新後の信頼度
 
 #### 課題2: llm-confidence の意味論（抽出品質 vs 真偽）
 
-**解決策**: Option D を基本とし、`llm-confidence` は「抽出品質の自己評価」としてのみ利用する（真偽推定の入力にはしない）。
-Option C（弱い事前分布）は、証拠ゼロ時のUX要件と評価計画が揃った場合に限り検討する。
+**解決策**: `llm-confidence` は「抽出品質の自己評価」としてのみ利用する（真偽推定の入力にはしない）。
 
 #### 課題3: 校正ファイル名
 
-**解決策**: リネーム
+**解決策**: ファイルリネーム + action名での明確化
 
 | 現在 | 提案 |
 |------|------|
 | `src/utils/calibration.py` | `src/utils/nli_calibration.py` |
-| `calibration_metrics` (MCP) | `nli_calibration_metrics` |
-| `calibration_rollback` (MCP) | `nli_calibration_rollback` |
+
+**MCPツール名は変更しない**。action名で `nli_*` prefix を付けて明確化する（例: `get_stats` → `nli_get_stats`）。
 
 #### 課題4: LoRA 未実装
 
-**解決策**: Phase R での実装計画
+**解決策**: Phase T での実装
 
 ```bash
 # 訓練スクリプト（将来）
@@ -879,19 +873,9 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | タスク | 変更前 | 変更後 | ステータス |
 |--------|--------|--------|:----------:|
 | ファイルリネーム | `calibration.py` | `nli_calibration.py` | 📝 |
-| MCP ツールリネーム | `calibration_metrics` | `nli_calibration_metrics` | 📝 |
-| MCP ツールリネーム | `calibration_rollback` | `nli_calibration_rollback` | 📝 |
 | import 更新 | 全参照箇所 | - | 📝 |
 
-### Phase 3: Option C 実装
-
-| タスク | ファイル | ステータス |
-|--------|----------|:----------:|
-| `_get_claim_llm_confidence()` | `evidence_graph.py` | 📝 |
-| `calculate_claim_confidence()` 修正 | `evidence_graph.py` | 📝 |
-| ユニットテスト追加 | `tests/filter/test_evidence_graph.py` | 📝 |
-
-### Phase R: LoRA 実装（将来）
+### Phase T: LoRA 実装（将来）
 
 | タスク | 内容 | ステータス |
 |--------|------|:----------:|
@@ -958,7 +942,7 @@ MCPクライアントが「どのモデルの何のスコアか」を誤解し�
 
 ### 13.4 MCPツールの命名（提案）
 
-**ツール名は現状維持**しつつ、レスポンス内フィールドは上記の正規名に沿う（またはそれを明示できる構造）に寄せる。
+レスポンス内フィールドは上記の正規名に沿う（またはそれを明示できる構造）に寄せる。MCPツール名は変えないが、MCP action名は変更可能とする。
 
 - `get_materials`
   - 現状: `claims[].confidence` が “bayesian” なのか “llmフォールバック” なのか曖昧。
