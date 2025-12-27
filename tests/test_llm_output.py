@@ -341,7 +341,7 @@ class TestRecordExtractionError:
     """Tests for record_extraction_error function."""
 
     def test_creates_error_record(self) -> None:
-        """Test error record creation."""
+        """TC-E-01: Test error record creation."""
         # Given: Error details
         error_type = "json_parse"
         context = {"template": "extract_facts", "input_length": 100}
@@ -355,6 +355,26 @@ class TestRecordExtractionError:
         assert record["context"]["template"] == "extract_facts"
         assert "timestamp" in record
         assert record["response_preview"] == response
+
+    def test_response_preview_truncation(self) -> None:
+        """TC-E-02: Test response preview truncates to 500 chars."""
+        # Given: Very long response
+        long_response = "A" * 1000
+
+        # When: Recording error
+        record = record_extraction_error("test", {}, long_response)
+
+        # Then: Truncates to 500 characters
+        assert len(record["response_preview"]) == 500
+
+    def test_no_response_preview(self) -> None:
+        """TC-E-03: Test error record without response."""
+        # Given: No response provided
+        # When: Recording error
+        record = record_extraction_error("test", {"key": "value"})
+
+        # Then: response_preview key not present
+        assert "response_preview" not in record
 
 
 class TestSchemaValidators:

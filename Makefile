@@ -153,6 +153,12 @@ test-debug: ## Debug test run status (RUN_ID= optional)
 test-scripts: ## Run shell script tests
 	@$(SCRIPTS)/test_scripts.sh
 
+test-prompts: ## Run prompt template tests (syntax, rendering, structure)
+	@uv run pytest tests/prompts/ -v
+
+test-llm-output: ## Run LLM output parsing tests
+	@uv run pytest tests/test_llm_output.py -v
+
 # =============================================================================
 # CODE QUALITY
 # =============================================================================
