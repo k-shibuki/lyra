@@ -13,7 +13,6 @@ Per ADR-0002: Local LLM Role
 - Sub-query design/candidate generation is prohibited (Cursor AI exclusive)
 """
 
-import json
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -21,7 +20,8 @@ from enum import Enum
 from typing import Any
 
 from src.filter.llm import _get_client
-from src.filter.llm_output import extract_json
+from src.filter.llm_output import parse_and_validate
+from src.filter.llm_schemas import DecomposedClaim
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.utils.prompt_manager import render_prompt
@@ -221,8 +221,29 @@ class ClaimDecomposer:
             max_tokens=2000,
         )
 
-        # Parse LLM response
-        claims = self._parse_llm_response(response, question)
+        async def _retry_llm_call(retry_prompt: str) -> str:
+            return await client.generate(
+                prompt=retry_prompt,
+                model=model,
+                temperature=0.3,
+                max_tokens=2000,
+            )
+
+        validated = await parse_and_validate(
+            response=response,
+            schema=DecomposedClaim,
+            template_name="decompose",
+            expect_array=True,
+            llm_call=_retry_llm_call,
+            max_retries=1,
+            context={"source_question": question},
+        )
+
+        if validated is None:
+            logger.warning("No valid structured output from decompose LLM; falling back to rules")
+            claims = self._decompose_with_rules(question).claims
+        else:
+            claims = self._parse_validated_claims(validated, question)
 
         return DecompositionResult(
             original_question=question,
@@ -231,67 +252,47 @@ class ClaimDecomposer:
             success=len(claims) > 0,
         )
 
-    def _parse_llm_response(
+    def _parse_validated_claims(
         self,
-        response: str,
+        items: list[DecomposedClaim],
         source_question: str,
     ) -> list[AtomicClaim]:
-        """Parse LLM response into atomic claims."""
-        claims = []
+        """Map validated schema items to internal AtomicClaim objects."""
+        claims: list[AtomicClaim] = []
 
-        # Try to extract JSON array from response
-        parsed = extract_json(response, expect_array=True)
-        if parsed is None:
-            logger.warning("No JSON array found in LLM response")
-            return self._decompose_with_rules(source_question).claims
+        for item in items:
+            text = item.text.strip()
+            if not text:
+                continue
 
-        try:
+            try:
+                polarity = ClaimPolarity(item.polarity)
+            except ValueError:
+                polarity = ClaimPolarity.NEUTRAL
 
-            for item in parsed:
-                if not isinstance(item, dict):
-                    continue
+            try:
+                granularity = ClaimGranularity(item.granularity)
+            except ValueError:
+                granularity = ClaimGranularity.ATOMIC
 
-                text = item.get("text", "").strip()
-                if not text:
-                    continue
+            try:
+                claim_type = ClaimType(item.type)
+            except ValueError:
+                claim_type = ClaimType.FACTUAL
 
-                # Map polarity
-                polarity_str = item.get("polarity", "neutral").lower()
-                try:
-                    polarity = ClaimPolarity(polarity_str)
-                except ValueError:
-                    polarity = ClaimPolarity.NEUTRAL
-
-                # Map granularity
-                granularity_str = item.get("granularity", "atomic").lower()
-                try:
-                    granularity = ClaimGranularity(granularity_str)
-                except ValueError:
-                    granularity = ClaimGranularity.ATOMIC
-
-                # Map type
-                type_str = item.get("type", "factual").lower()
-                try:
-                    claim_type = ClaimType(type_str)
-                except ValueError:
-                    claim_type = ClaimType.FACTUAL
-
-                claim = AtomicClaim(
+            claims.append(
+                AtomicClaim(
                     claim_id=f"claim_{uuid.uuid4().hex[:8]}",
                     text=text,
                     expected_polarity=polarity,
                     granularity=granularity,
                     claim_type=claim_type,
                     source_question=source_question,
-                    confidence=item.get("confidence", 0.9),
-                    keywords=item.get("keywords", []),
-                    verification_hints=item.get("hints", []),
+                    confidence=0.9,
+                    keywords=item.keywords,
+                    verification_hints=item.hints,
                 )
-                claims.append(claim)
-
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse LLM response as JSON", error=str(e))
-            return self._decompose_with_rules(source_question).claims
+            )
 
         return claims
 

@@ -18,10 +18,17 @@ Test Perspectives Table:
 | TC-S-03 | Schema validation invalid | Schema validation | Returns None | - |
 | TC-L-01 | List validation valid items | List validation | Returns valid items | - |
 | TC-L-02 | List validation mixed items | List validation | Skips invalid | - |
+| TC-P-01 | parse_and_validate success (object) | Integration - normal | Returns validated model | - |
+| TC-P-02 | parse_and_validate json_parse then retry | Integration - error recovery | Retries once and succeeds | - |
+| TC-P-03 | parse_and_validate schema_validation then retry | Integration - error recovery | Retries once and succeeds | - |
+| TC-P-04 | parse_and_validate final failure | Integration - error | Returns None and records DB row | Uses test_database fixture |
 """
+
+import pytest
 
 from src.filter.llm_output import (
     extract_json,
+    parse_and_validate,
     record_extraction_error,
     validate_list_with_schema,
     validate_with_schema,
@@ -375,6 +382,146 @@ class TestRecordExtractionError:
 
         # Then: response_preview key not present
         assert "response_preview" not in record
+
+
+class TestParseAndValidate:
+    """Tests for parse_and_validate function."""
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_success_object(self) -> None:
+        """TC-P-01: parse_and_validate returns a validated model for object output."""
+        # Given: Valid JSON object for QualityAssessmentOutput
+        response = (
+            '{"quality_score":"0.8","is_ai_generated":"true","is_spam":"no","is_aggregator":"1"}'
+        )
+
+        # When: Parsing and validating
+        validated = await parse_and_validate(
+            response=response,
+            schema=QualityAssessmentOutput,
+            template_name="quality_assessment",
+            expect_array=False,
+            llm_call=None,
+            max_retries=1,
+            context={"case": "tc-p-01"},
+        )
+
+        # Then: Returns validated model with coercions applied
+        assert validated is not None
+        assert isinstance(validated, QualityAssessmentOutput)
+        assert validated.quality_score == 0.8
+        assert validated.is_ai_generated is True
+        assert validated.is_spam is False
+        assert validated.is_aggregator is True
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_json_parse_then_retry(self) -> None:
+        """TC-P-02: parse_and_validate retries once on json_parse and succeeds."""
+        # Given: Invalid initial response and a retry function that returns valid JSON
+        calls: list[str] = []
+
+        async def llm_call(prompt: str) -> str:
+            calls.append(prompt)
+            return '[{"fact":"A","confidence":"0.8","evidence_type":"UNKNOWN"}]'
+
+        # When: Parsing and validating list output
+        validated = await parse_and_validate(
+            response="not json",
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=llm_call,
+            max_retries=1,
+            context={"case": "tc-p-02"},
+        )
+
+        # Then: Retries once and returns validated list
+        assert len(calls) == 1
+        assert validated is not None
+        assert isinstance(validated, list)
+        assert len(validated) == 1
+        assert validated[0].fact == "A"
+        assert validated[0].confidence == 0.8
+        assert validated[0].evidence_type == "observation"
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_schema_validation_then_retry(self) -> None:
+        """TC-P-03: parse_and_validate retries once on schema_validation and succeeds."""
+        # Given: JSON parses but fails schema validation; retry returns valid item
+        calls: list[str] = []
+
+        async def llm_call(prompt: str) -> str:
+            calls.append(prompt)
+            return '[{"fact":"Fixed","confidence":0.9}]'
+
+        # When: Parsing and validating list output
+        validated = await parse_and_validate(
+            response='[{"confidence":0.9}]',
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=llm_call,
+            max_retries=1,
+            context={"case": "tc-p-03"},
+        )
+
+        # Then: Retries once and succeeds
+        assert len(calls) == 1
+        assert validated is not None
+        assert isinstance(validated, list)
+        assert validated[0].fact == "Fixed"
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_final_failure_records_db(self, test_database) -> None:
+        """TC-P-04: parse_and_validate records failure to DB and returns None."""
+        # Given: No retry function and an invalid response
+        # When: Parsing and validating
+        validated = await parse_and_validate(
+            response="no json here",
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=None,
+            max_retries=1,
+            context={"case": "tc-p-04"},
+        )
+
+        # Then: Returns None
+        assert validated is None
+
+        # And: A DB row is recorded
+        rows = await test_database.fetch_all(
+            "SELECT template_name, error_type, retry_count, context_json FROM llm_extraction_errors"
+        )
+        assert len(rows) >= 1
+        assert rows[-1]["template_name"] == "extract_facts"
+        assert rows[-1]["error_type"] in ("json_parse", "schema_validation", "unknown")
+
+    @pytest.mark.asyncio
+    async def test_parse_and_validate_retry_call_failure_records_db(self, test_database) -> None:
+        """TC-P-05: parse_and_validate records DB row if retry call itself fails."""
+        # Given: Invalid response and a retry function that raises
+        async def llm_call(_: str) -> str:
+            raise RuntimeError("retry failed")
+
+        # When: Parsing and validating (retry will fail)
+        validated = await parse_and_validate(
+            response="not json",
+            schema=ExtractedFact,
+            template_name="extract_facts",
+            expect_array=True,
+            llm_call=llm_call,
+            max_retries=1,
+            context={"case": "tc-p-05"},
+        )
+
+        # Then: Returns None and records a DB row
+        assert validated is None
+        rows = await test_database.fetch_all(
+            "SELECT template_name, error_type FROM llm_extraction_errors WHERE template_name = ?",
+            ("extract_facts",),
+        )
+        assert len(rows) >= 1
 
 
 class TestSchemaValidators:

@@ -11,7 +11,8 @@ abstraction layer. The provider can be configured or switched at runtime.
 
 from typing import Any
 
-from src.filter.llm_output import extract_json
+from src.filter.llm_output import parse_and_validate
+from src.filter.llm_schemas import ExtractedClaim, ExtractedFact
 from src.filter.llm_security import validate_llm_output
 from src.filter.ollama_provider import OllamaProvider, create_ollama_provider
 from src.filter.provider import (
@@ -473,9 +474,50 @@ async def llm_extract(
 
                 # Parse response based on task
                 if task in ("extract_facts", "extract_claims"):
-                    extracted = extract_json(response_text, expect_array=True)
-                    if extracted is None:
+                    schema = ExtractedFact if task == "extract_facts" else ExtractedClaim
+
+                    async def _retry_llm_call(retry_prompt: str) -> str:
+                        retry_response = await default_provider.generate(
+                            retry_prompt,
+                            LLMOptions(model=model),
+                        )
+                        if not retry_response.ok:
+                            raise RuntimeError(retry_response.error or "LLM retry failed")
+
+                        retry_validation = validate_llm_output(
+                            retry_response.text,
+                            system_prompt=TASK_INSTRUCTIONS.get(task),
+                            mask_leakage=True,
+                        )
+                        if retry_validation.leakage_detected:
+                            audit_logger.log_prompt_leakage(
+                                source="llm_extract_retry",
+                                fragment_count=(
+                                    retry_validation.leakage_result.total_leaks
+                                    if retry_validation.leakage_result
+                                    else 1
+                                ),
+                            )
+                        return retry_validation.validated_text
+
+                    validated = await parse_and_validate(
+                        response=response_text,
+                        schema=schema,
+                        template_name=task,
+                        expect_array=True,
+                        llm_call=_retry_llm_call,
+                        max_retries=1,
+                        context={
+                            "passage_id": passage_id,
+                            "source_url": source_url,
+                            "task": task,
+                        },
+                    )
+
+                    if validated is None:
                         extracted = [{"raw_response": response_text}]
+                    else:
+                        extracted = [m.model_dump() for m in validated]
 
                     results.append(
                         {
@@ -561,9 +603,44 @@ async def llm_extract(
                 response_text = validation_result.validated_text
 
                 if task in ("extract_facts", "extract_claims"):
-                    extracted = extract_json(response_text, expect_array=True)
-                    if extracted is None:
+                    schema = ExtractedFact if task == "extract_facts" else ExtractedClaim
+
+                    async def _retry_llm_call(retry_prompt: str) -> str:
+                        retry_text = await client.generate(prompt=retry_prompt, model=model)
+                        retry_validation = validate_llm_output(
+                            retry_text,
+                            system_prompt=TASK_INSTRUCTIONS.get(task),
+                            mask_leakage=True,
+                        )
+                        if retry_validation.leakage_detected:
+                            audit_logger.log_prompt_leakage(
+                                source="llm_extract_legacy_retry",
+                                fragment_count=(
+                                    retry_validation.leakage_result.total_leaks
+                                    if retry_validation.leakage_result
+                                    else 1
+                                ),
+                            )
+                        return retry_validation.validated_text
+
+                    validated = await parse_and_validate(
+                        response=response_text,
+                        schema=schema,
+                        template_name=task,
+                        expect_array=True,
+                        llm_call=_retry_llm_call,
+                        max_retries=1,
+                        context={
+                            "passage_id": passage_id,
+                            "source_url": source_url,
+                            "task": task,
+                        },
+                    )
+
+                    if validated is None:
                         extracted = [{"raw_response": response_text}]
+                    else:
+                        extracted = [m.model_dump() for m in validated]
 
                     results.append(
                         {

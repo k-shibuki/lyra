@@ -679,7 +679,7 @@ def _normalize_yes_no(text: str) -> str | None:
 async def parse_with_retry(
     response: str,
     expected_schema: dict,
-    max_retries: int = 2,
+    max_retries: int = 1,
 ) -> dict | None:
     """フォーマットエラー時にリトライ付きでLLMレスポンスをパース。"""
 
@@ -873,16 +873,16 @@ prompt = render_prompt("quality_assessment", text=text)
 | `detect_citation.j2` | 2.6 | 軽微修正（学術引用パターン追加、英語化） |
 | `relevance_evaluation.j2` | 2.7 | 英語化のみ（参照テンプレート） |
 
-### Phase 2: LLM出力の型安全化
+### Phase 2: LLM出力の型安全化（完了）
 
 **スコープ:** LLM出力のみ対象。NLI/Embedding/Rerankerは既に `src/ml_server/schemas.py` でPydantic型安全のため対象外。
 
 | タスク | ファイル | 内容 |
 |--------|---------|------|
-| JSON抽出共通化 | `src/filter/llm_output.py`（新規） | `extract_json()` + リトライ機構 |
+| JSON抽出共通化 | `src/filter/llm_output.py`（新規） | `extract_json()` + `parse_and_validate()`（スキーマ検証+リトライ+DB記録） |
 | パーサー適用 | `llm.py`, `claim_decomposition.py`, `chain_of_density.py`, `quality_analyzer.py` | 既存の `re.search()` を置き換え |
 | Pydanticスキーマ | `src/filter/llm_schemas.py`（新規） | `ExtractedFact`, `ExtractedClaim` 等 |
-| フォーマット修正リトライ | `src/filter/llm_output.py` | 2回までリトライ、失敗時DB記録 |
+| フォーマット修正リトライ | `src/filter/llm_output.py` | 最大1回までリトライ、失敗時は `llm_extraction_errors` にDB記録（処理は続行） |
 
 ### Phase 3: プロンプトテストフレームワーク（完了）
 
@@ -1044,9 +1044,9 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
 
 #### リトライ＆エラー記録ポリシー
 
-1. **リトライ**: JSON抽出失敗時、最大2回までフォーマット修正リトライを実行
-2. **2回リトライしても失敗した場合**:
-   - DBに「エラーで値が取れなかった」ことを記録（`extraction_errors` 等）
+1. **リトライ**: JSON抽出失敗またはスキーマ検証失敗時、最大1回までフォーマット修正リトライを実行
+2. **1回リトライしても失敗した場合**:
+   - DBに「エラーで値が取れなかった」ことを記録（`llm_extraction_errors`）
    - 処理は止めずに続行（次のパッセージ/タスクへ進む）
    - ログレベル: `WARNING`
 3. **ADR-0004との整合性**: フォーマット修正リトライは「同じ機械的抽出タスクの再試行」であり、禁止されている「戦略的決定」には該当しない

@@ -389,6 +389,24 @@ CREATE INDEX IF NOT EXISTS idx_event_log_task ON event_log(task_id);
 CREATE INDEX IF NOT EXISTS idx_event_log_type ON event_log(event_type);
 CREATE INDEX IF NOT EXISTS idx_event_log_timestamp ON event_log(timestamp);
 
+-- LLM Extraction Errors: Track parse/validation failures for audit/debug
+-- NOTE: This is added via schema.sql change; per user instruction DB is recreated, not migrated.
+CREATE TABLE IF NOT EXISTS llm_extraction_errors (
+    id TEXT PRIMARY KEY,
+    task_id TEXT,
+    template_name TEXT NOT NULL,
+    error_type TEXT NOT NULL,  -- json_parse, schema_validation
+    response_preview TEXT,
+    context_json TEXT,
+    retry_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+CREATE INDEX IF NOT EXISTS idx_llm_extraction_errors_task ON llm_extraction_errors(task_id);
+CREATE INDEX IF NOT EXISTS idx_llm_extraction_errors_template ON llm_extraction_errors(template_name);
+CREATE INDEX IF NOT EXISTS idx_llm_extraction_errors_type ON llm_extraction_errors(error_type);
+CREATE INDEX IF NOT EXISTS idx_llm_extraction_errors_created_at ON llm_extraction_errors(created_at);
+
 -- Manual Intervention Log
 CREATE TABLE IF NOT EXISTS intervention_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
