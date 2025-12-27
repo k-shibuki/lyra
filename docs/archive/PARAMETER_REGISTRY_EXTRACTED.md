@@ -1,0 +1,1393 @@
+# Parameter Registry (Extracted)
+**Generated**: 2025-12-27
+This file is an *inventory* of parameters extracted from DB schema, MCP JSON Schemas, and code contracts (BaseModel/dataclass/TypedDict).
+## DB: tables and columns
+- tables: **32**
+### `adapters`
+- columns (10): `id`, `version_name`, `adapter_path`, `base_model`, `samples_used`, `brier_before`, `brier_after`, `shadow_accuracy`, `created_at`, `is_active`
+### `cache_embed`
+- columns (6): `text_hash`, `model_id`, `embedding_blob`, `created_at`, `expires_at`, `hit_count`
+### `cache_fetch`
+- columns (8): `url_normalized`, `etag`, `last_modified`, `content_hash`, `content_path`, `created_at`, `last_validated_at`, `expires_at`
+### `cache_serp`
+- columns (8): `cache_key`, `query_normalized`, `engines_json`, `time_range`, `result_json`, `created_at`, `expires_at`, `hit_count`
+### `calibration_evaluations`
+- columns (11): `id`, `source`, `brier_score`, `brier_score_calibrated`, `improvement_ratio`, `expected_calibration_error`, `samples_evaluated`, `bins_json`, `calibration_version`, `evaluated_at`, `created_at`
+### `claims`
+- columns (18): `id`, `task_id`, `claim_text`, `claim_type`, `granularity`, `expected_polarity`, `claim_confidence`, `source_fragment_ids`, `claim_adoption_status`, `claim_rejection_reason`, `claim_rejected_at`, `supporting_count`, `refuting_count`, `neutral_count`, `verification_notes`, `timeline_json`, `created_at`, `cause_id`
+### `decisions`
+- columns (9): `id`, `task_id`, `timestamp`, `decision_type`, `cause_id`, `input_json`, `output_json`, `context_json`, `duration_ms`
+### `domain_override_events`
+- columns (8): `id`, `rule_id`, `action`, `domain_pattern`, `decision`, `reason`, `created_at`, `created_by`
+### `domain_override_rules`
+- columns (8): `id`, `domain_pattern`, `decision`, `reason`, `created_at`, `updated_at`, `is_active`, `created_by`
+### `domains`
+- columns (51): `domain`, `domain_category`, `qps_limit`, `concurrent_limit`, `headful_ratio`, `tor_allowed`, `tor_success_rate`, `cooldown_minutes`, `success_rate_1h`, `success_rate_24h`, `captcha_rate`, `http_error_rate`, `block_score`, `last_success_at`, `last_failure_at`, `last_captcha_at`, `cooldown_until`, `skip_until`, `skip_reason`, `total_requests`, `total_success`, `total_failures`, `total_captchas`, `wayback_success_count`, `wayback_failure_count`, `ipv6_enabled`, `ipv6_success_rate`, `ipv4_success_rate`, `ipv6_preference`, `ipv6_attempts`, `ipv6_successes`, `ipv4_attempts`, `ipv4_successes`, `switch_count`, `switch_success_count`, `last_ipv6_success_at`, `last_ipv6_failure_at`, `last_ipv4_success_at`, `last_ipv4_failure_at`, `http3_detected`, `http3_first_seen_at`, `http3_last_seen_at`, `browser_requests`, `browser_http3_requests`, `browser_successes`, `http_client_requests`, `http_client_successes`, `behavioral_difference_ema`, `browser_ratio_boost`, `created_at`, `updated_at`
+### `edges`
+- columns (18): `id`, `source_type`, `source_id`, `target_type`, `target_id`, `relation`, `confidence`, `nli_label`, `nli_confidence`, `citation_source`, `citation_context`, `source_domain_category`, `target_domain_category`, `edge_human_corrected`, `edge_correction_reason`, `edge_corrected_at`, `created_at`, `cause_id`
+### `engine_health`
+- columns (20): `engine`, `status`, `weight`, `qps_limit`, `success_rate_1h`, `success_rate_24h`, `captcha_rate`, `median_latency_ms`, `http_error_rate`, `normalization_failure_rate`, `consecutive_failures`, `last_failure_at`, `cooldown_until`, `total_queries`, `total_success`, `total_failures`, `daily_usage`, `daily_limit`, `created_at`, `updated_at`
+### `event_log`
+- columns (10): `id`, `timestamp`, `event_type`, `level`, `task_id`, `job_id`, `cause_id`, `component`, `message`, `details_json`
+### `fragments`
+- columns (18): `id`, `page_id`, `fragment_type`, `position`, `text_content`, `heading_context`, `heading_hierarchy`, `element_index`, `char_offset_start`, `char_offset_end`, `text_hash`, `created_at`, `bm25_score`, `embed_score`, `rerank_score`, `is_relevant`, `relevance_reason`, `cause_id`
+### `high_yield_queries`
+- columns (9): `id`, `pattern_type`, `original_pattern`, `improved_pattern`, `improvement_ratio`, `sample_count`, `confidence`, `created_at`, `updated_at`
+### `intervention_log`
+- columns (10): `id`, `task_id`, `domain`, `intervention_type`, `notification_sent_at`, `user_action_at`, `completed_at`, `result`, `duration_seconds`, `notes`
+### `intervention_queue`
+- columns (14): `id`, `task_id`, `url`, `domain`, `auth_type`, `priority`, `status`, `queued_at`, `started_at`, `completed_at`, `expires_at`, `session_data`, `notes`, `search_job_id`
+### `jobs`
+- columns (16): `id`, `task_id`, `kind`, `priority`, `slot`, `state`, `budget_pages`, `budget_time_ms`, `input_json`, `output_json`, `error_message`, `created_at`, `queued_at`, `started_at`, `finished_at`, `cause_id`
+### `lastmile_usage`
+- columns (6): `id`, `engine`, `date`, `usage_count`, `created_at`, `updated_at`
+### `metrics_snapshot`
+- columns (23): `id`, `timestamp`, `harvest_rate`, `novelty_score`, `duplicate_rate`, `domain_diversity`, `tor_usage_rate`, `headful_rate`, `referer_match_rate`, `cache_304_rate`, `captcha_rate`, `http_error_403_rate`, `http_error_429_rate`, `primary_source_rate`, `citation_loop_rate`, `narrative_diversity`, `contradiction_rate`, `timeline_coverage`, `aggregator_rate`, `llm_time_ratio`, `gpu_utilization`, `browser_utilization`, `full_snapshot_json`
+### `nli_corrections`
+- columns (11): `id`, `edge_id`, `task_id`, `premise`, `hypothesis`, `predicted_label`, `predicted_confidence`, `correct_label`, `reason`, `corrected_at`, `trained_adapter_id`
+### `pages`
+- columns (23): `id`, `url`, `final_url`, `domain`, `page_type`, `fetch_method`, `http_status`, `content_type`, `content_hash`, `content_length`, `title`, `paper_metadata`, `language`, `fetched_at`, `warc_path`, `screenshot_path`, `html_path`, `extracted_text_path`, `etag`, `last_modified`, `headers_json`, `error_message`, `cause_id`
+### `policy_updates`
+- columns (9): `id`, `timestamp`, `target_type`, `target_id`, `parameter`, `old_value`, `new_value`, `reason`, `metrics_snapshot_json`
+### `queries`
+- columns (13): `id`, `task_id`, `query_text`, `query_type`, `language`, `parent_query_id`, `depth`, `created_at`, `executed_at`, `engines_used`, `result_count`, `harvest_rate`, `cause_id`
+### `query_ab_tests`
+- columns (7): `id`, `task_id`, `base_query`, `created_at`, `winner_variant_type`, `winner_harvest_rate`, `status`
+### `query_ab_variants`
+- columns (10): `id`, `ab_test_id`, `variant_type`, `query_text`, `transformation`, `result_count`, `useful_fragments`, `harvest_rate`, `execution_time_ms`, `created_at`
+### `replay_sessions`
+- columns (10): `id`, `original_task_id`, `replay_task_id`, `started_at`, `completed_at`, `status`, `decisions_replayed`, `decisions_diverged`, `divergence_points_json`, `metrics_comparison_json`
+### `resource_index`
+- columns (10): `id`, `identifier_type`, `identifier_value`, `page_id`, `task_id`, `status`, `worker_id`, `claimed_at`, `completed_at`, `created_at`
+### `schema_migrations`
+- columns (3): `version`, `name`, `applied_at`
+### `serp_items`
+- columns (14): `id`, `query_id`, `engine`, `rank`, `url`, `title`, `snippet`, `published_date`, `source_tag`, `page_number`, `created_at`, `clicked`, `fetch_status`, `cause_id`
+### `task_metrics`
+- columns (28): `id`, `task_id`, `timestamp`, `total_queries`, `total_pages_fetched`, `total_fragments`, `useful_fragments`, `total_requests`, `tor_requests`, `headful_requests`, `cache_304_hits`, `revisit_count`, `referer_matched`, `captcha_count`, `error_403_count`, `error_429_count`, `primary_sources`, `total_sources`, `unique_domains`, `citation_loops_detected`, `total_citations`, `contradictions_found`, `total_claims`, `claims_with_timeline`, `aggregator_sources`, `llm_time_ms`, `total_time_ms`, `computed_metrics_json`
+### `tasks`
+- columns (9): `id`, `query`, `status`, `created_at`, `started_at`, `completed_at`, `config_json`, `result_summary`, `error_message`
+
+## MCP schemas: property paths (allowlisted)
+- tools: **11**
+### `calibrate_rollback`
+- paths (7):
+  - `brier_after`
+  - `method`
+  - `ok`
+  - `previous_version`
+  - `reason`
+  - `rolled_back_to`
+  - `source`
+### `calibration_metrics`
+- paths (20):
+  - `action`
+  - `current_params`
+  - `degradation_threshold`
+  - `evaluations`
+  - `evaluations[].brier_score`
+  - `evaluations[].brier_score_calibrated`
+  - `evaluations[].calibration_version`
+  - `evaluations[].evaluated_at`
+  - `evaluations[].evaluation_id`
+  - `evaluations[].expected_calibration_error`
+  - `evaluations[].improvement_ratio`
+  - `evaluations[].samples_evaluated`
+  - `evaluations[].source`
+  - `filter_since`
+  - `filter_source`
+  - `history`
+  - `ok`
+  - `recalibration_threshold`
+  - `returned_count`
+  - `total_count`
+### `create_task`
+- paths (7):
+  - `budget`
+  - `budget.budget_pages`
+  - `budget.max_seconds`
+  - `created_at`
+  - `ok`
+  - `query`
+  - `task_id`
+### `error`
+- paths (5):
+  - `error`
+  - `error_code`
+  - `error_id`
+  - `error_type`
+  - `ok`
+### `feedback`
+- paths (10):
+  - `action`
+  - `claim_id`
+  - `cleared_rules`
+  - `domain_pattern`
+  - `edge_id`
+  - `new_relation`
+  - `ok`
+  - `previous_relation`
+  - `rule_id`
+  - `sample_id`
+### `get_auth_queue`
+- paths (12):
+  - `group_by`
+  - `groups`
+  - `items`
+  - `items[].auth_type`
+  - `items[].created_at`
+  - `items[].domain`
+  - `items[].priority`
+  - `items[].queue_id`
+  - `items[].task_id`
+  - `items[].url`
+  - `ok`
+  - `total_count`
+### `get_materials`
+- paths (44):
+  - `claims`
+  - `claims[].claim_adoption_status`
+  - `claims[].claim_rejection_reason`
+  - `claims[].confidence`
+  - `claims[].controversy`
+  - `claims[].evidence`
+  - `claims[].evidence[].doi`
+  - `claims[].evidence[].nli_confidence`
+  - `claims[].evidence[].relation`
+  - `claims[].evidence[].source_domain_category`
+  - `claims[].evidence[].source_id`
+  - `claims[].evidence[].source_type`
+  - `claims[].evidence[].venue`
+  - `claims[].evidence[].year`
+  - `claims[].evidence_count`
+  - `claims[].evidence_years`
+  - `claims[].evidence_years.newest`
+  - `claims[].evidence_years.oldest`
+  - `claims[].has_refutation`
+  - `claims[].id`
+  - `claims[].sources`
+  - `claims[].sources[].domain`
+  - `claims[].sources[].domain_category`
+  - `claims[].sources[].is_primary`
+  - `claims[].sources[].title`
+  - `claims[].sources[].url`
+  - `claims[].text`
+  - `claims[].uncertainty`
+  - `evidence_graph`
+  - `format`
+  - `fragments`
+  - `fragments[].context`
+  - `fragments[].id`
+  - `fragments[].is_primary`
+  - `fragments[].source_url`
+  - `fragments[].text`
+  - `ok`
+  - `query`
+  - `summary`
+  - `summary.primary_source_ratio`
+  - `summary.refuted_claims`
+  - `summary.total_claims`
+  - `summary.verified_claims`
+  - `task_id`
+### `get_status`
+- paths (57):
+  - `auth_queue`
+  - `blocked_domains`
+  - `blocked_domains[].blocked_at`
+  - `blocked_domains[].cause_id`
+  - `blocked_domains[].domain`
+  - `blocked_domains[].domain_block_reason`
+  - `blocked_domains[].domain_unblock_risk`
+  - `blocked_domains[].original_domain_category`
+  - `blocked_domains[].reason`
+  - `blocked_domains[].restore_via`
+  - `budget`
+  - `budget.budget_pages_limit`
+  - `budget.budget_pages_used`
+  - `budget.remaining_percent`
+  - `budget.time_limit_seconds`
+  - `budget.time_used_seconds`
+  - `domain_overrides`
+  - `domain_overrides[].decision`
+  - `domain_overrides[].domain_pattern`
+  - `domain_overrides[].reason`
+  - `domain_overrides[].rule_id`
+  - `domain_overrides[].updated_at`
+  - `idle_seconds`
+  - `metrics`
+  - `metrics.elapsed_seconds`
+  - `metrics.satisfied_count`
+  - `metrics.total_claims`
+  - `metrics.total_fragments`
+  - `metrics.total_pages`
+  - `metrics.total_searches`
+  - `ok`
+  - `pending_auth`
+  - `pending_auth_count`
+  - `query`
+  - `queue`
+  - `queue.depth`
+  - `queue.items`
+  - `queue.items[].completed_at`
+  - `queue.items[].created_at`
+  - `queue.items[].id`
+  - `queue.items[].priority`
+  - `queue.items[].query`
+  - `queue.items[].started_at`
+  - `queue.items[].status`
+  - `queue.running`
+  - `searches`
+  - `searches[].harvest_rate`
+  - `searches[].has_primary_source`
+  - `searches[].id`
+  - `searches[].pages_fetched`
+  - `searches[].query`
+  - `searches[].satisfaction_score`
+  - `searches[].status`
+  - `searches[].useful_fragments`
+  - `status`
+  - `task_id`
+  - `warnings`
+### `queue_searches`
+- paths (4):
+  - `message`
+  - `ok`
+  - `queued_count`
+  - `search_ids`
+### `resolve_auth`
+- paths (7):
+  - `action`
+  - `domain`
+  - `ok`
+  - `queue_id`
+  - `resolved_count`
+  - `success`
+  - `target`
+### `stop_task`
+- paths (13):
+  - `final_status`
+  - `mode`
+  - `ok`
+  - `reason`
+  - `summary`
+  - `summary.elapsed_seconds`
+  - `summary.primary_source_ratio`
+  - `summary.satisfied_searches`
+  - `summary.total_claims`
+  - `summary.total_fragments`
+  - `summary.total_pages`
+  - `summary.total_searches`
+  - `task_id`
+
+## Code contracts: fields (BaseModel / dataclass / TypedDict)
+- items: **1730** (unique field names: **1108**)
+
+### Unique field names (sorted)
+- `_DEFAULT_BASE_URLS`
+- `_consecutive_failures`
+- `_half_open_successes`
+- `_latencies`
+- `_lock`
+- `_on_state_change`
+- `_opened_at`
+- `_resolution_times`
+- `_state`
+- `abstract`
+- `academic_api`
+- `acceleration_ratio`
+- `accept_language`
+- `actual_label`
+- `ad_element_count`
+- `added_at`
+- `added_lines`
+- `address`
+- `addresses`
+- `addresses_resolved`
+- `adjusted_confidence`
+- `affiliate_link_count`
+- `affiliation`
+- `age_days`
+- `aggregator_sources`
+- `alias_normalized`
+- `alias_text`
+- `alias_type`
+- `allocated_budget`
+- `allowed`
+- `allowed_paths`
+- `allowlist`
+- `alpha`
+- `animation_duration_ms`
+- `apis`
+- `archive_date`
+- `archive_dir`
+- `arxiv_id`
+- `attempts`
+- `attribute`
+- `audio_hash`
+- `auth_blocked_urls`
+- `auth_queue_ttl_hours`
+- `auth_queued_count`
+- `auth_type`
+- `authors`
+- `auto_escalate_block_score`
+- `auto_escalate_captcha_rate`
+- `available`
+- `available_models`
+- `avg_paragraph_length`
+- `avg_resolution_time_ms`
+- `avg_sentence_length`
+- `backoff`
+- `backoff_active`
+- `backoff_base`
+- `backoff_max`
+- `backspace_delay_ms`
+- `base_height`
+- `base_query`
+- `base_scroll_amount`
+- `base_speed`
+- `base_url`
+- `base_weight`
+- `base_width`
+- `baseline`
+- `baseline_value`
+- `batch_size`
+- `behavioral_difference`
+- `behavioral_difference_ema`
+- `behavioral_difference_samples`
+- `behavioral_difference_sum`
+- `beta`
+- `bing`
+- `bins`
+- `block_ads`
+- `block_cause_id`
+- `block_large_media`
+- `block_reason`
+- `block_resistant`
+- `block_resources`
+- `block_score`
+- `block_trackers`
+- `blocked_at`
+- `blocked_by_robots`
+- `blocked_domains`
+- `boilerplate_ratio`
+- `brand`
+- `brands`
+- `brave`
+- `brier_after`
+- `brier_after_rollback`
+- `brier_before`
+- `brier_before_rollback`
+- `brier_score`
+- `brier_score_calibrated`
+- `browser`
+- `browser_http3_requests`
+- `browser_ratio_boost`
+- `browser_requests`
+- `browser_route_ratio`
+- `browser_serp`
+- `browser_successes`
+- `budget_pages`
+- `budget_pages_per_day`
+- `budget_pages_per_task`
+- `budget_remaining`
+- `budget_time_seconds`
+- `burstiness_score`
+- `cache_304_hits`
+- `cache_dir`
+- `cache_hits`
+- `cache_misses`
+- `call_to_action_count`
+- `candidate_elements`
+- `canonical`
+- `canonical_id`
+- `canonical_name`
+- `canvas_hash`
+- `capabilities`
+- `capitalization_ratio`
+- `captcha_count`
+- `captcha_patterns`
+- `captcha_queued`
+- `captcha_rate`
+- `captcha_type`
+- `case_insensitive`
+- `categories`
+- `category`
+- `category_engines`
+- `cause_id`
+- `cert_id`
+- `cert_timeline_end`
+- `cert_timeline_start`
+- `certificates`
+- `challenge_detected`
+- `challenge_type`
+- `change_count`
+- `changefreq`
+- `chrome_base_port`
+- `chrome_full_version`
+- `chrome_host`
+- `chrome_major_version`
+- `chrome_profile_prefix`
+- `circuit_breaker`
+- `circuit_sticky_minutes`
+- `citation_count`
+- `citation_filter`
+- `citation_graph_api`
+- `citation_graph_depth`
+- `citation_graph_direction`
+- `citation_graph_top_n_papers`
+- `citation_loops_detected`
+- `citations`
+- `cited_paper_id`
+- `citing_paper_id`
+- `city`
+- `claim_adoption_status`
+- `claim_date`
+- `claim_id`
+- `claim_rejection_reason`
+- `claim_type`
+- `claims`
+- `claims_found`
+- `claims_with_timeline`
+- `cloud_agent_type`
+- `cloudflare_sites`
+- `cloudflare_timeout`
+- `cluster_id`
+- `color_depth`
+- `common_name`
+- `completed_at`
+- `concurrency`
+- `concurrent`
+- `confidence`
+- `confidence_adjustment`
+- `config_max_parallel`
+- `config_max_tabs`
+- `connection_mode`
+- `consecutive_429_count`
+- `consecutive_failures`
+- `consumed_budget`
+- `content`
+- `content_diff`
+- `content_hash`
+- `context`
+- `context_length`
+- `contradicting_claims`
+- `contradictions_found`
+- `control_point_variance`
+- `control_port`
+- `controversy`
+- `cookies`
+- `cooldown_max`
+- `cooldown_min`
+- `cooldown_minutes`
+- `cooldown_seconds`
+- `cooldown_until`
+- `corroborating_claims`
+- `count`
+- `country`
+- `country_code`
+- `country_name`
+- `crawl_delay`
+- `crawler`
+- `create_placeholder_pages`
+- `created_at`
+- `created_date`
+- `current`
+- `current_height`
+- `current_page`
+- `current_usage_today`
+- `current_value`
+- `current_width`
+- `cursor_idle_timeout_seconds`
+- `daily_limit`
+- `dangerous_patterns_found`
+- `data_dir`
+- `data_quality`
+- `database_path`
+- `date`
+- `day`
+- `debug_html_dir`
+- `deceleration_ratio`
+- `decision_id`
+- `decision_type`
+- `decisions_diverged`
+- `decisions_replayed`
+- `decomposition_method`
+- `decrease_step`
+- `deep_link`
+- `default`
+- `default_engine`
+- `default_engines`
+- `default_headless`
+- `default_language`
+- `default_policy`
+- `default_qps`
+- `default_region`
+- `default_route`
+- `default_value`
+- `defaults`
+- `delay_max`
+- `delay_min`
+- `delay_ms`
+- `density_score`
+- `denylist`
+- `depth`
+- `description`
+- `dest`
+- `destination`
+- `details`
+- `diagnostic_message`
+- `diagnostic_report`
+- `diff_from_previous`
+- `digest`
+- `dimension`
+- `direct_resolutions`
+- `direct_sources`
+- `disable_edns_client_subnet`
+- `disabled`
+- `disallowed_paths`
+- `discovered_at`
+- `discovered_domains`
+- `discovered_issuers`
+- `discovered_orgs`
+- `discovered_urls`
+- `display_name`
+- `divergence_points`
+- `dns`
+- `dnssec`
+- `documents`
+- `doi`
+- `domain`
+- `domain_block_reason`
+- `domain_category`
+- `domain_concurrent`
+- `domain_cooldown`
+- `domain_cooldown_minutes`
+- `domain_pattern`
+- `domain_qps`
+- `domains`
+- `drifts`
+- `duckduckgo`
+- `duration_ms`
+- `dynamic_weight`
+- `earliest_cert`
+- `earliest_date`
+- `ease_out_power`
+- `ecosia`
+- `edges`
+- `effective_max_parallel`
+- `effective_max_tabs`
+- `elapsed_ms`
+- `ema_long`
+- `ema_long_alpha`
+- `ema_short`
+- `ema_short_alpha`
+- `ema_update_interval`
+- `email`
+- `embed_cache_ttl`
+- `embedding`
+- `embedding_name`
+- `embeddings`
+- `enabled`
+- `end_time`
+- `engine`
+- `engine_qps`
+- `engine_weight`
+- `engines`
+- `entities_created`
+- `entities_updated`
+- `entity`
+- `entity_count`
+- `entity_id`
+- `entity_type`
+- `entries`
+- `error`
+- `error_403_count`
+- `error_429_count`
+- `error_code`
+- `error_details`
+- `error_id`
+- `error_message`
+- `error_sanitized`
+- `errors`
+- `etag`
+- `event_id`
+- `event_type`
+- `events`
+- `evidence`
+- `evidence_count`
+- `evidence_fragment_id`
+- `evidence_graph`
+- `evidence_years`
+- `example_operators`
+- `exceeded_reason`
+- `exception_type`
+- `excerpt`
+- `execution_time_ms`
+- `expected_calibration_error`
+- `expected_polarity`
+- `expires`
+- `expiry_date`
+- `exploration_depth`
+- `external_link_ratio`
+- `extra`
+- `extra_data`
+- `failed_selectors`
+- `failure_threshold`
+- `family`
+- `family_attempted`
+- `family_used`
+- `features`
+- `fetch_cache_ttl`
+- `fetched_at`
+- `fields_removed`
+- `fields_sanitized`
+- `fitted_at`
+- `fonts`
+- `footer_ratio`
+- `form_count`
+- `format`
+- `fragment_ids`
+- `fragment_positions`
+- `fragments`
+- `freshness_penalty`
+- `from_cache`
+- `from_version`
+- `full_version`
+- `general`
+- `google`
+- `gpu_available`
+- `gpu_layers`
+- `granularity`
+- `graylist`
+- `grease_brand`
+- `grease_version`
+- `had_sensitive_content`
+- `half_open_max_calls`
+- `harvest_rate`
+- `has_about_section`
+- `has_abstract`
+- `has_academic_structure`
+- `has_add_to_cart`
+- `has_article_numbers`
+- `has_article_tag`
+- `has_aside_tag`
+- `has_attribution_pattern`
+- `has_author`
+- `has_breadcrumb`
+- `has_category`
+- `has_charts_tables`
+- `has_citations`
+- `has_comments_section`
+- `has_company_info`
+- `has_contact_info`
+- `has_curated_list_pattern`
+- `has_date`
+- `has_display`
+- `has_doi`
+- `has_edit_links`
+- `has_executive_summary`
+- `has_financial_data`
+- `has_infobox`
+- `has_leakage`
+- `has_legal_citations`
+- `has_legal_structure`
+- `has_login_form`
+- `has_main_tag`
+- `has_multiple_sources`
+- `has_nav_tag`
+- `has_pagination`
+- `has_password_field`
+- `has_paywall_indicator`
+- `has_price`
+- `has_primary_source`
+- `has_product_gallery`
+- `has_refutation`
+- `has_reply_form`
+- `has_report_structure`
+- `has_significant_changes`
+- `has_specifications`
+- `has_team_section`
+- `has_thread_structure`
+- `has_toc`
+- `has_user_avatars`
+- `has_vote_buttons`
+- `has_wiki_structure`
+- `headers`
+- `headful_ratio`
+- `headful_ratio_initial`
+- `headful_requests`
+- `headful_required`
+- `heading_changes`
+- `heading_context`
+- `heading_count`
+- `headings_added`
+- `headings_removed`
+- `hostname`
+- `html`
+- `html_length`
+- `html_path`
+- `html_saved_path`
+- `html_summary`
+- `http3_available`
+- `http3_detected`
+- `http3_first_seen_at`
+- `http3_last_seen_at`
+- `http3_ratio`
+- `http_client_requests`
+- `http_client_successes`
+- `http_error_rate`
+- `http_only`
+- `hypothesis`
+- `hysteresis_min_interval`
+- `hysteresis_seconds`
+- `icon`
+- `id`
+- `identifier_normalized`
+- `identifier_type`
+- `identifier_value`
+- `image_count`
+- `improved_pattern`
+- `improvement_ratio`
+- `include_conditional`
+- `independent_sources`
+- `index`
+- `index_urls`
+- `initial_query_count_cpu`
+- `initial_query_count_gpu`
+- `initiator_type`
+- `input_count`
+- `input_data`
+- `internal_search`
+- `internal_search_templates`
+- `interval_seconds`
+- `ip_addresses`
+- `ips_found`
+- `ipv4_attempts`
+- `ipv4_success_rate`
+- `ipv4_successes`
+- `ipv6_attempts`
+- `ipv6_enabled`
+- `ipv6_preference`
+- `ipv6_success_rate`
+- `ipv6_successes`
+- `is_active`
+- `is_blocked`
+- `is_captcha`
+- `is_cloud_agent`
+- `is_container`
+- `is_current`
+- `is_download`
+- `is_e2e_capable`
+- `is_main_frame`
+- `is_mobile`
+- `is_open_access`
+- `is_partial`
+- `is_primary`
+- `is_refutation`
+- `is_user_initiated`
+- `is_verified`
+- `is_wsl`
+- `issue_details`
+- `issuer_name`
+- `issuer_org`
+- `issues`
+- `items`
+- `iteration`
+- `jitter_amplitude`
+- `jitter_frequency`
+- `key`
+- `key_changes`
+- `keyword_density`
+- `keywords`
+- `label`
+- `language`
+- `last_403_time`
+- `last_429_time`
+- `last_captcha_at`
+- `last_captcha_time`
+- `last_change_time`
+- `last_changed_at`
+- `last_check`
+- `last_direction`
+- `last_failure_at`
+- `last_harvest_rate`
+- `last_ipv4_failure_at`
+- `last_ipv4_success_at`
+- `last_ipv6_failure_at`
+- `last_ipv6_success_at`
+- `last_modified`
+- `last_recovery_attempt`
+- `last_success_at`
+- `last_updated`
+- `last_url`
+- `last_used`
+- `last_used_at`
+- `lastmile_engines`
+- `lastmod`
+- `latency_ms`
+- `latest_cert`
+- `latest_date`
+- `leak_detected`
+- `leak_detection_enabled`
+- `leakage_detected`
+- `leakage_result`
+- `leaked_fragments`
+- `leaked_tag_patterns`
+- `leaks_detected`
+- `learning_state`
+- `length`
+- `level`
+- `limit`
+- `link_count`
+- `link_density`
+- `link_selector`
+- `link_type`
+- `linux_notify_enabled`
+- `list_item_count`
+- `llm`
+- `llm_assessed`
+- `llm_assessment_reason`
+- `llm_fields_processed`
+- `llm_is_ai_generated`
+- `llm_is_spam`
+- `llm_max_tokens`
+- `llm_quality_score`
+- `llm_time_ms`
+- `llm_time_ratio_max`
+- `llm_time_seconds`
+- `llm_timeout_seconds`
+- `loaded_models`
+- `loc`
+- `log_level`
+- `logit`
+- `logs_dir`
+- `major_version`
+- `manual_rejected_claims`
+- `match_score`
+- `match_type`
+- `matched_value`
+- `max`
+- `max_cache_ttl`
+- `max_candidates_per_page`
+- `max_citation_depth`
+- `max_delay_ms`
+- `max_depth_reached`
+- `max_edges_per_page`
+- `max_exploration_depth`
+- `max_fetch_time`
+- `max_height_jitter`
+- `max_length`
+- `max_llm_ratio`
+- `max_manual_intervention_time_minutes`
+- `max_manual_interventions`
+- `max_papers_per_search`
+- `max_parallel`
+- `max_requests_per_day`
+- `max_results_per_page`
+- `max_retries`
+- `max_source_abstract_chars`
+- `max_steps`
+- `max_tabs`
+- `max_target_abstract_chars`
+- `max_time_minutes_cpu`
+- `max_time_minutes_gpu`
+- `max_time_seconds`
+- `max_tokens`
+- `max_top_k`
+- `max_usage_ratio`
+- `max_value`
+- `max_width_jitter`
+- `mean_delay_ms`
+- `median_latency_ms`
+- `message`
+- `message_id`
+- `meta_og_type`
+- `method`
+- `metrics`
+- `metrics_comparison`
+- `metrics_snapshot`
+- `metrics_used`
+- `mime_type`
+- `min`
+- `min_cache_ttl`
+- `min_citation_count`
+- `min_confidence_score`
+- `min_delay_ms`
+- `min_harvest_rate`
+- `min_independent_sources`
+- `min_interval_seconds`
+- `min_novelty_rate`
+- `min_primary_secondary_sources`
+- `min_primary_sources`
+- `min_secondary_sources`
+- `min_steps`
+- `min_text_chars`
+- `min_value`
+- `ml`
+- `mode`
+- `model`
+- `model_context`
+- `model_name`
+- `models_loaded`
+- `modified_at`
+- `mojeek`
+- `month`
+- `mouse`
+- `name`
+- `nameservers`
+- `navigation_ratio`
+- `needs_meta_extraction`
+- `network_concurrent`
+- `neutral_count`
+- `new_claims`
+- `new_domain_category`
+- `new_snapshot`
+- `new_urls_in_page`
+- `new_value`
+- `newest`
+- `next_cursor`
+- `ngram_repetition_score`
+- `nli`
+- `nli_confidence`
+- `nli_name`
+- `nli_scores`
+- `nodes`
+- `non_retryable_status_codes`
+- `normalized`
+- `normalized_address`
+- `normalized_name`
+- `not_after`
+- `not_before`
+- `notes`
+- `notification`
+- `novelty_cycles_to_stop`
+- `novelty_rate`
+- `novelty_score`
+- `novelty_threshold`
+- `num_control_points`
+- `num_workers`
+- `oa_url`
+- `occurrence_count`
+- `offset_one_indexed`
+- `ok`
+- `old_snapshot`
+- `old_value`
+- `oldest`
+- `ollama_host`
+- `onnx_path`
+- `operator_mapping`
+- `operator_type`
+- `operators`
+- `orcid`
+- `organization`
+- `organizations`
+- `original`
+- `original_domain_category`
+- `original_field_count`
+- `original_length`
+- `original_pattern`
+- `original_question`
+- `original_task_id`
+- `original_url`
+- `output_data`
+- `page_date`
+- `page_load_timeout`
+- `page_number`
+- `page_type`
+- `page_zero_indexed`
+- `pages_fetched`
+- `pages_remaining`
+- `pages_today`
+- `pagination`
+- `pagination_type`
+- `pair_id`
+- `pairs`
+- `paper`
+- `papers`
+- `paragraph_count`
+- `parameter`
+- `parent_claim_id`
+- `path`
+- `pattern`
+- `pattern_type`
+- `pause_max_ms`
+- `pause_min_ms`
+- `pause_probability`
+- `pdf_url`
+- `penalty`
+- `pending_claims`
+- `perplexity_proxy`
+- `persons`
+- `phone`
+- `phrase_repetition_count`
+- `pivot_type`
+- `platform`
+- `platform_version`
+- `platt_a`
+- `platt_b`
+- `plugins_count`
+- `pmid`
+- `policy_bounds`
+- `polite_pool`
+- `position`
+- `postal_code`
+- `predicted_prob`
+- `prefer_browser`
+- `prefer_headless`
+- `premise`
+- `preview`
+- `primary_source_ratio`
+- `primary_sources`
+- `priority`
+- `priority_boost`
+- `priority_filter`
+- `priority_urls`
+- `probe_interval`
+- `project_name`
+- `promotion_result`
+- `protocol`
+- `provider`
+- `proxy_url`
+- `published_date`
+- `pulls`
+- `punctuation_chars`
+- `punctuation_delay_multiplier`
+- `punctuation_density`
+- `qps`
+- `quality`
+- `quality_score`
+- `quantization`
+- `query`
+- `query_domain`
+- `query_examples`
+- `query_id`
+- `query_template`
+- `query_text`
+- `queue_id`
+- `queue_ids`
+- `qwant`
+- `rank`
+- `rate_limit`
+- `rationale`
+- `raw_content`
+- `raw_data`
+- `raw_element`
+- `raw_label`
+- `raw_response`
+- `raw_text`
+- `raw_value`
+- `reason`
+- `recent_fragment_hashes`
+- `recommended_engines`
+- `recovery_stable_seconds`
+- `reference_count`
+- `referer`
+- `referer_matched`
+- `referer_url`
+- `refutation_count`
+- `refutation_details`
+- `refutation_status`
+- `refutations_found`
+- `refute`
+- `refuted_claims`
+- `refuting_count`
+- `region`
+- `registrant`
+- `registrant_country`
+- `registrant_org`
+- `registrar`
+- `relation`
+- `relationships`
+- `relationships_created`
+- `removed_lines`
+- `removed_tags`
+- `removed_zero_width`
+- `repair_action`
+- `repair_actions`
+- `repair_status`
+- `replay_task_id`
+- `reports_dir`
+- `request`
+- `request_timeout`
+- `requests_per_day`
+- `requests_per_interval`
+- `requests_remaining`
+- `requests_today`
+- `require_useful_text`
+- `required`
+- `reranker`
+- `reranker_name`
+- `resolution_errors`
+- `resolution_time_ms`
+- `resolve_through_tor`
+- `resolved_at`
+- `resource`
+- `resource_type`
+- `respect_cache_ttl`
+- `response`
+- `result_count`
+- `result_urls`
+- `results`
+- `results_per_page`
+- `results_per_query`
+- `results_selector`
+- `retry_count`
+- `retry_delay`
+- `retryable_exceptions`
+- `retryable_status_codes`
+- `reverse_probability`
+- `reverse_queries_executed`
+- `revisit_count`
+- `role`
+- `route`
+- `run_on_primary_sources_only`
+- `same_domain_depth`
+- `same_site`
+- `sample_count`
+- `sample_text`
+- `samples_evaluated`
+- `samples_used`
+- `san_dns`
+- `san_ip`
+- `sanitized_length`
+- `sanitized_message`
+- `sanitized_response`
+- `sanitized_text`
+- `satisfaction_score`
+- `save_failed_html`
+- `score`
+- `screen_resolution`
+- `screenshot_path`
+- `screenshots_dir`
+- `script_count`
+- `scroll`
+- `scroll_variance`
+- `search`
+- `search_apis`
+- `search_button`
+- `search_engine_policy`
+- `search_id`
+- `search_input`
+- `search_job_id`
+- `search_queue`
+- `search_timeout`
+- `search_url`
+- `secure`
+- `security_rejected_claims`
+- `security_warnings`
+- `seed_url`
+- `seek_primary`
+- `selector`
+- `selector_errors`
+- `selectors`
+- `sentence_count`
+- `sentence_similarity_score`
+- `serp_cache_ttl`
+- `serp_max_pages`
+- `serp_page`
+- `serp_results`
+- `server_url`
+- `session_id`
+- `session_started`
+- `settings`
+- `severity`
+- `should_use_lastmile`
+- `significant_changes`
+- `similarity`
+- `similarity_ratio`
+- `simulate_human`
+- `site`
+- `site_search_qps`
+- `sitemap_urls`
+- `size`
+- `skip`
+- `skip_reason`
+- `skip_until`
+- `snapshot`
+- `snapshot_url`
+- `snapshots_fetched`
+- `snapshots_found`
+- `snippet`
+- `socks_host`
+- `socks_port`
+- `sound`
+- `source`
+- `source_api`
+- `source_domain`
+- `source_domain_category`
+- `source_domains`
+- `source_entity`
+- `source_id`
+- `source_mention_count`
+- `source_question`
+- `source_tag`
+- `source_type`
+- `source_url`
+- `source_weights`
+- `sources`
+- `speed_variance`
+- `stage1_top_k`
+- `stage1_weight_embedding`
+- `stage1_weight_impact`
+- `stage2_top_k`
+- `stage2_weight_embedding`
+- `stage2_weight_impact`
+- `stage2_weight_llm`
+- `start_time`
+- `started_at`
+- `started_datetime`
+- `startpage`
+- `state`
+- `stats`
+- `status`
+- `status_code`
+- `std_delay_ms`
+- `step_down`
+- `step_up`
+- `stop`
+- `stopword_ratio`
+- `storage`
+- `strategy`
+- `street`
+- `success`
+- `success_count`
+- `success_engines`
+- `success_rate`
+- `success_rate_1h`
+- `success_rate_24h`
+- `successful_attempts`
+- `suffix_type`
+- `suggested_fixes`
+- `summary`
+- `supporting_count`
+- `surt`
+- `switch_count`
+- `switch_success`
+- `switch_success_count`
+- `switched`
+- `system`
+- `tag`
+- `tag_id`
+- `tag_name`
+- `take_screenshot`
+- `target`
+- `target_entity_type`
+- `target_id`
+- `target_type`
+- `target_url`
+- `task_id`
+- `task_limits`
+- `temperature`
+- `templates`
+- `text`
+- `text_to_html_ratio`
+- `texts`
+- `think_time_max_ms`
+- `think_time_min_ms`
+- `threshold`
+- `time`
+- `time_range`
+- `time_ranges`
+- `time_started`
+- `timeline`
+- `timeline_event_type`
+- `timeline_notes`
+- `timeout`
+- `timeout_seconds`
+- `timestamp`
+- `timezone`
+- `title`
+- `to_version`
+- `tokens`
+- `top_k`
+- `top_p`
+- `tor`
+- `tor_allowed`
+- `tor_blocked`
+- `tor_requests`
+- `tor_resolutions`
+- `tor_success_rate`
+- `tor_usage_ratio`
+- `total_attempts`
+- `total_citations`
+- `total_claims`
+- `total_count`
+- `total_fragments`
+- `total_ipv4_attempts`
+- `total_ipv4_successes`
+- `total_ipv6_attempts`
+- `total_ipv6_successes`
+- `total_pages_fetched`
+- `total_queries`
+- `total_requests`
+- `total_resolutions`
+- `total_results`
+- `total_reward`
+- `total_sources`
+- `total_switch_successes`
+- `total_switches`
+- `total_text_length`
+- `total_time_ms`
+- `total_urls`
+- `total_urls_seen`
+- `transformation`
+- `trust_decay`
+- `ttl`
+- `type`
+- `typing`
+- `typo_adjacent_keys`
+- `typo_detection_delay_ms`
+- `typo_probability`
+- `ua_major_version`
+- `uncertainty`
+- `undetected_chromedriver`
+- `uniformity_score`
+- `unique_domains`
+- `unique_word_ratio`
+- `unload_on_task_complete`
+- `unverified_domains`
+- `updated_at`
+- `updated_date`
+- `urgency`
+- `url`
+- `url_hints`
+- `urls_found`
+- `usage`
+- `use_browser`
+- `use_remote`
+- `useful_fragments`
+- `user`
+- `user_agent`
+- `user_overrides`
+- `valid_from`
+- `valid_until`
+- `validated_text`
+- `value`
+- `variant`
+- `variant_type`
+- `variants`
+- `venue`
+- `verification_details`
+- `verification_hints`
+- `verification_status`
+- `verified_claims`
+- `version`
+- `viewport_height`
+- `viewport_width`
+- `visited_count`
+- `wait_for`
+- `wait_until`
+- `warc_dir`
+- `was_masked`
+- `was_truncated`
+- `wayback_snapshot_url`
+- `web_citation_detection`
+- `weight`
+- `windows_toast_enabled`
+- `winner`
+- `word_count`
+- `word_count_change`
+- `worker_id`
+- `x`
+- `y`
+- `year`
