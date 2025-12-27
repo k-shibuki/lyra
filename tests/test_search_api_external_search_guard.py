@@ -61,7 +61,10 @@ class TestExternalSearchGuard:
         mock_response = MagicMock(ok=True, provider="mock", results=[mock_result], error=None)
         mock_provider.search.return_value = mock_response
 
-        with patch("src.search.browser_search_provider.get_browser_search_provider", return_value=mock_provider):
+        with patch(
+            "src.search.browser_search_provider.get_browser_search_provider",
+            return_value=mock_provider,
+        ):
             out = await _search_with_provider(query="q", engines=["mojeek"], limit=1)
 
         assert out == [{"url": "https://example.com", "title": "t"}]
@@ -89,10 +92,11 @@ class TestExternalSearchGuard:
         mock_response = MagicMock(ok=True, provider="mock", results=[mock_result], error=None)
         mock_provider.search.return_value = mock_response
 
-        with patch("src.search.browser_search_provider.get_browser_search_provider", return_value=mock_provider):
+        with patch(
+            "src.search.browser_search_provider.get_browser_search_provider",
+            return_value=mock_provider,
+        ):
             out = await _search_with_provider(query="q", engines=["mojeek"], limit=1)
 
         assert out == [{"url": "https://example.com", "title": "t"}]
         assert mock_provider.search.await_count == 1
-
-

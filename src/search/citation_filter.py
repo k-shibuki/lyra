@@ -213,7 +213,9 @@ async def filter_relevant_citations(
             llm_score_raw = _parse_llm_score_0_10(resp.text if resp.ok else "")
             if llm_score_raw is None and resp.ok:
                 # Tiered prompting: retry once with a stricter, output-only constraint.
-                retry_prompt = prompt + "\n\nIMPORTANT: Output a single integer 0-10 only.\nAnswer (0-10):"
+                retry_prompt = (
+                    prompt + "\n\nIMPORTANT: Output a single integer 0-10 only.\nAnswer (0-10):"
+                )
                 retry_resp = await provider.generate(retry_prompt, options)
                 llm_score_raw = _parse_llm_score_0_10(retry_resp.text if retry_resp.ok else "")
             llm_score = (llm_score_raw / 10.0) if llm_score_raw is not None else 0.5

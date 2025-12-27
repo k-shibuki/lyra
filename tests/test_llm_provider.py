@@ -137,7 +137,9 @@ class TestLLMOptions:
         assert result["max_tokens"] == 100, f"Expected 100, got {result.get('max_tokens')}"
         assert result["top_p"] == 0.9, f"Expected 0.9, got {result.get('top_p')}"
         assert result["stop"] == [".", "!"], f"Expected ['.', '!'], got {result.get('stop')}"
-        assert result["response_format"] == "json", f"Expected 'json', got {result.get('response_format')}"
+        assert (
+            result["response_format"] == "json"
+        ), f"Expected 'json', got {result.get('response_format')}"
 
 
 class TestChatMessage:
@@ -677,7 +679,9 @@ class TestOllamaProviderGenerate:
 
         call_count = {"n": 0}
 
-        def capture_post(url: str, json: dict[str, object], timeout: float | None = None) -> AsyncMock:
+        def capture_post(
+            url: str, json: dict[str, object], timeout: float | None = None
+        ) -> AsyncMock:
             captured_payloads.append(dict(json))
             call_count["n"] += 1
             return cm1 if call_count["n"] == 1 else cm2

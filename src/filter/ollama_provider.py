@@ -201,7 +201,9 @@ class OllamaProvider(BaseLLMProvider):
                                 response_format=options.response_format,
                             )
                             payload.pop("format", None)
-                            async with session.post(url, json=payload, timeout=timeout) as retry_resp:
+                            async with session.post(
+                                url, json=payload, timeout=timeout
+                            ) as retry_resp:
                                 if retry_resp.status == 200:
                                     data = await retry_resp.json()
                                     text = data.get("response", "")
@@ -211,9 +213,9 @@ class OllamaProvider(BaseLLMProvider):
                                     if "eval_count" in data:
                                         usage["completion_tokens"] = data["eval_count"]
                                     if usage:
-                                        usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get(
-                                            "completion_tokens", 0
-                                        )
+                                        usage["total_tokens"] = usage.get(
+                                            "prompt_tokens", 0
+                                        ) + usage.get("completion_tokens", 0)
                                     return LLMResponse.success(
                                         text=text,
                                         model=model,

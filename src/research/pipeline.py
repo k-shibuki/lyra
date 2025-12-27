@@ -591,6 +591,7 @@ class SearchPipeline:
 
                             # Record fragment in ExplorationState
                             import hashlib
+
                             fragment_hash = hashlib.sha256(
                                 entry.paper.abstract[:500].encode()
                             ).hexdigest()[:16]
@@ -710,6 +711,7 @@ class SearchPipeline:
 
                                     # Record fragment in ExplorationState
                                     import hashlib
+
                                     rp_hash = hashlib.sha256(
                                         rp.abstract[:500].encode()
                                     ).hexdigest()[:16]
