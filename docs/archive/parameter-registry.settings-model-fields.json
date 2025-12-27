@@ -1,0 +1,249 @@
+{
+  "AcademicAPIBackoffConfig": [
+    "decrease_step",
+    "recovery_stable_seconds"
+  ],
+  "AcademicAPIConfig": [
+    "base_url",
+    "email",
+    "enabled",
+    "headers",
+    "priority",
+    "rate_limit",
+    "timeout_seconds"
+  ],
+  "AcademicAPIRateLimitConfig": [
+    "interval_seconds",
+    "max_parallel",
+    "min_interval_seconds",
+    "polite_pool",
+    "requests_per_day",
+    "requests_per_interval"
+  ],
+  "AcademicAPIsConfig": [
+    "_DEFAULT_BASE_URLS",
+    "apis",
+    "defaults"
+  ],
+  "AcademicAPIsDefaultsConfig": [
+    "citation_graph_api",
+    "max_citation_depth",
+    "max_papers_per_search",
+    "search_apis"
+  ],
+  "BackoffConfig": [
+    "academic_api",
+    "browser_serp"
+  ],
+  "BrowserConfig": [
+    "block_ads",
+    "block_large_media",
+    "block_trackers",
+    "chrome_base_port",
+    "chrome_host",
+    "chrome_profile_prefix",
+    "default_headless",
+    "headful_ratio_initial",
+    "undetected_chromedriver",
+    "viewport_height",
+    "viewport_width"
+  ],
+  "BrowserSerpBackoffConfig": [
+    "decrease_step"
+  ],
+  "BrowserSerpConcurrencyConfig": [
+    "max_tabs"
+  ],
+  "CircuitBreakerConfig": [
+    "cooldown_max",
+    "cooldown_min",
+    "failure_threshold",
+    "probe_interval"
+  ],
+  "CitationFilterConfig": [
+    "llm_max_tokens",
+    "llm_timeout_seconds",
+    "max_source_abstract_chars",
+    "max_target_abstract_chars",
+    "min_citation_count",
+    "stage1_top_k",
+    "stage1_weight_embedding",
+    "stage1_weight_impact",
+    "stage2_top_k",
+    "stage2_weight_embedding",
+    "stage2_weight_impact",
+    "stage2_weight_llm"
+  ],
+  "ConcurrencyConfig": [
+    "backoff",
+    "browser_serp",
+    "search_queue"
+  ],
+  "CrawlerConfig": [
+    "backoff_base",
+    "backoff_max",
+    "delay_max",
+    "delay_min",
+    "domain_concurrent",
+    "domain_cooldown_minutes",
+    "domain_qps",
+    "engine_qps",
+    "max_fetch_time",
+    "max_retries",
+    "network_concurrent",
+    "page_load_timeout",
+    "request_timeout",
+    "same_domain_depth"
+  ],
+  "DNSPolicyConfig": [
+    "disable_edns_client_subnet",
+    "leak_detection_enabled",
+    "max_cache_ttl",
+    "min_cache_ttl",
+    "resolve_through_tor",
+    "respect_cache_ttl"
+  ],
+  "EmbeddingConfig": [
+    "batch_size",
+    "max_length",
+    "model_name",
+    "onnx_path"
+  ],
+  "GeneralConfig": [
+    "data_dir",
+    "log_level",
+    "logs_dir",
+    "project_name",
+    "proxy_url",
+    "version"
+  ],
+  "LLMConfig": [
+    "gpu_layers",
+    "model",
+    "model_context",
+    "ollama_host",
+    "temperature",
+    "unload_on_task_complete"
+  ],
+  "MLServerConfig": [
+    "max_retries",
+    "retry_delay",
+    "server_url",
+    "timeout",
+    "use_remote"
+  ],
+  "MetricsConfig": [
+    "ema_long_alpha",
+    "ema_short_alpha",
+    "ema_update_interval",
+    "hysteresis_min_interval"
+  ],
+  "NLIConfig": [
+    "model"
+  ],
+  "NotificationConfig": [
+    "linux_notify_enabled",
+    "windows_toast_enabled"
+  ],
+  "QualityConfig": [
+    "min_confidence_score",
+    "min_independent_sources",
+    "min_primary_sources",
+    "min_secondary_sources",
+    "source_weights"
+  ],
+  "RerankerConfig": [
+    "max_top_k",
+    "model_name",
+    "onnx_path",
+    "top_k"
+  ],
+  "SearchConfig": [
+    "citation_filter",
+    "citation_graph_depth",
+    "citation_graph_direction",
+    "citation_graph_top_n_papers",
+    "default_engine",
+    "exploration_depth",
+    "initial_query_count_cpu",
+    "initial_query_count_gpu",
+    "max_exploration_depth",
+    "min_independent_sources",
+    "min_primary_secondary_sources",
+    "novelty_cycles_to_stop",
+    "novelty_threshold",
+    "results_per_query",
+    "use_browser",
+    "web_citation_detection"
+  ],
+  "SearchQueueConcurrencyConfig": [
+    "num_workers"
+  ],
+  "Settings": [
+    "browser",
+    "circuit_breaker",
+    "concurrency",
+    "crawler",
+    "embedding",
+    "general",
+    "llm",
+    "metrics",
+    "ml",
+    "nli",
+    "notification",
+    "quality",
+    "reranker",
+    "search",
+    "storage",
+    "task_limits",
+    "tor"
+  ],
+  "StorageConfig": [
+    "archive_dir",
+    "cache_dir",
+    "database_path",
+    "embed_cache_ttl",
+    "fetch_cache_ttl",
+    "reports_dir",
+    "screenshots_dir",
+    "serp_cache_ttl",
+    "warc_dir"
+  ],
+  "TaskLimitsConfig": [
+    "auth_queue_ttl_hours",
+    "budget_pages_per_task",
+    "cursor_idle_timeout_seconds",
+    "llm_time_ratio_max",
+    "max_manual_intervention_time_minutes",
+    "max_manual_interventions",
+    "max_time_minutes_cpu",
+    "max_time_minutes_gpu"
+  ],
+  "TorConfig": [
+    "circuit_sticky_minutes",
+    "control_port",
+    "default_route",
+    "dns",
+    "enabled",
+    "max_usage_ratio",
+    "socks_host",
+    "socks_port"
+  ],
+  "UndetectedChromeDriverConfig": [
+    "auto_escalate_block_score",
+    "auto_escalate_captcha_rate",
+    "cloudflare_timeout",
+    "enabled",
+    "prefer_headless"
+  ],
+  "WebCitationDetectionConfig": [
+    "budget_pages_per_task",
+    "create_placeholder_pages",
+    "enabled",
+    "max_candidates_per_page",
+    "max_edges_per_page",
+    "min_text_chars",
+    "require_useful_text",
+    "run_on_primary_sources_only"
+  ]
+}

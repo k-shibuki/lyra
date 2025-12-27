@@ -1,6 +1,7 @@
 # Parameter Registry (Extracted)
 **Generated**: 2025-12-27
-This file is an *inventory* of parameters extracted from DB schema, MCP JSON Schemas, and code contracts (BaseModel/dataclass/TypedDict).
+This file is an *inventory* of parameters extracted from DB schema, MCP JSON Schemas, config YAMLs, and code contracts (BaseModel/dataclass/TypedDict).
+
 ## DB: tables and columns
 - tables: **32**
 ### `adapters`
@@ -278,6 +279,871 @@ This file is an *inventory* of parameters extracted from DB schema, MCP JSON Sch
   - `summary.total_pages`
   - `summary.total_searches`
   - `task_id`
+
+## Config YAML: key paths
+- files: **7**
+### `config/academic_apis.yaml`
+- paths (28):
+  - `apis`
+  - `apis.openalex`
+  - `apis.openalex.base_url`
+  - `apis.openalex.enabled`
+  - `apis.openalex.headers`
+  - `apis.openalex.headers.User-Agent`
+  - `apis.openalex.priority`
+  - `apis.openalex.rate_limit`
+  - `apis.openalex.rate_limit.max_parallel`
+  - `apis.openalex.rate_limit.min_interval_seconds`
+  - `apis.openalex.rate_limit.requests_per_day`
+  - `apis.openalex.timeout_seconds`
+  - `apis.semantic_scholar`
+  - `apis.semantic_scholar.base_url`
+  - `apis.semantic_scholar.enabled`
+  - `apis.semantic_scholar.priority`
+  - `apis.semantic_scholar.rate_limit`
+  - `apis.semantic_scholar.rate_limit.interval_seconds`
+  - `apis.semantic_scholar.rate_limit.max_parallel`
+  - `apis.semantic_scholar.rate_limit.min_interval_seconds`
+  - `apis.semantic_scholar.rate_limit.requests_per_interval`
+  - `apis.semantic_scholar.timeout_seconds`
+  - `defaults`
+  - `defaults.citation_graph_api`
+  - `defaults.max_citation_depth`
+  - `defaults.max_papers_per_search`
+  - `defaults.search_apis`
+  - `defaults.search_apis[]`
+### `config/domains.yaml`
+- paths (107):
+  - `allowlist`
+  - `allowlist[]`
+  - `allowlist[].budget_pages_per_day`
+  - `allowlist[].domain`
+  - `allowlist[].domain_category`
+  - `allowlist[].headful_ratio`
+  - `allowlist[].internal_search`
+  - `allowlist[].max_requests_per_day`
+  - `allowlist[].qps`
+  - `cloudflare_sites`
+  - `cloudflare_sites[]`
+  - `cloudflare_sites[].domain_pattern`
+  - `cloudflare_sites[].headful_required`
+  - `cloudflare_sites[].tor_blocked`
+  - `default_policy`
+  - `default_policy.budget_pages_per_day`
+  - `default_policy.concurrent`
+  - `default_policy.cooldown_minutes`
+  - `default_policy.domain_category`
+  - `default_policy.headful_ratio`
+  - `default_policy.max_requests_per_day`
+  - `default_policy.max_retries`
+  - `default_policy.qps`
+  - `default_policy.tor_allowed`
+  - `denylist`
+  - `denylist[]`
+  - `denylist[].domain_pattern`
+  - `denylist[].reason`
+  - `graylist`
+  - `graylist[]`
+  - `graylist[].cooldown_minutes`
+  - `graylist[].domain_category`
+  - `graylist[].domain_pattern`
+  - `graylist[].headful_ratio`
+  - `graylist[].qps`
+  - `graylist[].reason`
+  - `graylist[].skip`
+  - `internal_search_templates`
+  - `internal_search_templates.arxiv`
+  - `internal_search_templates.arxiv.domain`
+  - `internal_search_templates.arxiv.results_selector`
+  - `internal_search_templates.arxiv.search_button`
+  - `internal_search_templates.arxiv.search_input`
+  - `internal_search_templates.jstage`
+  - `internal_search_templates.jstage.domain`
+  - `internal_search_templates.jstage.results_selector`
+  - `internal_search_templates.jstage.search_button`
+  - `internal_search_templates.jstage.search_input`
+  - `internal_search_templates.pubmed`
+  - `internal_search_templates.pubmed.domain`
+  - `internal_search_templates.pubmed.results_selector`
+  - `internal_search_templates.pubmed.search_button`
+  - `internal_search_templates.pubmed.search_input`
+  - `learning_state`
+  - `learning_state.domains`
+  - `learning_state.last_updated`
+  - `policy_bounds`
+  - `policy_bounds.browser_route_ratio`
+  - `policy_bounds.browser_route_ratio.default`
+  - `policy_bounds.browser_route_ratio.max`
+  - `policy_bounds.browser_route_ratio.min`
+  - `policy_bounds.browser_route_ratio.step_down`
+  - `policy_bounds.browser_route_ratio.step_up`
+  - `policy_bounds.domain_cooldown`
+  - `policy_bounds.domain_cooldown.default`
+  - `policy_bounds.domain_cooldown.max`
+  - `policy_bounds.domain_cooldown.min`
+  - `policy_bounds.domain_cooldown.step_down`
+  - `policy_bounds.domain_cooldown.step_up`
+  - `policy_bounds.domain_qps`
+  - `policy_bounds.domain_qps.default`
+  - `policy_bounds.domain_qps.max`
+  - `policy_bounds.domain_qps.min`
+  - `policy_bounds.domain_qps.step_down`
+  - `policy_bounds.domain_qps.step_up`
+  - `policy_bounds.engine_qps`
+  - `policy_bounds.engine_qps.default`
+  - `policy_bounds.engine_qps.max`
+  - `policy_bounds.engine_qps.min`
+  - `policy_bounds.engine_qps.step_down`
+  - `policy_bounds.engine_qps.step_up`
+  - `policy_bounds.engine_weight`
+  - `policy_bounds.engine_weight.default`
+  - `policy_bounds.engine_weight.max`
+  - `policy_bounds.engine_weight.min`
+  - `policy_bounds.engine_weight.step_down`
+  - `policy_bounds.engine_weight.step_up`
+  - `policy_bounds.headful_ratio`
+  - `policy_bounds.headful_ratio.default`
+  - `policy_bounds.headful_ratio.max`
+  - `policy_bounds.headful_ratio.min`
+  - `policy_bounds.headful_ratio.step_down`
+  - `policy_bounds.headful_ratio.step_up`
+  - `policy_bounds.tor_usage_ratio`
+  - `policy_bounds.tor_usage_ratio.default`
+  - `policy_bounds.tor_usage_ratio.max`
+  - `policy_bounds.tor_usage_ratio.min`
+  - `policy_bounds.tor_usage_ratio.step_down`
+  - `policy_bounds.tor_usage_ratio.step_up`
+  - `search_engine_policy`
+  - `search_engine_policy.cooldown_max`
+  - `search_engine_policy.cooldown_min`
+  - `search_engine_policy.default_qps`
+  - `search_engine_policy.failure_threshold`
+  - `search_engine_policy.site_search_qps`
+  - `user_overrides`
+  - `user_overrides[]`
+### `config/engines.yaml`
+- paths (175):
+  - `category_engines`
+  - `category_engines.academic`
+  - `category_engines.academic[]`
+  - `category_engines.general`
+  - `category_engines.general[]`
+  - `category_engines.government`
+  - `category_engines.government[]`
+  - `category_engines.news`
+  - `category_engines.news[]`
+  - `category_engines.technical`
+  - `category_engines.technical[]`
+  - `default_engines`
+  - `default_engines[]`
+  - `direct_sources`
+  - `direct_sources.academic`
+  - `direct_sources.academic[]`
+  - `direct_sources.academic[].domain`
+  - `direct_sources.academic[].priority`
+  - `direct_sources.academic[].search_url`
+  - `direct_sources.government`
+  - `direct_sources.government[]`
+  - `direct_sources.government[].domain`
+  - `direct_sources.government[].priority`
+  - `engines`
+  - `engines.arxiv`
+  - `engines.arxiv.block_resistant`
+  - `engines.arxiv.categories`
+  - `engines.arxiv.categories[]`
+  - `engines.arxiv.concurrency`
+  - `engines.arxiv.min_interval`
+  - `engines.arxiv.priority`
+  - `engines.arxiv.qps`
+  - `engines.arxiv.weight`
+  - `engines.bing`
+  - `engines.bing.block_resistant`
+  - `engines.bing.categories`
+  - `engines.bing.categories[]`
+  - `engines.bing.concurrency`
+  - `engines.bing.daily_limit`
+  - `engines.bing.min_interval`
+  - `engines.bing.priority`
+  - `engines.bing.qps`
+  - `engines.bing.weight`
+  - `engines.brave`
+  - `engines.brave.block_resistant`
+  - `engines.brave.categories`
+  - `engines.brave.categories[]`
+  - `engines.brave.concurrency`
+  - `engines.brave.daily_limit`
+  - `engines.brave.min_interval`
+  - `engines.brave.priority`
+  - `engines.brave.qps`
+  - `engines.brave.weight`
+  - `engines.duckduckgo`
+  - `engines.duckduckgo.block_resistant`
+  - `engines.duckduckgo.categories`
+  - `engines.duckduckgo.categories[]`
+  - `engines.duckduckgo.concurrency`
+  - `engines.duckduckgo.min_interval`
+  - `engines.duckduckgo.priority`
+  - `engines.duckduckgo.qps`
+  - `engines.duckduckgo.weight`
+  - `engines.ecosia`
+  - `engines.ecosia.block_resistant`
+  - `engines.ecosia.categories`
+  - `engines.ecosia.categories[]`
+  - `engines.ecosia.concurrency`
+  - `engines.ecosia.description`
+  - `engines.ecosia.min_interval`
+  - `engines.ecosia.priority`
+  - `engines.ecosia.qps`
+  - `engines.ecosia.weight`
+  - `engines.google`
+  - `engines.google.block_resistant`
+  - `engines.google.categories`
+  - `engines.google.categories[]`
+  - `engines.google.concurrency`
+  - `engines.google.daily_limit`
+  - `engines.google.min_interval`
+  - `engines.google.priority`
+  - `engines.google.qps`
+  - `engines.google.weight`
+  - `engines.marginalia`
+  - `engines.marginalia.block_resistant`
+  - `engines.marginalia.categories`
+  - `engines.marginalia.categories[]`
+  - `engines.marginalia.concurrency`
+  - `engines.marginalia.min_interval`
+  - `engines.marginalia.priority`
+  - `engines.marginalia.qps`
+  - `engines.marginalia.weight`
+  - `engines.mojeek`
+  - `engines.mojeek.block_resistant`
+  - `engines.mojeek.categories`
+  - `engines.mojeek.categories[]`
+  - `engines.mojeek.concurrency`
+  - `engines.mojeek.min_interval`
+  - `engines.mojeek.priority`
+  - `engines.mojeek.qps`
+  - `engines.mojeek.weight`
+  - `engines.pubmed`
+  - `engines.pubmed.block_resistant`
+  - `engines.pubmed.categories`
+  - `engines.pubmed.categories[]`
+  - `engines.pubmed.concurrency`
+  - `engines.pubmed.min_interval`
+  - `engines.pubmed.priority`
+  - `engines.pubmed.qps`
+  - `engines.pubmed.weight`
+  - `engines.startpage`
+  - `engines.startpage.block_resistant`
+  - `engines.startpage.categories`
+  - `engines.startpage.categories[]`
+  - `engines.startpage.concurrency`
+  - `engines.startpage.description`
+  - `engines.startpage.min_interval`
+  - `engines.startpage.priority`
+  - `engines.startpage.qps`
+  - `engines.startpage.weight`
+  - `engines.wikidata`
+  - `engines.wikidata.block_resistant`
+  - `engines.wikidata.categories`
+  - `engines.wikidata.categories[]`
+  - `engines.wikidata.concurrency`
+  - `engines.wikidata.min_interval`
+  - `engines.wikidata.priority`
+  - `engines.wikidata.qps`
+  - `engines.wikidata.weight`
+  - `engines.wikipedia`
+  - `engines.wikipedia.block_resistant`
+  - `engines.wikipedia.categories`
+  - `engines.wikipedia.categories[]`
+  - `engines.wikipedia.concurrency`
+  - `engines.wikipedia.min_interval`
+  - `engines.wikipedia.priority`
+  - `engines.wikipedia.qps`
+  - `engines.wikipedia.weight`
+  - `lastmile_engines`
+  - `lastmile_engines[]`
+  - `operator_mapping`
+  - `operator_mapping.date_after`
+  - `operator_mapping.date_after.default`
+  - `operator_mapping.date_after.google`
+  - `operator_mapping.exact`
+  - `operator_mapping.exact.bing`
+  - `operator_mapping.exact.default`
+  - `operator_mapping.exact.duckduckgo`
+  - `operator_mapping.exact.ecosia`
+  - `operator_mapping.exact.google`
+  - `operator_mapping.exact.startpage`
+  - `operator_mapping.exclude`
+  - `operator_mapping.exclude.bing`
+  - `operator_mapping.exclude.default`
+  - `operator_mapping.exclude.ecosia`
+  - `operator_mapping.exclude.google`
+  - `operator_mapping.exclude.startpage`
+  - `operator_mapping.filetype`
+  - `operator_mapping.filetype.bing`
+  - `operator_mapping.filetype.default`
+  - `operator_mapping.filetype.duckduckgo`
+  - `operator_mapping.filetype.ecosia`
+  - `operator_mapping.filetype.google`
+  - `operator_mapping.filetype.startpage`
+  - `operator_mapping.intitle`
+  - `operator_mapping.intitle.bing`
+  - `operator_mapping.intitle.default`
+  - `operator_mapping.intitle.google`
+  - `operator_mapping.site`
+  - `operator_mapping.site.bing`
+  - `operator_mapping.site.default`
+  - `operator_mapping.site.duckduckgo`
+  - `operator_mapping.site.ecosia`
+  - `operator_mapping.site.google`
+  - `operator_mapping.site.qwant`
+  - `operator_mapping.site.startpage`
+### `config/human_behavior.yaml`
+- paths (32):
+  - `mouse`
+  - `mouse.acceleration_ratio`
+  - `mouse.base_speed`
+  - `mouse.control_point_variance`
+  - `mouse.deceleration_ratio`
+  - `mouse.jitter_amplitude`
+  - `mouse.jitter_frequency`
+  - `mouse.max_steps`
+  - `mouse.min_steps`
+  - `mouse.num_control_points`
+  - `mouse.speed_variance`
+  - `scroll`
+  - `scroll.animation_duration_ms`
+  - `scroll.base_scroll_amount`
+  - `scroll.ease_out_power`
+  - `scroll.pause_max_ms`
+  - `scroll.pause_min_ms`
+  - `scroll.pause_probability`
+  - `scroll.reverse_probability`
+  - `scroll.scroll_variance`
+  - `think_time_max_ms`
+  - `think_time_min_ms`
+  - `typing`
+  - `typing.backspace_delay_ms`
+  - `typing.max_delay_ms`
+  - `typing.mean_delay_ms`
+  - `typing.min_delay_ms`
+  - `typing.punctuation_chars`
+  - `typing.punctuation_delay_multiplier`
+  - `typing.std_delay_ms`
+  - `typing.typo_detection_delay_ms`
+  - `typing.typo_probability`
+### `config/local.yaml.example`
+- paths (14):
+  - `settings`
+  - `settings.browser`
+  - `settings.browser.chrome_host`
+  - `settings.browser.chrome_port`
+  - `settings.concurrency`
+  - `settings.concurrency.browser_serp`
+  - `settings.concurrency.browser_serp.max_tabs`
+  - `settings.concurrency.search_queue`
+  - `settings.concurrency.search_queue.num_workers`
+  - `settings.general`
+  - `settings.general.log_level`
+  - `settings.task_limits`
+  - `settings.task_limits.budget_pages_per_task`
+  - `settings.task_limits.cursor_idle_timeout_seconds`
+### `config/search_parsers.yaml`
+- paths (254):
+  - `bing`
+  - `bing.captcha_patterns`
+  - `bing.captcha_patterns[]`
+  - `bing.captcha_patterns[].case_insensitive`
+  - `bing.captcha_patterns[].pattern`
+  - `bing.captcha_patterns[].type`
+  - `bing.default_language`
+  - `bing.offset_one_indexed`
+  - `bing.pagination_type`
+  - `bing.results_per_page`
+  - `bing.search_url`
+  - `bing.selectors`
+  - `bing.selectors.date`
+  - `bing.selectors.date.required`
+  - `bing.selectors.date.selector`
+  - `bing.selectors.results_container`
+  - `bing.selectors.results_container.diagnostic_message`
+  - `bing.selectors.results_container.required`
+  - `bing.selectors.results_container.selector`
+  - `bing.selectors.snippet`
+  - `bing.selectors.snippet.required`
+  - `bing.selectors.snippet.selector`
+  - `bing.selectors.title`
+  - `bing.selectors.title.diagnostic_message`
+  - `bing.selectors.title.required`
+  - `bing.selectors.title.selector`
+  - `bing.selectors.url`
+  - `bing.selectors.url.diagnostic_message`
+  - `bing.selectors.url.required`
+  - `bing.selectors.url.selector`
+  - `bing.time_ranges`
+  - `bing.time_ranges.all`
+  - `bing.time_ranges.day`
+  - `bing.time_ranges.month`
+  - `bing.time_ranges.week`
+  - `brave`
+  - `brave.captcha_patterns`
+  - `brave.captcha_patterns[]`
+  - `brave.captcha_patterns[].case_insensitive`
+  - `brave.captcha_patterns[].pattern`
+  - `brave.captcha_patterns[].type`
+  - `brave.pagination_type`
+  - `brave.results_per_page`
+  - `brave.search_url`
+  - `brave.selectors`
+  - `brave.selectors.date`
+  - `brave.selectors.date.required`
+  - `brave.selectors.date.selector`
+  - `brave.selectors.results_container`
+  - `brave.selectors.results_container.diagnostic_message`
+  - `brave.selectors.results_container.required`
+  - `brave.selectors.results_container.selector`
+  - `brave.selectors.snippet`
+  - `brave.selectors.snippet.required`
+  - `brave.selectors.snippet.selector`
+  - `brave.selectors.title`
+  - `brave.selectors.title.required`
+  - `brave.selectors.title.selector`
+  - `brave.selectors.url`
+  - `brave.selectors.url.required`
+  - `brave.selectors.url.selector`
+  - `brave.time_ranges`
+  - `brave.time_ranges.all`
+  - `brave.time_ranges.day`
+  - `brave.time_ranges.month`
+  - `brave.time_ranges.week`
+  - `brave.time_ranges.year`
+  - `duckduckgo`
+  - `duckduckgo.captcha_patterns`
+  - `duckduckgo.captcha_patterns[]`
+  - `duckduckgo.captcha_patterns[].case_insensitive`
+  - `duckduckgo.captcha_patterns[].pattern`
+  - `duckduckgo.captcha_patterns[].type`
+  - `duckduckgo.default_region`
+  - `duckduckgo.pagination_type`
+  - `duckduckgo.results_per_page`
+  - `duckduckgo.search_url`
+  - `duckduckgo.selectors`
+  - `duckduckgo.selectors.date`
+  - `duckduckgo.selectors.date.diagnostic_message`
+  - `duckduckgo.selectors.date.required`
+  - `duckduckgo.selectors.date.selector`
+  - `duckduckgo.selectors.results_container`
+  - `duckduckgo.selectors.results_container.diagnostic_message`
+  - `duckduckgo.selectors.results_container.required`
+  - `duckduckgo.selectors.results_container.selector`
+  - `duckduckgo.selectors.results_container_alt`
+  - `duckduckgo.selectors.results_container_alt.diagnostic_message`
+  - `duckduckgo.selectors.results_container_alt.required`
+  - `duckduckgo.selectors.results_container_alt.selector`
+  - `duckduckgo.selectors.snippet`
+  - `duckduckgo.selectors.snippet.diagnostic_message`
+  - `duckduckgo.selectors.snippet.required`
+  - `duckduckgo.selectors.snippet.selector`
+  - `duckduckgo.selectors.title`
+  - `duckduckgo.selectors.title.diagnostic_message`
+  - `duckduckgo.selectors.title.required`
+  - `duckduckgo.selectors.title.selector`
+  - `duckduckgo.selectors.url`
+  - `duckduckgo.selectors.url.diagnostic_message`
+  - `duckduckgo.selectors.url.required`
+  - `duckduckgo.selectors.url.selector`
+  - `duckduckgo.time_ranges`
+  - `duckduckgo.time_ranges.all`
+  - `duckduckgo.time_ranges.day`
+  - `duckduckgo.time_ranges.month`
+  - `duckduckgo.time_ranges.week`
+  - `duckduckgo.time_ranges.year`
+  - `ecosia`
+  - `ecosia.captcha_patterns`
+  - `ecosia.captcha_patterns[]`
+  - `ecosia.captcha_patterns[].case_insensitive`
+  - `ecosia.captcha_patterns[].pattern`
+  - `ecosia.captcha_patterns[].type`
+  - `ecosia.page_zero_indexed`
+  - `ecosia.pagination_type`
+  - `ecosia.results_per_page`
+  - `ecosia.search_url`
+  - `ecosia.selectors`
+  - `ecosia.selectors.date`
+  - `ecosia.selectors.date.required`
+  - `ecosia.selectors.date.selector`
+  - `ecosia.selectors.results_container`
+  - `ecosia.selectors.results_container.diagnostic_message`
+  - `ecosia.selectors.results_container.required`
+  - `ecosia.selectors.results_container.selector`
+  - `ecosia.selectors.snippet`
+  - `ecosia.selectors.snippet.diagnostic_message`
+  - `ecosia.selectors.snippet.required`
+  - `ecosia.selectors.snippet.selector`
+  - `ecosia.selectors.title`
+  - `ecosia.selectors.title.diagnostic_message`
+  - `ecosia.selectors.title.required`
+  - `ecosia.selectors.title.selector`
+  - `ecosia.selectors.url`
+  - `ecosia.selectors.url.diagnostic_message`
+  - `ecosia.selectors.url.required`
+  - `ecosia.selectors.url.selector`
+  - `ecosia.time_ranges`
+  - `ecosia.time_ranges.all`
+  - `ecosia.time_ranges.day`
+  - `ecosia.time_ranges.month`
+  - `ecosia.time_ranges.week`
+  - `google`
+  - `google.captcha_patterns`
+  - `google.captcha_patterns[]`
+  - `google.captcha_patterns[].case_insensitive`
+  - `google.captcha_patterns[].pattern`
+  - `google.captcha_patterns[].type`
+  - `google.default_language`
+  - `google.pagination_type`
+  - `google.results_per_page`
+  - `google.search_url`
+  - `google.selectors`
+  - `google.selectors.date`
+  - `google.selectors.date.required`
+  - `google.selectors.date.selector`
+  - `google.selectors.results_container`
+  - `google.selectors.results_container.diagnostic_message`
+  - `google.selectors.results_container.required`
+  - `google.selectors.results_container.selector`
+  - `google.selectors.snippet`
+  - `google.selectors.snippet.required`
+  - `google.selectors.snippet.selector`
+  - `google.selectors.title`
+  - `google.selectors.title.diagnostic_message`
+  - `google.selectors.title.required`
+  - `google.selectors.title.selector`
+  - `google.selectors.url`
+  - `google.selectors.url.diagnostic_message`
+  - `google.selectors.url.required`
+  - `google.selectors.url.selector`
+  - `google.time_ranges`
+  - `google.time_ranges.all`
+  - `google.time_ranges.day`
+  - `google.time_ranges.month`
+  - `google.time_ranges.week`
+  - `google.time_ranges.year`
+  - `mojeek`
+  - `mojeek.captcha_patterns`
+  - `mojeek.captcha_patterns[]`
+  - `mojeek.captcha_patterns[].case_insensitive`
+  - `mojeek.captcha_patterns[].pattern`
+  - `mojeek.captcha_patterns[].type`
+  - `mojeek.pagination_type`
+  - `mojeek.results_per_page`
+  - `mojeek.search_url`
+  - `mojeek.selectors`
+  - `mojeek.selectors.date`
+  - `mojeek.selectors.date.required`
+  - `mojeek.selectors.date.selector`
+  - `mojeek.selectors.results_container`
+  - `mojeek.selectors.results_container.diagnostic_message`
+  - `mojeek.selectors.results_container.required`
+  - `mojeek.selectors.results_container.selector`
+  - `mojeek.selectors.snippet`
+  - `mojeek.selectors.snippet.diagnostic_message`
+  - `mojeek.selectors.snippet.required`
+  - `mojeek.selectors.snippet.selector`
+  - `mojeek.selectors.title`
+  - `mojeek.selectors.title.diagnostic_message`
+  - `mojeek.selectors.title.required`
+  - `mojeek.selectors.title.selector`
+  - `mojeek.selectors.url`
+  - `mojeek.selectors.url.diagnostic_message`
+  - `mojeek.selectors.url.required`
+  - `mojeek.selectors.url.selector`
+  - `mojeek.time_ranges`
+  - `mojeek.time_ranges.all`
+  - `mojeek.time_ranges.day`
+  - `mojeek.time_ranges.month`
+  - `mojeek.time_ranges.week`
+  - `mojeek.time_ranges.year`
+  - `settings`
+  - `settings.debug_html_dir`
+  - `settings.max_results_per_page`
+  - `settings.save_failed_html`
+  - `settings.search_timeout`
+  - `startpage`
+  - `startpage.captcha_patterns`
+  - `startpage.captcha_patterns[]`
+  - `startpage.captcha_patterns[].case_insensitive`
+  - `startpage.captcha_patterns[].pattern`
+  - `startpage.captcha_patterns[].type`
+  - `startpage.page_zero_indexed`
+  - `startpage.pagination_type`
+  - `startpage.results_per_page`
+  - `startpage.search_url`
+  - `startpage.selectors`
+  - `startpage.selectors.date`
+  - `startpage.selectors.date.required`
+  - `startpage.selectors.date.selector`
+  - `startpage.selectors.results_container`
+  - `startpage.selectors.results_container.diagnostic_message`
+  - `startpage.selectors.results_container.required`
+  - `startpage.selectors.results_container.selector`
+  - `startpage.selectors.snippet`
+  - `startpage.selectors.snippet.diagnostic_message`
+  - `startpage.selectors.snippet.required`
+  - `startpage.selectors.snippet.selector`
+  - `startpage.selectors.title`
+  - `startpage.selectors.title.diagnostic_message`
+  - `startpage.selectors.title.required`
+  - `startpage.selectors.title.selector`
+  - `startpage.selectors.url`
+  - `startpage.selectors.url.diagnostic_message`
+  - `startpage.selectors.url.required`
+  - `startpage.selectors.url.selector`
+  - `startpage.time_ranges`
+  - `startpage.time_ranges.all`
+  - `startpage.time_ranges.day`
+  - `startpage.time_ranges.month`
+  - `startpage.time_ranges.week`
+  - `startpage.time_ranges.year`
+### `config/settings.yaml`
+- paths (173):
+  - `browser`
+  - `browser.block_ads`
+  - `browser.block_large_media`
+  - `browser.block_trackers`
+  - `browser.chrome_base_port`
+  - `browser.chrome_host`
+  - `browser.chrome_profile_prefix`
+  - `browser.default_headless`
+  - `browser.headful_ratio_initial`
+  - `browser.undetected_chromedriver`
+  - `browser.undetected_chromedriver.auto_escalate_block_score`
+  - `browser.undetected_chromedriver.auto_escalate_captcha_rate`
+  - `browser.undetected_chromedriver.cloudflare_timeout`
+  - `browser.undetected_chromedriver.enabled`
+  - `browser.undetected_chromedriver.prefer_headless`
+  - `browser.viewport_height`
+  - `browser.viewport_width`
+  - `circuit_breaker`
+  - `circuit_breaker.cooldown_max`
+  - `circuit_breaker.cooldown_min`
+  - `circuit_breaker.failure_threshold`
+  - `circuit_breaker.probe_interval`
+  - `concurrency`
+  - `concurrency.backoff`
+  - `concurrency.backoff.academic_api`
+  - `concurrency.backoff.academic_api.decrease_step`
+  - `concurrency.backoff.academic_api.recovery_stable_seconds`
+  - `concurrency.backoff.browser_serp`
+  - `concurrency.backoff.browser_serp.decrease_step`
+  - `concurrency.browser_serp`
+  - `concurrency.browser_serp.max_tabs`
+  - `concurrency.search_queue`
+  - `concurrency.search_queue.num_workers`
+  - `crawler`
+  - `crawler.backoff_base`
+  - `crawler.backoff_max`
+  - `crawler.delay_max`
+  - `crawler.delay_min`
+  - `crawler.domain_concurrent`
+  - `crawler.domain_cooldown_minutes`
+  - `crawler.domain_qps`
+  - `crawler.engine_qps`
+  - `crawler.max_retries`
+  - `crawler.network_concurrent`
+  - `crawler.page_load_timeout`
+  - `crawler.request_timeout`
+  - `crawler.same_domain_depth`
+  - `embedding`
+  - `embedding.batch_size`
+  - `embedding.max_length`
+  - `embedding.model_name`
+  - `embedding.onnx_path`
+  - `general`
+  - `general.data_dir`
+  - `general.log_level`
+  - `general.logs_dir`
+  - `general.project_name`
+  - `general.version`
+  - `http3`
+  - `http3.difference_threshold`
+  - `http3.ema_alpha`
+  - `http3.enabled`
+  - `http3.max_browser_boost`
+  - `http3.min_samples`
+  - `ipv6`
+  - `ipv6.ema_alpha`
+  - `ipv6.enabled`
+  - `ipv6.fallback_timeout`
+  - `ipv6.learning_threshold`
+  - `ipv6.min_samples`
+  - `ipv6.preference`
+  - `llm`
+  - `llm.gpu_layers`
+  - `llm.model`
+  - `llm.model_context`
+  - `llm.ollama_host`
+  - `llm.temperature`
+  - `metrics`
+  - `metrics.ema_long_alpha`
+  - `metrics.ema_short_alpha`
+  - `metrics.ema_update_interval`
+  - `metrics.hysteresis_min_interval`
+  - `nli`
+  - `nli.model`
+  - `notification`
+  - `notification.linux_notify_enabled`
+  - `notification.windows_toast_enabled`
+  - `quality`
+  - `quality.min_confidence_score`
+  - `quality.min_independent_sources`
+  - `quality.min_primary_sources`
+  - `quality.min_secondary_sources`
+  - `quality.source_weights`
+  - `quality.source_weights.academic`
+  - `quality.source_weights.blog`
+  - `quality.source_weights.government`
+  - `quality.source_weights.primary`
+  - `quality.source_weights.trusted_media`
+  - `quality.source_weights.unknown`
+  - `reranker`
+  - `reranker.max_top_k`
+  - `reranker.model_name`
+  - `reranker.onnx_path`
+  - `reranker.top_k`
+  - `search`
+  - `search.citation_filter`
+  - `search.citation_filter.llm_max_tokens`
+  - `search.citation_filter.llm_timeout_seconds`
+  - `search.citation_filter.max_source_abstract_chars`
+  - `search.citation_filter.max_target_abstract_chars`
+  - `search.citation_filter.min_citation_count`
+  - `search.citation_filter.stage1_top_k`
+  - `search.citation_filter.stage1_weight_embedding`
+  - `search.citation_filter.stage1_weight_impact`
+  - `search.citation_filter.stage2_top_k`
+  - `search.citation_filter.stage2_weight_embedding`
+  - `search.citation_filter.stage2_weight_impact`
+  - `search.citation_filter.stage2_weight_llm`
+  - `search.citation_graph_depth`
+  - `search.citation_graph_direction`
+  - `search.citation_graph_top_n_papers`
+  - `search.default_engine`
+  - `search.exploration_depth`
+  - `search.initial_query_count_cpu`
+  - `search.initial_query_count_gpu`
+  - `search.max_exploration_depth`
+  - `search.min_independent_sources`
+  - `search.min_primary_secondary_sources`
+  - `search.novelty_cycles_to_stop`
+  - `search.novelty_threshold`
+  - `search.results_per_query`
+  - `search.use_browser`
+  - `search.web_citation_detection`
+  - `search.web_citation_detection.budget_pages_per_task`
+  - `search.web_citation_detection.create_placeholder_pages`
+  - `search.web_citation_detection.enabled`
+  - `search.web_citation_detection.max_candidates_per_page`
+  - `search.web_citation_detection.max_edges_per_page`
+  - `search.web_citation_detection.min_text_chars`
+  - `search.web_citation_detection.require_useful_text`
+  - `search.web_citation_detection.run_on_primary_sources_only`
+  - `storage`
+  - `storage.cache_dir`
+  - `storage.database_path`
+  - `storage.embed_cache_ttl`
+  - `storage.fetch_cache_ttl`
+  - `storage.reports_dir`
+  - `storage.screenshots_dir`
+  - `storage.serp_cache_ttl`
+  - `storage.warc_dir`
+  - `task_limits`
+  - `task_limits.budget_pages_per_task`
+  - `task_limits.cursor_idle_timeout_seconds`
+  - `task_limits.llm_time_ratio_max`
+  - `task_limits.max_manual_intervention_time_minutes`
+  - `task_limits.max_manual_interventions`
+  - `task_limits.max_time_minutes_cpu`
+  - `task_limits.max_time_minutes_gpu`
+  - `tor`
+  - `tor.circuit_sticky_minutes`
+  - `tor.control_port`
+  - `tor.default_route`
+  - `tor.dns`
+  - `tor.dns.disable_edns_client_subnet`
+  - `tor.dns.leak_detection_enabled`
+  - `tor.dns.max_cache_ttl`
+  - `tor.dns.min_cache_ttl`
+  - `tor.dns.resolve_through_tor`
+  - `tor.dns.respect_cache_ttl`
+  - `tor.enabled`
+  - `tor.max_usage_ratio`
+  - `tor.socks_host`
+  - `tor.socks_port`
+
+## Settings models (src/utils/config.py): BaseModel fields
+- classes: **31**
+### `AcademicAPIBackoffConfig`
+- fields (2): `decrease_step`, `recovery_stable_seconds`
+### `AcademicAPIConfig`
+- fields (7): `base_url`, `email`, `enabled`, `headers`, `priority`, `rate_limit`, `timeout_seconds`
+### `AcademicAPIRateLimitConfig`
+- fields (6): `interval_seconds`, `max_parallel`, `min_interval_seconds`, `polite_pool`, `requests_per_day`, `requests_per_interval`
+### `AcademicAPIsConfig`
+- fields (3): `_DEFAULT_BASE_URLS`, `apis`, `defaults`
+### `AcademicAPIsDefaultsConfig`
+- fields (4): `citation_graph_api`, `max_citation_depth`, `max_papers_per_search`, `search_apis`
+### `BackoffConfig`
+- fields (2): `academic_api`, `browser_serp`
+### `BrowserConfig`
+- fields (11): `block_ads`, `block_large_media`, `block_trackers`, `chrome_base_port`, `chrome_host`, `chrome_profile_prefix`, `default_headless`, `headful_ratio_initial`, `undetected_chromedriver`, `viewport_height`, `viewport_width`
+### `BrowserSerpBackoffConfig`
+- fields (1): `decrease_step`
+### `BrowserSerpConcurrencyConfig`
+- fields (1): `max_tabs`
+### `CircuitBreakerConfig`
+- fields (4): `cooldown_max`, `cooldown_min`, `failure_threshold`, `probe_interval`
+### `CitationFilterConfig`
+- fields (12): `llm_max_tokens`, `llm_timeout_seconds`, `max_source_abstract_chars`, `max_target_abstract_chars`, `min_citation_count`, `stage1_top_k`, `stage1_weight_embedding`, `stage1_weight_impact`, `stage2_top_k`, `stage2_weight_embedding`, `stage2_weight_impact`, `stage2_weight_llm`
+### `ConcurrencyConfig`
+- fields (3): `backoff`, `browser_serp`, `search_queue`
+### `CrawlerConfig`
+- fields (14): `backoff_base`, `backoff_max`, `delay_max`, `delay_min`, `domain_concurrent`, `domain_cooldown_minutes`, `domain_qps`, `engine_qps`, `max_fetch_time`, `max_retries`, `network_concurrent`, `page_load_timeout`, `request_timeout`, `same_domain_depth`
+### `DNSPolicyConfig`
+- fields (6): `disable_edns_client_subnet`, `leak_detection_enabled`, `max_cache_ttl`, `min_cache_ttl`, `resolve_through_tor`, `respect_cache_ttl`
+### `EmbeddingConfig`
+- fields (4): `batch_size`, `max_length`, `model_name`, `onnx_path`
+### `GeneralConfig`
+- fields (6): `data_dir`, `log_level`, `logs_dir`, `project_name`, `proxy_url`, `version`
+### `LLMConfig`
+- fields (6): `gpu_layers`, `model`, `model_context`, `ollama_host`, `temperature`, `unload_on_task_complete`
+### `MLServerConfig`
+- fields (5): `max_retries`, `retry_delay`, `server_url`, `timeout`, `use_remote`
+### `MetricsConfig`
+- fields (4): `ema_long_alpha`, `ema_short_alpha`, `ema_update_interval`, `hysteresis_min_interval`
+### `NLIConfig`
+- fields (1): `model`
+### `NotificationConfig`
+- fields (2): `linux_notify_enabled`, `windows_toast_enabled`
+### `QualityConfig`
+- fields (5): `min_confidence_score`, `min_independent_sources`, `min_primary_sources`, `min_secondary_sources`, `source_weights`
+### `RerankerConfig`
+- fields (4): `max_top_k`, `model_name`, `onnx_path`, `top_k`
+### `SearchConfig`
+- fields (16): `citation_filter`, `citation_graph_depth`, `citation_graph_direction`, `citation_graph_top_n_papers`, `default_engine`, `exploration_depth`, `initial_query_count_cpu`, `initial_query_count_gpu`, `max_exploration_depth`, `min_independent_sources`, `min_primary_secondary_sources`, `novelty_cycles_to_stop`, `novelty_threshold`, `results_per_query`, `use_browser`, `web_citation_detection`
+### `SearchQueueConcurrencyConfig`
+- fields (1): `num_workers`
+### `Settings`
+- fields (17): `browser`, `circuit_breaker`, `concurrency`, `crawler`, `embedding`, `general`, `llm`, `metrics`, `ml`, `nli`, `notification`, `quality`, `reranker`, `search`, `storage`, `task_limits`, `tor`
+### `StorageConfig`
+- fields (9): `archive_dir`, `cache_dir`, `database_path`, `embed_cache_ttl`, `fetch_cache_ttl`, `reports_dir`, `screenshots_dir`, `serp_cache_ttl`, `warc_dir`
+### `TaskLimitsConfig`
+- fields (8): `auth_queue_ttl_hours`, `budget_pages_per_task`, `cursor_idle_timeout_seconds`, `llm_time_ratio_max`, `max_manual_intervention_time_minutes`, `max_manual_interventions`, `max_time_minutes_cpu`, `max_time_minutes_gpu`
+### `TorConfig`
+- fields (8): `circuit_sticky_minutes`, `control_port`, `default_route`, `dns`, `enabled`, `max_usage_ratio`, `socks_host`, `socks_port`
+### `UndetectedChromeDriverConfig`
+- fields (5): `auto_escalate_block_score`, `auto_escalate_captcha_rate`, `cloudflare_timeout`, `enabled`, `prefer_headless`
+### `WebCitationDetectionConfig`
+- fields (8): `budget_pages_per_task`, `create_placeholder_pages`, `enabled`, `max_candidates_per_page`, `max_edges_per_page`, `min_text_chars`, `require_useful_text`, `run_on_primary_sources_only`
 
 ## Code contracts: fields (BaseModel / dataclass / TypedDict)
 - items: **1730** (unique field names: **1108**)
