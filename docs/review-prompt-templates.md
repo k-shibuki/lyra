@@ -1426,7 +1426,10 @@ async def _process_extraction(
     passage_id: str,
     source_url: str,
 ) -> dict:
-    """Process extraction with schema validation."""
+    """Process extraction with schema validation.
+
+    On parse failure after retries: logs error, returns empty result, continues processing.
+    """
     result = await parse_llm_output(response_text, task=task)
 
     if result.ok:
@@ -1436,15 +1439,26 @@ async def _process_extraction(
             extracted = [c.model_dump() for c in result.data.claims]
         else:
             extracted = result.data.model_dump()
+        return {
+            "id": passage_id,
+            "source_url": source_url,
+            "extracted": extracted,
+        }
     else:
-        # No fallback - raise or log error
-        raise ValueError(f"LLM parse failed: {result.errors}")
-
-    return {
-        "id": passage_id,
-        "source_url": source_url,
-        "extracted": extracted,
-    }
+        # Log error and continue with empty result
+        logger.warning(
+            "LLM parse failed after retries",
+            task=task,
+            passage_id=passage_id,
+            attempts=result.attempts,
+            errors=result.errors,
+        )
+        return {
+            "id": passage_id,
+            "source_url": source_url,
+            "extracted": [],
+            "parse_errors": result.errors,
+        }
 ```
 
 #### 6.4.2 Replace `src/filter/claim_decomposition.py`
@@ -1456,11 +1470,20 @@ async def _process_extraction(
 from .llm_output_parser import parse_llm_output
 
 async def _parse_llm_response(self, response: str, source_question: str) -> list[AtomicClaim]:
-    """Parse LLM response with schema validation."""
+    """Parse LLM response with schema validation.
+
+    On parse failure after retries: logs error, returns empty list, continues processing.
+    """
     result = await parse_llm_output(response, task="decompose")
 
     if not result.ok:
-        raise ValueError(f"Decomposition parse failed: {result.errors}")
+        logger.warning(
+            "Decomposition parse failed after retries",
+            source_question=source_question[:100],
+            attempts=result.attempts,
+            errors=result.errors,
+        )
+        return []  # Return empty list, continue processing
 
     return [
         AtomicClaim(
@@ -1486,12 +1509,21 @@ async def _parse_llm_response(self, response: str, source_question: str) -> list
 
 from src.filter.llm_output_parser import parse_llm_output
 
-async def _evaluate_relevance(response_text: str) -> float:
-    """Evaluate relevance with schema validation."""
+async def _evaluate_relevance(response_text: str, source_url: str = "") -> float:
+    """Evaluate relevance with schema validation.
+
+    On parse failure after retries: logs error, returns default score (0.5), continues processing.
+    """
     result = await parse_llm_output(response_text, task="relevance_evaluation")
 
     if not result.ok:
-        raise ValueError(f"Relevance parse failed: {result.errors}")
+        logger.warning(
+            "Relevance parse failed after retries",
+            source_url=source_url,
+            attempts=result.attempts,
+            errors=result.errors,
+        )
+        return 0.5  # Return neutral score, continue processing
 
     return result.data.normalized  # 0.0-1.0
 ```
