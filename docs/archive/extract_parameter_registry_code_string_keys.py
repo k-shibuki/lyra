@@ -8,6 +8,11 @@ This is intentionally for *list refinement* only (docs scope):
 - Environment variables: os.getenv("NAME"), os.environ.get("NAME"), os.environ["NAME"]
 
 Outputs JSON files under docs/archive/ for human triage.
+
+Important:
+- We keep output size manageable by storing only a *sample* of occurrences per key,
+  but we also store full counts and full file coverage (unique file list) so that
+  analysis does not become biased by sampling.
 """
 
 from __future__ import annotations
@@ -100,11 +105,31 @@ class KeyVisitor(ast.NodeVisitor):
 
 
 def _cap_occurrences(d: dict[str, list[Occurrence]], max_per_key: int) -> dict[str, list[dict[str, Any]]]:
+    """
+    Return a bounded sample of occurrences per key.
+
+    NOTE: Sampling is only for size. Full counts & file coverage are stored separately.
+    """
     out: dict[str, list[dict[str, Any]]] = {}
     for k, occs in d.items():
         trimmed = occs[:max_per_key]
         out[k] = [o.__dict__ for o in trimmed]
     return out
+
+
+def _key_stats(d: dict[str, list[Occurrence]]) -> dict[str, dict[str, Any]]:
+    """
+    Summarize each key without losing file coverage.
+    """
+    stats: dict[str, dict[str, Any]] = {}
+    for k, occs in d.items():
+        files = sorted({o.file for o in occs})
+        stats[k] = {
+            "occurrences": len(occs),
+            "unique_files": len(files),
+            "files": files,
+        }
+    return stats
 
 
 def main() -> None:
@@ -142,7 +167,7 @@ def main() -> None:
     out_dir = workspace / "docs" / "archive"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Keep JSON size manageable
+    # Keep JSON size manageable (sampling only; full stats stored separately)
     max_per_key = 20
     out = {
         "summary": {
@@ -153,6 +178,8 @@ def main() -> None:
             "max_occurrences_per_key": max_per_key,
         },
         "parse_failure_files": parse_failures,
+        "string_key_stats": _key_stats(string_keys_sorted),
+        "env_var_stats": _key_stats(env_vars_sorted),
         "string_keys": _cap_occurrences(string_keys_sorted, max_per_key=max_per_key),
         "env_vars": _cap_occurrences(env_vars_sorted, max_per_key=max_per_key),
     }

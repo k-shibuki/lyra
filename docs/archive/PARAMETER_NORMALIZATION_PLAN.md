@@ -61,6 +61,12 @@ Tier 1 はノイズが多いため、「正規化すべき契約キー」と「�
 - `docs/archive/PARAMETER_TIER1_CLASSIFICATION.md`
   - Tier 1 の正規化方針（汎用 `confidence` 禁止など）と決定ログ
 
+#### 3.3 Split keys（意味が分岐する同名キー）の先行解決（必須）
+
+`confidence/type/status` のように同名が複数意味を持つキーは、機械置換の前に **意味確定→命名確定**が必要。
+
+- `docs/archive/SPLIT_KEY_DECISIONS.md`（ADR/MCP整合の決定台帳）
+
 ### 4. 完全な変更リスト（初版）
 
 > NOTE: この表は「モデル系スコア/確信度/重み」をまず確実に正規化する最小核（High ROI）。

@@ -9,213 +9,8 @@
   },
   "items": [
     {
-      "key": "budget_pages",
-      "occurrences": 20,
-      "files": 7,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "parameterish",
-        "interfaceish"
-      ],
-      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
-      "priority": "high",
-      "normalization_policy": "normalize",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 52,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 109,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 695,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 719,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 1303,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "budget_pages_used",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "parameterish",
-        "interfaceish"
-      ],
-      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
-      "priority": "high",
-      "normalization_policy": "normalize",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 837,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 874,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 923,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 359,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 232,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "high_priority_count",
-      "occurrences": 20,
-      "files": 6,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "parameterish",
-        "interfaceish"
-      ],
-      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
-      "priority": "high",
-      "normalization_policy": "normalize",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/research/state.py",
-          "line": 905,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/utils/notification.py",
-          "line": 1059,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/utils/notification.py",
-          "line": 1244,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/utils/notification.py",
-          "line": 1256,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/utils/notification.py",
-          "line": 1265,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "nli_confidence",
-      "occurrences": 20,
-      "files": 5,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "parameterish",
-        "interfaceish"
-      ],
-      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
-      "priority": "high",
-      "normalization_policy": "normalize",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 193,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 198,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 232,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 237,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 274,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "pending_count",
-      "occurrences": 20,
-      "files": 7,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "parameterish",
-        "interfaceish"
-      ],
-      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
-      "priority": "high",
-      "normalization_policy": "normalize",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 244,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/state.py",
-          "line": 835,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/state.py",
-          "line": 872,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/research/state.py",
-          "line": 904,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/utils/notification.py",
-          "line": 1059,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
       "key": "refuting_count",
-      "occurrences": 20,
+      "occurrences": 36,
       "files": 5,
       "classes": [
         "contract_key",
@@ -256,7 +51,7 @@
     },
     {
       "key": "supporting_count",
-      "occurrences": 20,
+      "occurrences": 35,
       "files": 5,
       "classes": [
         "contract_key",
@@ -291,6 +86,211 @@
         {
           "file": "/workspace/tests/test_evidence_graph.py",
           "line": 356,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "pending_count",
+      "occurrences": 29,
+      "files": 9,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "parameterish",
+        "interfaceish"
+      ],
+      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
+      "priority": "high",
+      "normalization_policy": "normalize",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 244,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/state.py",
+          "line": 835,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/state.py",
+          "line": 872,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/research/state.py",
+          "line": 904,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/utils/notification.py",
+          "line": 1059,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "budget_pages",
+      "occurrences": 28,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "parameterish",
+        "interfaceish"
+      ],
+      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
+      "priority": "high",
+      "normalization_policy": "normalize",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 52,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 109,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 695,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 719,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 1303,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "nli_confidence",
+      "occurrences": 26,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "parameterish",
+        "interfaceish"
+      ],
+      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
+      "priority": "high",
+      "normalization_policy": "normalize",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 193,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 198,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 232,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 237,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 274,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "high_priority_count",
+      "occurrences": 21,
+      "files": 6,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "parameterish",
+        "interfaceish"
+      ],
+      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
+      "priority": "high",
+      "normalization_policy": "normalize",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/research/state.py",
+          "line": 905,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/utils/notification.py",
+          "line": 1059,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/utils/notification.py",
+          "line": 1244,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/utils/notification.py",
+          "line": 1256,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/utils/notification.py",
+          "line": 1265,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "budget_pages_used",
+      "occurrences": 20,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "parameterish",
+        "interfaceish"
+      ],
+      "reason": "parameter-like key used near interface boundaries (MCP/storage/research/report)",
+      "priority": "high",
+      "normalization_policy": "normalize",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 837,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 874,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 923,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 359,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 232,
           "kind": "subscript"
         }
       ]
@@ -2309,9 +2309,649 @@
       ]
     },
     {
+      "key": "ok",
+      "occurrences": 329,
+      "files": 61,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 540,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 176,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 481,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 2628,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/session_transfer.py",
+          "line": 307,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "id",
+      "occurrences": 210,
+      "files": 46,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 297,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 414,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/deduplication.py",
+          "line": 179,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/deduplication.py",
+          "line": 352,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/deduplication.py",
+          "line": 559,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "domain",
+      "occurrences": 196,
+      "files": 44,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 91,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 676,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 67,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 86,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/crt_transparency.py",
+          "line": 182,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "task_id",
+      "occurrences": 182,
+      "files": 37,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 777,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 183,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 221,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 244,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/feedback_handler.py",
+          "line": 474,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "url",
+      "occurrences": 166,
+      "files": 46,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 680,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 105,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 351,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 176,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 481,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "status",
+      "occurrences": 162,
+      "files": 41,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 105,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 363,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 732,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 744,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 176,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "confidence",
+      "occurrences": 141,
+      "files": 34,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/claim_decomposition.py",
+          "line": 79,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/claim_decomposition.py",
+          "line": 103,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/claim_decomposition.py",
+          "line": 287,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 73,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 101,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "text",
+      "occurrences": 136,
+      "files": 36,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 196,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 230,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 359,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 361,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 383,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "query",
+      "occurrences": 126,
+      "files": 33,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 81,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 422,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 44,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 527,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 538,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "type",
+      "occurrences": 99,
+      "files": 22,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 680,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/entity_integration.py",
+          "line": 68,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 196,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/claim_decomposition.py",
+          "line": 274,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 618,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "reason",
+      "occurrences": 96,
+      "files": 29,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 481,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 2628,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/http3_policy.py",
+          "line": 214,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/session_transfer.py",
+          "line": 307,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/undetected.py",
+          "line": 46,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "title",
+      "occurrences": 83,
+      "files": 25,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 414,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 230,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 368,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 383,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 53,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "error",
+      "occurrences": 80,
+      "files": 34,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 176,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/ipv6_manager.py",
+          "line": 84,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 81,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/wayback.py",
+          "line": 175,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/wayback.py",
+          "line": 898,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "name",
+      "occurrences": 73,
+      "files": 33,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 368,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 409,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 67,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 84,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 1255,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "priority",
+      "occurrences": 66,
+      "files": 14,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 680,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 109,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 509,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 538,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 1003,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "engine",
+      "occurrences": 65,
+      "files": 19,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 554,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 564,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 394,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/context.py",
+          "line": 436,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 440,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
       "key": "action",
-      "occurrences": 20,
-      "files": 4,
+      "occurrences": 59,
+      "files": 10,
       "classes": [
         "contract_key",
         "snake_case",
@@ -2349,49 +2989,9 @@
       ]
     },
     {
-      "key": "blocked_domains",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/response_meta.py",
-          "line": 98,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 856,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 905,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 463,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 464,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
       "key": "budget",
-      "occurrences": 20,
-      "files": 5,
+      "occurrences": 57,
+      "files": 10,
       "classes": [
         "contract_key",
         "snake_case",
@@ -2429,9 +3029,9 @@
       ]
     },
     {
-      "key": "captcha_rate",
-      "occurrences": 20,
-      "files": 7,
+      "key": "options",
+      "occurrences": 55,
+      "files": 9,
       "classes": [
         "contract_key",
         "snake_case",
@@ -2442,115 +3042,36 @@
       "normalization_policy": "review",
       "sample_occurrences": [
         {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 2391,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/search/browser_search_provider.py",
-          "line": 1491,
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 153,
           "kind": "dict_literal"
         },
         {
-          "file": "/workspace/src/search/circuit_breaker.py",
-          "line": 255,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/search/circuit_breaker.py",
-          "line": 314,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/storage/database.py",
-          "line": 424,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "cause_id",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 2589,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 973,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 518,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 536,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 648,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "claim_id",
-      "occurrences": 20,
-      "files": 10,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/claim_decomposition.py",
-          "line": 79,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/claim_decomposition.py",
-          "line": 96,
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 166,
           "kind": "subscript"
         },
         {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 245,
-          "kind": "dict_literal"
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 168,
+          "kind": "subscript"
         },
         {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 269,
-          "kind": ".get()"
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 170,
+          "kind": "subscript"
         },
         {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 508,
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 279,
           "kind": "dict_literal"
         }
       ]
     },
     {
-      "key": "claim_text",
-      "occurrences": 20,
-      "files": 7,
+      "key": "source_url",
+      "occurrences": 55,
+      "files": 16,
       "classes": [
         "contract_key",
         "snake_case",
@@ -2561,36 +3082,36 @@
       "normalization_policy": "review",
       "sample_occurrences": [
         {
-          "file": "/workspace/src/filter/temporal_consistency.py",
-          "line": 560,
-          "kind": ".get()"
+          "file": "/workspace/src/crawler/crt_transparency.py",
+          "line": 74,
+          "kind": "dict_literal"
         },
         {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 388,
-          "kind": ".get()"
+          "file": "/workspace/src/crawler/crt_transparency.py",
+          "line": 143,
+          "kind": "dict_literal"
         },
         {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 458,
-          "kind": ".get()"
+          "file": "/workspace/src/crawler/entity_integration.py",
+          "line": 63,
+          "kind": "dict_literal"
         },
         {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 466,
-          "kind": ".get()"
+          "file": "/workspace/src/crawler/entity_integration.py",
+          "line": 149,
+          "kind": "dict_literal"
         },
         {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 493,
+          "file": "/workspace/src/crawler/rdap_whois.py",
+          "line": 160,
           "kind": "dict_literal"
         }
       ]
     },
     {
       "key": "claims",
-      "occurrences": 20,
-      "files": 11,
+      "occurrences": 54,
+      "files": 16,
       "classes": [
         "contract_key",
         "snake_case",
@@ -2628,12 +3149,53 @@
       ]
     },
     {
-      "key": "confidence",
-      "occurrences": 20,
-      "files": 4,
+      "key": "source",
+      "occurrences": 52,
+      "files": 17,
       "classes": [
         "contract_key",
-        "snake_case"
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/entity_integration.py",
+          "line": 68,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 721,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 810,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 849,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1177,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "claim_id",
+      "occurrences": 47,
+      "files": 17,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
       ],
       "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
       "priority": "medium",
@@ -2646,68 +3208,29 @@
         },
         {
           "file": "/workspace/src/filter/claim_decomposition.py",
-          "line": 103,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/claim_decomposition.py",
-          "line": 287,
-          "kind": ".get()"
+          "line": 96,
+          "kind": "subscript"
         },
         {
           "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 73,
+          "line": 245,
           "kind": "dict_literal"
         },
         {
           "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 101,
+          "line": 269,
           "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 508,
+          "kind": "dict_literal"
         }
       ]
     },
     {
-      "key": "content",
-      "occurrences": 20,
-      "files": 11,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 363,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/undetected.py",
-          "line": 46,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/page_classifier.py",
-          "line": 1334,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/llm.py",
-          "line": 148,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/llm.py",
-          "line": 316,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "cookies",
-      "occurrences": 20,
+      "key": "independent_sources",
+      "occurrences": 47,
       "files": 8,
       "classes": [
         "contract_key",
@@ -2719,36 +3242,236 @@
       "normalization_policy": "review",
       "sample_occurrences": [
         {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 351,
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 460,
           "kind": "dict_literal"
         },
         {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 363,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 1249,
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 258,
           "kind": ".get()"
         },
         {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 1250,
-          "kind": "subscript"
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 358,
+          "kind": ".get()"
         },
         {
-          "file": "/workspace/src/crawler/session_transfer.py",
-          "line": 239,
+          "file": "/workspace/src/mcp/response_meta.py",
+          "line": 39,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 101,
           "kind": "dict_literal"
         }
       ]
     },
     {
+      "key": "relation",
+      "occurrences": 46,
+      "files": 10,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 188,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 193,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 196,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 227,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 232,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "snippet",
+      "occurrences": 42,
+      "files": 11,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 733,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 803,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 355,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 427,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 805,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "details",
+      "occurrences": 41,
+      "files": 15,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 320,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 455,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 513,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/provider.py",
+          "line": 305,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/provider.py",
+          "line": 393,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "summary",
+      "occurrences": 40,
+      "files": 13,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/wayback.py",
+          "line": 799,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/wayback.py",
+          "line": 836,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 245,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 607,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 649,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "timestamp",
+      "occurrences": 40,
+      "files": 17,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/profile_audit.py",
+          "line": 450,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/wayback.py",
+          "line": 799,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 73,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 87,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 601,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
       "key": "count",
-      "occurrences": 20,
-      "files": 5,
+      "occurrences": 39,
+      "files": 8,
       "classes": [
         "contract_key",
         "snake_case",
@@ -2786,9 +3509,289 @@
       ]
     },
     {
+      "key": "description",
+      "occurrences": 39,
+      "files": 3,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/crt_transparency.py",
+          "line": 185,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 45,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 46,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 57,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 62,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "domains",
+      "occurrences": 36,
+      "files": 17,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/entity_integration.py",
+          "line": 63,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/session_transfer.py",
+          "line": 709,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 841,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 246,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 605,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "properties",
+      "occurrences": 36,
+      "files": 7,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/response_sanitizer.py",
+          "line": 274,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/response_sanitizer.py",
+          "line": 336,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 42,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 46,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 50,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "state",
+      "occurrences": 36,
+      "files": 16,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 320,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/rdap_whois.py",
+          "line": 91,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/provider.py",
+          "line": 393,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 508,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/scheduler/jobs.py",
+          "line": 228,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "total_claims",
+      "occurrences": 36,
+      "files": 16,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/claim_timeline.py",
+          "line": 777,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 866,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 871,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 915,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 335,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "target",
+      "occurrences": 35,
+      "files": 7,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/entity_integration.py",
+          "line": 68,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 721,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 811,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1177,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 259,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "total",
+      "occurrences": 35,
+      "files": 20,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 676,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/robots.py",
+          "line": 1010,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 841,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/temporal_consistency.py",
+          "line": 579,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/temporal_consistency.py",
+          "line": 602,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
       "key": "created_at",
-      "occurrences": 20,
-      "files": 9,
+      "occurrences": 34,
+      "files": 12,
       "classes": [
         "contract_key",
         "snake_case",
@@ -2821,6 +3824,1755 @@
         {
           "file": "/workspace/src/crawler/session_transfer.py",
           "line": 283,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "label",
+      "occurrences": 33,
+      "files": 6,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/nli.py",
+          "line": 87,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/nli.py",
+          "line": 90,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/nli.py",
+          "line": 93,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/nli.py",
+          "line": 98,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/nli.py",
+          "line": 126,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "source_tag",
+      "occurrences": 33,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 53,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 77,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 460,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/generator.py",
+          "line": 400,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/generator.py",
+          "line": 406,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "value",
+      "occurrences": 33,
+      "files": 11,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 368,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 67,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 85,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 1255,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 1257,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "domain_pattern",
+      "occurrences": 32,
+      "files": 5,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 824,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/mcp/feedback_handler.py",
+          "line": 99,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/feedback_handler.py",
+          "line": 147,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/feedback_handler.py",
+          "line": 160,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/feedback_handler.py",
+          "line": 209,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "target_type",
+      "occurrences": 32,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 973,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1029,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1260,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1374,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1528,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "pages_fetched",
+      "occurrences": 31,
+      "files": 13,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 809,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 813,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 101,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 68,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/state.py",
+          "line": 203,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "default",
+      "occurrences": 30,
+      "files": 6,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 53,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 54,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 79,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 119,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 140,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "neutral_count",
+      "occurrences": 30,
+      "files": 4,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "parameterish"
+      ],
+      "reason": "parameter-like key, but interface boundary unclear; requires review before normalization",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 460,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 267,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/tests/test_evidence_graph.py",
+          "line": 504,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_source_verification.py",
+          "line": 41,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_source_verification.py",
+          "line": 65,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "warnings",
+      "occurrences": 30,
+      "files": 7,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 856,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 882,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 905,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/state.py",
+          "line": 830,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_activity_tracking.py",
+          "line": 183,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "captcha_rate",
+      "occurrences": 29,
+      "files": 11,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 2391,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/search/browser_search_provider.py",
+          "line": 1491,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/search/circuit_breaker.py",
+          "line": 255,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/search/circuit_breaker.py",
+          "line": 314,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/storage/database.py",
+          "line": 424,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "source_type",
+      "occurrences": 28,
+      "files": 9,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/entity_integration.py",
+          "line": 63,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/rdap_whois.py",
+          "line": 160,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 421,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 973,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1028,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "text_content",
+      "occurrences": 28,
+      "files": 9,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 211,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 75,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 413,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 706,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/generator.py",
+          "line": 419,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "node_type",
+      "occurrences": 27,
+      "files": 2,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 193,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 232,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 274,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 323,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 378,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "rank",
+      "occurrences": 27,
+      "files": 6,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 429,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 807,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/search/provider.py",
+          "line": 72,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/search/provider.py",
+          "line": 92,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/search/search_api.py",
+          "line": 810,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "claim_text",
+      "occurrences": 25,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/temporal_consistency.py",
+          "line": 560,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 388,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 458,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 466,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 493,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "message",
+      "occurrences": 25,
+      "files": 18,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 320,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/ollama_provider.py",
+          "line": 323,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/provider.py",
+          "line": 393,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/response_meta.py",
+          "line": 57,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 1075,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "method",
+      "occurrences": 25,
+      "files": 14,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 351,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 481,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 2628,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 81,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/undetected.py",
+          "line": 46,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "queue_id",
+      "occurrences": 25,
+      "files": 11,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 481,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 259,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 1682,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 1703,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 531,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "content",
+      "occurrences": 24,
+      "files": 12,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 363,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/undetected.py",
+          "line": 46,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/page_classifier.py",
+          "line": 1334,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/llm.py",
+          "line": 148,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/llm.py",
+          "line": 316,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "cookies",
+      "occurrences": 24,
+      "files": 9,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 351,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 363,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 1249,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 1250,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/crawler/session_transfer.py",
+          "line": 239,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "error_code",
+      "occurrences": 24,
+      "files": 7,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/errors.py",
+          "line": 135,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/response_sanitizer.py",
+          "line": 240,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/executor.py",
+          "line": 118,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/research/pipeline.py",
+          "line": 84,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_calibration_rollback.py",
+          "line": 312,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "fonts",
+      "occurrences": 24,
+      "files": 3,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/profile_audit.py",
+          "line": 92,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/crawler/profile_audit.py",
+          "line": 92,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/crawler/profile_audit.py",
+          "line": 99,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/crawler/profile_audit.py",
+          "line": 100,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/crawler/profile_audit.py",
+          "line": 100,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "doi",
+      "occurrences": 23,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 421,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 428,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1102,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1103,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1108,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "domain_block_reason",
+      "occurrences": 23,
+      "files": 3,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 518,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 536,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 439,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 465,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 515,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "domain_unblock_risk",
+      "occurrences": 23,
+      "files": 3,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 518,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 536,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 439,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 466,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 515,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "harvest_rate",
+      "occurrences": 23,
+      "files": 11,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 807,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 833,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 809,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 815,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/research/context.py",
+          "line": 243,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "html_path",
+      "occurrences": 23,
+      "files": 12,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/bfs.py",
+          "line": 542,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 176,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 481,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 2589,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/undetected.py",
+          "line": 46,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "searches",
+      "occurrences": 23,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 807,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 856,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 905,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/state.py",
+          "line": 830,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_integration.py",
+          "line": 195,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "success",
+      "occurrences": 23,
+      "files": 10,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/ipv6_manager.py",
+          "line": 84,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/site_search.py",
+          "line": 81,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/claim_decomposition.py",
+          "line": 121,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 259,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 1654,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "test_provider",
+      "occurrences": 23,
+      "files": 3,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/tests/test_academic_rate_limiter.py",
+          "line": 112,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
+          "line": 71,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
+          "line": 77,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
+          "line": 97,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
+          "line": 107,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "heading_context",
+      "occurrences": 22,
+      "files": 6,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 196,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 211,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 216,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 53,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/report/chain_of_density.py",
+          "line": 68,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "mode",
+      "occurrences": 22,
+      "files": 4,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 124,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 176,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_provider.py",
+          "line": 777,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 138,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 1135,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "obj_id",
+      "occurrences": 22,
+      "files": 3,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 193,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 232,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 274,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 323,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 379,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "page_id",
+      "occurrences": 22,
+      "files": 9,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 481,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/extractor/content.py",
+          "line": 211,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 383,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1073,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1139,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "published_date",
+      "occurrences": 22,
+      "files": 2,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/search/search_api.py",
+          "line": 810,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_temporal_consistency.py",
+          "line": 198,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_temporal_consistency.py",
+          "line": 209,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_temporal_consistency.py",
+          "line": 259,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_temporal_consistency.py",
+          "line": 271,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "success_rate_1h",
+      "occurrences": 22,
+      "files": 7,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/search/circuit_breaker.py",
+          "line": 255,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/search/circuit_breaker.py",
+          "line": 313,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/storage/database.py",
+          "line": 424,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/storage/database.py",
+          "line": 428,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/storage/database.py",
+          "line": 437,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "version",
+      "occurrences": 22,
+      "files": 10,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 407,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/browser_archive.py",
+          "line": 409,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 215,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 1392,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/storage/database.py",
+          "line": 113,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "blocked_domains",
+      "occurrences": 21,
+      "files": 5,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/mcp/response_meta.py",
+          "line": 98,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 856,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 905,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 463,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/tests/test_mcp_get_status.py",
+          "line": 464,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "cause_id",
+      "occurrences": 21,
+      "files": 9,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/fetcher.py",
+          "line": 2589,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 973,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 518,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 536,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/source_verification.py",
+          "line": 648,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "page_number",
+      "occurrences": 21,
+      "files": 4,
+      "classes": [
+        "contract_key",
+        "snake_case"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/search/provider.py",
+          "line": 72,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/search/provider.py",
+          "line": 94,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/search/search_api.py",
+          "line": 810,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/search/search_api.py",
+          "line": 819,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/tests/test_search_api_page_number.py",
+          "line": 48,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "source_domain_category",
+      "occurrences": 21,
+      "files": 6,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 421,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 427,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 973,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 985,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1042,
+          "kind": ".get()"
+        }
+      ]
+    },
+    {
+      "key": "templates",
+      "occurrences": 21,
+      "files": 1,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/research/pivot.py",
+          "line": 101,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/pivot.py",
+          "line": 114,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/pivot.py",
+          "line": 127,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/pivot.py",
+          "line": 139,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/research/pivot.py",
+          "line": 150,
+          "kind": "dict_literal"
+        }
+      ]
+    },
+    {
+      "key": "updated_at",
+      "occurrences": 21,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/crawler/http3_policy.py",
+          "line": 128,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/crawler/http3_policy.py",
+          "line": 176,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/crawler/http3_policy.py",
+          "line": 177,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 644,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/mcp/server.py",
+          "line": 649,
+          "kind": "subscript"
+        }
+      ]
+    },
+    {
+      "key": "year",
+      "occurrences": 21,
+      "files": 8,
+      "classes": [
+        "contract_key",
+        "snake_case",
+        "interfaceish"
+      ],
+      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
+      "priority": "medium",
+      "normalization_policy": "review",
+      "sample_occurrences": [
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 412,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 421,
+          "kind": "dict_literal"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1100,
+          "kind": ".get()"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1101,
+          "kind": "subscript"
+        },
+        {
+          "file": "/workspace/src/filter/evidence_graph.py",
+          "line": 1108,
           "kind": ".get()"
         }
       ]
@@ -2866,1354 +5618,6 @@
       ]
     },
     {
-      "key": "default",
-      "occurrences": 20,
-      "files": 3,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 53,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 54,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 79,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 119,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 140,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "description",
-      "occurrences": 20,
-      "files": 2,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/crt_transparency.py",
-          "line": 185,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 45,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 46,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 57,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 62,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "details",
-      "occurrences": 20,
-      "files": 12,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 320,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 455,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 513,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/provider.py",
-          "line": 305,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/provider.py",
-          "line": 393,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "doi",
-      "occurrences": 20,
-      "files": 7,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 421,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 428,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1102,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1103,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1108,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "domain",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 91,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 676,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 67,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 86,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/crawler/crt_transparency.py",
-          "line": 182,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "domain_block_reason",
-      "occurrences": 20,
-      "files": 3,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 518,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 536,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 439,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 465,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 515,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "domain_pattern",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 824,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/mcp/feedback_handler.py",
-          "line": 99,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/feedback_handler.py",
-          "line": 147,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/feedback_handler.py",
-          "line": 160,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/feedback_handler.py",
-          "line": 209,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "domain_unblock_risk",
-      "occurrences": 20,
-      "files": 3,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 518,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 536,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 439,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 466,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_mcp_get_status.py",
-          "line": 515,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "domains",
-      "occurrences": 20,
-      "files": 12,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/entity_integration.py",
-          "line": 63,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/session_transfer.py",
-          "line": 709,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 841,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 246,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 605,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "engine",
-      "occurrences": 20,
-      "files": 10,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 554,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 564,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 394,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/context.py",
-          "line": 436,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 440,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "error",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 176,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/ipv6_manager.py",
-          "line": 84,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 81,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/wayback.py",
-          "line": 175,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/wayback.py",
-          "line": 898,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "error_code",
-      "occurrences": 20,
-      "files": 6,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 135,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/response_sanitizer.py",
-          "line": 240,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 118,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 84,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_calibration_rollback.py",
-          "line": 312,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "fonts",
-      "occurrences": 20,
-      "files": 3,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/profile_audit.py",
-          "line": 92,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/crawler/profile_audit.py",
-          "line": 92,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/crawler/profile_audit.py",
-          "line": 99,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/crawler/profile_audit.py",
-          "line": 100,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/crawler/profile_audit.py",
-          "line": 100,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "harvest_rate",
-      "occurrences": 20,
-      "files": 11,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 807,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 833,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 809,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 815,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/research/context.py",
-          "line": 243,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "heading_context",
-      "occurrences": 20,
-      "files": 6,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 196,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 211,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 216,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 53,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 68,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "html_path",
-      "occurrences": 20,
-      "files": 11,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 542,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 176,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 481,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 2589,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/undetected.py",
-          "line": 46,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "id",
-      "occurrences": 20,
-      "files": 5,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 297,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 414,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/deduplication.py",
-          "line": 179,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/deduplication.py",
-          "line": 352,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/deduplication.py",
-          "line": 559,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "independent_sources",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 460,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 258,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 358,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/response_meta.py",
-          "line": 39,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 101,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "label",
-      "occurrences": 20,
-      "files": 3,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/nli.py",
-          "line": 87,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/nli.py",
-          "line": 90,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/nli.py",
-          "line": 93,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/nli.py",
-          "line": 98,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/nli.py",
-          "line": 126,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "message",
-      "occurrences": 20,
-      "files": 14,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 320,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 323,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/provider.py",
-          "line": 393,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/response_meta.py",
-          "line": 57,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 1075,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "method",
-      "occurrences": 20,
-      "files": 10,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 351,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 481,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 2628,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 81,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/undetected.py",
-          "line": 46,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "mode",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 124,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 176,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 777,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 138,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 1135,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "name",
-      "occurrences": 20,
-      "files": 10,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 368,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 409,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 67,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 84,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 1255,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "neutral_count",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "parameterish"
-      ],
-      "reason": "parameter-like key, but interface boundary unclear; requires review before normalization",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 460,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/source_verification.py",
-          "line": 267,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/tests/test_evidence_graph.py",
-          "line": 504,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_source_verification.py",
-          "line": 41,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_source_verification.py",
-          "line": 65,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "node_type",
-      "occurrences": 20,
-      "files": 1,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 193,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 232,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 274,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 323,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 378,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "obj_id",
-      "occurrences": 20,
-      "files": 2,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 193,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 232,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 274,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 323,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 379,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "ok",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 540,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 176,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 481,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 2628,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/session_transfer.py",
-          "line": 307,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "options",
-      "occurrences": 20,
-      "files": 6,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 153,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 166,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 168,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 170,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/ollama_provider.py",
-          "line": 279,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "page_id",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 481,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 211,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 383,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1073,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1139,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "page_number",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/search/provider.py",
-          "line": 72,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/search/provider.py",
-          "line": 94,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/search/search_api.py",
-          "line": 810,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/search/search_api.py",
-          "line": 819,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/tests/test_search_api_page_number.py",
-          "line": 48,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "pages_fetched",
-      "occurrences": 20,
-      "files": 13,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 809,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 813,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 101,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 68,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/state.py",
-          "line": 203,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "priority",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 680,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 109,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 509,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 538,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 1003,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "properties",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/response_sanitizer.py",
-          "line": 274,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/response_sanitizer.py",
-          "line": 336,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 42,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 46,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 50,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "published_date",
-      "occurrences": 20,
-      "files": 2,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/search/search_api.py",
-          "line": 810,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_temporal_consistency.py",
-          "line": 198,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_temporal_consistency.py",
-          "line": 209,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_temporal_consistency.py",
-          "line": 259,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_temporal_consistency.py",
-          "line": 271,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
       "key": "queries",
       "occurrences": 20,
       "files": 7,
@@ -4254,963 +5658,6 @@
       ]
     },
     {
-      "key": "query",
-      "occurrences": 20,
-      "files": 7,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 81,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 422,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 44,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 527,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 538,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "queue_id",
-      "occurrences": 20,
-      "files": 9,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 481,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 259,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 1682,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 1703,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 531,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "rank",
-      "occurrences": 20,
-      "files": 5,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 429,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 807,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/search/provider.py",
-          "line": 72,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/search/provider.py",
-          "line": 92,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/search/search_api.py",
-          "line": 810,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "reason",
-      "occurrences": 20,
-      "files": 9,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 481,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 2628,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/http3_policy.py",
-          "line": 214,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/session_transfer.py",
-          "line": 307,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/undetected.py",
-          "line": 46,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "relation",
-      "occurrences": 20,
-      "files": 1,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 188,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 193,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 196,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 227,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 232,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "searches",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 807,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 856,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 905,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/state.py",
-          "line": 830,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_integration.py",
-          "line": 195,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "snippet",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 733,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/executor.py",
-          "line": 803,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 355,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 427,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/research/pipeline.py",
-          "line": 805,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "source",
-      "occurrences": 20,
-      "files": 9,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/entity_integration.py",
-          "line": 68,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 721,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 810,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 849,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1177,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "source_domain_category",
-      "occurrences": 20,
-      "files": 5,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 421,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 427,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 973,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 985,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1042,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "source_tag",
-      "occurrences": 20,
-      "files": 6,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 53,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 77,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 460,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/report/generator.py",
-          "line": 400,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/report/generator.py",
-          "line": 406,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "source_type",
-      "occurrences": 20,
-      "files": 5,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/entity_integration.py",
-          "line": 63,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/rdap_whois.py",
-          "line": 160,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 421,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 973,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1028,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "source_url",
-      "occurrences": 20,
-      "files": 7,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/crt_transparency.py",
-          "line": 74,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/crt_transparency.py",
-          "line": 143,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/entity_integration.py",
-          "line": 63,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/entity_integration.py",
-          "line": 149,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/rdap_whois.py",
-          "line": 160,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "state",
-      "occurrences": 20,
-      "files": 13,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 320,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/rdap_whois.py",
-          "line": 91,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/provider.py",
-          "line": 393,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 508,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/scheduler/jobs.py",
-          "line": 228,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "status",
-      "occurrences": 20,
-      "files": 9,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 105,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 363,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 732,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 744,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 176,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "success",
-      "occurrences": 20,
-      "files": 9,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/ipv6_manager.py",
-          "line": 84,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 81,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/claim_decomposition.py",
-          "line": 121,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 259,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 1654,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "success_rate_1h",
-      "occurrences": 20,
-      "files": 7,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/search/circuit_breaker.py",
-          "line": 255,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/search/circuit_breaker.py",
-          "line": 313,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/storage/database.py",
-          "line": 424,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/storage/database.py",
-          "line": 428,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/storage/database.py",
-          "line": 437,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "summary",
-      "occurrences": 20,
-      "files": 10,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/wayback.py",
-          "line": 799,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/wayback.py",
-          "line": 836,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 245,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 607,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 649,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "target",
-      "occurrences": 20,
-      "files": 6,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/entity_integration.py",
-          "line": 68,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 721,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 811,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1177,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 259,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "target_type",
-      "occurrences": 20,
-      "files": 3,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 973,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1029,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1260,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1374,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1528,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "task_id",
-      "occurrences": 20,
-      "files": 4,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 777,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 183,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 221,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/errors.py",
-          "line": 244,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/feedback_handler.py",
-          "line": 474,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "templates",
-      "occurrences": 20,
-      "files": 1,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/research/pivot.py",
-          "line": 101,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/pivot.py",
-          "line": 114,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/pivot.py",
-          "line": 127,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/pivot.py",
-          "line": 139,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/pivot.py",
-          "line": 150,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "test_provider",
-      "occurrences": 20,
-      "files": 2,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/tests/test_academic_rate_limiter.py",
-          "line": 112,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
-          "line": 71,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
-          "line": 77,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
-          "line": 97,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/tests/test_academic_rate_limiter_backoff.py",
-          "line": 107,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "text",
-      "occurrences": 20,
-      "files": 5,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 196,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 230,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 359,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 361,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 383,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "text_content",
-      "occurrences": 20,
-      "files": 7,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 211,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 75,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 413,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 706,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/report/generator.py",
-          "line": 419,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
       "key": "timeline_json",
       "occurrences": 20,
       "files": 3,
@@ -5246,444 +5693,6 @@
         {
           "file": "/workspace/src/report/generator.py",
           "line": 685,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "timestamp",
-      "occurrences": 20,
-      "files": 12,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/profile_audit.py",
-          "line": 450,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/wayback.py",
-          "line": 799,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 73,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 87,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 601,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "title",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 414,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 230,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 368,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 383,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 53,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "total",
-      "occurrences": 20,
-      "files": 13,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 676,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/robots.py",
-          "line": 1010,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/site_search.py",
-          "line": 841,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/temporal_consistency.py",
-          "line": 579,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/temporal_consistency.py",
-          "line": 602,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "total_claims",
-      "occurrences": 20,
-      "files": 13,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/claim_timeline.py",
-          "line": 777,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 866,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 871,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 915,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/report/chain_of_density.py",
-          "line": 335,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "type",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 680,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/entity_integration.py",
-          "line": 68,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/extractor/content.py",
-          "line": 196,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/claim_decomposition.py",
-          "line": 274,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 618,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "updated_at",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/http3_policy.py",
-          "line": 128,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/http3_policy.py",
-          "line": 176,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/crawler/http3_policy.py",
-          "line": 177,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 644,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 649,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "url",
-      "occurrences": 20,
-      "files": 10,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/bfs.py",
-          "line": 680,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 105,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 351,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 176,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 481,
-          "kind": "dict_literal"
-        }
-      ]
-    },
-    {
-      "key": "value",
-      "occurrences": 20,
-      "files": 9,
-      "classes": [
-        "contract_key",
-        "snake_case"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 368,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 67,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_provider.py",
-          "line": 85,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 1255,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/fetcher.py",
-          "line": 1257,
-          "kind": ".get()"
-        }
-      ]
-    },
-    {
-      "key": "version",
-      "occurrences": 20,
-      "files": 9,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 407,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/crawler/browser_archive.py",
-          "line": 409,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 215,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 1392,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/storage/database.py",
-          "line": 113,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "warnings",
-      "occurrences": 20,
-      "files": 6,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 856,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 882,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/mcp/server.py",
-          "line": 905,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/research/state.py",
-          "line": 830,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/tests/test_activity_tracking.py",
-          "line": 183,
-          "kind": "subscript"
-        }
-      ]
-    },
-    {
-      "key": "year",
-      "occurrences": 20,
-      "files": 8,
-      "classes": [
-        "contract_key",
-        "snake_case",
-        "interfaceish"
-      ],
-      "reason": "widely used contract-like key; normalization depends on whether it crosses module boundaries",
-      "priority": "medium",
-      "normalization_policy": "review",
-      "sample_occurrences": [
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 412,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 421,
-          "kind": "dict_literal"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1100,
-          "kind": ".get()"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1101,
-          "kind": "subscript"
-        },
-        {
-          "file": "/workspace/src/filter/evidence_graph.py",
-          "line": 1108,
           "kind": ".get()"
         }
       ]

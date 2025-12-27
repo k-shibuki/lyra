@@ -68,7 +68,9 @@ def _mcp_leaf_props(mcp_paths: dict[str, list[str]]) -> set[str]:
 
 def main() -> None:
     root = Path("/workspace/docs/archive")
-    code_keys = json.loads((root / "parameter-registry.code-string-keys.json").read_text(encoding="utf-8"))["string_keys"]
+    code_registry = json.loads((root / "parameter-registry.code-string-keys.json").read_text(encoding="utf-8"))
+    code_keys_sample = code_registry["string_keys"]
+    code_key_stats = code_registry.get("string_key_stats", {})
     contract = json.loads((root / "parameter-registry.tier1-contract-keys.json").read_text(encoding="utf-8"))["items"]
     db_cols = json.loads((root / "parameter-registry.db-columns.json").read_text(encoding="utf-8"))
     mcp_paths = json.loads((root / "parameter-registry.mcp-schema-paths.json").read_text(encoding="utf-8"))
@@ -206,8 +208,11 @@ def main() -> None:
 
     for item in review_items:
         key = item["key"]
-        occs = code_keys.get(key, [])
-        kinds = sorted({_kind(o["file"]) for o in occs})
+        occs = code_keys_sample.get(key, [])
+        st = code_key_stats.get(key) or {}
+        file_list = list(st.get("files") or sorted({o["file"] for o in occs}))
+        occ_count = int(st.get("occurrences") or len(occs))
+        kinds = sorted({_kind(f) for f in file_list})
         boundary = any(any(h in o["file"] for h in BOUNDARY_DIR_HINTS) for o in occs)
 
         if key in MANUAL:
@@ -216,8 +221,8 @@ def main() -> None:
                 "decision": MANUAL[key]["decision"],
                 "reason": MANUAL[key]["reason"],
                 "kinds": kinds,
-                "occurrences": len(occs),
-                "files": len({o["file"] for o in occs}),
+                "occurrences": occ_count,
+                "files": len(file_list),
                 "replacements": MANUAL[key].get("replacements", []),
                 "rg_safety": MANUAL[key].get("rg_safety", []),
             }
@@ -232,8 +237,8 @@ def main() -> None:
                     "to": SIGNAL_RENAMES[key],
                     "reason": "align with Tier0 model-signal canonical naming",
                     "kinds": kinds,
-                    "occurrences": len(occs),
-                    "files": len({o["file"] for o in occs}),
+                    "occurrences": occ_count,
+                    "files": len(file_list),
                     "rg_safety": [
                         "Replace quoted dict keys only: [\"key\"] / .get(\"key\") / {\"key\": ...}.",
                         "Prefer file-scoped replacement (one module at a time).",
@@ -250,8 +255,8 @@ def main() -> None:
                     "decision": "keep",
                     "reason": "identifier/timestamp field (canonical exception rule)",
                     "kinds": kinds,
-                    "occurrences": len(occs),
-                    "files": len({o['file'] for o in occs}),
+                    "occurrences": occ_count,
+                    "files": len(file_list),
                 }
             )
             continue
@@ -264,8 +269,8 @@ def main() -> None:
                     "decision": "keep",
                     "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
                     "kinds": kinds,
-                    "occurrences": len(occs),
-                    "files": len({o['file'] for o in occs}),
+                    "occurrences": occ_count,
+                    "files": len(file_list),
                 }
             )
             continue
@@ -278,8 +283,8 @@ def main() -> None:
                     "decision": "keep",
                     "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
                     "kinds": kinds,
-                    "occurrences": len(occs),
-                    "files": len({o['file'] for o in occs}),
+                    "occurrences": occ_count,
+                    "files": len(file_list),
                     "rg_safety": ["Do not global-replace this key without a full-field canonical map."],
                 }
             )
@@ -292,8 +297,8 @@ def main() -> None:
                 "decision": "keep",
                 "reason": "likely internal/local key; keep unless promoted to an interface contract",
                 "kinds": kinds,
-                "occurrences": len(occs),
-                "files": len({o['file'] for o in occs}),
+                "occurrences": occ_count,
+                "files": len(file_list),
             }
         )
 

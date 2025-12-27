@@ -48,6 +48,11 @@
   - `decision=split`: **絶対にグローバル置換禁止**（ファイル単位で条件付き）
   - `decision=keep`: この波では置換しない（Tier0のみで対応／または将来の全項目正規化で検討）
 
+### 5.1 Split keys（意味分岐）の決定台帳
+
+- `docs/archive/SPLIT_KEY_DECISIONS.md`
+  - `confidence/type/status` の意味確定（ADR/MCP整合）と、canonicalへの分解を先に決める
+
 ### 6. split-key を先に処理するための“チェック”
 
 split の `replacements[]` に `expected_matches_in_scope` がある場合:

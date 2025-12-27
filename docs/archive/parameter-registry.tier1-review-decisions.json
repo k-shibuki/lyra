@@ -77,10 +77,17 @@
       "decision": "split",
       "reason": "generic key with multiple semantics across modules; global replacement is unsafe",
       "kinds": [
-        "filter"
+        "filter",
+        "ml",
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 4,
+      "occurrences": 141,
+      "files": 34,
       "replacements": [
         {
           "when": "src/filter/evidence_graph.py evidence dicts",
@@ -131,10 +138,16 @@
       "kinds": [
         "crawler",
         "filter",
-        "mcp"
+        "mcp",
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 9,
+      "occurrences": 162,
+      "files": 41,
       "replacements": [
         {
           "when": "MCP get_status response and task lifecycle",
@@ -164,10 +177,13 @@
         "crawler",
         "filter",
         "mcp",
-        "src_other"
+        "report",
+        "research",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 8,
+      "occurrences": 99,
+      "files": 22,
       "replacements": [
         {
           "when": "MCP JSON Schemas / sanitizer / server tool definitions",
@@ -206,10 +222,11 @@
       "kinds": [
         "crawler",
         "mcp",
-        "src_other"
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 4
+      "occurrences": 59,
+      "files": 10
     },
     {
       "key": "active_count",
@@ -335,8 +352,8 @@
         "mcp",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 4
+      "occurrences": 21,
+      "files": 5
     },
     {
       "key": "boosted_domains_count",
@@ -366,10 +383,11 @@
       "kinds": [
         "mcp",
         "research",
-        "src_other"
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 5
+      "occurrences": 57,
+      "files": 10
     },
     {
       "key": "budget_pages_per_day",
@@ -421,10 +439,11 @@
         "crawler",
         "search",
         "src_other",
-        "storage"
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 7
+      "occurrences": 29,
+      "files": 11
     },
     {
       "key": "cause_id",
@@ -437,8 +456,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 8
+      "occurrences": 21,
+      "files": 9
     },
     {
       "key": "cert_count",
@@ -491,8 +510,8 @@
         "report",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 10
+      "occurrences": 47,
+      "files": 17
     },
     {
       "key": "claim_text",
@@ -504,8 +523,8 @@
         "research",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 7
+      "occurrences": 25,
+      "files": 8
     },
     {
       "key": "claims",
@@ -519,8 +538,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 11
+      "occurrences": 54,
+      "files": 16
     },
     {
       "key": "cloudflare_count",
@@ -563,8 +582,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 11
+      "occurrences": 24,
+      "files": 12
     },
     {
       "key": "cookies",
@@ -576,8 +595,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 8,
+      "occurrences": 24,
+      "files": 9,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -610,10 +629,11 @@
       "kinds": [
         "mcp",
         "search",
-        "src_other"
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 5,
+      "occurrences": 39,
+      "files": 8,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -640,8 +660,8 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 9
+      "occurrences": 34,
+      "files": 12
     },
     {
       "key": "current_llm_ratio",
@@ -707,10 +727,11 @@
       "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
       "kinds": [
         "mcp",
-        "search"
+        "search",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 3,
+      "occurrences": 30,
+      "files": 6,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -742,10 +763,11 @@
       "reason": "boundary-used but not a signal key; keep to avoid broad churn unless full-field normalization is approved",
       "kinds": [
         "crawler",
-        "mcp"
+        "mcp",
+        "research"
       ],
-      "occurrences": 20,
-      "files": 2,
+      "occurrences": 39,
+      "files": 3,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -762,8 +784,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 12,
+      "occurrences": 41,
+      "files": 15,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -788,18 +810,25 @@
         "search",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 7
+      "occurrences": 23,
+      "files": 8
     },
     {
       "key": "domain",
       "decision": "keep",
       "reason": "identifier/timestamp field (canonical exception rule)",
       "kinds": [
-        "crawler"
+        "crawler",
+        "filter",
+        "mcp",
+        "report",
+        "research",
+        "src_other",
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 8
+      "occurrences": 196,
+      "files": 44
     },
     {
       "key": "domain_block_reason",
@@ -809,7 +838,7 @@
         "filter",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 23,
       "files": 3
     },
     {
@@ -821,8 +850,8 @@
         "mcp",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 4
+      "occurrences": 32,
+      "files": 5
     },
     {
       "key": "domain_qps",
@@ -842,7 +871,7 @@
         "filter",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 23,
       "files": 3
     },
     {
@@ -856,8 +885,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 12,
+      "occurrences": 36,
+      "files": 17,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -935,10 +964,11 @@
         "research",
         "search",
         "src_other",
-        "storage"
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 10
+      "occurrences": 65,
+      "files": 19
     },
     {
       "key": "error",
@@ -947,10 +977,16 @@
       "kinds": [
         "crawler",
         "filter",
-        "src_other"
+        "mcp",
+        "ml",
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 8
+      "occurrences": 80,
+      "files": 34
     },
     {
       "key": "error_403_count",
@@ -972,8 +1008,8 @@
         "research",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 6
+      "occurrences": 24,
+      "files": 7
     },
     {
       "key": "eval_count",
@@ -1047,7 +1083,7 @@
         "crawler",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 24,
       "files": 3
     },
     {
@@ -1097,7 +1133,7 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 23,
       "files": 11
     },
     {
@@ -1121,7 +1157,7 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 22,
       "files": 6
     },
     {
@@ -1146,8 +1182,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 11
+      "occurrences": 23,
+      "files": 12
     },
     {
       "key": "id",
@@ -1155,10 +1191,17 @@
       "reason": "identifier/timestamp field (canonical exception rule)",
       "kinds": [
         "crawler",
-        "filter"
+        "filter",
+        "mcp",
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 5
+      "occurrences": 210,
+      "files": 46
     },
     {
       "key": "improvement_ratio",
@@ -1182,7 +1225,7 @@
         "research",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 47,
       "files": 8,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
@@ -1225,10 +1268,12 @@
       "reason": "likely internal/local key; keep unless promoted to an interface contract",
       "kinds": [
         "filter",
-        "ml"
+        "ml",
+        "research",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 3
+      "occurrences": 33,
+      "files": 6
     },
     {
       "key": "learning_threshold",
@@ -1457,8 +1502,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 14
+      "occurrences": 25,
+      "files": 18
     },
     {
       "key": "method",
@@ -1470,8 +1515,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 10
+      "occurrences": 25,
+      "files": 14
     },
     {
       "key": "min_interval",
@@ -1524,7 +1569,7 @@
         "mcp",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 22,
       "files": 4
     },
     {
@@ -1534,10 +1579,13 @@
       "kinds": [
         "crawler",
         "filter",
-        "research"
+        "research",
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 10
+      "occurrences": 73,
+      "files": 33
     },
     {
       "key": "neutral_count",
@@ -1547,7 +1595,7 @@
         "filter",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 30,
       "files": 4
     },
     {
@@ -1565,10 +1613,11 @@
       "decision": "keep",
       "reason": "likely internal/local key; keep unless promoted to an interface contract",
       "kinds": [
-        "filter"
+        "filter",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 1
+      "occurrences": 27,
+      "files": 2
     },
     {
       "key": "obj_id",
@@ -1578,8 +1627,8 @@
         "filter",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 2
+      "occurrences": 22,
+      "files": 3
     },
     {
       "key": "occurrence_count",
@@ -1597,10 +1646,17 @@
       "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
       "kinds": [
         "crawler",
-        "src_other"
+        "filter",
+        "mcp",
+        "ml",
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 8
+      "occurrences": 329,
+      "files": 61
     },
     {
       "key": "options",
@@ -1612,8 +1668,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 6,
+      "occurrences": 55,
+      "files": 9,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -1641,8 +1697,8 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 8
+      "occurrences": 22,
+      "files": 9
     },
     {
       "key": "page_number",
@@ -1652,7 +1708,7 @@
         "search",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 21,
       "files": 4
     },
     {
@@ -1666,7 +1722,7 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 31,
       "files": 13
     },
     {
@@ -1751,10 +1807,13 @@
       "kinds": [
         "crawler",
         "mcp",
-        "research"
+        "research",
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 4
+      "occurrences": 66,
+      "files": 14
     },
     {
       "key": "problematic_node_count",
@@ -1786,8 +1845,8 @@
         "mcp",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 4,
+      "occurrences": 36,
+      "files": 7,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -1800,7 +1859,7 @@
         "search",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 22,
       "files": 2
     },
     {
@@ -1849,10 +1908,14 @@
         "mcp",
         "ml",
         "report",
-        "research"
+        "research",
+        "search",
+        "src_other",
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 7
+      "occurrences": 126,
+      "files": 33
     },
     {
       "key": "queue_id",
@@ -1866,8 +1929,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 9
+      "occurrences": 25,
+      "files": 11
     },
     {
       "key": "rank",
@@ -1878,8 +1941,8 @@
         "search",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 5
+      "occurrences": 27,
+      "files": 6
     },
     {
       "key": "rate_limit",
@@ -1912,10 +1975,13 @@
         "crawler",
         "filter",
         "mcp",
-        "src_other"
+        "research",
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 9
+      "occurrences": 96,
+      "files": 29
     },
     {
       "key": "recalibration_threshold",
@@ -1944,10 +2010,14 @@
       "decision": "keep",
       "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
       "kinds": [
-        "filter"
+        "filter",
+        "mcp",
+        "report",
+        "research",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 1
+      "occurrences": 46,
+      "files": 10
     },
     {
       "key": "removed_lines_count",
@@ -2084,7 +2154,7 @@
         "research",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 23,
       "files": 8
     },
     {
@@ -2140,8 +2210,8 @@
         "search",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 8
+      "occurrences": 42,
+      "files": 11
     },
     {
       "key": "source",
@@ -2153,10 +2223,11 @@
         "mcp",
         "research",
         "search",
-        "src_other"
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 9
+      "occurrences": 52,
+      "files": 17
     },
     {
       "key": "source_domain_category",
@@ -2167,8 +2238,8 @@
         "mcp",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 5
+      "occurrences": 21,
+      "files": 6
     },
     {
       "key": "source_tag",
@@ -2179,8 +2250,8 @@
         "search",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 6
+      "occurrences": 33,
+      "files": 8
     },
     {
       "key": "source_type",
@@ -2190,10 +2261,11 @@
         "crawler",
         "filter",
         "report",
-        "storage"
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 5
+      "occurrences": 28,
+      "files": 9
     },
     {
       "key": "source_url",
@@ -2203,10 +2275,13 @@
         "crawler",
         "filter",
         "report",
-        "src_other"
+        "research",
+        "src_other",
+        "storage",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 7
+      "occurrences": 55,
+      "files": 16
     },
     {
       "key": "state",
@@ -2220,8 +2295,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 13
+      "occurrences": 36,
+      "files": 16
     },
     {
       "key": "success",
@@ -2233,8 +2308,8 @@
         "mcp",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 9
+      "occurrences": 23,
+      "files": 10
     },
     {
       "key": "success_count",
@@ -2271,7 +2346,7 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 22,
       "files": 7
     },
     {
@@ -2285,8 +2360,8 @@
         "research",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 10
+      "occurrences": 40,
+      "files": 13
     },
     {
       "key": "support_count",
@@ -2331,8 +2406,8 @@
         "research",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 6
+      "occurrences": 35,
+      "files": 7
     },
     {
       "key": "target_type",
@@ -2341,10 +2416,12 @@
       "kinds": [
         "filter",
         "report",
-        "research"
+        "research",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 3
+      "occurrences": 32,
+      "files": 8
     },
     {
       "key": "task_id",
@@ -2352,10 +2429,15 @@
       "reason": "identifier/timestamp field (canonical exception rule)",
       "kinds": [
         "filter",
-        "mcp"
+        "mcp",
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 4
+      "occurrences": 182,
+      "files": 37
     },
     {
       "key": "templates",
@@ -2364,7 +2446,7 @@
       "kinds": [
         "research"
       ],
-      "occurrences": 20,
+      "occurrences": 21,
       "files": 1,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
@@ -2377,8 +2459,8 @@
       "kinds": [
         "tests"
       ],
-      "occurrences": 20,
-      "files": 2
+      "occurrences": 23,
+      "files": 3
     },
     {
       "key": "text",
@@ -2386,10 +2468,14 @@
       "reason": "already part of Tier0 DB/MCP surface; not prioritized for renaming in Tier1",
       "kinds": [
         "filter",
-        "src_other"
+        "mcp",
+        "report",
+        "research",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 5
+      "occurrences": 136,
+      "files": 36
     },
     {
       "key": "text_content",
@@ -2401,8 +2487,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 7
+      "occurrences": 28,
+      "files": 9
     },
     {
       "key": "text_to_html_ratio",
@@ -2458,8 +2544,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 12
+      "occurrences": 40,
+      "files": 17
     },
     {
       "key": "title",
@@ -2469,10 +2555,12 @@
         "crawler",
         "report",
         "research",
-        "src_other"
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 8
+      "occurrences": 83,
+      "files": 25
     },
     {
       "key": "total",
@@ -2487,8 +2575,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 13,
+      "occurrences": 35,
+      "files": 20,
       "rg_safety": [
         "Do not global-replace this key without a full-field canonical map."
       ]
@@ -2506,8 +2594,8 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 13
+      "occurrences": 36,
+      "files": 16
     },
     {
       "key": "ttl_seconds",
@@ -2531,7 +2619,7 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 21,
       "files": 8
     },
     {
@@ -2541,10 +2629,14 @@
       "kinds": [
         "crawler",
         "filter",
-        "src_other"
+        "report",
+        "research",
+        "search",
+        "src_other",
+        "tests"
       ],
-      "occurrences": 20,
-      "files": 10
+      "occurrences": 166,
+      "files": 46
     },
     {
       "key": "usage_count",
@@ -2565,8 +2657,8 @@
         "src_other",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 9
+      "occurrences": 33,
+      "files": 11
     },
     {
       "key": "version",
@@ -2579,8 +2671,8 @@
         "storage",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 9
+      "occurrences": 22,
+      "files": 10
     },
     {
       "key": "visited_count",
@@ -2602,8 +2694,8 @@
         "research",
         "tests"
       ],
-      "occurrences": 20,
-      "files": 6
+      "occurrences": 30,
+      "files": 7
     },
     {
       "key": "wayback_failure_count",
@@ -2645,7 +2737,7 @@
         "search",
         "tests"
       ],
-      "occurrences": 20,
+      "occurrences": 21,
       "files": 8
     }
   ]

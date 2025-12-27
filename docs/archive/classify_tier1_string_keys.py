@@ -138,10 +138,15 @@ def _path_kind(file_path: str) -> str:
     return "src_other"
 
 
-def classify_key(key: str, occs: list[dict[str, Any]]) -> KeyInfo:
-    occurrences = len(occs)
-    files = len({o["file"] for o in occs})
-    file_kinds = {_path_kind(o["file"]) for o in occs}
+def classify_key(key: str, occs_sample: list[dict[str, Any]], file_list: list[str], occurrences: int) -> KeyInfo:
+    """
+    Classify a key using:
+    - occs_sample: bounded sample occurrences (for a representative path hint)
+    - file_list: full unique file coverage
+    - occurrences: full occurrence count
+    """
+    files = len(file_list)
+    file_kinds = {_path_kind(f) for f in file_list}
 
     classes: list[str] = []
 
@@ -217,7 +222,7 @@ def classify_key(key: str, occs: list[dict[str, Any]]) -> KeyInfo:
         classes.append("parameterish")
 
     interfaceish = any(("/" + k + "/") in ("/" + "/".join(sorted(file_kinds)) + "/") for k in ["mcp", "storage", "research", "report"])
-    if interfaceish or any(h in next(iter({o["file"] for o in occs}), "") for h in INTERFACE_PATH_HINTS):
+    if interfaceish or any(h in next(iter({o["file"] for o in occs_sample}), "") for h in INTERFACE_PATH_HINTS):
         classes.append("interfaceish")
 
     # Priority & policy
@@ -271,12 +276,18 @@ def main() -> None:
     inp = workspace / "docs" / "archive" / "parameter-registry.code-string-keys.json"
     data = json.loads(inp.read_text(encoding="utf-8"))
 
-    string_keys: dict[str, list[dict[str, Any]]] = data["string_keys"]
+    string_keys_sample: dict[str, list[dict[str, Any]]] = data["string_keys"]
+    string_key_stats: dict[str, dict[str, Any]] = data.get("string_key_stats", {})
     classified: list[dict[str, Any]] = []
 
     counts = {"normalize": 0, "review": 0, "keep": 0}
-    for k, occs in string_keys.items():
-        info = classify_key(k, occs)
+    keys = sorted(set(string_keys_sample.keys()) | set(string_key_stats.keys()))
+    for k in keys:
+        occs_sample = string_keys_sample.get(k, [])
+        st = string_key_stats.get(k) or {}
+        occurrences = int(st.get("occurrences") or len(occs_sample))
+        files_list = list(st.get("files") or sorted({o["file"] for o in occs_sample}))
+        info = classify_key(k, occs_sample=occs_sample, file_list=files_list, occurrences=occurrences)
         counts[info.normalization_policy] += 1
         classified.append(
             {
@@ -287,7 +298,7 @@ def main() -> None:
                 "reason": info.reason,
                 "priority": info.priority,
                 "normalization_policy": info.normalization_policy,
-                "sample_occurrences": occs[:5],
+                "sample_occurrences": occs_sample[:5],
             }
         )
 
@@ -297,7 +308,7 @@ def main() -> None:
 
     out = {
         "summary": {
-            "input_unique_string_keys": len(string_keys),
+            "input_unique_string_keys": len(keys),
             "policy_counts": counts,
         },
         "items": classified,

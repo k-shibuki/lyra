@@ -1172,6 +1172,10 @@ These are keys that often do *not* appear in structured contracts (BaseModel/dat
 - `docs/archive/PARAMETER_TIER1_CLASSIFICATION.md`
   - policy decisions for Tier 1 normalization
 
+### Split keys (meaning disambiguation required before replacement)
+- `docs/archive/SPLIT_KEY_DECISIONS.md`
+  - ADR/MCP aligned decisions for split keys (confidence/type/status)
+
 ## Shell/Make/.env: externally settable knobs (filtered extraction)
 These are operational knobs *intended to be set from outside* (e.g., `.env.example` and `export VAR=...`).
 Local shell variables are intentionally excluded to avoid noise.
