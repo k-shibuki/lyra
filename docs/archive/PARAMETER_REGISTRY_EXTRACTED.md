@@ -1164,12 +1164,15 @@ These are keys that often do *not* appear in structured contracts (BaseModel/dat
 - `docs/archive/parameter-registry.env-vars.json`
   - unique_env_vars: **27**
 
-## Shell/Make/.env: env-like keys (heuristic extraction)
-These are operational parameters used by Make and shell scripts (CI flags, run modes, container names, etc.).
+## Shell/Make/.env: externally settable knobs (filtered extraction)
+These are operational knobs *intended to be set from outside* (e.g., `.env.example` and `export VAR=...`).
+Local shell variables are intentionally excluded to avoid noise.
 
 - `docs/archive/parameter-registry.shell-make-env.json`
   - files_scanned: **54**
-  - unique_env_like_keys: **282**
+  - env_surface_vars (`.env.example`): **17**
+  - exported_env_vars (`export VAR=...`): **39**
+  - make_vars (Makefile assignments): **3**
 
 ## Code contracts: fields (BaseModel / dataclass / TypedDict)
 - items: **1730** (unique field names: **1108**)

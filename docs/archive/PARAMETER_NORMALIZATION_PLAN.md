@@ -1,7 +1,7 @@
 ## Parameter Normalization Plan (Destructive / DB Rebuild)
 
 **Date**: 2025-12-27  
-**Scope**: DB schema, MCP tool schemas/responses, source code, tests, prompt templates (`config/prompts/*.j2`)  
+**Scope**: DB schema, MCP tool schemas/responses, source code, tests, prompt templates (`config/prompts/*.j2`), and *externally settable operational knobs* (`.env.example`, exported env vars used by scripts/Make)  
 **Out of scope**: Backward compatibility (explicitly *not required*)  
 
 ### 1. 結論（今すぐ実行すべきか？）
@@ -42,6 +42,13 @@
 2. **MCP: tool schema を正規名に合わせる**（L7 allowlistのため必須）
 3. **コード/テスト: 正規名へ一括置換**（旧名は残さない）
 4. **最後に grepで漏れゼロを検証**
+
+### 3.1 範囲（スコープ）を適切に保つための Tier
+
+- **Tier 0（必須 / 正規化の主戦場）**: DB列名、MCP schema（L7 allowlist）、Pythonの構造化契約（BaseModel/dataclass/TypedDict）、prompt出力キー（prompt↔parser契約）
+- **Tier 1（推奨 / 網羅性の補助）**: Pythonコード中の stringly-typed keys（`foo["k"]`, `.get("k")` 等）
+- **Tier 2（任意 / “運用ノブ”）**: `.env.example` と `export VAR=...` で外部から設定され得る環境変数、Makefileの外部入力変数
+  - **注意**: スクリプト内ローカル変数（例: `ACTION`）は Tier 2 から除外する（正規化対象にするとノイズ過多）
 
 ### 4. 完全な変更リスト（初版）
 
