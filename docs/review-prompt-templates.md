@@ -1,21 +1,32 @@
 # プロンプトテンプレートのレビューと改善提案
 
 **作成日:** 2025-12-27
-**更新日:** 2025-12-27（Phase 1-3明確化）
-**ステータス:** 確定
+**更新日:** 2025-12-27（Phase 0-3 完了）
+**ステータス:** 完了
 **関連:** ADR-0006 (8-Layer Security Model), `config/prompts/*.j2`, `src/filter/llm_security.py`
 
 ---
 
 ## エグゼクティブサマリー
 
-本ドキュメントでは、Lyraの **Jinja2プロンプトテンプレート（`config/prompts/*.j2`）** と、周辺に残存する **Pythonインラインプロンプト**、および **LLM出力のパース/バリデーション方式** をレビューし、すぐ実装できる改善案に落とし込む。主な所見:
+本ドキュメントでは、Lyraの **Jinja2プロンプトテンプレート（`config/prompts/*.j2`）** と、周辺に残存する **Pythonインラインプロンプト**、および **LLM出力のパース/バリデーション方式** をレビューし、改善を実施した。
 
-1. **プロンプト品質:** A（優秀）からD（要改善）まで幅がある
-2. **言語の不統一:** テンプレート間で日本語と英語が混在
-3. **出力バリデーション:** セキュリティ面（ADR-0006）は堅牢だが、フォーマット強制は弱い
-4. **リトライ機構:** フォールバックは存在するが、フィードバック付き構造化リトライはない
-5. **⚠️ テンプレート外部化の不徹底:** 一部のプロンプトがPythonインラインで残っている（設計違反）
+### 完了した改善（Phase 0-3）
+
+| Phase | 内容 | 状態 |
+|-------|------|------|
+| **Phase 0** | インラインプロンプトの外部化（3テンプレート） | ✅ 完了 |
+| **Phase 1** | 全10テンプレートの英語化と品質改善 | ✅ 完了 |
+| **Phase 2** | LLM出力の型安全化（Pydantic + リトライ + DB記録） | ✅ 完了 |
+| **Phase 3** | プロンプトテストフレームワーク構築 | ✅ 完了 |
+
+### 改善前の所見（解決済み）
+
+1. ~~**プロンプト品質:** A（優秀）からD（要改善）まで幅がある~~ → 全テンプレート改善済み
+2. ~~**言語の不統一:** テンプレート間で日本語と英語が混在~~ → 英語に統一
+3. ~~**出力バリデーション:** セキュリティ面（ADR-0006）は堅牢だが、フォーマット強制は弱い~~ → Pydanticスキーマ導入
+4. ~~**リトライ機構:** フォールバックは存在するが、フィードバック付き構造化リトライはない~~ → `parse_and_validate()` で実装
+5. ~~**⚠️ テンプレート外部化の不徹底:** 一部のプロンプトがPythonインラインで残っている~~ → 全て外部化済み
 
 ---
 
@@ -36,36 +47,32 @@
 
 ### 1.1 Jinja2テンプレート (`config/prompts/*.j2`)
 
-| ファイル | 用途 | 言語 | 評価 | 優先度 |
-|------|---------|----------|--------|----------|
-| `extract_facts.j2` | 客観的事実の抽出 | JP | C | High |
-| `extract_claims.j2` | 文脈付き主張の抽出 | JP | C | High |
-| `summarize.j2` | テキスト要約 | JP | D | Critical |
-| `translate.j2` | 翻訳 | JP | D | Medium |
-| `decompose.j2` | 原子主張への分解 | JP | B | Low |
-| `detect_citation.j2` | 引用リンク vs ナビゲーションリンク判定 | JP | B | Low |
-| `relevance_evaluation.j2` | 引用関連度 0-10 評価 | JP | A | - |
+| ファイル | 用途 | 言語 | 評価（改善後） |
+|------|---------|----------|--------|
+| `extract_facts.j2` | 客観的事実の抽出 | EN | A |
+| `extract_claims.j2` | 文脈付き主張の抽出 | EN | A |
+| `summarize.j2` | テキスト要約 | EN | A |
+| `translate.j2` | 翻訳 | EN | A |
+| `decompose.j2` | 原子主張への分解 | EN | A |
+| `detect_citation.j2` | 引用リンク vs ナビゲーションリンク判定 | EN | A |
+| `relevance_evaluation.j2` | 引用関連度 0-10 評価 | EN | A（参照テンプレート） |
+| `quality_assessment.j2` | コンテンツ品質評価 | EN | A（Phase 0で外部化） |
+| `initial_summary.j2` | CoD初期要約 | EN | A（Phase 0で外部化） |
+| `densify.j2` | CoD高密度化 | EN | A（Phase 0で外部化） |
 
-### 1.2 Python インラインプロンプト（⚠️ 外部化が必要）
+### 1.2 Python インラインプロンプト（✅ 解決済み）
 
-> **設計違反:** `src/utils/prompt_manager.py` と `render_prompt()` により「LLM入力プロンプトは `config/prompts/*.j2` に外部化」という構造が既に実装されているが、以下のプロンプトがインラインで残っている。Phase 0 で外部化すべき。
+> **Phase 0で解決:** 以下のプロンプトはすべて `config/prompts/*.j2` に外部化済み。
 
-| ファイル | 変数名 | 用途 | 言語 | 評価 | 外部化 | 改善案 |
-|----------|----------|---------|----------|--------|--------|--------|
-| `src/extractor/quality_analyzer.py` | `LLM_QUALITY_ASSESSMENT_PROMPT` | コンテンツ品質評価 | EN | B | ⚠️ 要外部化 | Part 2.9 |
-| `src/extractor/quality_analyzer.py` | `LLM_QUALITY_ASSESSMENT_PROMPT_EN` | 上記と同等（EN版） | EN | B | ⚠️ 要外部化 | Part 2.9参照 |
-| `src/report/chain_of_density.py` | `INITIAL_SUMMARY_PROMPT` | CoD初期要約 | EN | B | ⚠️ 要外部化 | Part 2.10 |
-| `src/report/chain_of_density.py` | `DENSIFY_PROMPT` | CoD高密度化 | EN/JP混在 | C | ⚠️ 要外部化 | Part 2.8 |
-| `src/filter/llm.py` | `EXTRACT_FACTS_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
-| `src/filter/llm.py` | `EXTRACT_CLAIMS_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
-| `src/filter/llm.py` | `SUMMARIZE_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
-| `src/filter/llm.py` | `TRANSLATE_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
-| `src/extractor/citation_detector.py` | `_DETECT_CITATION_INSTRUCTIONS` | バリデーション用 (※2) | JP | - | 維持OK | 対象外 |
+| ファイル | 変数名 | 用途 | 移動先 | 状態 |
+|----------|----------|---------|----------|--------|
+| `src/extractor/quality_analyzer.py` | `LLM_QUALITY_ASSESSMENT_PROMPT` | コンテンツ品質評価 | `quality_assessment.j2` | ✅ 外部化済み |
+| `src/report/chain_of_density.py` | `INITIAL_SUMMARY_PROMPT` | CoD初期要約 | `initial_summary.j2` | ✅ 外部化済み |
+| `src/report/chain_of_density.py` | `DENSIFY_PROMPT` | CoD高密度化 | `densify.j2` | ✅ 外部化済み |
 
-**注記:**
-- ※1: **漏洩検出用テンプレート** - LLM出力に対するn-gramマッチングで使用（ADR-0006 L4）。LLMへの入力ではなくセキュリティバリデーション用のため、外部化不要。
-- ※2: **バリデーション用** - `validate_llm_output()` のシステムプロンプトとして使用。完全なプロンプトは `detect_citation.j2` にある。外部化不要。
-- **⚠️ 要外部化**: `src/utils/prompt_manager.py` の設計方針（外部テンプレート化）に違反。`config/prompts/*.j2` へ移動が必要。
+**注記（外部化不要な定数）:**
+- `src/filter/llm.py` の `EXTRACT_FACTS_INSTRUCTION`, `EXTRACT_CLAIMS_INSTRUCTION`, `SUMMARIZE_INSTRUCTION`, `TRANSLATE_INSTRUCTION`: **漏洩検出用テンプレート** - LLM出力に対するn-gramマッチングで使用（ADR-0006 L4）。LLMへの入力ではなくセキュリティバリデーション用。
+- `src/extractor/citation_detector.py` の `_DETECT_CITATION_INSTRUCTIONS`: **バリデーション用** - `validate_llm_output()` のシステムプロンプトとして使用。完全なプロンプトは `detect_citation.j2` にある。
 
 ---
 
@@ -856,46 +863,65 @@ from src.utils.prompt_manager import render_prompt
 prompt = render_prompt("quality_assessment", text=text)
 ```
 
-### Phase 1: プロンプト改善（全テンプレート英語化）
+### Phase 1: プロンプト改善（完了）
 
-全10テンプレートを英語化し、Part 2の改善案を適用する。
+全10テンプレートを英語化し、Part 2の改善案を適用。
 
-| テンプレート | Part 2参照 | 変更内容 |
-|-------------|-----------|---------|
-| `summarize.j2` | 2.3 | 全面書き換え（評価D→改善案） |
-| `extract_claims.j2` | 2.2 | 全面書き換え（評価C→改善案） |
-| `extract_facts.j2` | 2.1 | 全面書き換え（評価C→改善案） |
-| `translate.j2` | 2.4 | 全面書き換え（評価D→改善案） |
-| `densify.j2` | 2.8 | 全面書き換え（英語化+改善案） |
-| `initial_summary.j2` | 2.10 | 全面書き換え（改善案適用） |
-| `quality_assessment.j2` | 2.9 | 全面書き換え（改善案適用） |
-| `decompose.j2` | 2.5 | 軽微修正（hintsガイダンス追加、英語化） |
-| `detect_citation.j2` | 2.6 | 軽微修正（学術引用パターン追加、英語化） |
-| `relevance_evaluation.j2` | 2.7 | 英語化のみ（参照テンプレート） |
+| テンプレート | Part 2参照 | 変更内容 | 状態 |
+|-------------|-----------|---------|------|
+| `summarize.j2` | 2.3 | 全面書き換え（評価D→改善案） | ✅ |
+| `extract_claims.j2` | 2.2 | 全面書き換え（評価C→改善案） | ✅ |
+| `extract_facts.j2` | 2.1 | 全面書き換え（評価C→改善案） | ✅ |
+| `translate.j2` | 2.4 | 全面書き換え（評価D→改善案） | ✅ |
+| `densify.j2` | 2.8 | 全面書き換え（英語化+改善案） | ✅ |
+| `initial_summary.j2` | 2.10 | 全面書き換え（改善案適用） | ✅ |
+| `quality_assessment.j2` | 2.9 | 全面書き換え（改善案適用） | ✅ |
+| `decompose.j2` | 2.5 | 軽微修正（hintsガイダンス追加、英語化） | ✅ |
+| `detect_citation.j2` | 2.6 | 軽微修正（学術引用パターン追加、英語化） | ✅ |
+| `relevance_evaluation.j2` | 2.7 | 英語化のみ（参照テンプレート） | ✅ |
+
+**実装コミット:** `676d763` (feat(prompts): translate all 10 templates to English with improvements)
 
 ### Phase 2: LLM出力の型安全化（完了）
 
 **スコープ:** LLM出力のみ対象。NLI/Embedding/Rerankerは既に `src/ml_server/schemas.py` でPydantic型安全のため対象外。
 
-| タスク | ファイル | 内容 |
-|--------|---------|------|
-| JSON抽出共通化 | `src/filter/llm_output.py`（新規） | `extract_json()` + `parse_and_validate()`（スキーマ検証+リトライ+DB記録） |
-| パーサー適用 | `llm.py`, `claim_decomposition.py`, `chain_of_density.py`, `quality_analyzer.py` | 既存の `re.search()` を置き換え |
-| Pydanticスキーマ | `src/filter/llm_schemas.py`（新規） | `ExtractedFact`, `ExtractedClaim` 等 |
-| フォーマット修正リトライ | `src/filter/llm_output.py` | 最大1回までリトライ、失敗時は `llm_extraction_errors` にDB記録（処理は続行） |
+| タスク | ファイル | 内容 | 状態 |
+|--------|---------|------|------|
+| JSON抽出共通化 | `src/filter/llm_output.py`（新規） | `extract_json()` + `parse_and_validate()`（スキーマ検証+リトライ+DB記録） | ✅ |
+| パーサー適用 | `llm.py`, `claim_decomposition.py`, `chain_of_density.py`, `quality_analyzer.py` | 既存の `re.search()` を置き換え | ✅ |
+| Pydanticスキーマ | `src/filter/llm_schemas.py`（新規） | `ExtractedFact`, `ExtractedClaim`, `DecomposedClaim`, `DenseSummaryOutput`, `InitialSummaryOutput`, `QualityAssessmentOutput` | ✅ |
+| フォーマット修正リトライ | `src/filter/llm_output.py` | 最大1回までリトライ、失敗時は `llm_extraction_errors` にDB記録（処理は続行） | ✅ |
+| DBスキーマ | `src/storage/schema.sql` | `llm_extraction_errors` テーブル追加 | ✅ |
+
+**実装コミット:**
+- `9730d6d` (feat(filter): add LLM output type safety with extract_json and Pydantic schemas)
+- `b6f0712` (feat(filter)!: complete LLM output type safety integration)
+
+**モジュール間連動:**
+- `src/filter/llm.py` → `parse_and_validate()` で `ExtractedFact`, `ExtractedClaim` スキーマ使用
+- `src/filter/claim_decomposition.py` → `parse_and_validate()` で `DecomposedClaim` スキーマ使用
+- `src/report/chain_of_density.py` → `parse_and_validate()` で `DenseSummaryOutput`, `InitialSummaryOutput` スキーマ使用
+- `src/extractor/quality_analyzer.py` → `parse_and_validate()` で `QualityAssessmentOutput` スキーマ使用
 
 ### Phase 3: プロンプトテストフレームワーク（完了）
 
 > **注:** 英語化はPhase 1で完了。`output_lang` パラメータは導入しない（英語固定）。
 
-| タスク | ファイル | 内容 |
-|--------|---------|------|
-| テストフレームワーク作成 | `tests/prompts/`（新規） | テンプレート構文検証、サンプル入出力テスト |
+| タスク | ファイル | 内容 | 状態 |
+|--------|---------|------|------|
+| テストフレームワーク作成 | `tests/prompts/`（新規） | テンプレート構文検証、サンプル入出力テスト | ✅ |
+| LLM出力パーステスト | `tests/test_llm_output.py`（新規） | `extract_json`, `parse_and_validate` のユニットテスト | ✅ |
 
 **実装済みファイル:**
 - `tests/prompts/conftest.py` - 共有フィクスチャ（sample_inputs, json_output_templates）
 - `tests/prompts/test_template_syntax.py` - 構文検証、英語のみチェック、完全性検証
 - `tests/prompts/test_template_rendering.py` - レンダリングテスト、JSON形式検証、境界値テスト
+- `tests/test_llm_output.py` - JSON抽出・スキーマ検証・リトライ機構・DB記録のテスト
+
+**実装コミット:**
+- `dc40bec` (test(prompts): add prompt template test framework)
+- `a2c3ed3` (chore: add test-prompts and test-llm-output Makefile targets)
 
 **実行方法:**
 ```bash
