@@ -169,7 +169,14 @@ controversy = min(α-1, β-1) / (α+β-2)            # conflict degree (0 when n
 
 **Important semantics**:
 - `edges.nli_confidence` is treated as *evidence weight* (not a calibrated probability unless calibration is applied).
-- `edges.confidence` exists for legacy compatibility; in the current ingestion path it is aligned to `nli_confidence`.
+- `edges.confidence` is a **compatibility alias** with overloaded semantics today:
+  - For **Fragment → Claim** evidence edges, the current ingestion path explicitly sets
+    `edges.confidence == edges.nli_confidence` (see `src/research/executor.py`: `confidence=nli_conf` with an in-code comment).
+  - For **CITES (Page → Page)** edges, the current implementation persists `edges.confidence = 1.0` and `edges.nli_confidence = NULL`
+    (see `src/filter/evidence_graph.py:add_citation`).
+
+This overloading is precisely why generic `"confidence"` keys must be treated as **split** during normalization: a single field name does not
+uniquely identify producer/object semantics.
 
 ### Domain Category (Reference Only)
 

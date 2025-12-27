@@ -88,8 +88,8 @@ def main() -> None:
             "replacements": [
                 {
                     "when": "src/filter/evidence_graph.py evidence dicts",
-                    "to": "legacy_edge_confidence",
-                    "notes": "maps from edges.confidence (legacy aggregate) — avoid mixing with nli/bayes/llm confidences",
+                    "to": "__REMOVE__",
+                    "notes": "edges.confidence is a compatibility alias (often == nli_confidence for evidence edges); remove the generic key and expose only the canonical NLI/Bayes fields",
                     "rg_scope_glob": "src/filter/evidence_graph.py",
                     "rg_patterns": [
                         "\"confidence\": edge_data.get(\"confidence\")",
@@ -112,10 +112,15 @@ def main() -> None:
                 },
                 {
                     "when": "src/filter/nli.py NLIModel predict output",
-                    "to": "keep",
-                    "notes": "internal model output; normalize at persistence/MCP boundary rather than inside model primitive",
+                    "to": "nli_edge_confidence_raw",
+                    "notes": "NLI output uses generic key; normalize to producer/object specific key to avoid mixing with other confidences",
                     "rg_scope_glob": "src/filter/nli.py",
-                    "rg_patterns": [],
+                    "rg_patterns": [
+                        "\"confidence\":",
+                        "result.get(\"confidence\"",
+                        "prediction[\"confidence\"]",
+                        "pred[\"confidence\"]",
+                    ],
                 },
             ],
             "rg_safety": [

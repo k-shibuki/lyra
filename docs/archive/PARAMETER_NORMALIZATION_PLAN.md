@@ -73,7 +73,7 @@ Tier 1 はノイズが多いため、「正規化すべき契約キー」と「�
 | `claims.claim_confidence` | `claims.llm_claim_confidence_raw` | LLM抽出の自己評価（真偽ではない） |
 | `edges.nli_confidence` | `edges.nli_edge_confidence_raw` | NLI出力スコア（未校正） |
 | `edges.nli_label` | `edges.nli_edge_label` | supports/refutes/neutral |
-| `edges.confidence` | **削除**（または `edges.legacy_edge_confidence`） | レガシー総合 |
+| `edges.confidence` | **削除**（推奨） | 現状は *compatibility alias*（evidenceでは `nli_confidence` と同値、CITESでは 1.0）。意味が一意でないため削除し、用途別に分解する |
 | `fragments.bm25_score` | `fragments.rank_fragment_score_bm25` | rank stage1 |
 | `fragments.embed_score` | `fragments.rank_fragment_score_embed` | rank stage2 |
 | `fragments.rerank_score` | `fragments.rank_fragment_score_rerank` | rank stage3 |

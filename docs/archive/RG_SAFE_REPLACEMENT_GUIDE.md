@@ -56,3 +56,10 @@ split の `replacements[]` に `expected_matches_in_scope` がある場合:
 
 これにより「別の意味の同名キー」を誤って巻き込む事故を抑止する
 
+### 7. “置換”ではなく“削除”が必要なケース
+
+split の解決が「rename」ではなく「冗長キーの削除」になることがある（例: `edges.confidence` が `edges.nli_confidence` と同値の alias になっているケース）。
+
+- `to="__REMOVE__"` の場合は、該当キーを **出力から削除**する
+- この場合も **ファイルスコープ限定**で、置換前後の `rg` 件数を必ず確認する
+
