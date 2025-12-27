@@ -1,0 +1,30 @@
+{# Initial Summary Prompt Template for Chain-of-Density
+   Parameters:
+   - content: Input information to summarize
+#}
+You are an expert in information summarization. Summarize the following information.
+
+[Input Information]
+{{ content }}
+
+[Requirements]
+1. Extract key facts and claims
+2. Preserve source information corresponding to each claim
+3. Create a summary of approximately 100-150 words
+4. Include important entities (person names, organization names, dates, numbers)
+
+[Output Format]
+Output the following in JSON format:
+{
+  "summary": "summary text",
+  "entities": ["entity1", "entity2", ...],
+  "claims": [
+    {
+      "text": "claim text",
+      "source_indices": [0, 1]  // indices of input information
+    }
+  ]
+}
+
+Return only JSON output:
+

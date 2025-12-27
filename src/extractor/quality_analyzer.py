@@ -27,6 +27,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from src.utils.logging import get_logger
+from src.utils.prompt_manager import render_prompt
 
 if TYPE_CHECKING:
     from src.filter.llm import OllamaClient
@@ -127,53 +128,6 @@ class QualityResult:
     def is_low_quality(self) -> bool:
         """Check if content is considered low quality."""
         return self.quality_score < 0.5 or len(self.issues) >= 2
-
-
-# LLM prompt for quality assessment
-LLM_QUALITY_ASSESSMENT_PROMPT = """You are an expert in web content quality assessment. Analyze the following text and evaluate its quality.
-
-Text (first 2000 characters):
-{text}
-
-Evaluate from the following perspectives and respond in JSON format:
-1. quality_score: Quality score from 0.0 (lowest) to 1.0 (highest)
-2. is_ai_generated: Likelihood of AI-generated content (true/false)
-3. is_spam: Likelihood of SEO spam/low-quality content (true/false)
-4. is_aggregator: Whether content is aggregated from other sites (true/false)
-5. reason: Reason for judgment (concise)
-
-Evaluation criteria:
-- Does it have unique insights or analysis?
-- Is it based on primary sources?
-- Is the writing natural and human-like?
-- Are ads or affiliate links excessive?
-- Is the information accurate and trustworthy?
-
-Respond in JSON format:
-{{"quality_score": 0.0-1.0, "is_ai_generated": true/false, "is_spam": true/false, "is_aggregator": true/false, "reason": "reason"}}"""
-
-
-LLM_QUALITY_ASSESSMENT_PROMPT_EN = """You are an expert in evaluating web content quality. Analyze the following text and assess its quality.
-
-Text (first 2000 characters):
-{text}
-
-Evaluate based on the following criteria and respond in JSON format:
-1. quality_score: 0.0 (lowest) to 1.0 (highest) quality score
-2. is_ai_generated: Whether it appears to be AI-generated content (true/false)
-3. is_spam: Whether it appears to be SEO spam/low-quality content (true/false)
-4. is_aggregator: Whether it's aggregated content from other sites (true/false)
-5. reason: Brief explanation of your assessment
-
-Evaluation criteria:
-- Does it contain original insights or analysis?
-- Is it based on primary sources?
-- Is the writing natural and human-like?
-- Is there excessive advertising or affiliate content?
-- Does the information appear accurate and trustworthy?
-
-Respond in JSON format:
-{{"quality_score": 0.0-1.0, "is_ai_generated": true/false, "is_spam": true/false, "is_aggregator": true/false, "reason": "explanation"}}"""
 
 
 class ContentQualityAnalyzer:
@@ -650,15 +604,16 @@ class ContentQualityAnalyzer:
             return None
 
         try:
-            # Detect language and use appropriate prompt
+            # Detect language for response
             is_japanese = self._is_japanese_text(text)
-            prompt = (
-                LLM_QUALITY_ASSESSMENT_PROMPT if is_japanese else LLM_QUALITY_ASSESSMENT_PROMPT_EN
-            )
 
-            # Truncate text to first 2000 chars
+            # Truncate text to first 2000 chars and render prompt
             truncated_text = text[:2000]
-            formatted_prompt = prompt.format(text=truncated_text)
+            formatted_prompt = render_prompt(
+                "quality_assessment",
+                text=truncated_text,
+                lang="ja" if is_japanese else "en",
+            )
 
             # Generate assessment
             response = await self._ollama_client.generate(

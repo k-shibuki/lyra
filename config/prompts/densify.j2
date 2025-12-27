@@ -1,0 +1,39 @@
+{# Densify Prompt Template for Chain-of-Density
+   Parameters:
+   - current_summary: Current summary text
+   - original_content: Original source information
+   - missing_entities: Entities that should be included
+#}
+You are an expert in information compression. Improve the following summary to be more dense.
+
+[Current Summary]
+{{ current_summary }}
+
+[Original Information]
+{{ original_content }}
+
+[Missing Entities]
+{{ missing_entities }}
+
+[Requirements]
+1. Include more important information while maintaining summary length
+2. Include missing entities as much as possible
+3. Preserve source information for each claim
+4. Remove redundant expressions and increase information density
+5. Maintain approximately 100-150 words
+
+[Output Format]
+Output the following in JSON format:
+{
+  "summary": "improved summary text",
+  "entities": ["entity1", "entity2", ...],
+  "claims": [
+    {
+      "text": "claim text",
+      "source_indices": [0, 1]
+    }
+  ]
+}
+
+Return only JSON output:
+

@@ -1,57 +1,77 @@
-# Prompt Template Review and Improvement Proposals
+# プロンプトテンプレートのレビューと改善提案
 
-**Date:** 2025-12-27
-**Status:** Draft
-**Related:** ADR-0005 (LLM Security), `config/prompts/*.j2`, `src/filter/llm_security.py`
-
----
-
-## Executive Summary
-
-This document reviews all 16 prompt templates in Lyra and the LLM output validation mechanisms. Key findings:
-
-1. **Prompt Quality:** Varies from A (excellent) to D (needs major work)
-2. **Language Inconsistency:** Mix of Japanese and English across templates
-3. **Output Validation:** Robust for security (ADR-0005), but weak for format enforcement
-4. **Retry Mechanism:** Fallback exists, but no structured retry with feedback
+**作成日:** 2025-12-27
+**ステータス:** ドラフト
+**関連:** ADR-0006 (8-Layer Security Model), `config/prompts/*.j2`, `src/filter/llm_security.py`
 
 ---
 
-## Part 1: Prompt Template Inventory
+## エグゼクティブサマリー
 
-### 1.1 Jinja2 Templates (`config/prompts/*.j2`)
+本ドキュメントでは、Lyraの **Jinja2プロンプトテンプレート（`config/prompts/*.j2`）** と、周辺に残存する **Pythonインラインプロンプト**、および **LLM出力のパース/バリデーション方式** をレビューし、すぐ実装できる改善案に落とし込む。主な所見:
 
-| File | Purpose | Language | Rating | Priority |
+1. **プロンプト品質:** A（優秀）からD（要改善）まで幅がある
+2. **言語の不統一:** テンプレート間で日本語と英語が混在
+3. **出力バリデーション:** セキュリティ面（ADR-0006）は堅牢だが、フォーマット強制は弱い
+4. **リトライ機構:** フォールバックは存在するが、フィードバック付き構造化リトライはない
+5. **⚠️ テンプレート外部化の不徹底:** 一部のプロンプトがPythonインラインで残っている（設計違反）
+
+---
+
+## 前提（本ドキュメントの実装方針）
+
+本ドキュメントの改善案は、以下の前提で「そのまま実装に移せる」粒度にする。
+
+- **DB方針**: **DBは作り直し前提**（`data/lyra.db` を破棄し、`src/storage/schema.sql` から再生成）。**後方互換性は一切不要**。
+  - migration 機構（`schema_migrations` + `migrations/*.sql`）は既に存在するが、**本フェーズでは使用しない**（残す/消すは別フェーズの判断）。
+  - 互換性維持のための分岐（旧フィールド名・旧JSON形式など）を **コードに残さない**。
+- **LLM出力の扱い**: LLMは「JSON only」と指示しても前置き文字列やMarkdown code fenceを混ぜることがあるため、**JSON抽出は1箇所に集約**し、全コンポーネントで同じパーサーを使う。
+- **ADR整合**:
+  - **ADR-0006**: `validate_llm_output()` によるセキュリティ（漏洩検知/URL検知等）を維持。
+  - ローカルLLM制約（トークン/処理比率）を維持し、**LLMによる“フォーマット修正リトライ”は現時点では入れない**。
+
+## Part 1: プロンプトテンプレート一覧
+
+### 1.1 Jinja2テンプレート (`config/prompts/*.j2`)
+
+| ファイル | 用途 | 言語 | 評価 | 優先度 |
 |------|---------|----------|--------|----------|
-| `extract_facts.j2` | Extract objective facts | JP | C | High |
-| `extract_claims.j2` | Extract claims with context | JP | C | High |
-| `summarize.j2` | Text summarization | JP | D | Critical |
-| `translate.j2` | Translation | JP | D | Medium |
-| `decompose.j2` | Atomic claim decomposition | JP | B | Low |
-| `detect_citation.j2` | Citation vs navigation link | JP | B | Low |
-| `relevance_evaluation.j2` | Citation relevance 0-10 | JP | A | - |
+| `extract_facts.j2` | 客観的事実の抽出 | JP | C | High |
+| `extract_claims.j2` | 文脈付き主張の抽出 | JP | C | High |
+| `summarize.j2` | テキスト要約 | JP | D | Critical |
+| `translate.j2` | 翻訳 | JP | D | Medium |
+| `decompose.j2` | 原子主張への分解 | JP | B | Low |
+| `detect_citation.j2` | 引用リンク vs ナビゲーションリンク判定 | JP | B | Low |
+| `relevance_evaluation.j2` | 引用関連度 0-10 評価 | JP | A | - |
 
-### 1.2 Python Inline Prompts
+### 1.2 Python インラインプロンプト（⚠️ 外部化が必要）
 
-| Location | Variable | Purpose | Language | Rating |
-|----------|----------|---------|----------|--------|
-| `src/extractor/quality_analyzer.py:133` | `LLM_QUALITY_ASSESSMENT_PROMPT` | Content quality | EN | B |
-| `src/extractor/quality_analyzer.py:156` | `LLM_QUALITY_ASSESSMENT_PROMPT_EN` | Content quality (EN) | EN | B |
-| `src/report/chain_of_density.py:194` | `INITIAL_SUMMARY_PROMPT` | CoD initial summary | EN | B |
-| `src/report/chain_of_density.py:220` | `DENSIFY_PROMPT` | CoD densification | EN/JP mixed | C |
-| `src/filter/llm.py:345` | `EXTRACT_FACTS_INSTRUCTION` | Leakage detection | EN | - |
-| `src/filter/llm.py:350` | `EXTRACT_CLAIMS_INSTRUCTION` | Leakage detection | EN | - |
-| `src/filter/llm.py:354` | `SUMMARIZE_INSTRUCTION` | Leakage detection | EN | - |
-| `src/filter/llm.py:356` | `TRANSLATE_INSTRUCTION` | Leakage detection | EN | - |
-| `src/extractor/citation_detector.py:29` | `_DETECT_CITATION_INSTRUCTIONS` | YES/NO instruction | JP | - |
+> **設計違反:** `src/utils/prompt_manager.py` と `render_prompt()` により「LLM入力プロンプトは `config/prompts/*.j2` に外部化」という構造が既に実装されているが、以下のプロンプトがインラインで残っている。Phase 0 で外部化すべき。
+
+| ファイル | 変数名 | 用途 | 言語 | 評価 | 外部化 | 改善案 |
+|----------|----------|---------|----------|--------|--------|--------|
+| `src/extractor/quality_analyzer.py` | `LLM_QUALITY_ASSESSMENT_PROMPT` | コンテンツ品質評価 | EN | B | ⚠️ 要外部化 | Part 2.9 |
+| `src/extractor/quality_analyzer.py` | `LLM_QUALITY_ASSESSMENT_PROMPT_EN` | 上記と同等（EN版） | EN | B | ⚠️ 要外部化 | Part 2.9参照 |
+| `src/report/chain_of_density.py` | `INITIAL_SUMMARY_PROMPT` | CoD初期要約 | EN | B | ⚠️ 要外部化 | Part 2.10 |
+| `src/report/chain_of_density.py` | `DENSIFY_PROMPT` | CoD高密度化 | EN/JP混在 | C | ⚠️ 要外部化 | Part 2.8 |
+| `src/filter/llm.py` | `EXTRACT_FACTS_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
+| `src/filter/llm.py` | `EXTRACT_CLAIMS_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
+| `src/filter/llm.py` | `SUMMARIZE_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
+| `src/filter/llm.py` | `TRANSLATE_INSTRUCTION` | 漏洩検出用 (※1) | EN | - | 維持OK | 対象外 |
+| `src/extractor/citation_detector.py` | `_DETECT_CITATION_INSTRUCTIONS` | バリデーション用 (※2) | JP | - | 維持OK | 対象外 |
+
+**注記:**
+- ※1: **漏洩検出用テンプレート** - LLM出力に対するn-gramマッチングで使用（ADR-0006 L4）。LLMへの入力ではなくセキュリティバリデーション用のため、外部化不要。
+- ※2: **バリデーション用** - `validate_llm_output()` のシステムプロンプトとして使用。完全なプロンプトは `detect_citation.j2` にある。外部化不要。
+- **⚠️ 要外部化**: `src/utils/prompt_manager.py` の設計方針（外部テンプレート化）に違反。`config/prompts/*.j2` へ移動が必要。
 
 ---
 
-## Part 2: Individual Prompt Reviews
+## Part 2: 個別プロンプトレビュー
 
-### 2.1 `extract_facts.j2` — Rating: C
+### 2.1 `extract_facts.j2` — 評価: C
 
-**Current:**
+**現状:**
 ```
 あなたは情報抽出の専門家です。以下のテキストから客観的な事実を抽出してください。
 
@@ -64,14 +84,14 @@ This document reviews all 16 prompt templates in Lyra and the LLM output validat
 事実のみを出力し、意見や推測は含めないでください。
 ```
 
-**Issues:**
-- No definition of "fact" (verifiable statement? observation?)
-- No criteria for confidence scoring
-- No output count limit (token waste risk)
-- No few-shot examples
-- No evidence type classification
+**問題点:**
+- 「事実」の定義がない（検証可能な記述？観察？）
+- 信頼度スコアの基準がない
+- 出力件数制限がない（トークン浪費リスク）
+- Few-shot例がない
+- エビデンスタイプの分類がない
 
-**Proposed Revision:**
+**改善案:**
 ```jinja2
 You are an expert in information extraction for academic research.
 
@@ -103,9 +123,9 @@ Output JSON array only:
 
 ---
 
-### 2.2 `extract_claims.j2` — Rating: C
+### 2.2 `extract_claims.j2` — 評価: C
 
-**Current:**
+**現状:**
 ```
 あなたは情報分析の専門家です。以下のテキストから主張を抽出してください。
 
@@ -118,13 +138,13 @@ Output JSON array only:
 {"claim": "主張の内容", "type": "fact|opinion|prediction", "confidence": 0.0-1.0}
 ```
 
-**Issues:**
-- Research question (`context`) usage unclear
-- Claim type taxonomy too simple (fact/opinion/prediction)
-- No relevance scoring to query
-- No granularity specification
+**問題点:**
+- リサーチクエスチョン（`context`）の使い方が不明確
+- 主張タイプの分類が単純すぎる（fact/opinion/prediction）
+- クエリへの関連度スコアがない
+- 粒度の指定がない
 
-**Proposed Revision:**
+**改善案:**
 ```jinja2
 You are a research analyst extracting claims relevant to a specific research question.
 
@@ -138,17 +158,15 @@ You are a research analyst extracting claims relevant to a specific research que
 Extract claims that directly help answer the research question above.
 
 ## Claim Types
-- factual: Verifiable statement about current/past state
-- causal: Asserts cause-effect relationship (X causes Y)
-- comparative: Compares entities/quantities (A > B)
-- predictive: Future-oriented claim
-- normative: Value judgment or recommendation
+- fact: Verifiable statement about current/past state (can be checked)
+- opinion: Value judgment or recommendation
+- prediction: Future-oriented claim
 
 ## Output
 JSON array with 1-5 most relevant claims:
 {
   "claim": "claim text",
-  "type": "factual|causal|comparative|predictive|normative",
+  "type": "fact|opinion|prediction",
   "relevance_to_query": 0.0-1.0,
   "confidence": 0.0-1.0
 }
@@ -163,9 +181,9 @@ Output JSON array only:
 
 ---
 
-### 2.3 `summarize.j2` — Rating: D (Critical)
+### 2.3 `summarize.j2` — 評価: D（Critical）
 
-**Current:**
+**現状:**
 ```
 以下のテキストを要約してください。重要なポイントを簡潔にまとめてください。
 
@@ -175,14 +193,14 @@ Output JSON array only:
 要約:
 ```
 
-**Issues:**
-- Extremely generic instructions
-- No output length specification
-- No structured output
-- No purpose specification
-- No entity preservation guidance
+**問題点:**
+- 指示が極めて汎用的
+- 出力長の指定がない
+- 構造化出力がない
+- 目的の指定がない
+- エンティティ保持のガイダンスがない
 
-**Proposed Revision:**
+**改善案:**
 ```jinja2
 You are a research summarizer for evidence synthesis.
 
@@ -190,7 +208,7 @@ You are a research summarizer for evidence synthesis.
 {{ text }}
 
 ## Task
-Create a structured summary preserving key evidence.
+Create a concise summary preserving key evidence.
 
 ## Requirements
 - Length: {{ max_words | default(100) }} words maximum
@@ -199,21 +217,14 @@ Create a structured summary preserving key evidence.
 - Exclude: Background context, methodology details (unless critical)
 
 ## Output Format
-{
-  "summary": "Concise summary text",
-  "key_claims": ["claim1", "claim2", ...],
-  "key_statistics": ["stat1", "stat2", ...],
-  "word_count": <number>
-}
-
-Output JSON only:
+Summary text only (no JSON, no bullet lists, no headings):
 ```
 
 ---
 
-### 2.4 `translate.j2` — Rating: D
+### 2.4 `translate.j2` — 評価: D
 
-**Current:**
+**現状:**
 ```
 以下のテキストを{{ target_lang }}に翻訳してください。
 
@@ -223,12 +234,12 @@ Output JSON only:
 翻訳:
 ```
 
-**Issues:**
-- No handling for technical/medical terminology
-- No guidance for proper nouns
-- No precision requirements for numbers
+**問題点:**
+- 技術/医療用語の扱いがない
+- 固有名詞のガイダンスがない
+- 数値の精度要件がない
 
-**Proposed Revision:**
+**改善案:**
 ```jinja2
 You are a professional translator specializing in academic and medical texts.
 
@@ -252,20 +263,20 @@ Translated text only (no explanations or notes):
 
 ---
 
-### 2.5 `decompose.j2` — Rating: B (Good)
+### 2.5 `decompose.j2` — 評価: B（良好）
 
-**Strengths:**
-- Detailed schema definition
-- Few-shot example provided
-- Clear constraints
+**長所:**
+- 詳細なスキーマ定義
+- Few-shot例が提供されている
+- 明確な制約
 
-**Minor Issues:**
-- Hard-coded Japanese output
-- `hints` field is vague
+**軽微な問題:**
+- 日本語出力がハードコード
+- `hints` フィールドが曖昧
 
-**Proposed Addition:**
+**追加提案:**
 ```jinja2
-{# Add to existing template #}
+{# 既存テンプレートへの追加 #}
 
 ## Additional Guidance for hints
 hints should specify concrete source types:
@@ -278,18 +289,18 @@ hints should specify concrete source types:
 
 ---
 
-### 2.6 `detect_citation.j2` — Rating: B
+### 2.6 `detect_citation.j2` — 評価: B
 
-**Strengths:**
-- Clear YES/NO output
-- Specific exclusion criteria
+**長所:**
+- 明確なYES/NO出力
+- 具体的な除外基準
 
-**Minor Issues:**
-- Missing academic citation patterns
+**軽微な問題:**
+- 学術引用パターンが不足
 
-**Proposed Addition:**
+**追加提案:**
 ```jinja2
-{# Add to existing criteria #}
+{# 既存基準への追加 #}
 
 Academic citation indicators (high confidence):
 - DOI links (doi.org/10.xxxx/...)
@@ -301,51 +312,308 @@ Academic citation indicators (high confidence):
 
 ---
 
-### 2.7 `relevance_evaluation.j2` — Rating: A (Excellent)
+### 2.7 `relevance_evaluation.j2` — 評価: A（優秀）
 
-**Strengths:**
-- Clear 0-10 scale with specific criteria
-- Explicit exclusion of SUPPORTS/REFUTES judgment
-- Well-defined "usefulness" evaluation axis
+**長所:**
+- 明確な0-10スケールと具体的な基準
+- SUPPORTS/REFUTES判定の明示的除外
+- 「有用性」評価軸の明確な定義
 
-**No changes needed.** This is the reference template for quality.
+**変更不要。** これが品質の参照テンプレート。
 
 ---
 
-### 2.8 `DENSIFY_PROMPT` — Rating: C
+### 2.8 `DENSIFY_PROMPT` — 評価: C
 
-**Issue:** Mixed language (English body + Japanese footer)
+**場所:** `src/report/chain_of_density.py`
 
-**Current:**
+**現状:**
 ```python
-# ... English content ...
-JSON出力のみを返してください:"""
+DENSIFY_PROMPT = """You are an expert in information compression. Improve the following summary to be more dense.
+
+[Current Summary]
+{current_summary}
+
+[Original Information]
+{original_content}
+
+[Missing Entities]
+{missing_entities}
+
+[Requirements]
+1. Include more important information while maintaining summary length
+2. Include missing entities as much as possible
+3. Preserve source information for each claim
+4. Remove redundant expressions and increase information density
+5. Maintain approximately 100-150 words
+
+[Output Format]
+...
+JSON出力のみを返してください:"""  # ← 言語混在
 ```
 
-**Fix:** Standardize to English:
+**問題点:**
+- 言語混在（英語本文 + 日本語フッター）
+- 「学術研究支援」というコンテキストが不足
+- Evidence Graphとの連携が考慮されていない
+- エンティティの重要度基準がない
+- 矛盾検出の指示がない
+
+**改善案:**
 ```python
-# ... English content ...
+DENSIFY_PROMPT = """You are an expert in information compression for academic research synthesis.
+
+## Purpose
+Increase information density while preserving evidence quality for claim verification.
+
+## Current Summary
+{current_summary}
+
+## Original Information
+{original_content}
+
+## Missing Entities (priority order)
+{missing_entities}
+
+## Requirements
+1. **Density Increase**: Include more verifiable information without increasing length
+2. **Entity Integration**: Incorporate missing entities, prioritizing:
+   - Quantitative data (numbers, percentages, dates)
+   - Named entities (researchers, institutions, studies)
+   - Causal relationships
+3. **Source Preservation**: Maintain source attribution for each claim
+4. **Redundancy Removal**: Eliminate repetitive or vague expressions
+5. **Length Constraint**: Maintain approximately 100-150 words
+6. **Conflict Detection**: Note if new entities contradict existing claims
+
+## Output Format
+{{
+  "summary": "densified summary text",
+  "entities": ["entity1", "entity2", ...],
+  "claims": [
+    {{
+      "text": "verifiable claim",
+      "source_indices": [0, 1],
+      "claim_type": "factual|causal|comparative|temporal|quantitative",
+      "confidence": 0.0-1.0
+    }}
+  ],
+  "density_metrics": {{
+    "entities_added": <number>,
+    "entities_total": <number>,
+    "compression_ratio": <float>
+  }},
+  "conflicts": ["any contradictions with existing claims"]
+}}
+
+Return only JSON output:"""
+```
+
+**Jinja2テンプレート化時のファイル名:** `config/prompts/densify.j2`
+
+---
+
+### 2.9 `LLM_QUALITY_ASSESSMENT_PROMPT` — 評価: B
+
+**場所:** `src/extractor/quality_analyzer.py`
+
+**現状:**
+```python
+LLM_QUALITY_ASSESSMENT_PROMPT = """You are an expert in web content quality assessment...
+Evaluation criteria:
+- Does it have unique insights or analysis?
+- Is it based on primary sources?
+- Is the writing natural and human-like?
+- Are ads or affiliate links excessive?
+- Is the information accurate and trustworthy?
+...
+```
+
+**長所:**
+- 明確な評価基準5項目
+- JSON出力フォーマット指定
+- 日本語/英語版の両方が存在
+
+**問題点:**
+- 「Lyra特有のコンテキスト」が不足（学術研究支援という目的）
+- `is_ai_generated` の判定基準が曖昧
+- ドメイン固有の品質指標がない（学術ドメインへの適合度）
+
+**改善案:**
+```python
+LLM_QUALITY_ASSESSMENT_PROMPT = """You are an expert in evaluating web content quality for academic research purposes.
+
+## Context
+This content will be used as evidence in a research synthesis system.
+Prioritize academic credibility over general web quality.
+
+## Text (first 2000 characters)
+{text}
+
+## Evaluation Criteria
+1. **Source Authority**: Is this from a primary source, peer-reviewed publication, or authoritative institution?
+2. **Evidence Quality**: Does it contain specific data, citations, or verifiable claims?
+3. **Originality**: Is this original research/analysis vs. aggregated/summarized content?
+4. **Objectivity**: Is the content neutral and evidence-based vs. opinion/promotional?
+5. **Recency**: Is the information current and relevant?
+
+## Output Format
+{{
+  "quality_score": 0.0-1.0,
+  "is_ai_generated": true/false,
+  "is_spam": true/false,
+  "is_aggregator": true/false,
+  "academic_relevance": 0.0-1.0,
+  "evidence_density": "high|medium|low",
+  "reason": "concise explanation"
+}}
+
+Respond in JSON only:"""
+```
+
+---
+
+### 2.10 `INITIAL_SUMMARY_PROMPT` — 評価: B
+
+**場所:** `src/report/chain_of_density.py`
+
+**現状:**
+```python
+INITIAL_SUMMARY_PROMPT = """You are an expert in information summarization...
+[Requirements]
+1. Extract key facts and claims
+2. Preserve source information corresponding to each claim
+3. Create a summary of approximately 100-150 words
+4. Include important entities (person names, organization names, dates, numbers)
+...
+```
+
+**長所:**
+- Chain-of-Densityの初期要約として適切
+- ソース情報保持の要件あり
+- エンティティ抽出の指示あり
+
+**問題点:**
+- 「学術研究支援」というコンテキストが不足
+- Evidence Graphとの連携が考慮されていない
+- クエリとの関連度を考慮していない
+
+**改善案:**
+```python
+INITIAL_SUMMARY_PROMPT = """You are an expert in summarizing research materials for evidence synthesis.
+
+## Purpose
+This summary will be used in an evidence graph to support or refute research claims.
+Focus on extractable, verifiable information.
+
+## Input Information
+{content}
+
+## Research Context (if available)
+{query_context}
+
+## Requirements
+1. Extract claims that can be independently verified
+2. Preserve source attribution for each claim
+3. Prioritize quantitative data (statistics, measurements, dates)
+4. Create a summary of approximately 100-150 words
+5. Flag conflicting or contradictory information
+
+## Output Format
+{{
+  "summary": "summary text",
+  "entities": ["entity1", "entity2", ...],
+  "claims": [
+    {{
+      "text": "verifiable claim",
+      "source_indices": [0, 1],
+      "claim_type": "factual|causal|comparative|temporal|quantitative",
+      "confidence": 0.0-1.0
+    }}
+  ],
+  "conflicts": ["any contradictions noted"]
+}}
+
 Return only JSON output:"""
 ```
 
 ---
 
-## Part 3: Output Validation Analysis
+## Part 2.11: Lyra適合性の考慮事項
 
-### 3.1 Current Validation Mechanisms
+### 言語の問題
 
-| Layer | Mechanism | Location | Coverage |
+**現状:** 既存プロンプトは日本語、改善案は英語
+
+**Lyraの要件:**
+- 日本語クエリ、日本語ソースの処理
+- ただし学術論文は英語が多い
+- ローカルLLM（Ollama）は英語プロンプトの方が性能が良い傾向
+
+**推奨方針:**
+1. **プロンプト本体は英語**（LLM性能を最大化）
+2. **出力言語はパラメータ化:** `{{ output_lang | default("Japanese") }}`
+3. **日本語例文を含める**（日本語出力の品質向上）
+
+```jinja2
+{# 全テンプレート共通のフッターパターン #}
+
+## Output Language
+Respond in {{ output_lang | default("Japanese") }}.
+
+{% if output_lang == "Japanese" %}
+Example output format (Japanese):
+{"claim": "DPP-4阻害薬はHbA1cを0.5-1.0%低下させる", "confidence": 0.9}
+{% endif %}
+
+Output JSON only:
+```
+
+### ClaimType整合性
+
+**重要:** Lyraには「ClaimType」が複数の文脈で登場するため、混同しない。
+
+- **A. Claim Decomposition（研究クエスチョン分解）**: `src/filter/claim_decomposition.py:ClaimType`
+  - 目的: クエスチョンを *検証可能な原子主張* に分解する際の分類（`factual|causal|comparative|definitional|temporal|quantitative`）
+  - これは **extract_claims の分類（DB保存/レポート分類）とは別概念**
+- **B. Extract Claims（ページ/断片からの主張抽出）**: `config/prompts/extract_claims.j2` の `"type"`
+  - 目的: DB `claims.claim_type` とレポート生成の簡易分類（例: `fact|opinion|prediction`）
+
+**結論（Phase 1〜2の方針）**:
+
+- `extract_claims.j2` は当面 **`type: "fact|opinion|prediction"` を維持**し、必要なら `relevance_to_query` 等を追加する。
+- `claim_decomposition.py:ClaimType` に `predictive/normative` を無理に追加しない（統合再設計は別フェーズ）。
+
+### ローカルLLM制約（ADR-0004）
+
+**考慮事項:**
+- Ollama使用によるトークン制限
+- 複雑すぎるプロンプトは性能低下
+- Few-shot例の追加はトークン消費増
+
+**推奨:**
+1. プロンプトは300-500トークン以内を目標
+2. Few-shot例は1つに限定
+3. 複雑なスキーマより単純な指示を優先
+
+---
+
+## Part 3: 出力バリデーション分析
+
+### 3.1 現在のバリデーション機構
+
+| レイヤー | 機構 | 場所 | カバレッジ |
 |-------|-----------|----------|----------|
-| **L2** | Input Sanitization | `llm_security.py:237-325` | All LLM inputs |
-| **L3** | System Tag Protection | `llm_security.py:192-214` | System prompts |
-| **L4** | Output Validation | `llm_security.py:515-607` | All LLM outputs |
-| **L7** | Response Sanitization | `response_sanitizer.py` | MCP responses |
+| **L2** | 入力サニタイゼーション | `llm_security.py:sanitize_llm_input()` | 全LLM入力 |
+| **L3** | システムタグ保護 | `llm_security.py:generate_session_tag()` | システムプロンプト |
+| **L4** | 出力バリデーション | `llm_security.py:validate_llm_output()` | 全LLM出力 |
+| **L7** | レスポンスサニタイゼーション | `mcp/response_sanitizer.py` | MCPレスポンス |
 
-### 3.2 JSON Parsing Pattern
+### 3.2 JSON解析パターン
 
-**Current approach (all locations):**
+**現在のアプローチ（全箇所共通）:**
 ```python
-# Pattern used across codebase
+# コードベース全体で使用されているパターン
 try:
     json_match = re.search(r"\[.*\]", response, re.DOTALL)  # or r"\{.*\}"
     if json_match:
@@ -356,35 +624,35 @@ except json.JSONDecodeError:
     parsed = fallback_value
 ```
 
-**Files using this pattern:**
-- `src/filter/llm.py:474-482`
-- `src/filter/claim_decomposition.py:241-295`
-- `src/report/chain_of_density.py:663-674`
-- `src/extractor/quality_analyzer.py:670-692`
+**このパターンを使用しているファイル:**
+- `src/filter/llm.py`
+- `src/filter/claim_decomposition.py`
+- `src/report/chain_of_density.py`
+- `src/extractor/quality_analyzer.py`
 
-### 3.3 Numeric Score Validation
+### 3.3 数値スコアバリデーション
 
-**0-10 Score (relevance_evaluation):**
+**0-10スコア (relevance_evaluation):**
 ```python
-# src/search/citation_filter.py:111-122
+# src/search/citation_filter.py:_parse_llm_score_0_10()
 def _parse_llm_score_0_10(text: str) -> int | None:
     m = _INT_RE.search(text.strip())
     if not m:
         return None
     n = int(m.group(1))
-    return max(0, min(10, n))  # Clamp to [0, 10]
+    return max(0, min(10, n))  # [0, 10]にクランプ
 ```
 
-**0.0-1.0 Score (quality, confidence):**
+**0.0-1.0スコア (quality, confidence):**
 ```python
-# Clamp pattern used throughout
+# 全体で使用されているクランプパターン
 score = max(0.0, min(1.0, raw_score))
 ```
 
-### 3.4 YES/NO Normalization
+### 3.4 YES/NO正規化
 
 ```python
-# src/extractor/citation_detector.py:44-51
+# src/extractor/citation_detector.py:_normalize_yes_no()
 def _normalize_yes_no(text: str) -> str | None:
     cleaned = text.strip().upper()
     cleaned = re.sub(r"[^A-Z]", "", cleaned)
@@ -395,49 +663,52 @@ def _normalize_yes_no(text: str) -> str | None:
     return None
 ```
 
-### 3.5 Fallback Mechanisms
+### 3.5 フォールバック機構
 
-| Component | Fallback Strategy | Location |
+| コンポーネント | フォールバック戦略 | 場所 |
 |-----------|------------------|----------|
-| Claim Decomposition | Rule-based fallback | `claim_decomposition.py:182-199` |
-| Chain-of-Density | Rule-based compression | `chain_of_density.py:538-544` |
-| Quality Assessment | Return `None`, use rule-based | `quality_analyzer.py:687-692` |
-| Citation Detection | Return `is_citation=False` | `citation_detector.py:161-176` |
+| Claim Decomposition | ルールベースフォールバック | `claim_decomposition.py:_decompose_with_rules()` |
+| Chain-of-Density | ルールベース圧縮 | `chain_of_density.py` |
+| Quality Assessment | `None`を返し、ルールベースを使用 | `quality_analyzer.py` |
+| Citation Detection | `is_citation=False`を返す | `citation_detector.py` |
 
 ---
 
-## Part 4: Gaps and Improvement Proposals
+## Part 4: ギャップと改善提案
 
-### 4.1 Missing: Structured Retry with Feedback
+### 4.1 不足: フィードバック付き構造化リトライ
 
-**Current state:** On parse failure, immediately fall back to rule-based or default value.
+**現状:** パース失敗時、即座にルールベースまたはデフォルト値にフォールバック。
 
-**Problem:** LLM might produce correct answer with minor formatting issues.
+**問題:** LLMが軽微なフォーマット問題で正しい回答を生成している可能性がある。
 
-**Proposed: Retry with correction prompt**
+**提案: 修正プロンプト付きリトライ**
+
+**提案: 実装時期（未定：Phase T以降）**
+
 
 ```python
-# Proposed retry mechanism
+# 提案するリトライ機構
 async def parse_with_retry(
     response: str,
     expected_schema: dict,
     max_retries: int = 2,
 ) -> dict | None:
-    """Parse LLM response with retry on format errors."""
+    """フォーマットエラー時にリトライ付きでLLMレスポンスをパース。"""
 
     for attempt in range(max_retries + 1):
         try:
-            # Attempt extraction
+            # 抽出を試行
             json_match = re.search(r"[\[{].*[\]}]", response, re.DOTALL)
             if json_match:
                 parsed = json.loads(json_match.group())
-                # Validate against schema
+                # スキーマに対してバリデーション
                 if validate_schema(parsed, expected_schema):
                     return parsed
 
         except json.JSONDecodeError as e:
             if attempt < max_retries:
-                # Retry with correction prompt
+                # 修正プロンプトでリトライ
                 response = await llm_call(
                     f"Your previous response had a JSON error: {e}\n"
                     f"Original response: {response[:500]}\n"
@@ -449,16 +720,16 @@ async def parse_with_retry(
     return None
 ```
 
-### 4.2 Missing: Schema Validation
+### 4.2 不足: スキーマバリデーション
 
-**Current state:** JSON parsed but schema not validated.
+**現状:** JSONはパースされるがスキーマはバリデーションされない。
 
-**Problem:** Missing fields, wrong types silently accepted.
+**問題:** 欠落フィールド、型不一致が暗黙的に受け入れられる。
 
-**Proposed: Add Pydantic models for LLM outputs**
+**提案: LLM出力用Pydanticモデルの追加**
 
 ```python
-# src/filter/llm_schemas.py (new file)
+# src/filter/llm_schemas.py（新規ファイル）
 from pydantic import BaseModel, Field, validator
 
 class ExtractedFact(BaseModel):
@@ -478,40 +749,40 @@ class ExtractedClaim(BaseModel):
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 ```
 
-### 4.3 Missing: Output Format Enforcement
+### 4.3 不足: 出力フォーマット強制
 
-**Current state:** Prompts say "Output JSON only" but no enforcement.
+**現状:** プロンプトで「Output JSON only」と指示しているが強制されていない。
 
-**Problem:** LLM often adds preamble text before JSON.
+**問題:** LLMがJSON前に前置きテキストを追加することが多い。
 
-**Proposed: Structured output modes**
+**提案: 構造化出力モード**
 
 ```python
-# For APIs that support it (e.g., OpenAI, Anthropic)
+# サポートするAPI向け（例: OpenAI, Anthropic）
 response = await client.messages.create(
     model="claude-3-5-sonnet-20241022",
     messages=[...],
-    # Force JSON output
+    # JSON出力を強制
     response_format={"type": "json_object"}
 )
 ```
 
-### 4.4 ~~Missing: Confidence Calibration~~ → NLI 専用として既存実装あり
+### 4.4 ~~不足: 信頼度キャリブレーション~~ → NLI専用として既存実装あり
 
 > **注意**: 信頼度キャリブレーションは `src/utils/calibration.py` に **NLI モデル専用** として実装済み。
 > LLM 抽出 confidence との関係は [`docs/confidence-calibration-design.md`](./confidence-calibration-design.md) を参照。
 
 **スコープ:**
-- **対象**: `nli-confidence` (NLI モデル出力)
-- **非対象**: `llm-confidence` (LLM 自己報告) — 別設計で検討中
+- **対象**: `nli-confidence`（NLIモデル出力）
+- **非対象**: `llm-confidence`（LLM自己報告）— 別設計で検討中
 
 **既存実装:**
 - Platt Scaling / Temperature Scaling
-- Brier Score / ECE (Expected Calibration Error) 評価
+- Brier Score / ECE（Expected Calibration Error）評価
 - 自動劣化検知 + ロールバック
 - 増分再キャリブレーション（サンプル蓄積トリガー）
 
-**MCP ツール:**
+**MCPツール:**
 - `calibration_metrics(get_stats)`: 現在のパラメータと履歴
 - `calibration_metrics(get_evaluations)`: 評価履歴
 - `calibration_rollback`: 以前のパラメータへロールバック
@@ -520,23 +791,23 @@ response = await client.messages.create(
 - ADR-0011 (LoRA Fine-tuning Strategy)
 - [`docs/confidence-calibration-design.md`](./confidence-calibration-design.md) — 用語定義と設計提案
 
-### 4.5 Recommendation: Standardize Prompt Structure
+### 4.5 推奨: プロンプト構造の標準化
 
-**Proposed template structure:**
+**提案するテンプレート構造:**
 
 ```jinja2
-{# SECTION 1: Role and Context #}
+{# SECTION 1: ロールとコンテキスト #}
 You are a {{ role }} for {{ purpose }}.
 
-{# SECTION 2: Task Definition #}
+{# SECTION 2: タスク定義 #}
 ## Task
 {{ task_description }}
 
-{# SECTION 3: Input #}
+{# SECTION 3: 入力 #}
 ## Input
 {{ input_variable }}
 
-{# SECTION 4: Constraints (optional) #}
+{# SECTION 4: 制約（オプション） #}
 {% if constraints %}
 ## Constraints
 {% for c in constraints %}
@@ -544,101 +815,135 @@ You are a {{ role }} for {{ purpose }}.
 {% endfor %}
 {% endif %}
 
-{# SECTION 5: Output Specification #}
+{# SECTION 5: 出力仕様 #}
 ## Output Format
 {{ output_schema }}
 
-{# SECTION 6: Examples (optional) #}
+{# SECTION 6: 例（オプション） #}
 {% if examples %}
 ## Example
 {{ examples }}
 {% endif %}
 
-{# SECTION 7: Final Instruction #}
+{# SECTION 7: 最終指示 #}
 Output {{ output_format }} only:
 ```
 
 ---
 
-## Part 5: Implementation Roadmap
+## Part 5: 実装ロードマップ
 
-### Phase 1: Critical Fixes (Immediate)
+### Phase 0: アーキテクチャ整合性（最優先）
 
-| Task | File | Effort |
+> **問題:** `src/utils/prompt_manager.py` と `render_prompt()` により「LLM入力プロンプトは `config/prompts/*.j2` に外部化」という構造が既にあるが、インラインプロンプトが残っている。
+
+| タスク | 移動元 | 移動先 | 工数 |
+|--------|--------|--------|------|
+| Quality Assessment外部化 | `quality_analyzer.py` | `config/prompts/quality_assessment.j2` | 30m |
+| Initial Summary外部化 | `chain_of_density.py` | `config/prompts/initial_summary.j2` | 30m |
+| Densify外部化 | `chain_of_density.py` | `config/prompts/densify.j2` | 30m |
+
+**新規テンプレート作成後の構成:**
+```
+config/prompts/
+├── decompose.j2           # 既存
+├── detect_citation.j2     # 既存
+├── extract_claims.j2      # 既存
+├── extract_facts.j2       # 既存
+├── relevance_evaluation.j2 # 既存
+├── summarize.j2           # 既存
+├── translate.j2           # 既存
+├── quality_assessment.j2  # 新規（質問 analyzer から移動）
+├── initial_summary.j2     # 新規（CoD から移動）
+└── densify.j2             # 新規（CoD から移動）
+```
+
+**Pythonコード変更例:**
+```python
+# Before (quality_analyzer.py)
+LLM_QUALITY_ASSESSMENT_PROMPT = """You are an expert..."""
+prompt = LLM_QUALITY_ASSESSMENT_PROMPT.format(text=text)
+
+# After
+from src.utils.prompt_manager import render_prompt
+prompt = render_prompt("quality_assessment", text=text, output_lang="Japanese")
+```
+
+### Phase 1: 緊急修正（即時）
+
+| タスク | ファイル | 工数 |
 |------|------|--------|
-| Rewrite `summarize.j2` | `config/prompts/summarize.j2` | 1h |
-| Rewrite `extract_claims.j2` | `config/prompts/extract_claims.j2` | 1h |
-| Fix language mixing in `DENSIFY_PROMPT` | `src/report/chain_of_density.py` | 15m |
+| `summarize.j2` の書き換え | `config/prompts/summarize.j2` | 1h |
+| `extract_claims.j2` の書き換え | `config/prompts/extract_claims.j2` | 1h |
+| `densify.j2` の言語統一（外部化後） | `config/prompts/densify.j2` | 15m |
 
-### Phase 2: Schema Validation (Short-term)
+### Phase 2: スキーマバリデーション（短期）
 
-| Task | File | Effort |
+| タスク | ファイル | 工数 |
 |------|------|--------|
-| Create Pydantic models for LLM outputs | `src/filter/llm_schemas.py` (new) | 2h |
-| Integrate schema validation in `llm.py` | `src/filter/llm.py` | 2h |
-| Add retry mechanism | `src/filter/llm.py` | 3h |
+| JSON抽出/パースの共通化（単一モジュール化） | `src/filter/llm_output.py`（新規） | 2h |
+| パーサー適用（全ユースケース） | `src/filter/llm.py`, `src/filter/claim_decomposition.py`, `src/report/chain_of_density.py`, `src/extractor/quality_analyzer.py`, `src/search/citation_filter.py` | 2–4h |
+| （任意）Pydanticスキーマ導入 | `src/filter/llm_schemas.py`（新規） | 2–4h |
+| （任意）フォーマット修正リトライ | `src/filter/llm_output.py` | 3h |
 
-### Phase 3: Prompt Standardization (Medium-term)
+### Phase 3: プロンプト標準化（中期）
 
-| Task | File | Effort |
+| タスク | ファイル | 工数 |
 |------|------|--------|
-| Convert all prompts to English | `config/prompts/*.j2` | 2h |
-| Add output language parameter | All templates | 1h |
-| Create prompt testing framework | `tests/prompts/` (new) | 4h |
+| 全プロンプトを英語に変換 | `config/prompts/*.j2` | 2h |
+| 出力言語パラメータ追加 | 全テンプレート | 1h |
+| プロンプトテストフレームワーク作成 | `tests/prompts/`（新規） | 4h |
 
-### ~~Phase 4: Advanced Features~~ (削除 - 実装済みまたは別設計)
+### ~~Phase 4: 高度な機能~~（削除 - 実装済みまたは別設計）
 
-> **注意**: 以下の機能はすべて既存実装済みまたは別設計文書で検討中のため、Phase 4 は不要。
+> **注意**: 以下の機能はすべて既存実装済みまたは別設計文書で検討中のため、Phase 4は不要。
 
 | 当初の提案 | 状態 | 参照 |
 |------------|------|------|
-| Confidence calibration (NLI) | ✅ 実装済み | `src/utils/calibration.py`, ADR-0011 |
-| Confidence calibration (LLM) | 📝 別設計 | [`confidence-calibration-design.md`](./confidence-calibration-design.md) |
-| A/B testing framework | ✅ 実装済み | `src/search/ab_test.py`, ADR-0010 |
-| Prompt versioning | ✅ git 管理で十分 | `config/prompts/*.j2` |
+| Confidence calibration（NLI） | ✅ 実装済み | `src/utils/calibration.py`, ADR-0011 |
+| Confidence calibration（LLM） | 📝 別設計 | [`confidence-calibration-design.md`](./confidence-calibration-design.md) |
+| A/Bテストフレームワーク | ✅ 実装済み | `src/search/ab_test.py`, ADR-0010 |
+| プロンプトバージョニング | ✅ git管理で十分 | `config/prompts/*.j2` |
 
-**MCP ツール (既存、NLI 専用):**
-- `calibration_metrics`: NLI 統計取得、評価履歴
-- `calibration_rollback`: NLI パラメータロールバック
+**MCPツール（既存、NLI専用）:**
+- `calibration_metrics`: NLI統計取得、評価履歴
+- `calibration_rollback`: NLIパラメータロールバック
 
 **用語の明確化:** [`confidence-calibration-design.md`](./confidence-calibration-design.md) を参照
 
 ---
 
-## Part 6: Phase 2 Detailed Technical Design
+## Part 6: Phase 2 実装方針
 
-**Date Added:** 2025-12-27
-**Status:** Proposal
+**追加日:** 2025-12-27
+**ステータス:** 確定
 
-This section provides a detailed technical design for Phase 2 (Schema Validation & Retry Mechanism), aligned with Lyra's existing architecture.
-
----
-
-### 6.1 Architecture Overview
+### 6.1 アーキテクチャ概要
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    LLM Output Pipeline                          │
+│                    LLM出力パイプライン                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐  │
-│  │  Prompt  │───▶│  LLM Call    │───▶│  Security Validation │  │
-│  │ Template │    │  (Provider)  │    │  (validate_llm_output)│  │
-│  └──────────┘    └──────────────┘    └──────────┬───────────┘  │
+│  │ プロンプト │───▶│  LLM呼び出し │───▶│ セキュリティ         │  │
+│  │ テンプレート│    │  (Provider)  │    │ バリデーション       │  │
+│  └──────────┘    └──────────────┘    │ (validate_llm_output)│  │
+│                                       └──────────┬───────────┘  │
 │                                                  │              │
 │                                                  ▼              │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │                 NEW: Schema Validation Layer              │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐   │  │
-│  │  │ JSON Extract│─▶│ Pydantic    │─▶│ Retry w/Feedback│   │  │
-│  │  │ (regex)     │  │ Validation  │  │ (max 2 retries) │   │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────────┘   │  │
+│  │                    JSON抽出層                             │  │
+│  │  ┌─────────────┐                                          │  │
+│  │  │ extract_json│ ← src/filter/llm_output.py（共通化）     │  │
+│  │  │ (regex)     │                                          │  │
+│  │  └─────────────┘                                          │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                  │              │
 │                                                  ▼              │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │                    Existing Fallback                      │  │
-│  │              (Rule-based / Default Value)                 │  │
+│  │                    既存フォールバック                     │  │
+│  │              (ルールベース / デフォルト値)                │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -646,469 +951,51 @@ This section provides a detailed technical design for Phase 2 (Schema Validation
 
 ---
 
-### 6.2 New File: `src/filter/llm_schemas.py`
+### 6.2 実装方針
 
-Pydantic models for LLM outputs, aligned with existing type conventions.
+#### JSON抽出共通化
+
+`src/filter/llm_output.py` を新設し、JSON抽出ロジックを共通化する。
+
+**最小実装:**
 
 ```python
-"""
-Pydantic schemas for LLM output validation.
-
-These schemas define the expected structure of LLM outputs for various tasks.
-They integrate with the existing type system:
-- ClaimType, ClaimPolarity, ClaimGranularity from claim_decomposition.py
-- EvidenceItem, ClaimConfidenceAssessment from schemas.py
-- RelationType from evidence_graph.py
-"""
-
-from __future__ import annotations
-
-from enum import Enum
-from typing import Any, Literal
-
-from pydantic import BaseModel, Field, field_validator, model_validator
-
-
-# =============================================================================
-# Enums (reuse from existing modules where possible)
-# =============================================================================
-
-class EvidenceType(str, Enum):
-    """Type of evidence supporting a fact."""
-    STATISTIC = "statistic"      # Numerical data, percentages, p-values
-    CITATION = "citation"        # Reference to another source
-    OBSERVATION = "observation"  # Direct observation or statement
-    EXPERIMENT = "experiment"    # Experimental result
-    EXPERT = "expert"            # Expert opinion/statement
-
-
-class ClaimTypeExtended(str, Enum):
-    """Extended claim type taxonomy (superset of ClaimType)."""
-    FACTUAL = "factual"
-    CAUSAL = "causal"
-    COMPARATIVE = "comparative"
-    PREDICTIVE = "predictive"
-    NORMATIVE = "normative"
-    DEFINITIONAL = "definitional"
-    TEMPORAL = "temporal"
-    QUANTITATIVE = "quantitative"
-
-
-# =============================================================================
-# Extract Facts Output Schema
-# =============================================================================
-
-class ExtractedFact(BaseModel):
-    """Single fact extracted from text.
-
-    Corresponds to extract_facts.j2 output.
-    """
-    fact: str = Field(..., min_length=10, description="Factual statement")
-    confidence: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Confidence score"
-    )
-    evidence_type: EvidenceType = Field(
-        default=EvidenceType.OBSERVATION,
-        description="Type of evidence"
-    )
-
-    @field_validator("evidence_type", mode="before")
-    @classmethod
-    def normalize_evidence_type(cls, v: Any) -> EvidenceType:
-        if isinstance(v, str):
-            v = v.lower().strip()
-            try:
-                return EvidenceType(v)
-            except ValueError:
-                return EvidenceType.OBSERVATION
-        return v
-
-
-class ExtractFactsResponse(BaseModel):
-    """Response from extract_facts task."""
-    facts: list[ExtractedFact] = Field(
-        default_factory=list,
-        max_length=20,  # Prevent token waste
-        description="Extracted facts"
-    )
-
-    @model_validator(mode="after")
-    def deduplicate_facts(self) -> "ExtractFactsResponse":
-        """Remove near-duplicate facts."""
-        seen = set()
-        unique = []
-        for fact in self.facts:
-            # Simple dedup by first 50 chars
-            key = fact.fact[:50].lower()
-            if key not in seen:
-                seen.add(key)
-                unique.append(fact)
-        self.facts = unique
-        return self
-
-
-# =============================================================================
-# Extract Claims Output Schema
-# =============================================================================
-
-class ExtractedClaim(BaseModel):
-    """Single claim extracted from text.
-
-    Corresponds to extract_claims.j2 output.
-    Direct field names - no aliases needed (DB rebuilt).
-    """
-    claim_text: str = Field(..., min_length=10, description="Claim text")
-    claim_type: ClaimTypeExtended = Field(
-        default=ClaimTypeExtended.FACTUAL,
-        description="Claim type"
-    )
-    claim_confidence: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Confidence score"
-    )
-    relevance_to_query: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Relevance to research question"
-    )
-
-    @field_validator("claim_type", mode="before")
-    @classmethod
-    def normalize_claim_type(cls, v: Any) -> ClaimTypeExtended:
-        if isinstance(v, str):
-            v = v.lower().strip()
-            # Map legacy types
-            legacy_map = {
-                "fact": "factual",
-                "opinion": "normative",
-                "prediction": "predictive",
-            }
-            v = legacy_map.get(v, v)
-            try:
-                return ClaimTypeExtended(v)
-            except ValueError:
-                return ClaimTypeExtended.FACTUAL
-        return v
-
-
-class ExtractClaimsResponse(BaseModel):
-    """Response from extract_claims task."""
-    claims: list[ExtractedClaim] = Field(
-        default_factory=list,
-        max_length=10,  # Limit per extract_claims.j2 proposal
-        description="Extracted claims"
-    )
-
-
-# =============================================================================
-# Summarize Output Schema
-# =============================================================================
-
-class SummaryResponse(BaseModel):
-    """Structured summary response.
-
-    Corresponds to proposed summarize.j2 output.
-    """
-    summary: str = Field(..., min_length=20, description="Summary text")
-    key_claims: list[str] = Field(
-        default_factory=list,
-        max_length=10,
-        description="Key claims extracted"
-    )
-    key_statistics: list[str] = Field(
-        default_factory=list,
-        max_length=10,
-        description="Key statistics extracted"
-    )
-    word_count: int = Field(default=0, ge=0, description="Word count")
-
-    @model_validator(mode="after")
-    def compute_word_count(self) -> "SummaryResponse":
-        if self.word_count == 0:
-            self.word_count = len(self.summary.split())
-        return self
-
-
-# =============================================================================
-# Quality Assessment Output Schema
-# =============================================================================
-
-class QualityAssessmentResponse(BaseModel):
-    """LLM quality assessment response.
-
-    Corresponds to LLM_QUALITY_ASSESSMENT_PROMPT output.
-    """
-    quality_score: float = Field(..., ge=0.0, le=1.0)
-    is_ai_generated: bool = Field(default=False)
-    is_spam: bool = Field(default=False)
-    is_aggregator: bool = Field(default=False)
-    reason: str = Field(default="", max_length=500)
-
-    @field_validator("quality_score", mode="before")
-    @classmethod
-    def clamp_score(cls, v: Any) -> float:
-        if isinstance(v, (int, float)):
-            return max(0.0, min(1.0, float(v)))
-        return 0.5  # Default on parse error
-
-
-# =============================================================================
-# Relevance Score Output Schema
-# =============================================================================
-
-class RelevanceScoreResponse(BaseModel):
-    """Relevance evaluation response (0-10 scale).
-
-    Corresponds to relevance_evaluation.j2 output.
-    """
-    score: int = Field(..., ge=0, le=10)
-
-    @field_validator("score", mode="before")
-    @classmethod
-    def parse_and_clamp(cls, v: Any) -> int:
-        if isinstance(v, str):
-            # Extract first integer from string
-            import re
-            match = re.search(r"\d+", v)
-            if match:
-                v = int(match.group())
-            else:
-                return 5  # Default
-        if isinstance(v, (int, float)):
-            return max(0, min(10, int(v)))
-        return 5
-
-    @property
-    def normalized(self) -> float:
-        """Return normalized 0.0-1.0 score."""
-        return self.score / 10.0
-
-
-# =============================================================================
-# Chain-of-Density Output Schema
-# =============================================================================
-
-class DensityClaim(BaseModel):
-    """Claim with source indices for CoD."""
-    text: str = Field(..., min_length=5)
-    source_indices: list[int] = Field(default_factory=list)
-
-
-class DensitySummaryResponse(BaseModel):
-    """Chain-of-Density summary response.
-
-    Corresponds to INITIAL_SUMMARY_PROMPT / DENSIFY_PROMPT output.
-    """
-    summary: str = Field(..., min_length=20)
-    entities: list[str] = Field(default_factory=list, max_length=50)
-    claims: list[DensityClaim] = Field(default_factory=list)
-
-
-# =============================================================================
-# Citation Detection Output Schema
-# =============================================================================
-
-class CitationDetectionResponse(BaseModel):
-    """Citation detection response.
-
-    Corresponds to detect_citation.j2 output.
-    """
-    is_citation: bool = Field(...)
-
-    @field_validator("is_citation", mode="before")
-    @classmethod
-    def parse_yes_no(cls, v: Any) -> bool:
-        if isinstance(v, bool):
-            return v
-        if isinstance(v, str):
-            v = v.strip().upper()
-            # Remove non-alpha characters
-            import re
-            v = re.sub(r"[^A-Z]", "", v)
-            return v.startswith("YES")
-        return False
-
-
-# =============================================================================
-# Decomposition Output Schema
-# =============================================================================
-
-class DecomposedClaim(BaseModel):
-    """Atomic claim from decomposition.
-
-    Corresponds to decompose.j2 output.
-    Aligned with AtomicClaim dataclass.
-    """
-    text: str = Field(..., min_length=10)
-    polarity: Literal["positive", "negative", "neutral"] = Field(
-        default="neutral"
-    )
-    granularity: Literal["atomic", "composite", "meta"] = Field(
-        default="atomic"
-    )
-    type: str = Field(default="factual")
-    keywords: list[str] = Field(default_factory=list, max_length=10)
-    hints: list[str] = Field(default_factory=list, max_length=5)
-    confidence: float = Field(default=0.9, ge=0.0, le=1.0)
-
-    @field_validator("polarity", mode="before")
-    @classmethod
-    def normalize_polarity(cls, v: Any) -> str:
-        if isinstance(v, str):
-            v = v.lower().strip()
-            if v in ("positive", "negative", "neutral"):
-                return v
-        return "neutral"
-
-    @field_validator("granularity", mode="before")
-    @classmethod
-    def normalize_granularity(cls, v: Any) -> str:
-        if isinstance(v, str):
-            v = v.lower().strip()
-            if v in ("atomic", "composite", "meta"):
-                return v
-        return "atomic"
-
-
-class DecomposeResponse(BaseModel):
-    """Response from decompose task."""
-    claims: list[DecomposedClaim] = Field(
-        default_factory=list,
-        max_length=20,
-        description="Decomposed atomic claims"
-    )
-
-
-# =============================================================================
-# Schema Registry
-# =============================================================================
-
-TASK_SCHEMAS: dict[str, type[BaseModel]] = {
-    "extract_facts": ExtractFactsResponse,
-    "extract_claims": ExtractClaimsResponse,
-    "summarize": SummaryResponse,
-    "quality_assessment": QualityAssessmentResponse,
-    "relevance_evaluation": RelevanceScoreResponse,
-    "chain_of_density": DensitySummaryResponse,
-    "detect_citation": CitationDetectionResponse,
-    "decompose": DecomposeResponse,
-}
-
-
-def get_schema_for_task(task: str) -> type[BaseModel] | None:
-    """Get Pydantic schema for a given task."""
-    return TASK_SCHEMAS.get(task)
-```
-
----
-
-### 6.3 New File: `src/filter/llm_output_parser.py`
-
-Unified parsing with retry mechanism.
-
-```python
-"""
-LLM output parser with schema validation and retry mechanism.
-
-Integrates with:
-- llm_security.py for security validation
-- llm_schemas.py for schema validation
-- provider.py for LLM calls
-"""
-
-from __future__ import annotations
-
+# src/filter/llm_output.py
+"""LLM出力からJSONを抽出する共通ユーティリティ。"""
 import json
 import re
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, TypeVar
+from typing import Any
 
-import structlog
-
-from pydantic import BaseModel, ValidationError
-
-from .llm_schemas import TASK_SCHEMAS, get_schema_for_task
-from .llm_security import validate_llm_output
-from .provider import LLMOptions, LLMResponse, default_provider
-
-logger = structlog.get_logger(__name__)
-
-T = TypeVar("T", bound=BaseModel)
-
-
-class ParseStatus(str, Enum):
-    """Status of parse attempt."""
-    SUCCESS = "success"
-    JSON_ERROR = "json_error"
-    SCHEMA_ERROR = "schema_error"
-    EMPTY_RESPONSE = "empty_response"
-    RETRY_EXHAUSTED = "retry_exhausted"
-
-
-@dataclass
-class ParseResult:
-    """Result of LLM output parsing."""
-    status: ParseStatus
-    data: BaseModel | None = None
-    raw_response: str = ""
-    errors: list[str] = field(default_factory=list)
-    attempts: int = 1
-
-    @property
-    def ok(self) -> bool:
-        return self.status == ParseStatus.SUCCESS and self.data is not None
-
-
-# =============================================================================
-# JSON Extraction
-# =============================================================================
 
 def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
-    """Extract JSON from LLM response text.
-
-    Handles common LLM output patterns:
-    - Pure JSON
-    - JSON wrapped in markdown code blocks
-    - JSON preceded by explanatory text
+    """LLMレスポンスからJSONを抽出。Markdownコードブロック対応。
 
     Args:
-        text: Raw LLM response
-        expect_array: If True, extract JSON array; otherwise JSON object
+        text: LLMレスポンステキスト
+        expect_array: Trueの場合JSON配列を期待
 
     Returns:
-        Parsed JSON or None if extraction fails
+        パースされたJSON、または抽出失敗時はNone
     """
-    if not text or not text.strip():
+    if not text:
         return None
 
-    # Try direct parse first
+    # 1. 直接パース
     try:
         return json.loads(text.strip())
     except json.JSONDecodeError:
         pass
 
-    # Pattern for JSON in markdown code blocks
-    code_block_pattern = r"```(?:json)?\s*([\[\{].*?[\]\}])\s*```"
-    match = re.search(code_block_pattern, text, re.DOTALL)
+    # 2. コードブロック内
+    match = re.search(r"```(?:json)?\s*([\[\{].*?[\]\}])\s*```", text, re.DOTALL)
     if match:
         try:
             return json.loads(match.group(1))
         except json.JSONDecodeError:
             pass
 
-    # Pattern for raw JSON (array or object)
-    if expect_array:
-        pattern = r"\[.*\]"
-    else:
-        pattern = r"\{.*\}"
-
+    # 3. 生JSON
+    pattern = r"\[.*\]" if expect_array else r"\{.*\}"
     match = re.search(pattern, text, re.DOTALL)
     if match:
         try:
@@ -1117,679 +1004,43 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
             pass
 
     return None
-
-
-# =============================================================================
-# Schema Validation
-# =============================================================================
-
-def validate_with_schema(
-    data: dict | list,
-    schema: type[T],
-    task: str,
-) -> tuple[T | None, list[str]]:
-    """Validate parsed data against Pydantic schema.
-
-    Args:
-        data: Parsed JSON data
-        schema: Pydantic model class
-        task: Task name for error context
-
-    Returns:
-        Tuple of (validated model or None, list of error messages)
-    """
-    errors = []
-
-    try:
-        # Handle list vs single object
-        if isinstance(data, list):
-            # Wrap in container if schema expects it
-            if hasattr(schema, "__fields__"):
-                # Find the list field name
-                for field_name, field_info in schema.model_fields.items():
-                    if "list" in str(field_info.annotation).lower():
-                        data = {field_name: data}
-                        break
-
-        validated = schema.model_validate(data)
-        return validated, []
-
-    except ValidationError as e:
-        for error in e.errors():
-            loc = ".".join(str(x) for x in error["loc"])
-            msg = f"{loc}: {error['msg']}"
-            errors.append(msg)
-        return None, errors
-
-
-# =============================================================================
-# Retry Mechanism
-# =============================================================================
-
-CORRECTION_PROMPT_TEMPLATE = """Your previous response had format issues.
-
-## Errors
-{errors}
-
-## Original Response (truncated)
-{original_response}
-
-## Required Format
-Output must be valid JSON matching this structure:
-{schema_example}
-
-## Instructions
-1. Fix the format errors listed above
-2. Output ONLY valid JSON, no explanations
-3. Ensure all required fields are present
-
-Output JSON only:"""
-
-
-async def retry_with_feedback(
-    original_response: str,
-    errors: list[str],
-    schema: type[BaseModel],
-    task: str,
-    model: str | None = None,
-) -> LLMResponse:
-    """Retry LLM call with error feedback.
-
-    Args:
-        original_response: The original malformed response
-        errors: List of validation errors
-        schema: Expected schema
-        task: Task name
-        model: Optional model override
-
-    Returns:
-        New LLM response
-    """
-    # Generate schema example
-    schema_example = schema.model_json_schema()
-
-    # Truncate original response
-    truncated = original_response[:500]
-    if len(original_response) > 500:
-        truncated += "..."
-
-    prompt = CORRECTION_PROMPT_TEMPLATE.format(
-        errors="\n".join(f"- {e}" for e in errors[:5]),  # Limit errors
-        original_response=truncated,
-        schema_example=json.dumps(schema_example, indent=2),
-    )
-
-    options = LLMOptions(model=model, temperature=0.1, max_tokens=2000)
-    return await default_provider.generate(prompt, options)
-
-
-# =============================================================================
-# Main Parser
-# =============================================================================
-
-@dataclass
-class ParserConfig:
-    """Configuration for LLM output parser."""
-    max_retries: int = 2
-    enable_security_validation: bool = True
-    enable_schema_validation: bool = True
-    enable_retry: bool = True
-    model: str | None = None
-
-
-async def parse_llm_output(
-    response: str | LLMResponse,
-    task: str,
-    config: ParserConfig | None = None,
-    system_prompt: str | None = None,
-) -> ParseResult:
-    """Parse and validate LLM output.
-
-    Args:
-        response: Raw LLM response text or LLMResponse object
-        task: Task name (must match TASK_SCHEMAS key)
-        config: Parser configuration
-        system_prompt: System prompt for leakage detection
-
-    Returns:
-        ParseResult with validated data or error information
-    """
-    config = config or ParserConfig()
-
-    # Extract text from LLMResponse if needed
-    if isinstance(response, LLMResponse):
-        if not response.ok:
-            return ParseResult(
-                status=ParseStatus.EMPTY_RESPONSE,
-                errors=[response.error_message or "LLM call failed"],
-            )
-        raw_text = response.text
-    else:
-        raw_text = response
-
-    if not raw_text or not raw_text.strip():
-        return ParseResult(
-            status=ParseStatus.EMPTY_RESPONSE,
-            errors=["Empty response from LLM"],
-        )
-
-    # Get schema for task
-    schema = get_schema_for_task(task)
-    if schema is None and config.enable_schema_validation:
-        logger.warning(f"No schema defined for task: {task}")
-        config.enable_schema_validation = False
-
-    # Security validation (ADR-0005 L4)
-    if config.enable_security_validation:
-        validation_result = validate_llm_output(
-            raw_text,
-            system_prompt=system_prompt,
-            mask_leakage=True,
-        )
-        raw_text = validation_result.validated_text
-
-    # Determine if we expect array or object
-    expect_array = task in ("extract_facts", "extract_claims", "decompose")
-
-    # Parse loop with retry
-    attempts = 0
-    errors: list[str] = []
-
-    while attempts <= config.max_retries:
-        attempts += 1
-
-        # Step 1: Extract JSON
-        parsed = extract_json(raw_text, expect_array=expect_array)
-
-        if parsed is None:
-            errors.append(f"Attempt {attempts}: Failed to extract JSON from response")
-            if attempts <= config.max_retries and config.enable_retry:
-                # Retry with feedback
-                retry_response = await retry_with_feedback(
-                    raw_text,
-                    ["Could not find valid JSON in response"],
-                    schema or BaseModel,
-                    task,
-                    config.model,
-                )
-                if retry_response.ok:
-                    raw_text = retry_response.text
-                    continue
-
-            return ParseResult(
-                status=ParseStatus.JSON_ERROR,
-                raw_response=raw_text,
-                errors=errors,
-                attempts=attempts,
-            )
-
-        # Step 2: Schema validation (if enabled)
-        if config.enable_schema_validation and schema:
-            validated, validation_errors = validate_with_schema(parsed, schema, task)
-
-            if validated is None:
-                errors.extend(f"Attempt {attempts}: {e}" for e in validation_errors)
-
-                if attempts <= config.max_retries and config.enable_retry:
-                    # Retry with validation errors
-                    retry_response = await retry_with_feedback(
-                        raw_text,
-                        validation_errors,
-                        schema,
-                        task,
-                        config.model,
-                    )
-                    if retry_response.ok:
-                        raw_text = retry_response.text
-                        continue
-
-                return ParseResult(
-                    status=ParseStatus.SCHEMA_ERROR,
-                    raw_response=raw_text,
-                    errors=errors,
-                    attempts=attempts,
-                )
-
-            # Success with schema validation
-            return ParseResult(
-                status=ParseStatus.SUCCESS,
-                data=validated,
-                raw_response=raw_text,
-                attempts=attempts,
-            )
-
-        # Success without schema validation (return raw parsed data)
-        # Wrap in a generic model for consistency
-        return ParseResult(
-            status=ParseStatus.SUCCESS,
-            data=None,  # No schema, so no model
-            raw_response=raw_text,
-            attempts=attempts,
-        )
-
-    # Exhausted retries
-    return ParseResult(
-        status=ParseStatus.RETRY_EXHAUSTED,
-        raw_response=raw_text,
-        errors=errors,
-        attempts=attempts,
-    )
-
-
-# =============================================================================
-# Convenience Functions
-# =============================================================================
-
-async def extract_facts(
-    text: str,
-    model: str | None = None,
-) -> ParseResult:
-    """Extract facts from text with validation."""
-    from .llm import render_prompt
-
-    prompt = render_prompt("extract_facts", text=text[:4000])
-    options = LLMOptions(model=model, temperature=0.1)
-    response = await default_provider.generate(prompt, options)
-
-    return await parse_llm_output(
-        response,
-        task="extract_facts",
-        config=ParserConfig(model=model),
-    )
-
-
-async def extract_claims(
-    text: str,
-    context: str = "",
-    model: str | None = None,
-) -> ParseResult:
-    """Extract claims from text with validation."""
-    from .llm import render_prompt
-
-    prompt = render_prompt(
-        "extract_claims",
-        text=text[:4000],
-        context=context or "General research",
-    )
-    options = LLMOptions(model=model, temperature=0.1)
-    response = await default_provider.generate(prompt, options)
-
-    return await parse_llm_output(
-        response,
-        task="extract_claims",
-        config=ParserConfig(model=model),
-    )
 ```
+
+#### 置き換え対象
+
+| ファイル | 現行パターン | 置き換え後 |
+|----------|-------------|-----------|
+| `llm.py` | `re.search(r"\[.*\]"...)` | `extract_json(response, expect_array=True)` |
+| `claim_decomposition.py` | `_parse_llm_response()` 内のJSON抽出 | 同上 |
+| `chain_of_density.py` | `_parse_llm_response()` 内のJSON抽出 | `extract_json(response)` |
+| `quality_analyzer.py` | インラインJSONパース | `extract_json(response)` |
+
+#### ADR-0004 との整合性
+
+フォーマット修正リトライは ADR-0004 と**矛盾しない**。
+
+- ADR-0004 が禁止しているのは「戦略的決定」「複雑な推論」（クエリ設計、探索戦略など）
+- フォーマット修正リトライは「同じ機械的抽出タスクの再試行」であり、新しい推論ではない
+- ADR-0004 自体が `format="json"` 強制を許可しており、リトライはその fallback
+
+ただし、リトライ機構の導入は**Phase 2以降のオプション**とし、MVPでは `extract_json()` のみ導入する。
+
+#### DBスキーマ変更
+
+**不要**。
+
+- `relevance_to_query`: 抽出時フィルタリング用の一時値であり、メモリ内処理で十分
+- `evidence_type`: extract_facts用でありclaimsテーブルと無関係
+
+LLM出力フォーマットとDB保存フォーマットは分離可能。一時的なスコアはパース後にメモリ内で使用し、DBには既存カラムのみ保存する。
 
 ---
 
-### 6.4 Integration Points
+## 付録A: バリデーション関数リファレンス
 
-#### 6.4.1 Replace `src/filter/llm.py` parsing
+### `validate_llm_output()` — メインエントリーポイント
 
-```python
-# Delete lines 474-482 (legacy regex parsing)
-# Replace with:
-
-from .llm_output_parser import parse_llm_output, ParserConfig
-
-async def _process_extraction(
-    response_text: str,
-    task: str,
-    passage_id: str,
-    source_url: str,
-) -> dict:
-    """Process extraction with schema validation.
-
-    On parse failure after retries: logs error, returns empty result, continues processing.
-    """
-    result = await parse_llm_output(response_text, task=task)
-
-    if result.ok:
-        if task == "extract_facts":
-            extracted = [f.model_dump() for f in result.data.facts]
-        elif task == "extract_claims":
-            extracted = [c.model_dump() for c in result.data.claims]
-        else:
-            extracted = result.data.model_dump()
-        return {
-            "id": passage_id,
-            "source_url": source_url,
-            "extracted": extracted,
-        }
-    else:
-        # Log error and continue with empty result
-        logger.warning(
-            "LLM parse failed after retries",
-            task=task,
-            passage_id=passage_id,
-            attempts=result.attempts,
-            errors=result.errors,
-        )
-        return {
-            "id": passage_id,
-            "source_url": source_url,
-            "extracted": [],
-            "parse_errors": result.errors,
-        }
-```
-
-#### 6.4.2 Replace `src/filter/claim_decomposition.py`
-
-```python
-# Delete _parse_llm_response() method (lines 241-295)
-# Replace with:
-
-from .llm_output_parser import parse_llm_output
-
-async def _parse_llm_response(self, response: str, source_question: str) -> list[AtomicClaim]:
-    """Parse LLM response with schema validation.
-
-    On parse failure after retries: logs error, returns empty list, continues processing.
-    """
-    result = await parse_llm_output(response, task="decompose")
-
-    if not result.ok:
-        logger.warning(
-            "Decomposition parse failed after retries",
-            source_question=source_question[:100],
-            attempts=result.attempts,
-            errors=result.errors,
-        )
-        return []  # Return empty list, continue processing
-
-    return [
-        AtomicClaim(
-            claim_id=f"claim_{uuid.uuid4().hex[:8]}",
-            text=item.text,
-            expected_polarity=ClaimPolarity(item.polarity),
-            granularity=ClaimGranularity(item.granularity),
-            claim_type=ClaimType(item.type),
-            source_question=source_question,
-            confidence=item.confidence,
-            keywords=item.keywords,
-            verification_hints=item.hints,
-        )
-        for item in result.data.claims
-    ]
-```
-
-#### 6.4.3 Replace `src/search/citation_filter.py`
-
-```python
-# Delete _parse_llm_score_0_10() function (lines 111-122)
-# Replace with:
-
-from src.filter.llm_output_parser import parse_llm_output
-
-async def _evaluate_relevance(response_text: str, source_url: str = "") -> float:
-    """Evaluate relevance with schema validation.
-
-    On parse failure after retries: logs error, returns default score (0.5), continues processing.
-    """
-    result = await parse_llm_output(response_text, task="relevance_evaluation")
-
-    if not result.ok:
-        logger.warning(
-            "Relevance parse failed after retries",
-            source_url=source_url,
-            attempts=result.attempts,
-            errors=result.errors,
-        )
-        return 0.5  # Return neutral score, continue processing
-
-    return result.data.normalized  # 0.0-1.0
-```
-
----
-
-### 6.5 Database Alignment (Direct Mapping)
-
-No aliases needed - field names match DB columns directly:
-
-| Pydantic Field | DB Column | Type |
-|----------------|-----------|------|
-| `claim_text` | `claim_text` | TEXT |
-| `claim_type` | `claim_type` | TEXT (enum string) |
-| `claim_confidence` | `claim_confidence` | REAL |
-| `relevance_to_query` | `relevance_to_query` | REAL (NEW) |
-| `expected_polarity` | `expected_polarity` | TEXT |
-| `granularity` | `granularity` | TEXT |
-
-**New columns to add:**
-- `claims.relevance_to_query REAL DEFAULT 0.5`
-- `claims.evidence_type TEXT` (for facts extraction)
-
----
-
-### 6.6 Testing Strategy
-
-#### Unit Tests (`tests/filter/test_llm_schemas.py`)
-
-```python
-import pytest
-from pydantic import ValidationError
-
-from src.filter.llm_schemas import (
-    ExtractedFact,
-    ExtractedClaim,
-    ExtractFactsResponse,
-    RelevanceScoreResponse,
-)
-
-
-class TestExtractedFact:
-    def test_valid_fact(self):
-        fact = ExtractedFact(
-            fact="DPP-4 inhibitors reduce HbA1c by 0.5-1.0%",
-            confidence=0.9,
-            evidence_type="statistic",
-        )
-        assert fact.confidence == 0.9
-        assert fact.evidence_type.value == "statistic"
-
-    def test_confidence_clamping(self):
-        # Should not allow out-of-range
-        with pytest.raises(ValidationError):
-            ExtractedFact(fact="test fact here", confidence=1.5)
-
-    def test_evidence_type_normalization(self):
-        fact = ExtractedFact(
-            fact="test fact here",
-            confidence=0.5,
-            evidence_type="STATISTIC",  # Uppercase
-        )
-        assert fact.evidence_type.value == "statistic"
-
-    def test_unknown_evidence_type_defaults(self):
-        fact = ExtractedFact(
-            fact="test fact here",
-            confidence=0.5,
-            evidence_type="unknown_type",
-        )
-        assert fact.evidence_type.value == "observation"
-
-
-class TestRelevanceScoreResponse:
-    def test_parse_integer(self):
-        score = RelevanceScoreResponse(score=7)
-        assert score.score == 7
-        assert score.normalized == 0.7
-
-    def test_parse_string(self):
-        score = RelevanceScoreResponse(score="8")
-        assert score.score == 8
-
-    def test_parse_with_text(self):
-        score = RelevanceScoreResponse(score="Score: 9 out of 10")
-        assert score.score == 9
-
-    def test_clamp_high(self):
-        score = RelevanceScoreResponse(score=15)
-        assert score.score == 10
-
-    def test_clamp_low(self):
-        score = RelevanceScoreResponse(score=-5)
-        assert score.score == 0
-```
-
-#### Integration Tests (`tests/filter/test_llm_output_parser.py`)
-
-```python
-import pytest
-from src.filter.llm_output_parser import (
-    extract_json,
-    parse_llm_output,
-    ParserConfig,
-    ParseStatus,
-)
-
-
-class TestExtractJson:
-    def test_pure_json(self):
-        result = extract_json('[{"fact": "test", "confidence": 0.9}]')
-        assert result == [{"fact": "test", "confidence": 0.9}]
-
-    def test_markdown_code_block(self):
-        text = """Here are the facts:
-```json
-[{"fact": "test", "confidence": 0.9}]
-```
-"""
-        result = extract_json(text, expect_array=True)
-        assert result == [{"fact": "test", "confidence": 0.9}]
-
-    def test_with_preamble(self):
-        text = """Based on my analysis, here are the extracted facts:
-[{"fact": "test", "confidence": 0.9}]
-I hope this helps!"""
-        result = extract_json(text, expect_array=True)
-        assert result == [{"fact": "test", "confidence": 0.9}]
-
-
-@pytest.mark.asyncio
-class TestParseWithRetry:
-    async def test_success_first_attempt(self):
-        response = '[{"fact": "DPP-4 inhibitors reduce HbA1c", "confidence": 0.9}]'
-        result = await parse_llm_output(
-            response,
-            task="extract_facts",
-            config=ParserConfig(enable_retry=False),
-        )
-        assert result.ok
-        assert result.attempts == 1
-        assert len(result.data.facts) == 1
-
-    async def test_schema_validation_error(self):
-        # Missing required field
-        response = '[{"fact": "short"}]'  # Too short, missing confidence
-        result = await parse_llm_output(
-            response,
-            task="extract_facts",
-            config=ParserConfig(enable_retry=False),
-        )
-        assert result.status == ParseStatus.SCHEMA_ERROR
-        assert "confidence" in str(result.errors).lower() or "min_length" in str(result.errors).lower()
-```
-
----
-
-### 6.7 Implementation Plan (No Backward Compatibility)
-
-> **Premise:** DB is rebuilt from scratch. No migration needed. Legacy code can be deleted immediately.
-
-#### Single-Phase Implementation
-
-| Step | Task | Files | Delete |
-|------|------|-------|--------|
-| 1 | Create Pydantic schemas | `src/filter/llm_schemas.py` (new) | - |
-| 2 | Create unified parser | `src/filter/llm_output_parser.py` (new) | - |
-| 3 | Replace LLM parsing in llm.py | `src/filter/llm.py` | Legacy regex parsing |
-| 4 | Replace claim decomposition parsing | `src/filter/claim_decomposition.py` | `_parse_llm_response()` |
-| 5 | Replace citation filter parsing | `src/search/citation_filter.py` | `_parse_llm_score_0_10()` |
-| 6 | Update DB schema | `src/storage/schema.sql` | - |
-| 7 | Add tests | `tests/filter/test_llm_*.py` | - |
-
-#### Simplified Schema (No Aliases)
-
-Since DB is rebuilt, field names can match directly:
-
-```python
-class ExtractedClaim(BaseModel):
-    """Direct field names matching new DB schema."""
-    claim_text: str = Field(..., min_length=10)
-    claim_type: ClaimTypeExtended = Field(default=ClaimTypeExtended.FACTUAL)
-    claim_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
-    relevance_to_query: float = Field(default=0.5, ge=0.0, le=1.0)
-    # No aliases needed - direct mapping
-```
-
-#### DB Schema Changes (`schema.sql`)
-
-```sql
--- claims table: add new columns
-ALTER TABLE claims ADD COLUMN relevance_to_query REAL DEFAULT 0.5;
-ALTER TABLE claims ADD COLUMN evidence_type TEXT;  -- for facts
-
--- Or simply recreate:
-CREATE TABLE claims (
-    id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL,
-    claim_text TEXT NOT NULL,
-    claim_type TEXT NOT NULL DEFAULT 'factual',  -- Extended enum
-    claim_confidence REAL DEFAULT 0.5,
-    relevance_to_query REAL DEFAULT 0.5,  -- NEW
-    granularity TEXT DEFAULT 'atomic',
-    expected_polarity TEXT DEFAULT 'neutral',
-    -- ... rest unchanged
-);
-```
-
-#### Code Deletion List
-
-Remove these legacy patterns:
-
-| File | Lines | Pattern |
-|------|-------|---------|
-| `llm.py` | 474-482 | `json_match = re.search(r"\[.*\]"...)` |
-| `claim_decomposition.py` | 241-295 | `_parse_llm_response()` method |
-| `citation_filter.py` | 111-122 | `_parse_llm_score_0_10()` function |
-| `quality_analyzer.py` | 670-692 | Inline JSON parsing |
-| `chain_of_density.py` | 663-674 | `_parse_llm_response()` |
-
----
-
-### 6.8 Metrics & Monitoring
-
-```python
-# Metrics logged automatically by ParseResult
-@dataclass
-class ParseMetrics:
-    task: str
-    status: ParseStatus
-    attempts: int
-    duration_ms: float
-    error_types: list[str]  # JSON_ERROR, SCHEMA_ERROR, etc.
-
-# Aggregate in task_metrics table
-llm_parse_metrics = {
-    "success_rate": success / total,
-    "retry_rate": retried / total,
-    "avg_attempts": sum(attempts) / total,
-    "error_breakdown": {
-        "json_error": json_errors / total,
-        "schema_error": schema_errors / total,
-    },
-}
-```
-
----
-
-## Appendix A: Validation Function Reference
-
-### `validate_llm_output()` — Main Entry Point
-
-**Location:** `src/filter/llm_security.py:515-607`
+**場所:** `src/filter/llm_security.py:validate_llm_output()`
 
 ```python
 def validate_llm_output(
@@ -1801,39 +1052,39 @@ def validate_llm_output(
 ) -> OutputValidationResult:
 ```
 
-**Checks performed:**
-1. URL detection (`http://`, `https://`, `ftp://`)
-2. IP address detection (IPv4, IPv6)
-3. Prompt leakage detection (n-gram matching)
-4. Output truncation (10x expected max)
-5. Fragment masking (`[REDACTED]`)
+**実行されるチェック:**
+1. URL検出 (`http://`, `https://`, `ftp://`)
+2. IPアドレス検出 (IPv4, IPv6)
+3. プロンプト漏洩検出 (n-gramマッチング)
+4. 出力切り詰め（期待最大の10倍）
+5. フラグメントマスキング (`[REDACTED]`)
 
-### `sanitize_input()` — Input Preprocessing
+### `sanitize_llm_input()` — 入力前処理
 
-**Location:** `src/filter/llm_security.py:237-325`
+**場所:** `src/filter/llm_security.py:sanitize_llm_input()`
 
-**7-step process:**
-1. Unicode NFKC normalization
-2. HTML entity decoding
-3. Zero-width character removal
-4. Control character removal
-5. LYRA tag pattern removal
-6. Dangerous pattern detection
-7. Length limiting
+**7ステッププロセス:**
+1. Unicode NFKC正規化
+2. HTMLエンティティデコード
+3. ゼロ幅文字除去
+4. 制御文字除去
+5. LYRAタグパターン除去
+6. 危険パターン検出
+7. 長さ制限
 
 ---
 
-## Appendix B: Prompt Quality Checklist
+## 付録B: プロンプト品質チェックリスト
 
-Use this checklist when writing or reviewing prompts:
+プロンプトの作成・レビュー時にこのチェックリストを使用:
 
-- [ ] **Role defined:** Clear persona/expertise specified
-- [ ] **Task explicit:** One-sentence task description
-- [ ] **Input labeled:** Input data clearly delimited
-- [ ] **Output schema:** Exact format specified (JSON, plain text)
-- [ ] **Constraints listed:** Length limits, count limits, exclusions
-- [ ] **Examples provided:** At least one few-shot example for complex tasks
-- [ ] **Language consistent:** Single language throughout
-- [ ] **Final instruction:** "Output X only:" to reduce preamble
-- [ ] **Confidence criteria:** If requesting confidence, define scale
-- [ ] **Validation possible:** Output can be programmatically validated
+- [ ] **ロール定義:** 明確なペルソナ/専門性を指定
+- [ ] **タスク明示:** 一文でのタスク説明
+- [ ] **入力ラベル:** 入力データを明確に区切る
+- [ ] **出力スキーマ:** 正確なフォーマット指定（JSON、プレーンテキスト）
+- [ ] **制約列挙:** 長さ制限、件数制限、除外条件
+- [ ] **例の提供:** 複雑なタスクには少なくとも1つのfew-shot例
+- [ ] **言語統一:** 全体で単一言語
+- [ ] **最終指示:** 「Output X only:」で前置きを減らす
+- [ ] **信頼度基準:** 信頼度を要求する場合はスケールを定義
+- [ ] **バリデーション可能:** 出力をプログラム的にバリデーション可能

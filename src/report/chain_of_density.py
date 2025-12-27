@@ -20,6 +20,7 @@ from src.filter.llm import _get_client
 from src.report.generator import generate_deep_link
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.prompt_manager import render_prompt
 
 logger = get_logger(__name__)
 
@@ -188,67 +189,6 @@ class DenseSummary:
             "density_score": self.density_score,
             "claims": [c.to_dict() for c in self.claims],
         }
-
-
-# LLM prompts for Chain-of-Density compression
-INITIAL_SUMMARY_PROMPT = """You are an expert in information summarization. Summarize the following information.
-
-[Input Information]
-{content}
-
-[Requirements]
-1. Extract key facts and claims
-2. Preserve source information corresponding to each claim
-3. Create a summary of approximately 100-150 words
-4. Include important entities (person names, organization names, dates, numbers)
-
-[Output Format]
-Output the following in JSON format:
-{{
-  "summary": "summary text",
-  "entities": ["entity1", "entity2", ...],
-  "claims": [
-    {{
-      "text": "claim text",
-      "source_indices": [0, 1]  // indices of input information
-    }}
-  ]
-}}
-
-Return only JSON output:"""
-
-DENSIFY_PROMPT = """You are an expert in information compression. Improve the following summary to be more dense.
-
-[Current Summary]
-{current_summary}
-
-[Original Information]
-{original_content}
-
-[Missing Entities]
-{missing_entities}
-
-[Requirements]
-1. Include more important information while maintaining summary length
-2. Include missing entities as much as possible
-3. Preserve source information for each claim
-4. Remove redundant expressions and increase information density
-5. Maintain approximately 100-150 words
-
-[Output Format]
-Output the following in JSON format:
-{{
-  "summary": "improved summary text",
-  "entities": ["entity1", "entity2", ...],
-  "claims": [
-    {{
-      "text": "claim text",
-      "source_indices": [0, 1]
-    }}
-  ]
-}}
-
-JSON出力のみを返してください:"""
 
 
 class ChainOfDensityCompressor:
@@ -592,7 +532,7 @@ class ChainOfDensityCompressor:
         """Generate initial summary using LLM."""
         client = _get_client()
 
-        prompt = INITIAL_SUMMARY_PROMPT.format(content=content[:8000])
+        prompt = render_prompt("initial_summary", content=content[:8000])
 
         response = await client.generate(
             prompt=prompt,
@@ -630,7 +570,8 @@ class ChainOfDensityCompressor:
         """Densify summary by adding missing entities."""
         client = _get_client()
 
-        prompt = DENSIFY_PROMPT.format(
+        prompt = render_prompt(
+            "densify",
             current_summary=current.text,
             original_content=original_content[:6000],
             missing_entities=", ".join(missing_entities),
@@ -801,7 +742,5 @@ async def compress_with_chain_of_density(
         max_iterations=max_iterations,
         use_llm=use_llm,
     )
-
-    return await compressor.compress(claims, fragments, task_query)
 
     return await compressor.compress(claims, fragments, task_query)

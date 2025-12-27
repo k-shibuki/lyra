@@ -304,6 +304,46 @@ class TestRealTemplates:
         assert "What is AI?" in result
         assert "atomic" in result.lower() or "原子" in result
 
+    def test_quality_assessment_template_exists(self, real_manager: PromptManager) -> None:
+        """Test quality_assessment template exists."""
+        assert real_manager.template_exists("quality_assessment")
+
+    def test_quality_assessment_renders(self, real_manager: PromptManager) -> None:
+        """Test quality_assessment template renders correctly."""
+        result = real_manager.render(
+            "quality_assessment", text="Sample content for quality analysis.", lang="en"
+        )
+        assert "Sample content for quality analysis." in result
+        assert "quality_score" in result
+        assert "is_ai_generated" in result
+
+    def test_initial_summary_template_exists(self, real_manager: PromptManager) -> None:
+        """Test initial_summary template exists."""
+        assert real_manager.template_exists("initial_summary")
+
+    def test_initial_summary_renders(self, real_manager: PromptManager) -> None:
+        """Test initial_summary template renders correctly."""
+        result = real_manager.render("initial_summary", content="Content to summarize.")
+        assert "Content to summarize." in result
+        assert "summary" in result
+        assert "entities" in result
+
+    def test_densify_template_exists(self, real_manager: PromptManager) -> None:
+        """Test densify template exists."""
+        assert real_manager.template_exists("densify")
+
+    def test_densify_renders(self, real_manager: PromptManager) -> None:
+        """Test densify template renders correctly."""
+        result = real_manager.render(
+            "densify",
+            current_summary="Current summary text.",
+            original_content="Original content.",
+            missing_entities="entity1, entity2",
+        )
+        assert "Current summary text." in result
+        assert "Original content." in result
+        assert "entity1, entity2" in result
+
 
 # ============================================================================
 # Template Validation Tests
