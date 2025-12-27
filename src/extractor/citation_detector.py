@@ -27,6 +27,12 @@ logger = get_logger(__name__)
 
 
 _DETECT_CITATION_INSTRUCTIONS = "回答は YES または NO のみ。"
+_DETECT_CITATION_RETRY_SUFFIX = (
+    "\n\nIMPORTANT: Answer exactly YES or NO (no extra words).\n"
+    "Examples:\n"
+    'Context: "According to Smith et al. (2023) [1], ..." -> YES\n'
+    'Context: "Read next: Related articles" -> NO\n'
+)
 
 
 @dataclass(frozen=True)
@@ -126,7 +132,13 @@ class CitationDetector:
             )
 
             try:
-                response = await provider.generate(prompt, LLMOptions(model=model))
+                options = LLMOptions(
+                    model=model,
+                    temperature=0.1,
+                    max_tokens=8,
+                    stop=["\n"],
+                )
+                response = await provider.generate(prompt, options)
                 if not response.ok:
                     results.append(
                         DetectedCitation(
@@ -146,6 +158,22 @@ class CitationDetector:
                     mask_leakage=True,
                 )
                 normalized = _normalize_yes_no(validation.validated_text)
+
+                # Tiered prompting: if the model doesn't output YES/NO, retry once with stronger constraints.
+                if normalized is None:
+                    retry_prompt = prompt + _DETECT_CITATION_RETRY_SUFFIX
+                    retry_response = await provider.generate(retry_prompt, options)
+                    if retry_response.ok:
+                        retry_validation = validate_llm_output(
+                            retry_response.text,
+                            system_prompt=_DETECT_CITATION_INSTRUCTIONS,
+                            mask_leakage=True,
+                        )
+                        retry_normalized = _normalize_yes_no(retry_validation.validated_text)
+                        if retry_normalized is not None:
+                            validation = retry_validation
+                            normalized = retry_normalized
+
                 is_citation = normalized == "YES"
 
                 results.append(

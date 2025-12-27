@@ -26,6 +26,101 @@ Lyraの **Jinja2プロンプトテンプレート（`config/prompts/*.j2`）** �
 
 ---
 
+## 追補（2025-12-27 / 実装追跡用メモ）
+
+> 後続の小改善を追跡するための追補。
+> 以降の内容は、現行コードに合わせたアップデートであり、Phase 0-3 の記述とは分離する。
+
+### 追加で行った改善（プロンプト＆統合）
+
+#### 1) CoD（Chain-of-Density）系テンプレの最小化（トークン↓・成功率↑）
+
+- `config/prompts/initial_summary.j2`
+  - 出力を実利用キー（`summary`, `entities`, `conflicts`）に縮退
+- `config/prompts/densify.j2`
+  - 出力を実利用キー（`summary`, `entities`, `conflicts`）に縮退
+  - 「現要約より長くしない」を明示
+
+#### 2) ジャッジ系テンプレの短縮＋呼び出し側で stop/temperature を締める（平均トークン↓）
+
+- `config/prompts/relevance_evaluation.j2`, `config/prompts/detect_citation.j2` を短縮
+- 呼び出し側で `temperature=0.1`, `stop=["\n"]` 等を設定
+  - `src/search/citation_filter.py`
+  - `src/extractor/citation_detector.py`
+
+#### 3) “段階投入”の再試行（短い→失敗時だけ長い）
+
+「常に長いプロンプト」ではなく、**不正出力のときだけ1回だけ強い制約を追加して再試行**する。
+
+- YES/NO: `src/extractor/citation_detector.py`
+- 0-10: `src/search/citation_filter.py`
+
+#### 4) JSON出力はプロンプトより“強制フォーマット”が効く
+
+Ollamaの `format="json"` を利用できる場合は活用し、対応しない環境では自動フォールバックする。
+
+- `LLMOptions.response_format` を追加し、Ollama payload に `format` を伝播
+  - `src/filter/provider.py`
+  - `src/filter/ollama_provider.py`
+- JSONが期待される呼び出しで `response_format="json"` を設定
+  - `src/filter/llm.py`（extract_facts/claims）
+  - `src/filter/claim_decomposition.py`
+  - `src/report/chain_of_density.py`
+  - `src/extractor/quality_analyzer.py`
+
+#### 5) retry_count 記録の厳密化（“実際の再試行回数”）
+
+`parse_and_validate()` の `llm_extraction_errors.retry_count` は、**実際に llm_call を呼んだ回数**として記録する。
+
+- 実装: `src/filter/llm_output.py`
+- テスト: `tests/test_llm_output.py`
+
+### モジュール間連動（integration-design）追加成果物
+
+- **シーケンス図**: `docs/sequences/llm_response_format_and_retry.md`
+- **契約モデル（Pydantic）**: `src/filter/schemas.py` に Ollama request payload 契約を追加
+- **デバッグスクリプト**: `tests/scripts/debug_llm_response_format_flow.py`
+  - `isolated_database_path()` を使い、DB汚染なしで伝播とDB記録を検証
+
+### 6) Session Tags 設計変更（"指示を囲む"→"入力を囲む"）
+
+プロンプトインジェクション対策のセッションタグ設計を変更：
+
+- **旧設計**: 指示をタグで囲み、入力はタグ外
+- **新設計**: **INPUT DATA をタグで囲み**、指示はタグ外
+
+**理由:**
+- 「Answer:」等の出力アンカーが入力と地続きだと、モデルが境界を誤認する
+- 入力をタグで囲むことで境界が明確になり、攻撃者が閉じタグを推測しても脱出困難
+
+**実装:**
+- 全 `.j2` テンプレートを新構造に統一
+- `build_secure_prompt()` を新設計に改修
+- `render_prompt()` でのタグ注入ロジックはそのまま（タグ変数を `.j2` に渡す）
+- デフォルトON、`.env` で `LYRA_LLM__SESSION_TAGS_ENABLED=false` で無効化可能
+
+**テスト:**
+- `tests/test_session_tags_prompt_injection.py` を新規追加
+
+### 7) プロンプト文言の最終最適化
+
+- 冗長なラベル（`Input text:`, `Source:`）を削除
+- 全テンプレートで `INSTRUCTIONS:` ブロックを最上部に統一
+- 出力アンカー（`Output:` / `Answer:`）を閉じタグの後ろ（タグ外）に統一
+
+### 実行コマンド（回帰）
+
+```bash
+make test-prompts
+uv run pytest tests/test_llm_provider.py -q
+uv run pytest tests/test_llm_output.py -q
+uv run pytest tests/test_citation_detector.py tests/test_citation_filter.py -q
+uv run pytest tests/test_session_tags_prompt_injection.py -q
+uv run pytest tests/test_llm_security.py -q
+```
+
+---
+
 ## 設計判断
 
 ### 出力言語ポリシー

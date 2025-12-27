@@ -57,3 +57,48 @@ class ClaimConfidenceAssessment(BaseModel):
 
     # Allow forward-compat fields while keeping strict types for known keys.
     extra: dict[str, Any] | None = Field(default=None, description="Optional extra fields")
+
+
+# ============================================================================
+# LLM/Ollama request contracts (integration boundary)
+# ============================================================================
+
+
+class OllamaRequestOptions(BaseModel):
+    """Subset of Ollama request options used by Lyra."""
+
+    temperature: float | None = None
+    num_predict: int | None = None
+    top_p: float | None = None
+    top_k: int | None = None
+    stop: list[str] | None = None
+
+
+class OllamaGenerateRequest(BaseModel):
+    """Contract for Ollama /api/generate request payload as used by Lyra."""
+
+    model: str
+    prompt: str
+    stream: bool = False
+    system: str | None = None
+    format: str | None = None
+    options: OllamaRequestOptions = Field(default_factory=OllamaRequestOptions)
+
+
+class OllamaChatMessage(BaseModel):
+    """Contract for a single chat message in Ollama /api/chat as used by Lyra."""
+
+    role: str
+    content: str
+    name: str | None = None
+
+
+class OllamaChatRequest(BaseModel):
+    """Contract for Ollama /api/chat request payload as used by Lyra."""
+
+    model: str
+    messages: list[OllamaChatMessage]
+    stream: bool = False
+    system: str | None = None
+    format: str | None = None
+    options: OllamaRequestOptions = Field(default_factory=OllamaRequestOptions)

@@ -248,4 +248,26 @@ def render_prompt(template_name: str, **kwargs: Any) -> str:
         TemplateNotFoundError: If template doesn't exist.
         TemplateRenderError: If rendering fails.
     """
+    # Optional security: inject per-call random session tag variables.
+    #
+    # When enabled, templates wrap INPUT DATA (user-provided text such as abstracts, HTML-derived
+    # strings, etc.) inside the random tag, while instructions remain outside the tag. This
+    # creates a clear boundary that the LLM treats as "data only", reducing prompt injection risk.
+    #
+    # This is injected here (centralized) so callers don't need to plumb tag variables.
+    try:
+        from src.utils.config import get_settings
+
+        if "session_tag_open" not in kwargs and "session_tag_close" not in kwargs:
+            settings = get_settings()
+            if getattr(settings.llm, "session_tags_enabled", False):
+                from src.filter.llm_security import generate_session_tag
+
+                tag = generate_session_tag()
+                kwargs["session_tag_open"] = tag.open_tag
+                kwargs["session_tag_close"] = tag.close_tag
+    except Exception:
+        # Never fail prompt rendering due to tag injection.
+        pass
+
     return get_prompt_manager().render(template_name, **kwargs)

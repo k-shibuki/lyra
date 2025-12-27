@@ -623,6 +623,7 @@ class ContentQualityAnalyzer:
                 prompt=formatted_prompt,
                 temperature=0.1,  # Low temperature for consistent assessment
                 max_tokens=500,
+                response_format="json",
             )
 
             async def _retry_llm_call(retry_prompt: str) -> str:
@@ -630,6 +631,7 @@ class ContentQualityAnalyzer:
                     prompt=retry_prompt,
                     temperature=0.1,
                     max_tokens=500,
+                    response_format="json",
                 )
 
             validated = await parse_and_validate(

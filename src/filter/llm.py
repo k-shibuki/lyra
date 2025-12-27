@@ -114,6 +114,7 @@ class OllamaClient:
         system: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        response_format: str | None = None,
     ) -> str:
         """Generate completion from Ollama."""
         provider = self._get_provider()
@@ -123,6 +124,7 @@ class OllamaClient:
             system=system,
             temperature=temperature,
             max_tokens=max_tokens,
+            response_format=response_format,
         )
 
         response = await provider.generate(prompt, options)
@@ -439,7 +441,8 @@ async def llm_extract(
                 raise ValueError(f"Unknown task: {task}")
 
             try:
-                options = LLMOptions(model=model)
+                response_format = "json" if task in ("extract_facts", "extract_claims") else None
+                options = LLMOptions(model=model, response_format=response_format)
                 response = await default_provider.generate(prompt, options)
 
                 if not response.ok:
@@ -479,7 +482,7 @@ async def llm_extract(
                     async def _retry_llm_call(retry_prompt: str) -> str:
                         retry_response = await default_provider.generate(
                             retry_prompt,
-                            LLMOptions(model=model),
+                            LLMOptions(model=model, response_format="json"),
                         )
                         if not retry_response.ok:
                             raise RuntimeError(retry_response.error or "LLM retry failed")
@@ -581,7 +584,12 @@ async def llm_extract(
                 raise ValueError(f"Unknown task: {task}")
 
             try:
-                response_text = await client.generate(prompt, model=model)
+                response_format = "json" if task in ("extract_facts", "extract_claims") else None
+                response_text = await client.generate(
+                    prompt,
+                    model=model,
+                    response_format=response_format,
+                )
 
                 # Validate LLM output per ADR-0005 L4
                 # Use instruction-only template to avoid false positives from user text
@@ -606,7 +614,11 @@ async def llm_extract(
                     schema = ExtractedFact if task == "extract_facts" else ExtractedClaim
 
                     async def _retry_llm_call(retry_prompt: str) -> str:
-                        retry_text = await client.generate(prompt=retry_prompt, model=model)
+                        retry_text = await client.generate(
+                            prompt=retry_prompt,
+                            model=model,
+                            response_format="json",
+                        )
                         retry_validation = validate_llm_output(
                             retry_text,
                             system_prompt=TASK_INSTRUCTIONS.get(task),

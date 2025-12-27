@@ -219,6 +219,7 @@ class ClaimDecomposer:
             model=model,
             temperature=0.3,  # Lower temperature for more consistent output
             max_tokens=2000,
+            response_format="json",
         )
 
         async def _retry_llm_call(retry_prompt: str) -> str:
@@ -227,6 +228,7 @@ class ClaimDecomposer:
                 model=model,
                 temperature=0.3,
                 max_tokens=2000,
+                response_format="json",
             )
 
         validated = await parse_and_validate(

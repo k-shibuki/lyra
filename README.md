@@ -258,7 +258,7 @@ Sources are classified by institutional authority:
 |-------|-----------|---------|
 | L1 | Network isolation | Ollama runs in internal-only container network |
 | L2 | Input sanitization | Unicode normalization, dangerous pattern removal |
-| L3 | Session tags | Random delimiters prevent prompt injection |
+| L3 | Session tags | Enabled by default: in-band delimiters that enclose INPUT DATA to create a hard boundary (defense-in-depth). Can be disabled via `LYRA_LLM__SESSION_TAGS_ENABLED=false`. |
 | L4 | Output validation | Detect leaked prompts, suspicious URLs |
 | L5 | Response metadata | Trust levels attached to all MCP responses |
 | L6 | Source verification | Automatic promotion/demotion based on evidence |

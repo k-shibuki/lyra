@@ -40,8 +40,15 @@ from src.filter.provider import (
 class FakeLLMProvider:
     """Minimal fake provider for CitationDetector tests."""
 
-    def __init__(self, *, reply: str = "YES", ok: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        reply: str = "YES",
+        replies: list[str] | None = None,
+        ok: bool = True,
+    ) -> None:
         self._reply = reply
+        self._replies = list(replies) if replies is not None else None
         self._ok = ok
         self._calls: list[str] = []
 
@@ -52,7 +59,11 @@ class FakeLLMProvider:
     async def generate(self, prompt: str, options: LLMOptions | None = None) -> LLMResponse:
         self._calls.append(prompt)
         if self._ok:
-            return LLMResponse.success(text=self._reply, model="fake", provider=self.name)
+            if self._replies is not None and self._replies:
+                text = self._replies.pop(0)
+            else:
+                text = self._reply
+            return LLMResponse.success(text=text, model="fake", provider=self.name)
         return LLMResponse.make_error(error="fake error", model="fake", provider=self.name)
 
     async def chat(
@@ -248,9 +259,39 @@ async def test_handles_invalid_llm_response() -> None:
     )
 
     # Then
-    assert len(provider.calls) == 1
+    assert len(provider.calls) == 2  # tiered retry
     assert len(results) == 1
     assert results[0].is_citation is False  # Invalid response normalized to NO
+
+
+@pytest.mark.asyncio
+async def test_retries_invalid_llm_response_and_recovers() -> None:
+    # Given: first output invalid, second output valid YES
+    reset_llm_registry()
+    provider = FakeLLMProvider(replies=["MAYBE", "YES"], ok=True)
+    get_llm_registry().register(cast(LLMProvider, provider), set_default=True)
+
+    html = """
+    <html><body>
+      <main>
+        <p>出典：<a href="https://example.org/source">Example Source</a></p>
+      </main>
+    </body></html>
+    """
+
+    detector = CitationDetector(max_candidates=10)
+
+    # When
+    results = await detector.detect_citations(
+        html=html,
+        base_url="https://example.com/article",
+        source_domain="example.com",
+    )
+
+    # Then
+    assert len(provider.calls) == 2
+    assert len(results) == 1
+    assert results[0].is_citation is True
 
 
 @pytest.mark.asyncio

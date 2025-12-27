@@ -210,6 +210,7 @@ class LLMConfig(BaseModel):
     temperature: float = 0.3
     gpu_layers: int = -1
     unload_on_task_complete: bool = True  # Release model context after task
+    session_tags_enabled: bool = True  # Default ON: in-band session tags to reduce prompt injection risk
 
 
 class EmbeddingConfig(BaseModel):
