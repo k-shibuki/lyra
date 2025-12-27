@@ -18,7 +18,6 @@ Quality scores are used to deprioritize low-quality sources in the ranking pipel
 from __future__ import annotations
 
 import asyncio
-import json
 import math
 import re
 from collections import Counter
@@ -26,6 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+from src.filter.llm_output import extract_json
 from src.utils.logging import get_logger
 from src.utils.prompt_manager import render_prompt
 
@@ -623,10 +623,8 @@ class ContentQualityAnalyzer:
             )
 
             # Parse JSON response
-            json_match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group())
-
+            result = extract_json(response, expect_array=False)
+            if result is not None and isinstance(result, dict):
                 # Validate and normalize
                 return {
                     "quality_score": float(result.get("quality_score", 0.5)),
@@ -638,10 +636,6 @@ class ContentQualityAnalyzer:
             else:
                 logger.warning("LLM quality assessment: no JSON found in response")
                 return None
-
-        except json.JSONDecodeError as e:
-            logger.warning("LLM quality assessment: JSON parse error", error=str(e))
-            return None
         except Exception as e:
             logger.warning("LLM quality assessment failed", error=str(e))
             return None

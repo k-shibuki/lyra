@@ -9,10 +9,9 @@ This module provides high-level LLM extraction functions that use the LLMProvide
 abstraction layer. The provider can be configured or switched at runtime.
 """
 
-import json
-import re
 from typing import Any
 
+from src.filter.llm_output import extract_json
 from src.filter.llm_security import validate_llm_output
 from src.filter.ollama_provider import OllamaProvider, create_ollama_provider
 from src.filter.provider import (
@@ -474,13 +473,8 @@ async def llm_extract(
 
                 # Parse response based on task
                 if task in ("extract_facts", "extract_claims"):
-                    try:
-                        json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
-                        if json_match:
-                            extracted = json.loads(json_match.group())
-                        else:
-                            extracted = []
-                    except json.JSONDecodeError:
+                    extracted = extract_json(response_text, expect_array=True)
+                    if extracted is None:
                         extracted = [{"raw_response": response_text}]
 
                     results.append(
@@ -567,13 +561,8 @@ async def llm_extract(
                 response_text = validation_result.validated_text
 
                 if task in ("extract_facts", "extract_claims"):
-                    try:
-                        json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
-                        if json_match:
-                            extracted = json.loads(json_match.group())
-                        else:
-                            extracted = []
-                    except json.JSONDecodeError:
+                    extracted = extract_json(response_text, expect_array=True)
+                    if extracted is None:
                         extracted = [{"raw_response": response_text}]
 
                     results.append(

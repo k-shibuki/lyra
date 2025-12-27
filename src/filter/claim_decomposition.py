@@ -21,6 +21,7 @@ from enum import Enum
 from typing import Any
 
 from src.filter.llm import _get_client
+from src.filter.llm_output import extract_json
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.utils.prompt_manager import render_prompt
@@ -239,14 +240,12 @@ class ClaimDecomposer:
         claims = []
 
         # Try to extract JSON array from response
-        try:
-            # Find JSON array in response
-            json_match = re.search(r"\[.*\]", response, re.DOTALL)
-            if not json_match:
-                logger.warning("No JSON array found in LLM response")
-                return self._decompose_with_rules(source_question).claims
+        parsed = extract_json(response, expect_array=True)
+        if parsed is None:
+            logger.warning("No JSON array found in LLM response")
+            return self._decompose_with_rules(source_question).claims
 
-            parsed = json.loads(json_match.group())
+        try:
 
             for item in parsed:
                 if not isinstance(item, dict):
