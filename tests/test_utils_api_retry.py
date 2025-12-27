@@ -23,12 +23,16 @@ Test Perspectives Table:
 | TC-R-04 | Non-retryable exception | Boundary | Re-raises exception | No retry |
 | TC-R-05 | Non-retryable status | Boundary | Re-raises HTTPStatusError | No retry |
 | TC-R-06 | Retryable status (429) | Normal | Retries with backoff | Rate limit |
+| TC-R-07 | httpx.HTTPStatusError 429 | Normal | Retries with backoff | httpx compat |
+| TC-R-08 | httpx.HTTPStatusError 404 | Normal | Re-raises | Non-retryable |
 | TC-D-01 | @with_api_retry decorator | Normal | Adds retry logic | Decorator |
 | TC-D-02 | Custom policy via decorator | Normal | Uses custom policy | Config |
 """
 
 import asyncio
+from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
 from src.utils.api_retry import (
@@ -382,6 +386,63 @@ class TestRetryApiCall:
 
         # Then: Parameters are passed correctly
         assert result == {"a": 1, "b": 2, "c": 3}
+
+    @pytest.mark.asyncio
+    async def test_httpx_http_status_error_retryable(self) -> None:
+        """TC-R-07: httpx.HTTPStatusError 429 triggers retry with backoff."""
+        # Given: Function that returns 429 twice via httpx.HTTPStatusError then succeeds
+        call_count = 0
+
+        def _make_httpx_error(status: int) -> httpx.HTTPStatusError:
+            """Create a mock httpx.HTTPStatusError."""
+            request = MagicMock(spec=httpx.Request)
+            response = MagicMock(spec=httpx.Response)
+            response.status_code = status
+            return httpx.HTTPStatusError("Rate limited", request=request, response=response)
+
+        async def rate_limited_func() -> dict[str, str]:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise _make_httpx_error(429)
+            return {"data": "success"}
+
+        # When: Calling with retry
+        policy = APIRetryPolicy(
+            max_retries=3,
+            backoff=BackoffConfig(base_delay=0.01, max_delay=0.1),
+        )
+        result = await retry_api_call(rate_limited_func, policy=policy)
+
+        # Then: Returns result after retries
+        assert result == {"data": "success"}
+        assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_httpx_http_status_error_non_retryable(self) -> None:
+        """TC-R-08: httpx.HTTPStatusError 404 is re-raised immediately."""
+        # Given: Function that returns 404 via httpx.HTTPStatusError
+        call_count = 0
+
+        def _make_httpx_error(status: int) -> httpx.HTTPStatusError:
+            """Create a mock httpx.HTTPStatusError."""
+            request = MagicMock(spec=httpx.Request)
+            response = MagicMock(spec=httpx.Response)
+            response.status_code = status
+            return httpx.HTTPStatusError("Not found", request=request, response=response)
+
+        async def not_found_func() -> None:
+            nonlocal call_count
+            call_count += 1
+            raise _make_httpx_error(404)
+
+        # When/Then: httpx.HTTPStatusError is raised immediately (no retry)
+        policy = APIRetryPolicy(max_retries=3)
+        with pytest.raises(httpx.HTTPStatusError):
+            await retry_api_call(not_found_func, policy=policy)
+
+        # Then: Only called once (no retries for 404)
+        assert call_count == 1
 
 
 class TestWithApiRetryDecorator:

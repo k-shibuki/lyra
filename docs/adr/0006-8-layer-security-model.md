@@ -65,112 +65,16 @@ The session-tag wrapper exists as a defense-in-depth tool, but prompt-building i
 
 ### Layer Responsibilities
 
-#### L1: Input Validation
-```python
-def validate_input(request: MCPRequest) -> ValidationResult:
-    # Schema validation
-    validate_json_schema(request, TOOL_SCHEMAS[request.tool])
-    # Length limits
-    check_length_limits(request.params)
-    # Character type validation
-    check_allowed_characters(request.params)
-```
-
-#### L2: URL Allowlist/Blocklist
-```python
-BLOCKLIST = ["malware.com", "phishing.example", ...]
-ALLOWLIST_PATTERNS = [r".*\.edu$", r".*\.gov$", ...]
-
-def check_url_access(url: str) -> bool:
-    domain = extract_domain(url)
-    if domain in BLOCKLIST:
-        return False
-    # Apply user-configured allowlist if present
-    return True
-```
-
-#### L3: Content Pre-filter
-```python
-def prefilter_content(html: str) -> str:
-    # Remove dangerous tags
-    html = remove_script_tags(html)
-    html = remove_style_tags(html)
-    # Reject extremely large content
-    if len(html) > MAX_CONTENT_SIZE:
-        raise ContentTooLargeError()
-    return html
-```
-
-#### L4: Prompt Injection Detection
-```python
-INJECTION_PATTERNS = [
-    r"ignore previous instructions",
-    r"disregard (?:all|any) (?:prior|previous)",
-    r"system:\s*you are",
-    r"<\|im_start\|>",
-]
-
-def detect_injection(text: str) -> InjectionResult:
-    for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, text, re.IGNORECASE):
-            return InjectionResult(detected=True, pattern=pattern)
-    return InjectionResult(detected=False)
-```
-
-#### L5: LLM Sandbox
-```python
-# Limit LLM capabilities
-SANDBOX_CONFIG = {
-    "max_tokens": 1000,
-    "allowed_tools": [],  # Tool invocation prohibited
-    "system_prompt_locked": True,
-}
-
-async def sandboxed_generate(prompt: str) -> str:
-    # Execute in isolated environment
-    return await ollama.generate(
-        prompt=prompt,
-        **SANDBOX_CONFIG
-    )
-```
-
-#### L6: Output Validation
-```python
-def validate_output(output: LLMOutput) -> ValidationResult:
-    # Is NLI result a valid value?
-    if output.relation not in ["SUPPORTS", "REFUTES", "NEUTRAL"]:
-        return ValidationResult(valid=False, reason="Invalid relation")
-    # Is confidence within range?
-    if not 0 <= output.confidence <= 1:
-        return ValidationResult(valid=False, reason="Invalid confidence")
-    return ValidationResult(valid=True)
-```
-
-#### L7: Response Sanitization
-```python
-def sanitize_response(response: dict) -> dict:
-    # Neutralize before returning to user
-    sanitized = deep_copy(response)
-    # Remove internal information
-    remove_internal_fields(sanitized)
-    # HTML escape
-    escape_html_in_strings(sanitized)
-    return sanitized
-```
-
-#### L8: Audit Logging
-```python
-def audit_log(event: SecurityEvent) -> None:
-    log_entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "event_type": event.type,
-        "layer": event.layer,
-        "details": event.details,
-        "request_id": event.request_id,
-    }
-    # Append-only for tamper resistance
-    append_to_audit_log(log_entry)
-```
+| Layer | Function | Key Checks |
+|-------|----------|------------|
+| L1: Input Validation | Validate MCP request format | Schema, length limits, character types |
+| L2: URL Allowlist/Blocklist | Control URL access | Domain blocklist, user-defined patterns |
+| L3: Content Pre-filter | Filter HTML before processing | Remove script/style tags, size limits |
+| L4: Prompt Injection Detection | Detect malicious prompts | Pattern matching (e.g., "ignore instructions") |
+| L5: LLM Sandbox | Limit LLM capabilities | Token limits, tool prohibition |
+| L6: Output Validation | Verify LLM output | Valid NLI relation, confidence range |
+| L7: Response Sanitization | Neutralize before returning | Remove internal fields, HTML escape |
+| L8: Audit Logging | Record security events | Append-only log with timestamps |
 
 ## Consequences
 

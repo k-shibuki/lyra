@@ -210,110 +210,43 @@ class StatusResult:
 | Short Polling | Simple | Too many requests | Rejected |
 | Server-Sent Events | Lightweight | MCP incompatible | Rejected |
 
-## Implementation Status
+## Design Details
 
-**Status**: Phase 1-6 ✅ Complete
+### Storage Policy
 
-### Phase Summary
-
-| Phase | Content | Status |
-|-------|---------|--------|
-| Phase 1 | `queue_searches` tool, `get_status` with `wait` parameter | ✅ Complete (2025-12-24) |
-| Phase 2 | `search`, `notify_user`, `wait_for_user` tools removed | ✅ Complete (2025-12-24) |
-| Phase 3 | Initial validation, `stop_task` `mode` parameter (graceful/immediate) | ✅ Complete (2025-12-24) |
-| Phase 4 | Search Resource Control (Academic API + Browser SERP) | ✅ Complete (2025-12-25) ([ADR-0013](0013-worker-resource-contention.md), [ADR-0014](0014-browser-serp-resource-control.md)) |
-| Phase 5 | SERP Enhancement (Pagination) | ✅ Complete (2025-12-26) |
-| Phase 6 | calibration_metrics action removed, adapters table added | ✅ Complete (2025-12-25) |
-
-### Phase 1-3 Implementation Summary
-
-| Change | Status |
-|--------|--------|
-| `search`, `notify_user`, `wait_for_user` removed | ✅ Complete |
-| `queue_searches` added | ✅ Complete |
-| `get_status` with `wait` parameter | ✅ Complete |
-| `stop_task` with `mode` parameter | ✅ Complete |
-| Performance/stability tests | ✅ Complete |
-| E2E validation script | ✅ Complete |
-| Result | 13 tools → 10 tools (23% reduction) |
-
-### Storage Policy (Auditability)
-
-- Queue items are persisted in the existing `jobs` table with `kind = 'search_queue'`.
-  - **Rationale**: The `jobs` table already has priority, state transitions, slot management, and budget tracking. Adding a new table would duplicate schema and audit log management.
-  - `input_json` stores the query and search options.
-  - `output_json` stores the full result JSON produced by the pipeline execution.
-- For **auditability**, completed items store the **full result JSON** (`jobs.output_json`).
+- Queue items persist in `jobs` table with `kind = 'search_queue'`
+- Completed items store full result JSON for auditability
 
 ### Query Deduplication
 
-`queue_searches` prevents duplicate queries within the same task:
+- `queue_searches` checks for existing `queued`/`running` jobs with same query before inserting
+- Prevents redundant work from parallel workers discovering same query
 
-- Before inserting a new job, check if an identical query already exists for the task with `state IN ('queued', 'running')`.
-- If found, skip the duplicate (log and continue).
-- **Rationale**: Parallel workers may discover the same query via different code paths. Preventing duplicates avoids redundant work and database bloat.
+### stop_task Semantics
 
-```python
-# Pseudocode (server.py: _handle_queue_searches)
-existing = await db.fetch_one(
-    "SELECT id FROM jobs WHERE task_id = ? AND kind = 'search_queue' "
-    "AND state IN ('queued', 'running') AND json_extract(input_json, '$.query') = ?",
-    (task_id, query),
-)
-if existing:
-    logger.info("Skipping duplicate query", task_id=task_id, query=query[:50])
-    continue
-```
+| Mode | Queued Items | Running Items |
+|------|--------------|---------------|
+| `graceful` | → cancelled | Wait for completion |
+| `immediate` | → cancelled | Cancel via `asyncio.Task.cancel()` |
 
-### stop_task Semantics (Two Modes)
+**Consistency**: Job's `state = 'cancelled'` in `jobs` table is authoritative record. Partial artifacts may exist but are filterable.
 
-`stop_task` supports two stop modes:
+### Long Polling
 
-- **mode=graceful**:
-  - Do not start new queued items for the task (queued → cancelled).
-  - Wait for running items to complete so their full result JSON can be persisted.
-- **mode=immediate**:
-  - queued → cancelled.
-  - running → cancelled via `asyncio.Task.cancel()`. Result JSON is not persisted.
-  - **Batch cancellation**: All running jobs for the task are cancelled at once (`SearchQueueWorkerManager.cancel_jobs_for_task()`).
-  - **Worker continuity**: Workers survive individual job cancellations and continue processing other tasks. The worker catches `CancelledError` from the `search_action` task and continues its loop.
+- Uses in-memory `asyncio.Event` per task (not DB polling)
+- `get_status(wait=N)` blocks until change or timeout
 
-**Logical consistency guarantee**: With async I/O and incremental persistence, "immediate" may still leave partial DB artifacts (pages/fragments) written before cancellation. However, **the job's `state = 'cancelled'` in the `jobs` table provides the authoritative record** that the search was cancelled. Downstream consumers can filter out data associated with cancelled jobs.
+### Resource Control
 
-Cleanup note: For hard cleanup, follow ADR-0005 (Evidence Graph Structure) and use **hard(orphans_only)** after soft cleanup if storage reclamation is required.
-
-### Long Polling Implementation
-
-- Long polling is implemented using **`asyncio.Event`** in `ExplorationState`, not DB polling.
-- **Rationale**: `ExplorationState` is already in-memory per task. DB polling adds unnecessary I/O and latency.
-- When a search completes, fails, or queue depth changes, the worker calls `state.notify_status_change()` which sets the event.
-- `get_status(wait=N)` uses `asyncio.wait_for(state.wait_for_change(), timeout=N)`.
-- If timeout expires with no change, the current status is returned (same as `wait=0`).
-
-### Migration Strategy
-
-- Phase 1 completes with `queue_searches` working. **Old tools (`search`, `notify_user`, `wait_for_user`) remain available** during Phase 1.
-- Phase 2 removes old tools after confirming `queue_searches` + `get_status(wait)` pattern works in Cursor Rules/Commands.
-
-### Global Rate Limits / Resource Control
-
-When running multiple queue workers, external rate limits must still be respected globally:
-
-| Resource | Control | Status | ADR |
-|----------|---------|--------|-----|
-| **Browser (SERP)** | TabPool (max_tabs=1) + per-engine policy | ✅ Implemented | [ADR-0014](0014-browser-serp-resource-control.md) |
-| **Academic APIs** | Global rate limiter per provider | ✅ Implemented | [ADR-0013](0013-worker-resource-contention.md) |
-| **HTTP fetch** | `RateLimiter` per domain | ✅ Implemented | - |
-
-**Note**: 
-- Academic API rate limiting (**Phase 4.A**): See [ADR-0013](0013-worker-resource-contention.md).
-- Browser SERP resource control (**Phase 4.B**): See [ADR-0014](0014-browser-serp-resource-control.md).
+| Resource | Control Mechanism | ADR |
+|----------|-------------------|-----|
+| Browser SERP | TabPool + per-engine policy | [ADR-0014](0014-browser-serp-resource-control.md) |
+| Academic APIs | Global rate limiter | [ADR-0013](0013-worker-resource-contention.md) |
+| HTTP fetch | Per-domain RateLimiter | - |
 
 ## References
-- [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Phase 4.A Academic API resource contention control
-- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Phase 4.B Browser SERP resource control
+
+- [ADR-0013](0013-worker-resource-contention.md) - Academic API resource control
+- [ADR-0014](0014-browser-serp-resource-control.md) - Browser SERP resource control
+- `src/scheduler/search_worker.py` - Worker implementation
 - `src/mcp/server.py` - MCP tool definitions
-- `src/research/executor.py` - Search execution
-- `src/research/pipeline.py` - Pipeline orchestration
-- `src/scheduler/jobs.py` - Job scheduler
-- `src/scheduler/search_worker.py` - SearchQueueWorker implementation

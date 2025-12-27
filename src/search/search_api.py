@@ -769,7 +769,42 @@ async def search_serp(
                     "UPDATE cache_serp SET hit_count = hit_count + 1 WHERE cache_key = ?",
                     (cache_key,),
                 )
-                return cast(list[dict[str, Any]], json.loads(cached["result_json"]))
+                results = cast(list[dict[str, Any]], json.loads(cached["result_json"]))
+
+                # FIX: Still insert into queries/serp_items on cache hit
+                # Each task needs its own query records for metrics tracking
+                if task_id:
+                    query_id = await db.insert(
+                        "queries",
+                        {
+                            "task_id": task_id,
+                            "query_text": query,
+                            "query_type": "initial",
+                            "engines_used": json.dumps(engines) if engines else None,
+                            "result_count": len(results),
+                            "cause_id": trace.id,
+                        },
+                    )
+
+                    # Store SERP items (from cache)
+                    for result in results:
+                        await db.insert(
+                            "serp_items",
+                            {
+                                "query_id": query_id,
+                                "engine": result["engine"],
+                                "rank": result["rank"],
+                                "url": result["url"],
+                                "title": result["title"],
+                                "snippet": result["snippet"],
+                                "published_date": result.get("date"),
+                                "source_tag": result["source_tag"],
+                                "page_number": result.get("page_number", 1),
+                                "cause_id": trace.id,
+                            },
+                        )
+
+                return results
 
         # Transform query operators to engine-specific format
         # Uses default format which works across most search engines

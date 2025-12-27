@@ -108,8 +108,5 @@ debug.log
 # Debug HTML files (parser diagnostics)
 debug/search_html/
 
-# Debug documentation (temporary debugging logs)
-docs/debug/
-
 # Private documentation (not for public repository)
 docs/private/

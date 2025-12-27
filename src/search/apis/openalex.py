@@ -62,7 +62,7 @@ class OpenAlexClient(BaseAcademicClient):
 
             return AcademicSearchResult(
                 papers=papers,
-                total_count=data.get("meta", {}).get("count", 0),
+                total_count=(data.get("meta") or {}).get("count", 0),
                 next_cursor=None,  # OpenAlex uses meta.next_cursor
                 source_api="openalex",
             )
@@ -74,26 +74,34 @@ class OpenAlexClient(BaseAcademicClient):
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
-        session = await self._get_session()
-
-        pid = self._normalize_work_id(paper_id)
-
-        async def _fetch() -> dict[str, Any]:
-            response = await session.get(
-                f"{self.base_url}/works/{pid}",
-                params={
-                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,referenced_works,open_access,primary_location"
-                },
-            )
-            response.raise_for_status()
-            return cast(dict[str, Any], response.json())
-
+        # Apply rate limiting (fix for hypothesis B)
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+        limiter = get_academic_rate_limiter()
+        await limiter.acquire(self.name)
+        
         try:
-            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
-            return self._parse_paper(data)
-        except Exception as e:
-            logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
-            return None
+            session = await self._get_session()
+
+            pid = self._normalize_work_id(paper_id)
+
+            async def _fetch() -> dict[str, Any]:
+                response = await session.get(
+                    f"{self.base_url}/works/{pid}",
+                    params={
+                        "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,referenced_works,open_access,primary_location"
+                    },
+                )
+                response.raise_for_status()
+                return cast(dict[str, Any], response.json())
+
+            try:
+                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+                return self._parse_paper(data)
+            except Exception as e:
+                logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
+                return None
+        finally:
+            limiter.release(self.name)
 
     async def get_references(self, paper_id: str) -> list[Paper]:
         """Get references via referenced_works field."""
@@ -103,22 +111,30 @@ class OpenAlexClient(BaseAcademicClient):
         if paper is None:
             return []
 
-        # Fetch full work JSON to obtain referenced_works list (IDs/URLs)
-        session = await self._get_session()
-
-        async def _fetch() -> dict[str, Any]:
-            response = await session.get(
-                f"{self.base_url}/works/{pid}",
-                params={"select": "id,referenced_works"},
-            )
-            response.raise_for_status()
-            return cast(dict[str, Any], response.json())
-
+        # Apply rate limiting for the referenced_works fetch
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+        limiter = get_academic_rate_limiter()
+        await limiter.acquire(self.name)
+        
         try:
-            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
-        except Exception as e:
-            logger.debug("OpenAlex referenced_works fetch failed", paper_id=paper_id, error=str(e))
-            return []
+            # Fetch full work JSON to obtain referenced_works list (IDs/URLs)
+            session = await self._get_session()
+
+            async def _fetch() -> dict[str, Any]:
+                response = await session.get(
+                    f"{self.base_url}/works/{pid}",
+                    params={"select": "id,referenced_works"},
+                )
+                response.raise_for_status()
+                return cast(dict[str, Any], response.json())
+
+            try:
+                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+            except Exception as e:
+                logger.debug("OpenAlex referenced_works fetch failed", paper_id=paper_id, error=str(e))
+                return []
+        finally:
+            limiter.release(self.name)
 
         refs = data.get("referenced_works") or []
         if not isinstance(refs, list):
@@ -131,7 +147,7 @@ class OpenAlexClient(BaseAcademicClient):
             if not isinstance(ref, str):
                 return None
             try:
-                return await self.get_paper(ref)
+                return await self.get_paper(ref)  # Rate limited internally
             except Exception:
                 return None
 
@@ -140,28 +156,36 @@ class OpenAlexClient(BaseAcademicClient):
 
     async def get_citations(self, paper_id: str) -> list[Paper]:
         """Get citing papers via filter=cites:{work_id}."""
-        pid = self._normalize_work_id(paper_id)
-        session = await self._get_session()
-
-        async def _search() -> dict[str, Any]:
-            response = await session.get(
-                f"{self.base_url}/works",
-                params={
-                    "filter": f"cites:{pid}",
-                    "per-page": 20,
-                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
-                },
-            )
-            response.raise_for_status()
-            return cast(dict[str, Any], response.json())
-
+        # Apply rate limiting
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+        limiter = get_academic_rate_limiter()
+        await limiter.acquire(self.name)
+        
         try:
-            data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
-            papers = [self._parse_paper(w) for w in data.get("results", [])]
-            return [p for p in papers if p and p.abstract]
-        except Exception as e:
-            logger.debug("OpenAlex citations fetch failed", paper_id=paper_id, error=str(e))
-            return []
+            pid = self._normalize_work_id(paper_id)
+            session = await self._get_session()
+
+            async def _search() -> dict[str, Any]:
+                response = await session.get(
+                    f"{self.base_url}/works",
+                    params={
+                        "filter": f"cites:{pid}",
+                        "per-page": 20,
+                        "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
+                    },
+                )
+                response.raise_for_status()
+                return cast(dict[str, Any], response.json())
+
+            try:
+                data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
+                papers = [self._parse_paper(w) for w in data.get("results", [])]
+                return [p for p in papers if p and p.abstract]
+            except Exception as e:
+                logger.debug("OpenAlex citations fetch failed", paper_id=paper_id, error=str(e))
+                return []
+        finally:
+            limiter.release(self.name)
 
     def _normalize_work_id(self, paper_id: str) -> str:
         """Normalize OpenAlex work identifiers for API usage."""
@@ -180,10 +204,14 @@ class OpenAlexClient(BaseAcademicClient):
 
         authors = []
         for authorship in data.get("authorships", []):
-            author_data = authorship.get("author", {})
+            author_data = authorship.get("author") or {}
+            # display_name can be null; use raw_author_name as fallback
+            display_name = author_data.get("display_name")
+            raw_author_name = authorship.get("raw_author_name")
+            author_name = display_name or raw_author_name or ""
             authors.append(
                 Author(
-                    name=author_data.get("display_name", ""),
+                    name=author_name,
                     affiliation=None,  # OpenAlex does not provide detailed affiliation
                     orcid=author_data.get("orcid"),
                 )
@@ -203,7 +231,7 @@ class OpenAlexClient(BaseAcademicClient):
             doi=doi if doi else None,
             arxiv_id=None,  # OpenAlex does not provide arXiv ID
             venue=(
-                location.get("source", {}).get("display_name") if location.get("source") else None
+                (location.get("source") or {}).get("display_name") if location.get("source") else None
             ),
             citation_count=data.get("cited_by_count", 0),
             reference_count=data.get("referenced_works_count", 0),

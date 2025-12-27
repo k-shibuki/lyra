@@ -23,6 +23,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
+import httpx
+
 from src.utils.backoff import BackoffConfig, calculate_backoff
 from src.utils.logging import get_logger
 
@@ -243,6 +245,38 @@ async def retry_api_call[T](
                 "Retrying after HTTP error",
                 operation=op_name,
                 status=e.status,
+                attempt=attempt + 1,
+                max_retries=policy.max_retries,
+                delay_seconds=round(delay, 2),
+            )
+            await asyncio.sleep(delay)
+
+        except httpx.HTTPStatusError as e:
+            # Handle httpx's HTTPStatusError (from response.raise_for_status())
+            status_code = e.response.status_code
+            last_error = e
+            last_status = status_code
+
+            # Check if status is retryable
+            if not policy.should_retry_status(status_code):
+                logger.warning(
+                    "Non-retryable HTTP status",
+                    operation=op_name,
+                    status=status_code,
+                    attempt=attempt + 1,
+                )
+                raise
+
+            # Check if more retries available
+            if attempt >= policy.max_retries:
+                break
+
+            # Calculate delay and wait
+            delay = calculate_backoff(attempt, policy.backoff)
+            logger.info(
+                "Retrying after HTTP error",
+                operation=op_name,
+                status=status_code,
                 attempt=attempt + 1,
                 max_retries=policy.max_retries,
                 delay_seconds=round(delay, 2),

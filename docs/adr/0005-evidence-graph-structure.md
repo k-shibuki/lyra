@@ -187,20 +187,7 @@ Reasons:
 - Domain-based weighting introduces bias
 - Fragment-level evaluation is essential
 
-```python
-# Domain categories (for reference display)
-DOMAIN_CATEGORIES = {
-    "academic": ["arxiv.org", "nature.com", ...],
-    "news": ["reuters.com", "nytimes.com", ...],
-    "government": [".gov", ".go.jp", ...],
-}
-
-# Confidence calculation does NOT reference domain
-def calculate_reliability(fragment: Fragment) -> float:
-    # ❌ domain_weight = DOMAIN_WEIGHTS[fragment.page.domain.category]
-    # ✓ Use only Fragment's own features
-    return compute_from_fragment_features(fragment)
-```
+**Principle**: Confidence calculation uses only Fragment-level features, not domain-based weighting, to avoid bias.
 
 ## Consequences
 

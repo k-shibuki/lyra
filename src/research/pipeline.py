@@ -184,6 +184,16 @@ class SearchPipeline:
         # Generate search ID
         search_id = f"s_{uuid.uuid4().hex[:8]}"
 
+        # FIX: Register search in ExplorationState for metrics tracking
+        # This ensures record_page_fetch and record_fragment can find the search
+        self.state.register_search(
+            search_id=search_id,
+            text=query,
+            priority="high" if options.seek_primary else "medium",
+            budget_pages=options.budget_pages,
+        )
+        self.state.start_search(search_id)
+
         # Get timeout from config (ADR-0002)
         from src.utils.config import get_settings
 
@@ -558,6 +568,43 @@ class SearchPipeline:
                             pages_created += 1
                             fragments_created += 1
 
+                            # FIX: Update ExplorationState metrics for academic papers
+                            # Extract domain from paper URL
+                            paper_url = entry.paper.oa_url or (
+                                f"https://doi.org/{entry.paper.doi}" if entry.paper.doi else ""
+                            )
+                            paper_domain = self._extract_domain(paper_url)
+
+                            # Academic papers are always primary sources
+                            is_primary = True
+                            is_independent = paper_domain not in self._seen_domains
+                            if is_independent:
+                                self._seen_domains.add(paper_domain)
+
+                            # Record page fetch in ExplorationState
+                            self.state.record_page_fetch(
+                                search_id=search_id,
+                                domain=paper_domain,
+                                is_primary_source=is_primary,
+                                is_independent=is_independent,
+                            )
+
+                            # Record fragment in ExplorationState
+                            import hashlib
+                            fragment_hash = hashlib.sha256(
+                                entry.paper.abstract[:500].encode()
+                            ).hexdigest()[:16]
+                            is_novel = fragment_hash not in self._seen_fragment_hashes
+                            if is_novel:
+                                self._seen_fragment_hashes.add(fragment_hash)
+
+                            self.state.record_fragment(
+                                search_id=search_id,
+                                fragment_hash=fragment_hash,
+                                is_useful=True,  # Abstracts from academic APIs are always useful
+                                is_novel=is_novel,
+                            )
+
                         # Track mapping for citation graph (only if page_id is valid)
                         if page_id is not None:
                             paper_to_page_map[entry.paper.id] = page_id
@@ -575,7 +622,7 @@ class SearchPipeline:
             result.pages_fetched += pages_created
             result.useful_fragments += fragments_created
 
-            # : Citation graph integration
+            # Citation graph integration
             papers_with_abstracts = [
                 entry.paper
                 for entry in unique_entries
@@ -625,7 +672,7 @@ class SearchPipeline:
                         try:
                             (
                                 cited_page_id,
-                                _cited_fragment_id,
+                                cited_fragment_id,
                             ) = await self._persist_abstract_as_fragment(
                                 paper=rp,
                                 task_id=self.task_id,
@@ -637,6 +684,46 @@ class SearchPipeline:
                                 paper_to_page_map[rp.id] = cited_page_id
                                 graph = await get_evidence_graph(self.task_id)
                                 graph.add_node(NodeType.PAGE, cited_page_id)
+
+                                # FIX: Update ExplorationState metrics for citation papers
+                                if cited_fragment_id is not None:
+                                    result.pages_fetched += 1
+                                    result.useful_fragments += 1
+
+                                    # Extract domain from paper URL
+                                    rp_url = rp.oa_url or (
+                                        f"https://doi.org/{rp.doi}" if rp.doi else ""
+                                    )
+                                    rp_domain = self._extract_domain(rp_url)
+
+                                    is_independent = rp_domain not in self._seen_domains
+                                    if is_independent:
+                                        self._seen_domains.add(rp_domain)
+
+                                    # Record page fetch in ExplorationState
+                                    self.state.record_page_fetch(
+                                        search_id=search_id,
+                                        domain=rp_domain,
+                                        is_primary_source=True,
+                                        is_independent=is_independent,
+                                    )
+
+                                    # Record fragment in ExplorationState
+                                    import hashlib
+                                    rp_hash = hashlib.sha256(
+                                        rp.abstract[:500].encode()
+                                    ).hexdigest()[:16]
+                                    rp_novel = rp_hash not in self._seen_fragment_hashes
+                                    if rp_novel:
+                                        self._seen_fragment_hashes.add(rp_hash)
+
+                                    self.state.record_fragment(
+                                        search_id=search_id,
+                                        fragment_hash=rp_hash,
+                                        is_useful=True,
+                                        is_novel=rp_novel,
+                                    )
+
                         except Exception as e:
                             logger.debug(
                                 "Failed to persist citation paper",

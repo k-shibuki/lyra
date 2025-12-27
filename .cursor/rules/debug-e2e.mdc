@@ -170,3 +170,65 @@ fuser data/lyra.db  # DBを使用しているプロセスを確認
 - [ ] 計装コードを削除した
 - [ ] 根本原因を特定し、最小修正を行った
 - [ ] テストで修正を検証した
+
+---
+
+## 5. Python 固有の落とし穴
+
+### 5.1 `dict.get(key, default)` と `None` 値
+
+**問題**: `dict.get(key, default)` はキーが存在し値が `None` の場合、`default` ではなく `None` を返す。
+
+```python
+# NG: API応答で {"externalIds": null} の場合、None が返る
+external_ids = data.get("externalIds", {})  # → None
+
+# OK: or パターンで None を空辞書に変換
+external_ids = data.get("externalIds") or {}  # → {}
+```
+
+**適用すべき場面**:
+- 外部 API からの JSON パース
+- 値が `None` になりうる辞書からの取得
+
+### 5.2 例外型の一致
+
+**問題**: 独自例外クラスと外部ライブラリの例外クラスは別物。
+
+```python
+# NG: httpx.HTTPStatusError を catch できない
+from src.utils.api_retry import HTTPStatusError  # 独自
+except HTTPStatusError as e:  # httpx の例外は素通り
+
+# OK: 両方を catch
+import httpx
+except httpx.HTTPStatusError as e:  # httpx の例外
+    ...
+except HTTPStatusError as e:  # 独自例外
+    ...
+```
+
+**確認方法**: `raise_for_status()` などが投げる例外の型をドキュメントで確認。
+
+### 5.3 Rate Limiter の適用範囲
+
+**原則**: API クライアントのすべての外部呼び出しメソッドに Rate Limiter を適用する。
+
+```python
+# NG: search() のみに適用
+async def search(self, query: str) -> list[Paper]:
+    await limiter.acquire(self.name)
+    ...
+
+async def get_references(self, paper_id: str) -> list[Paper]:
+    # Rate Limiter なし → 大量リクエストで 429
+    ...
+
+# OK: すべてのメソッドに適用
+async def get_references(self, paper_id: str) -> list[Paper]:
+    await limiter.acquire(self.name)
+    try:
+        ...
+    finally:
+        limiter.release(self.name)
+```
