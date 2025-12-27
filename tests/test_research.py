@@ -1640,7 +1640,7 @@ class TestUnifiedDualSourceSearch:
         # Given
         state = ExplorationState("test_task")
         pipeline = SearchPipeline("test_task", state)
-        query = "今日の天気"  # Non-academic query - should still use both sources
+        query = "unit test non-academic query"  # Non-academic query - should still use both sources
 
         # When: Mock both sources
         # Note: patch at definition site (src.search.search_api) because it's imported inside method
@@ -1929,7 +1929,7 @@ class TestUnifiedDualSourceSearch:
         # Given: Non-academic query
         state = ExplorationState("test_task")
         pipeline = SearchPipeline("test_task", state)
-        query = "今日の天気"
+        query = "unit test non-academic query"
 
         with patch.object(
             pipeline, "_execute_unified_search", new_callable=AsyncMock

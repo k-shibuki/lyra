@@ -19,6 +19,7 @@ BrowserSearchProvider handles all searches:
 import hashlib
 import json
 import re
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
@@ -606,6 +607,16 @@ async def _search_with_provider(
     Returns:
         List of normalized result dicts.
     """
+    # Safety: prevent accidental external search during unit/integration tests.
+    # E2E is allowed via LYRA_TEST_LAYER=e2e (Makefile target: test-e2e) or explicit opt-in.
+    if os.environ.get("PYTEST_CURRENT_TEST") and os.environ.get("LYRA_TEST_LAYER") != "e2e":
+        if os.environ.get("LYRA_ALLOW_EXTERNAL_SEARCH") != "1":
+            raise RuntimeError(
+                "External search is disabled during pytest (to avoid IP/rate-limit pollution). "
+                "If this is intended, run E2E tests (LYRA_TEST_LAYER=e2e) or set "
+                "LYRA_ALLOW_EXTERNAL_SEARCH=1 for this run."
+            )
+
     from src.search.browser_search_provider import get_browser_search_provider
     from src.search.provider import SearchOptions
 

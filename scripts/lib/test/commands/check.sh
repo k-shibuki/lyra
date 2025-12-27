@@ -7,6 +7,7 @@
 # Description: Wait until tests are completed and print a concise result tail
 # Arguments:
 #   $1: run_id (optional, uses state file if not provided)
+#   RUNTIME_MODE: Override runtime detection (container/venv)
 # Returns:
 #   0: Tests completed (all passed / skipped / deselected)
 #   1: Result file not found or no active test run
@@ -31,7 +32,12 @@ cmd_check() {
                 CONTAINER_NAME_SELECTED="$container_name"
             fi
         else
-            runtime="venv"
+            # Use RUNTIME_MODE if explicitly set, otherwise default to venv
+            if [[ "$RUNTIME_MODE" == "container" ]]; then
+                runtime="container"
+            else
+                runtime="venv"
+            fi
             result_file=$(get_result_file "$run_id")
             pid_file=$(get_pid_file "$run_id")
         fi
@@ -154,7 +160,6 @@ EOF
   "exit_code": ${exit_code},
   "passed": $([ "$has_failed" == "false" ] && echo "true" || echo "false"),
   "summary": "${summary_line}",
-  "result_file": "${result_file}",
   "total_lines": ${total_lines},
   "run_id": "${run_id}",
   "runtime": "${runtime}"
@@ -164,14 +169,8 @@ EOF
                 echo "DONE"
                 echo "=== Summary ==="
                 echo "$summary_line"
-                echo "=== Artifact ==="
-                echo "runtime:     ${runtime}"
-                echo "result_file: ${result_file}"
-                if [[ "$runtime" == "container" ]]; then
-                    local tool
-                    tool=$(get_container_runtime_cmd 2>/dev/null || echo "podman")
-                    echo "view_cmd:    ${tool} exec ${container_name:-${CONTAINER_NAME_SELECTED:-lyra}} less -R ${result_file}"
-                fi
+                echo ""
+                echo "runtime: ${runtime}  run_id: ${run_id}"
                 if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
                     if (( total_lines <= CHECK_TAIL_LINES )); then
                         echo "=== Tail (full output: ${total_lines} lines) ==="
@@ -206,7 +205,6 @@ EOF
   "exit_code": ${exit_code},
   "passed": $([ "$has_failed" == "false" ] && echo "true" || echo "false"),
   "summary": "${summary_line}",
-  "result_file": "${result_file}",
   "total_lines": ${total_lines},
   "run_id": "${run_id}",
   "runtime": "${runtime}"
@@ -216,14 +214,8 @@ EOF
                 echo "DONE"
                 echo "=== Summary ==="
                 echo "$summary_line"
-                echo "=== Artifact ==="
-                echo "runtime:     ${runtime}"
-                echo "result_file: ${result_file}"
-                if [[ "$runtime" == "container" ]]; then
-                    local tool
-                    tool=$(get_container_runtime_cmd 2>/dev/null || echo "podman")
-                    echo "view_cmd:    ${tool} exec ${container_name:-${CONTAINER_NAME_SELECTED:-lyra}} less -R ${result_file}"
-                fi
+                echo ""
+                echo "runtime: ${runtime}  run_id: ${run_id}"
                 if [[ "$total_lines" =~ ^[0-9]+$ ]] && (( total_lines > 0 )); then
                     if (( total_lines <= CHECK_TAIL_LINES )); then
                         echo "=== Tail (full output: ${total_lines} lines) ==="

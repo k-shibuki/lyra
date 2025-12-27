@@ -135,8 +135,8 @@ test-integration: ## Run integration tests only (TARGET= for specific files)
 test-e2e: ## Run E2E tests (TARGET= for specific files)
 	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m e2e
 
-test-check: ## Check test run status (RUN_ID= optional)
-	@$(SCRIPTS)/test.sh check $(RUN_ID)
+test-check: ## Check test run status (RUN_ID= optional, RUNTIME=container/venv)
+	@$(SCRIPTS)/test.sh check $(if $(RUNTIME),--$(RUNTIME),) $(RUN_ID)
 
 test-kill: ## Kill running tests (RUN_ID= optional)
 	@$(SCRIPTS)/test.sh kill $(RUN_ID)
