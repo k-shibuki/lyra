@@ -1,0 +1,7643 @@
+{
+  "summary": {
+    "files_scanned": 54,
+    "unique_env_like_keys": 282,
+    "unique_make_vars": 1,
+    "max_occurrences_per_key": 30
+  },
+  "env_like_keys": {
+    "ACTION": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 40,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 46,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 166,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 210,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 55,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 91,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 49,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 67,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 65,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 45,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 111,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "ANTHROPIC_API_KEY": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 74,
+        "kind": "ref:${...}"
+      }
+    ],
+    "BACKOFF_BASE_DELAY": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 126,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 57,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 101,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 179,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 271,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "BACKOFF_MAX_DELAY": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 128,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 57,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 101,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 179,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 271,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "CHECK_INTERVAL_SECONDS": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 283,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 76,
+        "kind": "assign"
+      }
+    ],
+    "CHECK_TAIL_LINES": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 120,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 125,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 179,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 184,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 231,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 236,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 277,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 80,
+        "kind": "assign"
+      }
+    ],
+    "CHECK_TIMEOUT_SECONDS": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 250,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 258,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 78,
+        "kind": "assign"
+      }
+    ],
+    "CHROME_BASE_PORT": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 108,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 202,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 14,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/help.sh",
+        "line": 8,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 13,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 81,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 181,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CHROME_PORT": [
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 37,
+        "kind": "export"
+      }
+    ],
+    "CHROME_PROFILE_PREFIX": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 109,
+        "kind": "assign"
+      }
+    ],
+    "CI": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 74,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 86,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 112,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CLAUDE_CODE": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 74,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 117,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CLOUD_AGENT_TYPE": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 65,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 71,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 76,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 80,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 84,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 88,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 95,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 61,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 103,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 58,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 58,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 70,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 16,
+        "kind": "ref:${...}"
+      }
+    ],
+    "COMMON_DIR": [
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 37,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 41,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 45,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 49,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 53,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 57,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 62,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 66,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 72,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 76,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 78,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 80,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 82,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/common.sh",
+        "line": 84,
+        "kind": "ref:${...}"
+      }
+    ],
+    "COMPLETION_THRESHOLD": [
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 45,
+        "kind": "export"
+      }
+    ],
+    "COMPOSE": [
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 71,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 18,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 17,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 46,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 54,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 63,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 76,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 87,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 97,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 116,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "CONNECT_TIMEOUT": [
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 44,
+        "kind": "export"
+      }
+    ],
+    "CONTAINER_NAME": [
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 47,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 22,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 63,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 76,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 87,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 99,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 109,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 40,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 34,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/help.sh",
+        "line": 30,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 103,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 55,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CONTAINER_NAME_SELECTED": [
+      {
+        "file": "/workspace/scripts/lib/test/args.sh",
+        "line": 29,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/args.sh",
+        "line": 30,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 31,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 52,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 49,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 90,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 28,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 29,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 104,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 122,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 19,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 33,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 42,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 91,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 55,
+        "kind": "assign"
+      }
+    ],
+    "CONTAINER_TIMEOUT": [
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 48,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 43,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 103,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 106,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CURL_TIMEOUT": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 118,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 22,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 61,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "CURRENT_CONTAINER_NAME": [
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 35,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 26,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 32,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 34,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 44,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 85,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 42,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CURSOR_BACKGROUND": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 69,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 116,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CURSOR_CLOUD_AGENT": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 69,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 114,
+        "kind": "ref:${...}"
+      }
+    ],
+    "CURSOR_SESSION_ID": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 69,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 115,
+        "kind": "ref:${...}"
+      }
+    ],
+    "DEBUG": [
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 9,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 30,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 215,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 226,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 239,
+        "kind": "ref:${...}"
+      }
+    ],
+    "DIAGNOSE_PORT": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 191,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 192,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 194,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "DISPLAY": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 74,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 91,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 115,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 111,
+        "kind": "ref:${...}"
+      }
+    ],
+    "ENV_TYPE": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 135,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 17,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 49,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 18,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 44,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 100,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 104,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 16,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 82,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 21,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "EXIT_ALREADY_EXISTS": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 17,
+        "kind": "export"
+      }
+    ],
+    "EXIT_CONFIG": [
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 9,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 14,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 14,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 10,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 33,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 35,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 37,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 49,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "EXIT_CONTAINER": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 30,
+        "kind": "export"
+      }
+    ],
+    "EXIT_DEPENDENCY": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 237,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/compose.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/compose.sh",
+        "line": 53,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 347,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 373,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 11,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 14,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "EXIT_ERROR": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 8,
+        "kind": "export"
+      }
+    ],
+    "EXIT_NETWORK": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 29,
+        "kind": "export"
+      }
+    ],
+    "EXIT_NOT_FOUND": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 23,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 16,
+        "kind": "export"
+      }
+    ],
+    "EXIT_NOT_READY": [
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 49,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 58,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 19,
+        "kind": "export"
+      }
+    ],
+    "EXIT_NOT_RUNNING": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 18,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 74,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "EXIT_OPERATION_FAILED": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 159,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 28,
+        "kind": "export"
+      }
+    ],
+    "EXIT_PERMISSION": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 13,
+        "kind": "export"
+      }
+    ],
+    "EXIT_SUCCESS": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 185,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 277,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 29,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 43,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 47,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 75,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 344,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 376,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 5,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 144,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 196,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 69,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 42,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 72,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 130,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 97,
+        "kind": "ref:${...}"
+      }
+    ],
+    "EXIT_TEST_ERROR": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 23,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 71,
+        "kind": "ref:${...}"
+      }
+    ],
+    "EXIT_TEST_FAILED": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 22,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 147,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 199,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 70,
+        "kind": "ref:${...}"
+      }
+    ],
+    "EXIT_TEST_FATAL": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 25,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 101,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 127,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 73,
+        "kind": "ref:${...}"
+      }
+    ],
+    "EXIT_TEST_TIMEOUT": [
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 24,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 249,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 279,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 72,
+        "kind": "ref:${...}"
+      }
+    ],
+    "EXIT_TIMEOUT": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 204,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 295,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 12,
+        "kind": "export"
+      }
+    ],
+    "EXIT_USAGE": [
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 70,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 82,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/exit_codes.sh",
+        "line": 9,
+        "kind": "export"
+      }
+    ],
+    "ErrorActionPreference": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 48,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 119,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 140,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 161,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 64,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 133,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 25,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "FAILED_TESTS": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 30,
+        "kind": "assign"
+      }
+    ],
+    "FATAL_ERROR_PATTERNS": [
+      {
+        "file": "/workspace/scripts/lib/test/check_helpers.sh",
+        "line": 16,
+        "kind": "assign"
+      }
+    ],
+    "GITHUB_ACTIONS": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 78,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 113,
+        "kind": "ref:${...}"
+      }
+    ],
+    "GITLAB_CI": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 82,
+        "kind": "ref:${...}"
+      }
+    ],
+    "GLOBAL_ARGS": [
+      {
+        "file": "/workspace/scripts/lib/flags.sh",
+        "line": 20,
+        "kind": "assign"
+      }
+    ],
+    "HOME": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 88,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 255,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 96,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 86,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "HOSTNAME": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 31,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "IN_CONTAINER": [
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 23,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 25,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 28,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 43,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 84,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 42,
+        "kind": "ref:${...}"
+      }
+    ],
+    "IS_CLOUD_AGENT": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 64,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 70,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 75,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 79,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 83,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 87,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 94,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 60,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 102,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 57,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 57,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 69,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 13,
+        "kind": "ref:${...}"
+      }
+    ],
+    "IS_ML_CONTAINER": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 40,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 42,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 45,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 86,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LEGACY_PID_FILE": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 37,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 72,
+        "kind": "assign"
+      }
+    ],
+    "LEGACY_RESULT_FILE": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 37,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 70,
+        "kind": "assign"
+      }
+    ],
+    "LINENO": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 23,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 27,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 11,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 20,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 68,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 35,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_BROWSER__CHROME_BASE_PORT": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 24,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 64,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 65,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 128,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 128,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_BROWSER__CHROME_HOST": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 23,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 127,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 127,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_BROWSER__CHROME_PORT": [
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 37,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_BROWSER__CHROME_PROFILE_PREFIX": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 25,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 78,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 129,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 129,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_DATA_DIR": [
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 120,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 120,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_GENERAL__LOG_LEVEL": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 77,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_GENERAL__PROXY_URL": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 14,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 113,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 123,
+        "kind": "export"
+      }
+    ],
+    "LYRA_HEADLESS": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 110,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_LLM__OLLAMA_HOST": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 32,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_LOGS_DIR": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 23,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 23,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 36,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 72,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_LOG_TO_STDERR": [
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 75,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 54,
+        "kind": "export"
+      }
+    ],
+    "LYRA_ML__EMBEDDING_MODEL": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 47,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_ML__NLI_MODEL": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 49,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_ML__RERANKER_MODEL": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 48,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_ML__SERVER_URL": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 40,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_OUTPUT_JSON": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 70,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 15,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 84,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 105,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 115,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 133,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 139,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 148,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 183,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 198,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 206,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 216,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 222,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 230,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 123,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 155,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 175,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 181,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 200,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 233,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 248,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 267,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 273,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 291,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 25,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 45,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 17,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 67,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/compose.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "LYRA_QUIET": [
+      {
+        "file": "/workspace/scripts/lib/flags.sh",
+        "line": 9,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/flags.sh",
+        "line": 9,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/flags.sh",
+        "line": 28,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 180,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "LYRA_RUN_EXTRACTOR_TESTS": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 85,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 85,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_RUN_ML_API_TESTS": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 84,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 84,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_RUN_ML_TESTS": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 83,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 83,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__CHECK_INTERVAL_SECONDS": [
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 76,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__CHECK_TAIL_LINES": [
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 80,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__CHECK_TIMEOUT_SECONDS": [
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 78,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__COMPLETION_THRESHOLD": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 62,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 45,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__CONNECT_TIMEOUT": [
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 44,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__CONTAINER_NAME": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 56,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 40,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__CONTAINER_TIMEOUT": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 59,
+        "kind": ".env.example"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 43,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__TEST_RESULT_DIR": [
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 66,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__TEST_RESULT_FILE": [
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 48,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_SCRIPT__TEST_STATE_FILE": [
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 59,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_TEST_LAYER": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 65,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 107,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 17,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 21,
+        "kind": "ref:${...}"
+      }
+    ],
+    "LYRA_TEST__CONTAINER_NAME": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 28,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 48,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 32,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 26,
+        "kind": "assign"
+      }
+    ],
+    "LYRA_TEST__CONTAINER_TOOL": [
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 25,
+        "kind": "assign"
+      }
+    ],
+    "LYRA_TEST__PID_FILE": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 27,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 47,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 25,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 39,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 59,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 84,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 28,
+        "kind": "assign"
+      }
+    ],
+    "LYRA_TEST__RESULT_FILE": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 26,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 46,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 24,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 38,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 58,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 83,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 27,
+        "kind": "assign"
+      }
+    ],
+    "LYRA_TEST__RUNTIME": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 25,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 45,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 23,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 37,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 32,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 57,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 82,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 31,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 24,
+        "kind": "assign"
+      }
+    ],
+    "LYRA_TEST__RUN_ID": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 24,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 49,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 22,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 40,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 34,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 56,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 85,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 117,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 29,
+        "kind": "assign"
+      }
+    ],
+    "LYRA_TOR__CONTROL_PORT": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 37,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_TOR__SOCKS_HOST": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 35,
+        "kind": ".env.example"
+      }
+    ],
+    "LYRA_TOR__SOCKS_PORT": [
+      {
+        "file": "/workspace/.env.example",
+        "line": 36,
+        "kind": ".env.example"
+      }
+    ],
+    "NUM_WORKERS": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 107,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 13,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/help.sh",
+        "line": 7,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 12,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 80,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 180,
+        "kind": "ref:${...}"
+      }
+    ],
+    "OSTYPE": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 8,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 8,
+        "kind": "ref:${...}"
+      }
+    ],
+    "PATH": [
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 16,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "PROJECT_DIR": [
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 30,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 8,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 20,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 21,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 30,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 50,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 51,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 52,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 53,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 54,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 106,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 151,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 165,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 310,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 311,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 317,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 10,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/paths.sh",
+        "line": 23,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 79,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 80,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 4,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 42,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 117,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 138,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 25,
+        "kind": "assign"
+      }
+    ],
+    "PROJECT_ROOT": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 25,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 54,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 67,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 81,
+        "kind": "ref:${...}"
+      }
+    ],
+    "PROXY_URL": [
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 113,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 114,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 123,
+        "kind": "ref:${...}"
+      }
+    ],
+    "PS4": [
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 11,
+        "kind": "export"
+      }
+    ],
+    "PYTEST_ARGS": [
+      {
+        "file": "/workspace/scripts/lib/test/args.sh",
+        "line": 50,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 36,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 84,
+        "kind": "assign"
+      }
+    ],
+    "PYTHONPATH": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 71,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 80,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 80,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 117,
+        "kind": "export"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 117,
+        "kind": "ref:${...}"
+      }
+    ],
+    "PYTHONUNBUFFERED": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 87,
+        "kind": "assign"
+      }
+    ],
+    "RUNTIME_MODE": [
+      {
+        "file": "/workspace/scripts/lib/test/args.sh",
+        "line": 16,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/args.sh",
+        "line": 20,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/args.sh",
+        "line": 25,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 48,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 89,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 26,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 53,
+        "kind": "assign"
+      }
+    ],
+    "SCRIPTS_DIR": [
+      {
+        "file": "/workspace/scripts/lib/paths.sh",
+        "line": 20,
+        "kind": "assign"
+      }
+    ],
+    "SCRIPT_DIR": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 24,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 25,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 27,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 144,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 146,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 148,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 150,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 152,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 154,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 156,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 158,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 160,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 15,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 17,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 39,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 41,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 79,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 81,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 83,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/dev.sh",
+        "line": 85,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 19,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 21,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 39,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/doctor.sh",
+        "line": 43,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 79,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 182,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 30,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 34,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 8,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 28,
+        "kind": "assign"
+      }
+    ],
+    "STARTUP_TIMEOUT_LINUX": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 123,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 101,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 268,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 271,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "STARTUP_TIMEOUT_WSL": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 121,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 57,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 176,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 179,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "TESTS_FAILED": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 29,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 403,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 405,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "TESTS_PASSED": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 28,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 402,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "TEST_RESULT_DIR": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 37,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 13,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 73,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 64,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 74,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 84,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 85,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 66,
+        "kind": "assign"
+      }
+    ],
+    "TEST_RESULT_FILE": [
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 48,
+        "kind": "export"
+      }
+    ],
+    "TEST_STATE_FILE": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 94,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 98,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/help.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 37,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 118,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 23,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test.sh",
+        "line": 59,
+        "kind": "assign"
+      }
+    ],
+    "VALID_DEV_COMMANDS": [
+      {
+        "file": "/workspace/scripts/lib/dev/dispatch_precheck.sh",
+        "line": 9,
+        "kind": "assign"
+      }
+    ],
+    "VENV_DIR": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 50,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 106,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 107,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 113,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 78,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 4,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 13,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 14,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 28,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 85,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/mcp.sh",
+        "line": 95,
+        "kind": "ref:${...}"
+      }
+    ],
+    "WAYLAND_DISPLAY": [
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 91,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/platform.sh",
+        "line": 115,
+        "kind": "ref:${...}"
+      }
+    ],
+    "_LOGS_LIB_DIR": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 21,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 22,
+        "kind": "ref:${...}"
+      }
+    ],
+    "_LOGS_PROJECT_DIR": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 22,
+        "kind": "assign"
+      }
+    ],
+    "action": [
+      {
+        "file": "/workspace/scripts/lib/dev/dispatch_precheck.sh",
+        "line": 21,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "all_ok": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 40,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 72,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "already_running": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 153,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 169,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "available_gb": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 210,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 220,
+        "kind": "ref:${...}"
+      }
+    ],
+    "available_mb": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 151,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 153,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 205,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 208,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 214,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 217,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "baseDir": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "base_delay": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 53,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "base_port": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 94,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 20,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/help.sh",
+        "line": 17,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 45,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 88,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "browser": [
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 23,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 32,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 40,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "c": [
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "chrome_path": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 81,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 83,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 91,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 230,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 232,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 258,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 234,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 236,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 240,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "chrome_ps_file": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 80,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 82,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 183,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 185,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 37,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "chrome_running": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 118,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 128,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 128,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 130,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 132,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 218,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "chrome_script": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 22,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 23,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 40,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "cmd": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 15,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "conn": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 142,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 143,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 27,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "connected": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 69,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 70,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "container": [
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 48,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 49,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "container_name": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 28,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 30,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 48,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 52,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 173,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 225,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 26,
+        "kind": "ref:${...}"
+      }
+    ],
+    "container_running": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 17,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 51,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 92,
+        "kind": "ref:${...}"
+      }
+    ],
+    "container_tool": [
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 13,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 23,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 25,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 36,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 92,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 104,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 119,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 26,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 34,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 37,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 43,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 15,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 50,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 91,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 25,
+        "kind": "ref:${...}"
+      }
+    ],
+    "containers": [
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 97,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 110,
+        "kind": "ref:${...}"
+      }
+    ],
+    "content": [
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 33,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 34,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/check_helpers.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "current_config": [
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 69,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 77,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 84,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 93,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "current_time": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 69,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 70,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "dangling_ids": [
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 29,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 30,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "dataDir": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 33,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 33,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 135,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 136,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 136,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 141,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "data_dir": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 89,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 93,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 256,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 260,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "delay": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 89,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 89,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 36,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 36,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "dir": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "doctor_script_dir": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 19,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/chrome_fix.sh",
+        "line": 20,
+        "kind": "ref:${...}"
+      }
+    ],
+    "e2e_capable": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 19,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 62,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 104,
+        "kind": "ref:${...}"
+      }
+    ],
+    "elapsed": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 70,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "env": [
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 66,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "env_file": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 108,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 113,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 11,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 14,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 20,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 27,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "env_opts": [
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 21,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 25,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 56,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "env_type": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 89,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 120,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 176,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 178,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 206,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 208,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 46,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 47,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 239,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 248,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 260,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "escaped": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 67,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 73,
+        "kind": "ref:${...}"
+      }
+    ],
+    "exit_code": [
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 64,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 67,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 68,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 24,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 27,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 28,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 47,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 121,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 141,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 147,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 154,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 186,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 199,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 206,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 238,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "export_env": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 73,
+        "kind": "ref:${...}"
+      }
+    ],
+    "extras": [
+      {
+        "file": "/workspace/scripts/lib/venv.sh",
+        "line": 43,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "failed": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 150,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 154,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 169,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 172,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "fatal_error": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 102,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 110,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "file": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 27,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "first": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 29,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 158,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 159,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 239,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 240,
+        "kind": "assign"
+      }
+    ],
+    "follow": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 49,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 80,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "follow_flag": [
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 43,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "frame": [
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "gpu_info": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 178,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 180,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 183,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "grep_pattern": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 53,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 78,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "has_errors": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 208,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 211,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "has_failed": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 146,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 155,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 198,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "host": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 22,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 23,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 61,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 62,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 57,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 58,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 101,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 102,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 179,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 180,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 186,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 188,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 189,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 194,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 195,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 271,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 272,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 278,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 280,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 281,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 286,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 20,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 30,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 34,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "i": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 30,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 21,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 36,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 58,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 66,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 101,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 106,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 110,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 116,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 122,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 125,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 137,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 143,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 199,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 202,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 220,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 225,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "image_ids": [
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 23,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 24,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 25,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "info": [
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 20,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/status.sh",
+        "line": 23,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "issue": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 78,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "issues": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 339,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 361,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "json_msg": [
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 30,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 33,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 35,
+        "kind": "ref:${...}"
+      }
+    ],
+    "json_output": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 152,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 153,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 206,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 262,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 263,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 336,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 337,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "key": [
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 47,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 49,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 61,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 128,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 130,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 132,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 168,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 170,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 172,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "killed_pid": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 94,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 124,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 134,
+        "kind": "ref:${...}"
+      }
+    ],
+    "last_line": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 89,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 282,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "last_result_file": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 33,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 56,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 96,
+        "kind": "ref:${...}"
+      }
+    ],
+    "last_run_id": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 34,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 57,
+        "kind": "ref:${...}"
+      }
+    ],
+    "last_runtime": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 32,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 55,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 95,
+        "kind": "ref:${...}"
+      }
+    ],
+    "latest_log": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 69,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 71,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 76,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 83,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "lib_dir": [
+      {
+        "file": "/workspace/scripts/lib/paths.sh",
+        "line": 8,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/paths.sh",
+        "line": 9,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "line_num": [
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 28,
+        "kind": "ref:${...}"
+      }
+    ],
+    "lines": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 57,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 83,
+        "kind": "ref:${...}"
+      }
+    ],
+    "localhost_ok": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 196,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 228,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "log_output": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 110,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 111,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 114,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "markers": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 21,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 66,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 108,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 45,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 52,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 53,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 103,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 15,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 19,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 23,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 27,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/markers.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "max_delay": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 89,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 89,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 36,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 36,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "message": [
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 122,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 139,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 160,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 181,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "mirrored_status": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 185,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 186,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 235,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 28,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 40,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 288,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 290,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "mode": [
+      {
+        "file": "/workspace/scripts/lib/compose.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/compose.sh",
+        "line": 52,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 36,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 48,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "my_pid": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 33,
+        "kind": "ref:${...}"
+      }
+    ],
+    "n": [
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 124,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 126,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "name": [
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 35,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "net_internal": [
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 62,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "net_primary": [
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 55,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "network_ids": [
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 36,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 37,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/clean.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "networks": [
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 104,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 111,
+        "kind": "ref:${...}"
+      }
+    ],
+    "not_running": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 235,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 250,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "now": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 243,
+        "kind": "assign"
+      }
+    ],
+    "null": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 163,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "num_workers": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 19,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 69,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/help.sh",
+        "line": 16,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 44,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 70,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 87,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 151,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 169,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 233,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "os_type": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 13,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 42,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 83,
+        "kind": "ref:${...}"
+      }
+    ],
+    "output": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 135,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 136,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 197,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 198,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 245,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 246,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 319,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 320,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "path": [
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 106,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 108,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 124,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 126,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 142,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 144,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 158,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 160,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 174,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 176,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "pattern": [
+      {
+        "file": "/workspace/scripts/lib/logs.sh",
+        "line": 36,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/check_helpers.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/check_helpers.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "perms": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 113,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 116,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 317,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 319,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 322,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 14,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/env_load.sh",
+        "line": 15,
+        "kind": "ref:${...}"
+      }
+    ],
+    "pid": [
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 61,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 62,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 63,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 64,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 80,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 190,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 251,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 261,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 263,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 266,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 267,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 269,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 270,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 70,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 71,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 73,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 80,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 85,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 86,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 87,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 96,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 92,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 93,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 93,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 94,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 96,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 98,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "pid_alive": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 82,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 190,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 252,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 262,
+        "kind": "ref:${...}"
+      }
+    ],
+    "pid_file": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 27,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 36,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 47,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 56,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 80,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 25,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 29,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 39,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 46,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 59,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 68,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 70,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 59,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 63,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 84,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 90,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 92,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 110,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 113,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 18,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 73,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 88,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 90,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 101,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 116,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 28,
+        "kind": "ref:${...}"
+      }
+    ],
+    "pids": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 33,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 34,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "port": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 22,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 61,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 101,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 137,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 142,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 163,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 194,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 222,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 230,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/fix.sh",
+        "line": 43,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 24,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 37,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 61,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 66,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 104,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 106,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 110,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 116,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 122,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 125,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 137,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 143,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 197,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 199,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 202,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "port_listening": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 47,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 55,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 58,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 139,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 149,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 149,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 151,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 153,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 221,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "prefix": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 102,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 103,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "proc": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 121,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 122,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 138,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "proc_comm": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 266,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 269,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 272,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 79,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 85,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 93,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 203,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 206,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 211,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 216,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 220,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 234,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 240,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "proc_exists": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 82,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 88,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 92,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "proc_state": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 267,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 270,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 273,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 80,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 86,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 94,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 204,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 207,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 212,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 216,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 225,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "profile": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 30,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 21,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 38,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 58,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 66,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 101,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 116,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 122,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 125,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 88,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "project_name": [
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 30,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 31,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/shell.sh",
+        "line": 32,
+        "kind": "ref:${...}"
+      }
+    ],
+    "py_version": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 113,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 115,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 118,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "pytest_cmd": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 62,
+        "kind": "assign"
+      }
+    ],
+    "python_exe": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 52,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 57,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "query": [
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 85,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 87,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "re": [
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 142,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 144,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "reason": [
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 44,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "remaining": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 74,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 75,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "required_mb": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 203,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "result": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 163,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 244,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 28,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 48,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 49,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 192,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 193,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "result_content": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 88,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 94,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 138,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 145,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 197,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "result_file": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 26,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 35,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 46,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 56,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 67,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 88,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 89,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 97,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 103,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 113,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 115,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 125,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 140,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 142,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 157,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 169,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 173,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 184,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 192,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 194,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 209,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 221,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 225,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 236,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 253,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 277,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 24,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 28,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 38,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 45,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "result_lines": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 53,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 54,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "result_value": [
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 50,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 55,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "run_id": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 20,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 24,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 36,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 49,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 159,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 211,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 254,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 21,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 22,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 28,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 29,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 40,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 43,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 22,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 52,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 56,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 62,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 63,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 85,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 117,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 117,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 132,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 12,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 17,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 18,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 90,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 98,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 102,
+        "kind": "ref:${...}"
+      }
+    ],
+    "running": [
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 100,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/commands.sh",
+        "line": 108,
+        "kind": "ref:${...}"
+      }
+    ],
+    "runtime": [
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 31,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/container.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 25,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 34,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 45,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 67,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 80,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 81,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 88,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 89,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 97,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 115,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 125,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 140,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 142,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 160,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 168,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 170,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 184,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 192,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 194,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 212,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 220,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 222,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 236,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 265,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 277,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 23,
+        "kind": "assign"
+      }
+    ],
+    "script_name": [
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 30,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 42,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 44,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 79,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "scripts_dir": [
+      {
+        "file": "/workspace/scripts/lib/paths.sh",
+        "line": 16,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/paths.sh",
+        "line": 17,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "service": [
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/dev/logs.sh",
+        "line": 34,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "skip_action": [
+      {
+        "file": "/workspace/scripts/lib/host_guard.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "sleep_time": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 81,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 82,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 86,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "start_result": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 128,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 132,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 28,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 50,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 132,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 153,
+        "kind": "ref:${...}"
+      }
+    ],
+    "start_result_value": [
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 51,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 154,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/start.sh",
+        "line": 154,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "start_time": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 56,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 70,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 21,
+        "kind": "assign"
+      }
+    ],
+    "start_ts": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 63,
+        "kind": "assign"
+      }
+    ],
+    "state_file_exists": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 29,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 54,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/env.sh",
+        "line": 93,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "status": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 25,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 39,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 62,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 66,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 89,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 91,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 159,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "stop_result": [
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 24,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 41,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 48,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 53,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 53,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 54,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "stopped": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 234,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 250,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "stopped_pid": [
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 64,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 69,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 78,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 82,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 83,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "success": [
+      {
+        "file": "/workspace/scripts/lib/chrome/pool.sh",
+        "line": 169,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "success_msg": [
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 25,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "summary_line": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 140,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 156,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 166,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 192,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 208,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 218,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 111,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/debug.sh",
+        "line": 113,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "test": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 409,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "test_target": [
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 363,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/test_scripts.sh",
+        "line": 391,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "tool": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 172,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 173,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 224,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 225,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 121,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/run.sh",
+        "line": 122,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 69,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 70,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 86,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 87,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/runtime.sh",
+        "line": 91,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "total_lines": [
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 97,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 104,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 115,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 116,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 118,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 120,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 142,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 158,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 175,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 177,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 179,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 194,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 210,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 227,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 229,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/check.sh",
+        "line": 231,
+        "kind": "ref:${...}"
+      }
+    ],
+    "total_timeout": [
+      {
+        "file": "/workspace/scripts/lib/chrome/connect.sh",
+        "line": 74,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "trace_enabled": [
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 35,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/error_handling.sh",
+        "line": 42,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "ts": [
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 53,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/state.sh",
+        "line": 54,
+        "kind": "ref:${...}"
+      }
+    ],
+    "url": [
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 24,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/http.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "value": [
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 30,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 31,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 32,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 33,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 34,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 35,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 46,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 46,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 46,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 61,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 127,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 128,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 129,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 129,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 130,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 132,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 167,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 168,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 169,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 169,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 170,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/output.sh",
+        "line": 172,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "version": [
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 57,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/checks.sh",
+        "line": 59,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "warnings": [
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 340,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 358,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/doctor/commands/check.sh",
+        "line": 363,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "was_running": [
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 42,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 49,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 70,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/stop.sh",
+        "line": 77,
+        "kind": "ref:${...}"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 125,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/test/commands/kill.sh",
+        "line": 133,
+        "kind": "ref:${...}"
+      }
+    ],
+    "win_cdp": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 160,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 174,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 174,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 176,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 178,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 207,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 225,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "worker_id": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 103,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "wsl_gateway": [
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 111,
+        "kind": "assign"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/diagnose.sh",
+        "line": 112,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "wslconfig": [
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 31,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 32,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 33,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 66,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 67,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/lib/chrome/ps.sh",
+        "line": 68,
+        "kind": "ref:$VAR"
+      }
+    ],
+    "yaml_file": [
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 55,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 56,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 68,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 69,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 82,
+        "kind": "ref:$VAR"
+      },
+      {
+        "file": "/workspace/scripts/chrome.sh",
+        "line": 83,
+        "kind": "ref:$VAR"
+      }
+    ]
+  },
+  "make_vars": {
+    "LYRA_TEST_LAYER": [
+      {
+        "file": "/workspace/Makefile",
+        "line": 136,
+        "kind": "make_assign"
+      }
+    ]
+  }
+}

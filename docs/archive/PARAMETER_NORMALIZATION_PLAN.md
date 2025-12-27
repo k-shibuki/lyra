@@ -126,6 +126,7 @@
 - `docs/archive/parameter-registry.prompts-json-keys.json`
 - `docs/archive/parameter-registry.code-string-keys.json`
 - `docs/archive/parameter-registry.env-vars.json`
+- `docs/archive/parameter-registry.shell-make-env.json`
 - `docs/archive/PARAMETER_RENAME_MAP_TEMPLATE.json`（old→canonical の作業台・未確定）
 - `docs/archive/PARAMETER_RENAME_MAP_DRAFT.json`（初版ドラフト: “keep or rename” を機械充填）
 

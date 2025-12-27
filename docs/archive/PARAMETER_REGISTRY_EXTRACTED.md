@@ -1164,6 +1164,13 @@ These are keys that often do *not* appear in structured contracts (BaseModel/dat
 - `docs/archive/parameter-registry.env-vars.json`
   - unique_env_vars: **27**
 
+## Shell/Make/.env: env-like keys (heuristic extraction)
+These are operational parameters used by Make and shell scripts (CI flags, run modes, container names, etc.).
+
+- `docs/archive/parameter-registry.shell-make-env.json`
+  - files_scanned: **54**
+  - unique_env_like_keys: **282**
+
 ## Code contracts: fields (BaseModel / dataclass / TypedDict)
 - items: **1730** (unique field names: **1108**)
 
