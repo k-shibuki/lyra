@@ -118,10 +118,14 @@
 - **MCP**: `src/mcp/schemas/*.json` の `properties` を全列挙
 - **コード/テスト**: `src/` と `tests/` を文字列/属性アクセスで走査（`["..."]`, `.field`, `Field(...)`）
 - **Prompt templates**: `config/prompts/*.j2` から **出力JSON例のキー**を抽出（例: `{"confidence": ...}` の `"..."` キー）
+- **Code (stringly-typed keys)**: Python AST で `foo["key"]` / `foo.get("key")` / `{"key": ...}` を抽出（構造化モデルに出ない“実ランタイム契約”を拾う）
+- **Env vars**: Python AST で `os.getenv("NAME")` / `os.environ.get("NAME")` / `os.environ["NAME"]` を抽出
 
 このリポジトリでは、棚卸しの機械抽出結果を `docs/archive/` に保存している:
 - `docs/archive/PARAMETER_REGISTRY_EXTRACTED.md`
 - `docs/archive/parameter-registry.prompts-json-keys.json`
+- `docs/archive/parameter-registry.code-string-keys.json`
+- `docs/archive/parameter-registry.env-vars.json`
 - `docs/archive/PARAMETER_RENAME_MAP_TEMPLATE.json`（old→canonical の作業台・未確定）
 - `docs/archive/PARAMETER_RENAME_MAP_DRAFT.json`（初版ドラフト: “keep or rename” を機械充填）
 

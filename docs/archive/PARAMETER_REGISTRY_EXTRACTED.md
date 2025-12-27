@@ -1155,6 +1155,15 @@ This file is an *inventory* of parameters extracted from DB schema, MCP JSON Sch
 ### `decompose.j2`
 - keys (6): `text`, `polarity`, `granularity`, `type`, `keywords`, `hints`
 
+## Code: stringly-typed keys and env vars (AST extraction)
+These are keys that often do *not* appear in structured contracts (BaseModel/dataclass/TypedDict), but still form runtime “parameter contracts” (dict keys, JSON payload keys, etc.).
+
+- `docs/archive/parameter-registry.code-string-keys.json`
+  - python_files_scanned: **237**
+  - unique_string_keys: **1806**
+- `docs/archive/parameter-registry.env-vars.json`
+  - unique_env_vars: **27**
+
 ## Code contracts: fields (BaseModel / dataclass / TypedDict)
 - items: **1730** (unique field names: **1108**)
 
