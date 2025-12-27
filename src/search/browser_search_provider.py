@@ -213,7 +213,6 @@ class BrowserSearchProvider(BaseSearchProvider):
             try:
                 from playwright.async_api import async_playwright
 
-
                 self._playwright = await async_playwright().start()
                 assert self._playwright is not None  # Just initialized
 
@@ -1013,7 +1012,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                                 )
                                 if result_links:
                                     target_link = random.choice(result_links[:5])
-                                    link_selector = await target_link.evaluate("""
+                                    link_selector = await target_link.evaluate(
+                                        """
                                         (el) => {
                                             if (el.id) return `#${el.id}`;
                                             if (el.className) {
@@ -1022,7 +1022,8 @@ class BrowserSearchProvider(BaseSearchProvider):
                                             }
                                             return 'a';
                                         }
-                                    """)
+                                    """
+                                    )
                                     if link_selector:
                                         await self._human_behavior.move_mouse_to_element(
                                             tab, link_selector

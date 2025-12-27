@@ -460,9 +460,11 @@ class InterventionManager:
                 int(elapsed),
                 notes,
                 intervention["domain"],
-                intervention["type"].value
-                if isinstance(intervention["type"], InterventionType)
-                else intervention["type"],
+                (
+                    intervention["type"].value
+                    if isinstance(intervention["type"], InterventionType)
+                    else intervention["type"]
+                ),
             ),
         )
 
@@ -1370,6 +1372,7 @@ class InterventionQueue:
         assert self._db is not None  # Type narrowing after _ensure_db
 
         import json
+
         session_json = json.dumps(session_data) if session_data else None
         status = "completed" if success else "skipped"
 

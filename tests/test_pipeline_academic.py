@@ -206,13 +206,9 @@ class TestAbstractOnlyStrategy:
             # Mock: resource already claimed by another worker
             existing_page_id = "page_existing123"
             existing_fragment_id = "frag_existing456"
-            mock_db_instance.claim_resource = AsyncMock(
-                return_value=(False, existing_page_id)
-            )
+            mock_db_instance.claim_resource = AsyncMock(return_value=(False, existing_page_id))
             # Mock: fetch_one returns existing fragment
-            mock_db_instance.fetch_one = AsyncMock(
-                return_value={"id": existing_fragment_id}
-            )
+            mock_db_instance.fetch_one = AsyncMock(return_value={"id": existing_fragment_id})
 
             # When
             page_id, fragment_id = await pipeline._persist_abstract_as_fragment(
@@ -256,9 +252,7 @@ class TestAbstractOnlyStrategy:
 
             # Mock: resource claimed but page has no fragment
             existing_page_id = "page_nofrag123"
-            mock_db_instance.claim_resource = AsyncMock(
-                return_value=(False, existing_page_id)
-            )
+            mock_db_instance.claim_resource = AsyncMock(return_value=(False, existing_page_id))
             mock_db_instance.fetch_one = AsyncMock(return_value=None)
 
             # When

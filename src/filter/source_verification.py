@@ -177,9 +177,9 @@ class SourceVerifier:
         self._domain_states: dict[str, DomainVerificationState] = {}
         self._blocked_domains: set[str] = set()
         # Pending blocked domain notifications (processed via send_pending_notifications)
-        self._pending_blocked_notifications: list[
-            tuple[str, str, str | None, str | None]
-        ] = []  # (domain, reason, task_id, cause_id)
+        self._pending_blocked_notifications: list[tuple[str, str, str | None, str | None]] = (
+            []
+        )  # (domain, reason, task_id, cause_id)
 
     def verify_claim(
         self,

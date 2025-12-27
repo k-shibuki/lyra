@@ -205,12 +205,12 @@ class EntityExtractor:
             confidence=0.9,
             identifiers=[(IdentifierType.DOMAIN, cert_result.query_domain)],
             extra_data={
-                "earliest_cert": cert_result.earliest_cert.isoformat()
-                if cert_result.earliest_cert
-                else None,
-                "latest_cert": cert_result.latest_cert.isoformat()
-                if cert_result.latest_cert
-                else None,
+                "earliest_cert": (
+                    cert_result.earliest_cert.isoformat() if cert_result.earliest_cert else None
+                ),
+                "latest_cert": (
+                    cert_result.latest_cert.isoformat() if cert_result.latest_cert else None
+                ),
                 "cert_count": len(cert_result.certificates),
             },
         )

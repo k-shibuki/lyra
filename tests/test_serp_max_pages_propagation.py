@@ -165,4 +165,3 @@ class TestSerpMaxPagesWiringToSearchSerp:
         second = mock_search_serp.await_args_list[1].kwargs["serp_max_pages"]
         assert first == 1
         assert second == 3
-

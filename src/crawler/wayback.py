@@ -802,9 +802,9 @@ async def explore_wayback(
                 "summary": entry.summary,
                 "word_count": entry.word_count,
                 "is_current": entry.is_current,
-                "has_significant_change": entry.diff_from_previous.is_significant()
-                if entry.diff_from_previous
-                else False,
+                "has_significant_change": (
+                    entry.diff_from_previous.is_significant() if entry.diff_from_previous else False
+                ),
             }
             for entry in result.timeline
         ],

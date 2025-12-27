@@ -1459,7 +1459,8 @@ class BrowserFetcher:
                         # Select random element from first 5 elements
                         target_element = random.choice(elements[:5])
                         # Get element selector
-                        element_selector = await target_element.evaluate("""
+                        element_selector = await target_element.evaluate(
+                            """
                             (el) => {
                                 if (el.id) return `#${el.id}`;
                                 if (el.className) {
@@ -1468,7 +1469,8 @@ class BrowserFetcher:
                                 }
                                 return el.tagName.toLowerCase();
                             }
-                        """)
+                        """
+                        )
                         if element_selector:
                             await self._human_behavior.move_mouse_to_element(page, element_selector)
                 except Exception as e:
@@ -1762,7 +1764,10 @@ def _detect_challenge_type(content: str) -> str:
 
     # Check for specific challenge types in order of specificity
     # Use same specific patterns as _is_challenge_page for consistency
-    if 'class="cf-turnstile"' in content_lower or "challenges.cloudflare.com/turnstile" in content_lower:
+    if (
+        'class="cf-turnstile"' in content_lower
+        or "challenges.cloudflare.com/turnstile" in content_lower
+    ):
         return "turnstile"
 
     if 'src="https://hcaptcha.com' in content_lower or 'class="h-captcha"' in content_lower:
@@ -2497,12 +2502,16 @@ async def _fetch_url_impl(
                             from_cache=False,
                             # Archive-specific fields
                             is_archived=True,
-                            archive_date=fallback_result.snapshot.timestamp
-                            if fallback_result.snapshot
-                            else None,
-                            archive_url=fallback_result.snapshot.wayback_url
-                            if fallback_result.snapshot
-                            else None,
+                            archive_date=(
+                                fallback_result.snapshot.timestamp
+                                if fallback_result.snapshot
+                                else None
+                            ),
+                            archive_url=(
+                                fallback_result.snapshot.wayback_url
+                                if fallback_result.snapshot
+                                else None
+                            ),
                             freshness_penalty=fallback_result.freshness_penalty,
                         )
                         escalation_path.append("wayback_fallback")
@@ -2510,9 +2519,9 @@ async def _fetch_url_impl(
                         logger.info(
                             "Wayback fallback successful",
                             url=url[:80],
-                            archive_date=result.archive_date.isoformat()
-                            if result.archive_date
-                            else None,
+                            archive_date=(
+                                result.archive_date.isoformat() if result.archive_date else None
+                            ),
                             freshness_penalty=result.freshness_penalty,
                         )
 

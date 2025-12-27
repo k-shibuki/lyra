@@ -207,9 +207,9 @@ class ParserDiagnosticReport:
             "engine": self.engine,
             "failed_selector_names": [s.name for s in self.failed_selectors],
             "candidate_count": len(self.candidate_elements),
-            "top_candidate": self.candidate_elements[0].selector
-            if self.candidate_elements
-            else None,
+            "top_candidate": (
+                self.candidate_elements[0].selector if self.candidate_elements else None
+            ),
             "html_path": str(self.html_path) if self.html_path else None,
             "has_suggestions": len(self.suggested_fixes) > 0,
         }

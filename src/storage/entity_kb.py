@@ -232,9 +232,9 @@ class EntityRecord:
             "canonical_name": self.canonical_name,
             "display_name": self.display_name,
             "normalized_name": self.normalized_name.to_dict() if self.normalized_name else None,
-            "normalized_address": self.normalized_address.to_dict()
-            if self.normalized_address
-            else None,
+            "normalized_address": (
+                self.normalized_address.to_dict() if self.normalized_address else None
+            ),
             "confidence": self.confidence,
             "source_type": self.source_type.value,
             "source_url": self.source_url,
@@ -1075,9 +1075,9 @@ class EntityKB:
                     "canonical_name": normalized_name.canonical,
                     "display_name": normalized_name.original,
                     "normalized_name_json": json.dumps(normalized_name.to_dict()),
-                    "normalized_address_json": json.dumps(normalized_address.to_dict())
-                    if normalized_address
-                    else None,
+                    "normalized_address_json": (
+                        json.dumps(normalized_address.to_dict()) if normalized_address else None
+                    ),
                     "confidence": confidence,
                     "source_type": source_type.value,
                     "source_url": source_url,
@@ -1419,9 +1419,9 @@ class EntityKB:
                 normalized_name=normalized_name,
                 normalized_address=normalized_address,
                 confidence=row.get("confidence", 0.5),
-                source_type=SourceType(row["source_type"])
-                if row.get("source_type")
-                else SourceType.MANUAL,
+                source_type=(
+                    SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL
+                ),
                 source_url=row.get("source_url"),
                 extra_data=extra_data,
             )
@@ -1439,9 +1439,9 @@ class EntityKB:
             identifier_normalized=row["identifier_normalized"],
             is_primary=bool(row.get("is_primary", False)),
             confidence=row.get("confidence", 0.5),
-            source_type=SourceType(row["source_type"])
-            if row.get("source_type")
-            else SourceType.MANUAL,
+            source_type=(
+                SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL
+            ),
         )
 
     def _row_to_alias(self, row: dict[str, Any]) -> EntityAlias:
@@ -1454,9 +1454,9 @@ class EntityKB:
             alias_type=row["alias_type"],
             language=row.get("language"),
             confidence=row.get("confidence", 0.5),
-            source_type=SourceType(row["source_type"])
-            if row.get("source_type")
-            else SourceType.MANUAL,
+            source_type=(
+                SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL
+            ),
         )
 
     async def _add_identifier(

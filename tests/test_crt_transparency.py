@@ -372,9 +372,9 @@ Certificate:
         assert "third-party.org" in result.discovered_domains
 
         # Issuers should be tracked (from fixture data)
-        assert "Let's Encrypt" in result.discovered_issuers, (
-            f"Expected 'Let\\'s Encrypt' in issuers: {result.discovered_issuers}"
-        )
+        assert (
+            "Let's Encrypt" in result.discovered_issuers
+        ), f"Expected 'Let\\'s Encrypt' in issuers: {result.discovered_issuers}"
 
         # Timeline
         assert result.earliest_cert is not None
@@ -393,7 +393,8 @@ class TestCertTransparencyClient:
     async def test_search_success(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test successful certificate search."""
         html_path = tmp_path / "crt.html"
-        html_path.write_text("""
+        html_path.write_text(
+            """
         <table>
             <tr><th>ID</th><th>Logged</th><th>Not Before</th><th>Not After</th><th>CN</th><th>SANs</th><th>Issuer</th></tr>
             <tr>
@@ -406,7 +407,8 @@ class TestCertTransparencyClient:
                 <td>R3</td>
             </tr>
         </table>
-        """)
+        """
+        )
 
         result = MagicMock()
         result.ok = True
@@ -424,12 +426,14 @@ class TestCertTransparencyClient:
     async def test_search_cache(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test that results are cached."""
         html_path = tmp_path / "crt.html"
-        html_path.write_text("""
+        html_path.write_text(
+            """
         <table>
             <tr><th>ID</th><th>Logged</th><th>Not Before</th><th>Not After</th><th>CN</th><th>SANs</th><th>Issuer</th></tr>
             <tr><td>1</td><td>2024-01-01</td><td>2024-01-01</td><td>2024-04-01</td><td>cached.com</td><td>cached.com</td><td>CA</td></tr>
         </table>
-        """)
+        """
+        )
 
         result = MagicMock()
         result.ok = True
@@ -456,7 +460,8 @@ class TestCertTransparencyClient:
     async def test_discover_related_domains(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test discovering related domains."""
         html_path = tmp_path / "crt.html"
-        html_path.write_text("""
+        html_path.write_text(
+            """
         <table>
             <tr><th>ID</th><th>Logged</th><th>Not Before</th><th>Not After</th><th>CN</th><th>SANs</th><th>Issuer</th></tr>
             <tr>
@@ -469,7 +474,8 @@ class TestCertTransparencyClient:
                 <td>CA</td>
             </tr>
         </table>
-        """)
+        """
+        )
 
         result = MagicMock()
         result.ok = True
@@ -487,7 +493,8 @@ class TestCertTransparencyClient:
     async def test_build_timeline(self, mock_fetcher: AsyncMock, tmp_path: Path) -> None:
         """Test building certificate timeline."""
         html_path = tmp_path / "crt.html"
-        html_path.write_text("""
+        html_path.write_text(
+            """
         <table>
             <tr><th>ID</th><th>Logged</th><th>Not Before</th><th>Not After</th><th>CN</th><th>SANs</th><th>Issuer</th></tr>
             <tr>
@@ -509,7 +516,8 @@ class TestCertTransparencyClient:
                 <td>DigiCert</td>
             </tr>
         </table>
-        """)
+        """
+        )
 
         result = MagicMock()
         result.ok = True

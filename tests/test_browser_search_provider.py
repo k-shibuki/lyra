@@ -3148,9 +3148,9 @@ class TestQueryNormalization:
                                                     call_args = (
                                                         mock_parser.build_search_url.call_args
                                                     )
-                                                    assert call_args is not None, (
-                                                        "build_search_url should be called"
-                                                    )
+                                                    assert (
+                                                        call_args is not None
+                                                    ), "build_search_url should be called"
                                                     normalized_query = call_args.kwargs.get("query")
                                                     assert normalized_query == ""
 
@@ -3404,7 +3404,9 @@ class TestDynamicWeightUsage:
                                             mock_policy_engine.get_dynamic_engine_weight.assert_called()
 
                                             # Verify engine and category were passed
-                                            call_args = mock_policy_engine.get_dynamic_engine_weight.call_args
+                                            call_args = (
+                                                mock_policy_engine.get_dynamic_engine_weight.call_args
+                                            )
                                             assert call_args[0][0] == "duckduckgo"  # engine
 
                                             assert response.ok is True

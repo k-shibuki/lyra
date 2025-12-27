@@ -1221,9 +1221,9 @@ class TestSearchQueuePerformance:
             ("task_pf03_parallel",),
         )
         assert completed is not None
-        assert completed["cnt"] == num_jobs, (
-            f"Expected {num_jobs} completed, got {completed['cnt']}"
-        )
+        assert (
+            completed["cnt"] == num_jobs
+        ), f"Expected {num_jobs} completed, got {completed['cnt']}"
 
         # Note: Due to the nature of async processing, we can't guarantee which worker
         # processed which job, but we verify that all jobs were processed correctly.
@@ -1421,12 +1421,12 @@ class TestSearchQueuePerformance:
 
         # Verify processing order: high → medium → low
         assert len(processing_order) == 3
-        assert processing_order[0] == "high priority", (
-            f"Expected high first, got {processing_order}"
-        )
-        assert processing_order[1] == "medium priority", (
-            f"Expected medium second, got {processing_order}"
-        )
+        assert (
+            processing_order[0] == "high priority"
+        ), f"Expected high first, got {processing_order}"
+        assert (
+            processing_order[1] == "medium priority"
+        ), f"Expected medium second, got {processing_order}"
         assert processing_order[2] == "low priority", f"Expected low last, got {processing_order}"
 
     @pytest.mark.asyncio
@@ -1905,13 +1905,15 @@ class TestSearchQueueWorkerOptionsPropagation:
                 50,
                 "network_client",
                 "queued",
-                json.dumps({
-                    "query": "test query",
-                    "options": {
-                        "budget_pages": 7,
-                        "engines": ["mojeek"],
-                    },
-                }),
+                json.dumps(
+                    {
+                        "query": "test query",
+                        "options": {
+                            "budget_pages": 7,
+                            "engines": ["mojeek"],
+                        },
+                    }
+                ),
                 now,
             ),
         )
@@ -1951,9 +1953,9 @@ class TestSearchQueueWorkerOptionsPropagation:
                     pass
 
         # Verify options were passed to search_action
-        assert "budget_pages" in captured_options, (
-            f"budget_pages not in captured options: {captured_options}"
-        )
+        assert (
+            "budget_pages" in captured_options
+        ), f"budget_pages not in captured options: {captured_options}"
         assert captured_options["budget_pages"] == 7
         assert "engines" in captured_options
         assert captured_options["engines"] == ["mojeek"]
@@ -1988,10 +1990,12 @@ class TestSearchQueueWorkerOptionsPropagation:
                 50,
                 "network_client",
                 "queued",
-                json.dumps({
-                    "query": "budget effect test",
-                    "options": {"budget_pages": 3},
-                }),
+                json.dumps(
+                    {
+                        "query": "budget effect test",
+                        "options": {"budget_pages": 3},
+                    }
+                ),
                 now,
             ),
         )

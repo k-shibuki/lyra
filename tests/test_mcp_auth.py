@@ -938,12 +938,12 @@ class TestCaptureAuthSessionCookies:
         assert "cookies" in result, "Should have cookies field"
         # Only parent domain cookie should be included, subdomain cookie should be excluded
         assert len(result["cookies"]) == 1, "Should have 1 matching cookie (parent domain only)"
-        assert result["cookies"][0]["name"] == "parent_session", (
-            "Should include parent domain cookie"
-        )
-        assert result["cookies"][0]["domain"] == "example.com", (
-            "Cookie domain should be example.com"
-        )
+        assert (
+            result["cookies"][0]["name"] == "parent_session"
+        ), "Should include parent domain cookie"
+        assert (
+            result["cookies"][0]["domain"] == "example.com"
+        ), "Cookie domain should be example.com"
 
     @pytest.mark.asyncio
     async def test_capture_includes_parent_cookies_for_subdomain(self) -> None:

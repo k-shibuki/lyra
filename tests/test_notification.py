@@ -177,9 +177,9 @@ class TestInterventionStatus:
         # When/Then: Check each status has correct value
         for attr_name, expected_value in expected_statuses.items():
             status = getattr(InterventionStatus, attr_name)
-            assert status.value == expected_value, (
-                f"InterventionStatus.{attr_name} should be '{expected_value}', got '{status.value}'"
-            )
+            assert (
+                status.value == expected_value
+            ), f"InterventionStatus.{attr_name} should be '{expected_value}', got '{status.value}'"
 
 
 @pytest.mark.unit
@@ -232,15 +232,15 @@ class TestInterventionResult:
         )
 
         # Then: All fields have expected values
-        assert result.intervention_id == "test_123", (
-            f"intervention_id should be 'test_123', got '{result.intervention_id}'"
-        )
-        assert result.status == InterventionStatus.SUCCESS, (
-            f"status should be SUCCESS, got {result.status}"
-        )
-        assert result.elapsed_seconds == 30.5, (
-            f"elapsed_seconds should be 30.5, got {result.elapsed_seconds}"
-        )
+        assert (
+            result.intervention_id == "test_123"
+        ), f"intervention_id should be 'test_123', got '{result.intervention_id}'"
+        assert (
+            result.status == InterventionStatus.SUCCESS
+        ), f"status should be SUCCESS, got {result.status}"
+        assert (
+            result.elapsed_seconds == 30.5
+        ), f"elapsed_seconds should be 30.5, got {result.elapsed_seconds}"
         assert result.should_retry is False, "should_retry should default to False for success"
         assert result.cooldown_until is None, "cooldown_until should default to None"
         assert result.skip_domain_today is False, "skip_domain_today should default to False"
@@ -264,16 +264,16 @@ class TestInterventionResult:
         )
 
         # Then
-        assert result.status == InterventionStatus.TIMEOUT, (
-            f"status should be TIMEOUT, got {result.status}"
-        )
+        assert (
+            result.status == InterventionStatus.TIMEOUT
+        ), f"status should be TIMEOUT, got {result.status}"
         assert result.should_retry is True, "should_retry should be True for timeout"
-        assert result.cooldown_until == cooldown, (
-            f"cooldown_until should be {cooldown}, got {result.cooldown_until}"
-        )
-        assert result.notes is not None and "180" in result.notes, (
-            f"notes should contain timeout duration, got '{result.notes}'"
-        )
+        assert (
+            result.cooldown_until == cooldown
+        ), f"cooldown_until should be {cooldown}, got {result.cooldown_until}"
+        assert (
+            result.notes is not None and "180" in result.notes
+        ), f"notes should contain timeout duration, got '{result.notes}'"
 
     def test_to_dict_serialization(self) -> None:
         """Test serialization to dict for JSON output."""
@@ -288,12 +288,12 @@ class TestInterventionResult:
         serialized = result.to_dict()
 
         # Then: Check specific keys and values
-        assert serialized["intervention_id"] == "test_789", (
-            f"intervention_id should be 'test_789', got '{serialized['intervention_id']}'"
-        )
-        assert serialized["status"] == "skipped", (
-            f"status should be 'skipped', got '{serialized['status']}'"
-        )
+        assert (
+            serialized["intervention_id"] == "test_789"
+        ), f"intervention_id should be 'test_789', got '{serialized['intervention_id']}'"
+        assert (
+            serialized["status"] == "skipped"
+        ), f"status should be 'skipped', got '{serialized['status']}'"
         assert serialized["skip_domain_today"] is True, "skip_domain_today should be True"
         assert isinstance(serialized, dict), f"Result should be dict, got {type(serialized)}"
 
@@ -320,9 +320,9 @@ class TestInterventionManagerCore:
         actual_cooldown = intervention_manager.cooldown_minutes
         min_cooldown = 60
 
-        assert actual_cooldown >= min_cooldown, (
-            f"cooldown_minutes should be >= {min_cooldown} per ADR-0006, got {actual_cooldown}"
-        )
+        assert (
+            actual_cooldown >= min_cooldown
+        ), f"cooldown_minutes should be >= {min_cooldown} per ADR-0006, got {actual_cooldown}"
 
 
 # =============================================================================
@@ -588,12 +588,12 @@ class TestInterventionFlow:
                         )
 
                         # Then: Should return PENDING immediately
-                        assert result.status == InterventionStatus.PENDING, (
-                            f"Expected PENDING status per ADR-0007, got {result.status}"
-                        )
-                        assert "complete_authentication" in (result.notes or ""), (
-                            "Notes should mention complete_authentication method"
-                        )
+                        assert (
+                            result.status == InterventionStatus.PENDING
+                        ), f"Expected PENDING status per ADR-0007, got {result.status}"
+                        assert "complete_authentication" in (
+                            result.notes or ""
+                        ), "Notes should mention complete_authentication method"
 
     @pytest.mark.asyncio
     async def test_logs_intervention_to_database(
@@ -621,9 +621,9 @@ class TestInterventionFlow:
                     )
 
                     # Then
-                    assert mock_db.execute.called, (
-                        "Database execute should be called to log intervention"
-                    )
+                    assert (
+                        mock_db.execute.called
+                    ), "Database execute should be called to log intervention"
 
 
 # =============================================================================
@@ -660,12 +660,12 @@ class TestNotifyUserFunction:
                     )
 
                     # Then
-                    assert result["shown"] is True, (
-                        "Result 'shown' should be True when toast succeeds"
-                    )
-                    assert result["event"] == "info", (
-                        f"Result 'event' should be 'info', got '{result['event']}'"
-                    )
+                    assert (
+                        result["shown"] is True
+                    ), "Result 'shown' should be True when toast succeeds"
+                    assert (
+                        result["event"] == "info"
+                    ), f"Result 'event' should be 'info', got '{result['event']}'"
 
     @pytest.mark.asyncio
     async def test_captcha_event_returns_pending_per_spec(
@@ -702,9 +702,9 @@ class TestNotifyUserFunction:
                     )
 
                     # Then: Should be PENDING per ADR-0007
-                    assert result["status"] == "pending", (
-                        f"Result 'status' should be 'pending' per ADR-0007, got '{result['status']}'"
-                    )
+                    assert (
+                        result["status"] == "pending"
+                    ), f"Result 'status' should be 'pending' per ADR-0007, got '{result['status']}'"
 
 
 # =============================================================================
@@ -746,9 +746,9 @@ class TestInterventionIntegration:
                         )
 
                         # Then: Should return PENDING immediately
-                        assert result.status == InterventionStatus.PENDING, (
-                            f"Expected PENDING status per ADR-0007, got {result.status}"
-                        )
+                        assert (
+                            result.status == InterventionStatus.PENDING
+                        ), f"Expected PENDING status per ADR-0007, got {result.status}"
 
     @pytest.mark.asyncio
     async def test_complete_intervention_marks_success(
@@ -781,9 +781,9 @@ class TestInterventionIntegration:
                 )
 
                 # Then: Intervention removed from pending
-                assert intervention_id not in manager._pending_interventions, (
-                    "Completed intervention should be removed from pending"
-                )
+                assert (
+                    intervention_id not in manager._pending_interventions
+                ), "Completed intervention should be removed from pending"
 
                 # Then: Database updated with success
                 assert mock_db.execute.called, "Database should be updated"
@@ -812,9 +812,9 @@ class TestInterventionIntegration:
                 status = await manager.check_intervention_status(intervention_id)
 
                 # Then: Should still be pending (no timeout per ADR-0007)
-                assert status["status"] == "pending", (
-                    f"Expected 'pending' status per ADR-0007, got '{status['status']}'"
-                )
+                assert (
+                    status["status"] == "pending"
+                ), f"Expected 'pending' status per ADR-0007, got '{status['status']}'"
                 assert "elapsed_seconds" in status, "Status should include elapsed_seconds"
                 assert "note" in status, "Status should include note about user completion"
 

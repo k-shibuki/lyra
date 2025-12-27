@@ -281,6 +281,6 @@ class TestCitationSourcePriority:
             title="Test",
             source_tag=source_tag,
         )
-        assert citation.is_primary_source is expected, (
-            f"Source tag '{source_tag}' should be primary={expected}"
-        )
+        assert (
+            citation.is_primary_source is expected
+        ), f"Source tag '{source_tag}' should be primary={expected}"

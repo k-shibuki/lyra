@@ -161,9 +161,9 @@ class TestCitationInfo:
         assert citation.discovered_at == "2024-01-15T10:30:00Z"
         assert citation.source_tag == "government"
         assert citation.is_primary is True
-        assert "経済成長率" in citation.excerpt, (
-            f"Expected '経済成長率' in excerpt: {citation.excerpt}"
-        )
+        assert (
+            "経済成長率" in citation.excerpt
+        ), f"Expected '経済成長率' in excerpt: {citation.excerpt}"
 
     def test_from_fragment_without_heading(self) -> None:
         """Test creating CitationInfo when heading_context is None."""
