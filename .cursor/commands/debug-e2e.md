@@ -32,10 +32,128 @@ This command focuses on concrete procedures and Lyra-specific troubleshooting.
 1. **Confirm symptom**: Reproduce (or explain why not reproducible). State expected vs actual.
 2. **Define expected state**: Before diving in, articulate the correct DB/queue/cache state.
 3. **Collect evidence**: Stack trace, logs, DB queries, environment checks.
-4. **Form hypotheses**: List candidate causes with hypothesis IDs (A, B, C, ...).
-5. **Instrument & validate**: Add logs/assertions to prove or disprove each hypothesis.
-6. **Implement minimal fix**: Change the smallest amount of code that corrects the issue.
-7. **Verify**: Run targeted tests + regression tests.
+4. **Triage errors**: Classify each error as Normal/Problem (see Error Triage below).
+5. **Form hypotheses**: List candidate causes with hypothesis IDs (A, B, C, ...).
+6. **Instrument & validate**: Add logs/assertions to prove or disprove each hypothesis.
+7. **Pattern analysis**: Group validated findings into patterns (see Pattern Analysis below).
+8. **Prioritize**: Assign P1/P2/P3—don't fix everything (see Priority Management below).
+9. **Implement minimal fix**: Change the smallest amount of code that corrects the issue.
+10. **Verify**: Run targeted tests + regression tests.
+
+---
+
+## Error Triage (Normal vs Problem)
+
+**Critical step**: Not all errors are bugs. Before investigating, classify each error.
+
+| Classification | Meaning | Action |
+|----------------|---------|--------|
+| **Normal** | Expected behavior, not a bug | Document in Known Acceptable Errors, skip |
+| **Problem** | Unexpected, needs investigation | Form hypothesis, investigate |
+| **Unknown** | Need more context to classify | Gather more logs, then reclassify |
+
+### Known Acceptable Errors
+
+These are **not bugs**—skip investigation:
+
+| Error | Why it's normal | Source |
+|-------|-----------------|--------|
+| Academic API 404 | Paper doesn't exist or was deleted | DEBUG_E2E_02 |
+| Profile drift (auto-repaired) | Browser fingerprint naturally changes | DEBUG_E2E_02 |
+| Pipeline timeout (180s) | ADR-0002 safe stop working correctly | ADR-0002 |
+| User closed browser | External action, not a bug | DEBUG_E2E_01 |
+| OpenAlex 404 on `s2:xxx` IDs | S2 ID format not recognized | DEBUG_E2E_02 |
+
+**Update this table** when you discover new "normal" errors.
+
+---
+
+## Hypothesis Management
+
+### The value of rejection
+
+**Rejecting a hypothesis is as valuable as confirming one.** It narrows the search space.
+
+```markdown
+| ID | Hypothesis | Result |
+|----|------------|--------|
+| H-A | Rate Limiter not shared between workers | ❌ Rejected - Singleton confirmed |
+| H-B | OpenAlex ID conversion missing | ⏳ Pending - P3 |
+| H-C | NoneType defense missing | ✅ Adopted - Fixed |
+```
+
+### Don't skip rejection
+
+```
+Formed → Instrumented → Validated → Adopted / ❌ Rejected
+                                          ↓
+                               (if Rejected) → Next hypothesis
+```
+
+**Bad**: Jump to fix without validation.
+**Good**: Prove/disprove before changing code.
+
+---
+
+## Pattern Analysis
+
+After triaging errors and validating hypotheses, group findings:
+
+```markdown
+### Pattern Analysis
+
+**1. Academic API 404 Errors (124 total)**
+- Classification: Normal
+- Action: None (add to Known Acceptable Errors)
+
+**2. Semantic Scholar Rate Limiting (2)**
+- Classification: Problem
+- Action: P2 - Increase backoff
+
+**3. Profile Drift (2)**
+- Classification: Normal (auto-repaired)
+- Action: None
+```
+
+| Category | Description | Action |
+|----------|-------------|--------|
+| **Normal operation** | Expected errors | Document, skip |
+| **Edge case** | Rare but valid | Add defensive code |
+| **Design flaw** | Architectural issue | Create ADR |
+| **Implementation bug** | Code doesn't match design | Fix now |
+
+---
+
+## Priority Management
+
+**Don't fix everything.** Assign priorities:
+
+| Priority | Criteria | Timeline |
+|----------|----------|----------|
+| **P1** | Blocks E2E, data corruption | Fix now |
+| **P2** | Degrades performance, warnings | This session |
+| **P3** | Optimization opportunity | Backlog |
+| **Won't Fix** | Normal behavior, acceptable | Document only |
+
+### Decision tree
+
+```
+Blocks E2E? → Yes: P1
+           → No: Data inconsistency? → Yes: P1
+                                    → No: UX degradation? → Yes: P2
+                                                         → No: Known acceptable? → Yes: Won't Fix
+                                                                                → No: P3
+```
+
+### Remaining Issues format
+
+```markdown
+| Priority | Issue | Description | Action |
+|----------|-------|-------------|--------|
+| P2 | S2 Rate Limiting | 2 failed after 6 retries | Increase backoff |
+| P3 | API 404 Caching | 124 warnings | Cache invalid IDs |
+| Won't Fix | OpenAlex S2 ID | 404 on s2:xxx | Known limitation |
+```
 
 ---
 
@@ -271,22 +389,42 @@ One-line result: ✅ Resolved / ❌ Ongoing / ⚠️ Partial
 - Actual: ...
 
 ## Error Analysis
-| Category | Count | Event | Cause |
-|----------|-------|-------|-------|
-| ... | ... | ... | ... |
+| Category | Count | Classification | Cause |
+|----------|-------|----------------|-------|
+| Academic API 404 | 124 | Normal | Paper doesn't exist |
+| Rate Limiting | 2 | Problem | Too many requests |
 
 ## Hypotheses and Results
 | ID | Hypothesis | Result |
 |----|------------|--------|
-| A | ... | ✅ Adopted / ❌ Rejected |
+| H-A | Rate Limiter not shared | ❌ Rejected - Singleton confirmed |
+| H-B | NoneType defense missing | ✅ Adopted - Fixed |
+
+## Pattern Analysis
+**1. Academic API 404 Errors (124 total)**
+- Classification: Normal
+- Action: None (documented in Known Acceptable Errors)
+
+**2. Rate Limiting (2)**
+- Classification: Problem
+- Action: P2 - Increase backoff
 
 ## Fixes Applied
-1. File: change summary
-2. File: change summary
+1. `src/xxx.py`: change summary
+2. `src/yyy.py`: change summary
 
 ## Verification
-- Test command and result
-- Remaining issues (if any)
+```bash
+timeout 60 uv run python scripts/debug_xxx.py
+```
+Result: ✅ PASS
+
+## Remaining Issues
+| Priority | Issue | Description | Action |
+|----------|-------|-------------|--------|
+| P2 | S2 Rate Limiting | 2 failed | Increase backoff |
+| P3 | API 404 Caching | 124 warnings | Cache invalid IDs |
+| Won't Fix | OpenAlex S2 ID | 404 on s2:xxx | Known limitation |
 ```
 
 ---
@@ -300,6 +438,24 @@ One-line result: ✅ Resolved / ❌ Ongoing / ⚠️ Partial
 | Schema | `src/storage/schema.sql` | Table structure |
 | MCP tools | `src/mcp/server.py` | Tool definitions |
 | Debug reports | `docs/debug/` | Past debugging sessions |
+
+### Learning from past debug sessions
+
+Before starting a new debug session, **check `docs/debug/` for similar issues**:
+
+```bash
+# List past debug reports
+ls -la docs/debug/
+
+# Search for similar symptoms
+grep -r "rate limit" docs/debug/
+grep -r "NoneType" docs/debug/
+```
+
+Past reports contain:
+- **Known Acceptable Errors**: Don't reinvestigate
+- **Proven fixes**: Patterns that worked before
+- **Rejected hypotheses**: Don't repeat failed investigations
 
 ---
 
