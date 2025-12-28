@@ -190,14 +190,30 @@ Run debug scripts: `timeout 120 uv run python scripts/debug_*.py`
 
 ## Instrumentation
 
-Log file: `.cursor/debug.log` (NDJSON with `hypothesisId` field)
+Log file: `.cursor/debug.log` (NDJSON)
 
 ```bash
 cat .cursor/debug.log | jq -s 'map(select(.hypothesisId == "A"))'
-> .cursor/debug.log  # Clear
+> .cursor/debug.log  # Clear before run
 ```
 
-Use `#region agent log` markers. Remove after debugging.
+Add instrumentation with region markers for easy cleanup:
+
+```python
+# #region agent log
+import json, time
+with open(".cursor/debug.log", "a") as f:
+    f.write(json.dumps({
+        "hypothesisId": "A",
+        "location": "src/module.py:func_name",
+        "message": "description",
+        "data": {"key": "value"},
+        "timestamp": time.time() * 1000
+    }) + "\n")
+# #endregion
+```
+
+After debugging, search and remove all `#region agent log` blocks.
 
 ---
 
