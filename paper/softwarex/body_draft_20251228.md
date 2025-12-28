@@ -160,7 +160,7 @@ To evaluate Lyra's capabilities for systematic evidence synthesis, we conducted 
 |---------|---------------|
 | **Population** | Type 2 diabetes patients receiving insulin therapy with HbA1c ≥7% |
 | **Intervention** | DPP-4 inhibitors as add-on therapy |
-| **Comparison** | Other add-on therapies (GLP-1 agonists, SGLT2 inhibitors) |
+| **Comparison** | Placebo as add-on (no additional active therapy) |
 | **Outcomes** | Efficacy (HbA1c reduction) and safety (hypoglycemia risk) |
 
 **Main Query**:
