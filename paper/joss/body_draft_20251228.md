@@ -8,11 +8,9 @@ tags:
   - Model Context Protocol
 authors:
   - name: Katsuya Shibuki
-    # TODO: Add ORCID after registration (https://orcid.org/register)
-    # orcid: 0000-0000-0000-0000
+    orcid: 0000-0003-3570-5038
     affiliation: 1
 affiliations:
-  # TODO: Confirm affiliation details
   - name: Independent Researcher
     index: 1
 date: 28 December 2025
@@ -58,7 +56,7 @@ BLOCKING ITEMS BEFORE SUBMISSION:
   2. [ ] Create CONTRIBUTING.md
   3. [ ] Create CITATION.cff
   4. [ ] Create paper.bib with all references
-  5. [ ] Confirm author affiliation and ORCID
+  5. [x] Confirm author affiliation and ORCID
   6. [ ] Review word count (target: 250-1000 words)
 ================================================================================
 -->
@@ -121,15 +119,20 @@ Lyra differentiates by providing:
 
 # Implementation
 
-Lyra is implemented in Python 3.13 with an async architecture. Key components include:
+Lyra is implemented in Python 3.13 with an async architecture (~76,000 lines of source code, ~90,000 lines of tests). Key components include:
 
 - **MCP Server** (`src/mcp/`): 10 tools for task management, search execution, and materials retrieval
-- **Evidence Graph** (`src/filter/evidence_graph.py`): NetworkX-based graph with SQLite persistence
-- **ML Server** (`src/ml_server/`): FastAPI service for embedding, reranking, and NLI inference
-- **Browser Automation** (`src/crawler/`): Playwright-based fetching with anti-detection measures
-- **Academic APIs** (`src/search/apis/`): Semantic Scholar and OpenAlex integration
+- **Evidence Graph** (`src/filter/evidence_graph.py`): NetworkX-based graph with SQLite persistence; Bayesian confidence via Beta distribution updating
+- **ML Server** (`src/ml_server/`): FastAPI service for embedding (BGE-M3), reranking (BGE-Reranker-v2-m3), and NLI inference (DeBERTa-v3)
+- **Async Search Queue** (`src/scheduler/`): Non-blocking search with 2 parallel workers, long-polling status updates (ADR-0010)
+- **Browser Automation** (`src/crawler/`): Playwright-based fetching with CDP isolation per worker (ADR-0014)
+- **Academic APIs** (`src/search/apis/`): Semantic Scholar and OpenAlex with global rate limiting (ADR-0013)
+- **Security** (`src/filter/llm_security.py`): 8-layer defense-in-depth model including input sanitization, session tags, and output validation (ADR-0006)
+- **Human-in-the-Loop** (`src/utils/notification.py`): Authentication queue for CAPTCHAs and login-required sites (ADR-0007)
 
-The codebase includes 16 Architecture Decision Records (ADRs) documenting design rationale, from local-first principles (ADR-0001) to evidence graph structure (ADR-0005) to security layers (ADR-0006).
+All queries execute both browser SERP and academic APIs in parallel, with DOI-based deduplication (ADR-0016). The feedback tool enables human correction of NLI judgments, accumulating training data for future LoRA fine-tuning (ADR-0011, ADR-0012).
+
+The codebase includes 16 Architecture Decision Records (ADRs) documenting design rationale, from local-first principles (ADR-0001) to thinking-working separation (ADR-0002) to evidence graph structure (ADR-0005).
 
 <!-- TODO: After E2E completion, add:
      - Performance characteristics (throughput, latency)
