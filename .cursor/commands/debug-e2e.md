@@ -1,11 +1,11 @@
 # debug-e2e
 
-E2Eシナリオのデバッグ手順。Policy: `@.cursor/rules/debug-e2e.mdc`
+E2E scenario debugging. Policy: `@.cursor/rules/debug-e2e.mdc`
 
 ## Inputs
 
-| Required | `@logs/lyra_*.log`, エラー/スタックトレース, 再現手順 |
-|----------|-------------------------------------------------------|
+| Required | `@logs/lyra_*.log`, error/stacktrace, repro steps |
+|----------|---------------------------------------------------|
 | Optional | `@src/...`, `@tests/...`, `@docs/adr/` |
 
 ---
@@ -14,16 +14,16 @@ E2Eシナリオのデバッグ手順。Policy: `@.cursor/rules/debug-e2e.mdc`
 
 | Step | Action |
 |------|--------|
-| 1. Symptom | 再現確認、expected vs actual を明記 |
-| 2. Expected state | 正常時の DB/queue/cache 状態を定義 |
-| 3. Evidence | ログ収集、DBクエリ、環境確認 |
-| 4. Triage | 各エラーを Normal/Problem に分類 |
-| 5. Hypotheses | 仮説をID付きで列挙 (A, B, C...) |
-| 6. Validate | 計装で仮説を検証、Adopted/Rejected を記録 |
-| 7. Pattern | ログのERROR/WARNINGを集計・分類 |
-| 8. Prioritize | P1/P2/P3/Won't Fix を割り当て |
-| 9. Fix | 最小限の修正 |
-| 10. Verify | テスト実行、回帰確認 |
+| 1. Symptom | Reproduce, state expected vs actual |
+| 2. Expected state | Define correct DB/queue/cache state |
+| 3. Evidence | Collect logs, DB queries, env checks |
+| 4. Triage | Classify each error as Normal/Problem |
+| 5. Hypotheses | List with IDs (A, B, C...) |
+| 6. Validate | Instrument, record Adopted/Rejected |
+| 7. Pattern | Aggregate ERROR/WARNING from logs |
+| 8. Prioritize | Assign P1/P2/P3/Won't Fix |
+| 9. Fix | Minimal change |
+| 10. Verify | Run tests, regression check |
 
 ---
 
@@ -31,9 +31,9 @@ E2Eシナリオのデバッグ手順。Policy: `@.cursor/rules/debug-e2e.mdc`
 
 | Classification | Action |
 |----------------|--------|
-| **Normal** | `docs/debug/` で既知なら skip |
-| **Problem** | 仮説を立て調査 |
-| **Unknown** | 追加ログ収集後に再分類 |
+| **Normal** | Skip if known in `docs/debug/` |
+| **Problem** | Form hypothesis, investigate |
+| **Unknown** | Gather more logs, reclassify |
 
 ---
 
@@ -45,20 +45,20 @@ Formed → Instrumented → Validated → ✅ Adopted / ❌ Rejected
                                    (Rejected) → Next
 ```
 
-**棄却も成果**。検証なしに修正しない。
+Rejection narrows search space. Don't fix without validation.
 
 ---
 
 ## Pattern Analysis
 
-`logs/lyra_*.log` と `.cursor/debug.log` の ERROR/WARNING を集計し分類:
+Aggregate ERROR/WARNING from `logs/lyra_*.log` and `.cursor/debug.log`:
 
 | Category | Action |
 |----------|--------|
-| **Normal operation** | debug report に記録、skip |
-| **Edge case** | 防御コード追加 |
-| **Design flaw** | ADR 作成 |
-| **Implementation bug** | 即時修正 |
+| **Normal operation** | Document in report, skip |
+| **Edge case** | Add defensive code |
+| **Design flaw** | Create ADR |
+| **Implementation bug** | Fix immediately |
 
 ---
 
@@ -108,14 +108,16 @@ make mcp-logs-grep PATTERN="error"   # Search
 | Phase | Goal | Check |
 |-------|------|-------|
 | A. Environment | MCP/Chrome/DB running | `make doctor`, `make chrome-diagnose` |
-| B. Queue | Task → Jobs queued → Worker processing | `jobs` table, `make dev-logs-f` |
-| C. Fetch | SERP → page fetch → extraction | `intervention_queue`, `fragments` table |
-| D. NLI | Fragment-Claim judgment, graph | `make dev-status`, `claims`/`edges` table |
+| B. Queue | Task → Jobs → Worker | `jobs` table, `make dev-logs-f` |
+| C. Fetch | SERP → fetch → extract | `intervention_queue`, `fragments` table |
+| D. NLI | Fragment-Claim judgment | `make dev-status`, `claims`/`edges` table |
 | E. Materials | `get_materials` returns graph | `claims` with task_id filter |
 
 ---
 
-## State validation queries
+## State validation
+
+Schema: `src/storage/schema.sql`
 
 ```sql
 -- Orphaned intervention_queue
@@ -165,8 +167,9 @@ Symptom → Expected state → Root cause → Fix → Verification
 
 ## References
 
+| Path | Purpose |
+|------|---------|
 | `docs/S_FULL_E2E.md` | E2E protocol |
-|----------------------|--------------|
 | `docs/adr/` | Architecture decisions |
 | `docs/debug/` | Past sessions, known acceptable errors |
 | `src/storage/schema.sql` | Table structure |
@@ -175,17 +178,9 @@ Symptom → Expected state → Root cause → Fix → Verification
 
 ## Isolated debugging
 
-MCP Server が DB lock を持つ場合、`isolated_database_path()` を使用:
+When MCP Server holds DB lock, use `src/storage/isolation.py:isolated_database_path()`.
 
-```bash
-timeout 120 uv run python scripts/debug_e2e_test.py
-```
-
-```python
-from src.storage.isolation import isolated_database_path
-async with isolated_database_path() as db_path:
-    # temp DB を使用、data/lyra.db に影響なし
-```
+Run debug scripts: `timeout 120 uv run python scripts/debug_*.py`
 
 | Isolated script | API client, rate limiter, parse errors |
 |-----------------|----------------------------------------|
@@ -195,26 +190,17 @@ async with isolated_database_path() as db_path:
 
 ## Instrumentation
 
-`.cursor/debug.log` (NDJSON):
+Log file: `.cursor/debug.log` (NDJSON with `hypothesisId` field)
 
 ```bash
 cat .cursor/debug.log | jq -s 'map(select(.hypothesisId == "A"))'
 > .cursor/debug.log  # Clear
 ```
 
-```python
-# #region agent log
-import json
-with open(".cursor/debug.log", "a") as f:
-    f.write(json.dumps({"hypothesisId": "A", "location": "...", "data": {...}}) + "\n")
-# #endregion
-```
-
-完了後、`#region agent log` ブロックを削除。
+Use `#region agent log` markers. Remove after debugging.
 
 ---
 
 ## Related
 
 `@.cursor/rules/debug-e2e.mdc` | `@.cursor/rules/code-execution.mdc`
-
