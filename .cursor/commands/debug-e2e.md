@@ -1,379 +1,214 @@
 # debug-e2e
 
-## Purpose
+E2E scenario debugging. Policy: `@.cursor/rules/debug-e2e.mdc`
 
-Debug E2E scenarios systematically—identify root causes, implement fixes, and verify them.
+## Inputs
 
-## When to use
-
-- Executing or troubleshooting `docs/S_FULL_E2E.md` or similar E2E scenarios
-- Failures spanning multiple components (MCP → Worker → DB → Browser)
-- State-related bugs (unexpected DB records, queue inconsistencies)
-
-## Inputs (attach as `@...`)
-
-- Error message / stack trace / logs (required; paste or attach files)
-- Repro steps or scenario reference (required)
-- Relevant code (`@src/...`) and tests (`@tests/...`) (recommended)
-- ADRs (`@docs/adr/`) for architectural context (recommended)
-
-## Policy (rules)
-
-Follow the debug policy here:
-
-- `@.cursor/rules/debug-e2e.mdc`
-
-This command focuses on concrete procedures and Lyra-specific troubleshooting.
+| Required | `@logs/lyra_*.log`, error/stacktrace, repro steps |
+|----------|---------------------------------------------------|
+| Optional | `@src/...`, `@tests/...`, `@docs/adr/` |
 
 ---
 
-## Investigation workflow
+## Workflow
 
-1. **Confirm symptom**: Reproduce (or explain why not reproducible). State expected vs actual.
-2. **Define expected state**: Before diving in, articulate the correct DB/queue/cache state.
-3. **Collect evidence**: Stack trace, logs, DB queries, environment checks.
-4. **Form hypotheses**: List candidate causes with hypothesis IDs (A, B, C, ...).
-5. **Instrument & validate**: Add logs/assertions to prove or disprove each hypothesis.
-6. **Implement minimal fix**: Change the smallest amount of code that corrects the issue.
-7. **Verify**: Run targeted tests + regression tests.
+| Step | Action |
+|------|--------|
+| 1. Symptom | Reproduce, state expected vs actual |
+| 2. Expected state | Define correct DB/queue/cache state |
+| 3. Evidence | Collect logs, DB queries, env checks |
+| 4. Triage | Classify each error as Normal/Problem |
+| 5. Hypotheses | List with IDs (A, B, C...) |
+| 6. Validate | Instrument, record Adopted/Rejected |
+| 7. Pattern | Aggregate ERROR/WARNING from logs |
+| 8. Prioritize | Assign P1/P2/P3/Won't Fix |
+| 9. Fix | Minimal change |
+| 10. Verify | Run tests, regression check |
+
+---
+
+## Triage
+
+| Classification | Action |
+|----------------|--------|
+| **Normal** | Skip if known in `docs/debug/` |
+| **Problem** | Form hypothesis, investigate |
+| **Unknown** | Gather more logs, reclassify |
+
+---
+
+## Hypothesis
+
+```
+Formed → Instrumented → Validated → ✅ Adopted / ❌ Rejected
+                                              ↓
+                                   (Rejected) → Next
+```
+
+Rejection narrows search space. Don't fix without validation.
+
+---
+
+## Pattern Analysis
+
+Aggregate ERROR/WARNING from `logs/lyra_*.log` and `.cursor/debug.log`:
+
+| Category | Action |
+|----------|--------|
+| **Normal operation** | Document in report, skip |
+| **Edge case** | Add defensive code |
+| **Design flaw** | Create ADR |
+| **Implementation bug** | Fix immediately |
+
+---
+
+## Priority
+
+| P1 | E2E blocking, data corruption |
+|----|-------------------------------|
+| P2 | Performance degradation |
+| P3 | Optimization |
+| Won't Fix | Normal behavior |
 
 ---
 
 ## Common bug patterns
 
-| Pattern | Symptoms | Typical Fix |
-|---------|----------|-------------|
-| **Async/concurrency** | Missing `await`, race condition, deadlock | Add awaits, serialize/lock, add timeouts |
-| **Type/data** | `None` access, type mismatch, empty data | Guard Optional, validate inputs, handle empties |
-| **Resource management** | Leaked file/connection, pool exhaustion | Use context managers, `finally`, tune pooling |
-| **Error handling** | Swallowed exceptions, over-broad except | Catch specific errors, log, retry safely |
-| **State inconsistency** | Orphan records, invalid status transitions | Validate state before operations, add constraints |
+| Pattern | Symptoms | Fix |
+|---------|----------|-----|
+| Async | Missing `await`, race, deadlock | awaits, lock, timeout |
+| Type/data | `None` access, empty data | Optional guard, validate |
+| Resource | Leaked connection, pool exhaustion | context manager, `finally` |
+| Error handling | Swallowed exception | Catch specific, log, retry |
+| State | Orphan records, invalid transition | Validate before op |
 
 ---
 
-## Environment setup (run first)
+## Environment
 
 ```bash
-# Full health check
-make doctor
-
-# Chrome CDP connection
-make chrome-start
-make chrome-diagnose
-
-# Container status
-make dev-up
-make dev-status
-
-# MCP Server
-make mcp
+make doctor          # Health check
+make chrome-start    # CDP connection
+make dev-up          # Containers
+make mcp             # MCP Server
 ```
 
-## Log access
-
-MCP Server logs are written to `logs/lyra_YYYYMMDD.log`:
+## Logs
 
 ```bash
-# Show recent logs (tail -100)
-make mcp-logs
-
-# Follow logs in real-time (tail -f)
-make mcp-logs-f
-
-# Search logs by pattern
-make mcp-logs-grep PATTERN="ALL_FETCHES_FAILED"
-make mcp-logs-grep PATTERN="error"
-
-# Direct file access (for advanced filtering)
-tail -f logs/lyra_$(date +%Y%m%d).log | jq -r 'select(.level == "WARNING")'
+make mcp-logs                        # Recent 100 lines
+make mcp-logs-f                      # Follow
+make mcp-logs-grep PATTERN="error"   # Search
 ```
 
 ---
 
-## Phase-specific debugging (Lyra E2E)
+## Phase-specific debugging
 
-### Phase A: Environment & Connection
-
-**Goal**: MCP Server running, Chrome CDP connected, DB initialized.
-
-| Symptom | Hypothesis | Check |
-|---------|------------|-------|
-| MCP Server startup failure | Port conflict, missing dependency | `make mcp` logs, `lsof -i :PORT` |
-| Chrome CDP connection failure | WSL2 network issue, Chrome not running | `make chrome-diagnose` |
-| DB initialization error | Migration failure | `src/storage/schema.sql`, migration logs |
-
-### Phase B: Task Creation & Search Queue
-
-**Goal**: `create_task` → `queue_searches` → Worker processing works.
-
-| Symptom | Hypothesis | Check |
-|---------|------------|-------|
-| Jobs not queued | `queue_searches` not inserting | Query `jobs` table |
-| Worker not processing | Worker not started, lock contention | `make dev-logs-f`, query `jobs.status` |
-| Search API errors | Rate limiter, API key issues | `adapters` table, API response logs |
-
-### Phase C: Page Fetch & Extract
-
-**Goal**: SERP results → page fetch → text extraction works.
-
-| Symptom | Hypothesis | Check |
-|---------|------------|-------|
-| No pages fetched | TabPool exhausted, CAPTCHA block | `intervention_queue` table, browser logs |
-| Extraction fails | LLM error, parse failure | Extractor logs, `fragments` table |
-
-### Phase D: NLI & Evidence Graph
-
-**Goal**: Fragment-Claim NLI judgment, graph construction works.
-
-| Symptom | Hypothesis | Check |
-|---------|------------|-------|
-| NLI not running | Model not loaded, container down | `make dev-status`, model logs |
-| Graph empty | No claims, no edges created | `claims`, `edges` tables |
-
-### Phase E: Materials & Report
-
-**Goal**: `get_materials` returns correct evidence graph.
-
-| Symptom | Hypothesis | Check |
-|---------|------------|-------|
-| Empty materials | No claims for task_id | `claims` table with task filter |
-| Graph serialization error | Invalid edge references | `edges` foreign key integrity |
+| Phase | Goal | Check |
+|-------|------|-------|
+| A. Environment | MCP/Chrome/DB running | `make doctor`, `make chrome-diagnose` |
+| B. Queue | Task → Jobs → Worker | `jobs` table, `make dev-logs-f` |
+| C. Fetch | SERP → fetch → extract | `intervention_queue`, `fragments` table |
+| D. NLI | Fragment-Claim judgment | `make dev-status`, `claims`/`edges` table |
+| E. Materials | `get_materials` returns graph | `claims` with task_id filter |
 
 ---
 
-## State validation queries
+## State validation
 
-### intervention_queue
+Schema: `src/storage/schema.sql`
 
 ```sql
--- Orphaned auth items (task doesn't exist)
-SELECT iq.* FROM intervention_queue iq
-LEFT JOIN tasks t ON iq.task_id = t.id
-WHERE t.id IS NULL AND iq.status = 'pending';
+-- Orphaned intervention_queue
+SELECT * FROM intervention_queue iq LEFT JOIN tasks t ON iq.task_id = t.id WHERE t.id IS NULL;
 
--- Expired but still pending
-SELECT * FROM intervention_queue
-WHERE status = 'pending' AND expires_at < datetime('now');
+-- Stuck jobs
+SELECT * FROM jobs WHERE status = 'pending' AND created_at < datetime('now', '-1 hour');
 
--- After stop_task: should be cancelled
-SELECT * FROM intervention_queue
-WHERE task_id = ? AND status NOT IN ('cancelled', 'resolved', 'skipped');
-```
-
-### jobs
-
-```sql
--- Stuck jobs (pending for too long)
-SELECT * FROM jobs
-WHERE status = 'pending' AND created_at < datetime('now', '-1 hour');
-
--- Jobs without matching task
-SELECT j.* FROM jobs j
-LEFT JOIN tasks t ON j.task_id = t.id
-WHERE t.id IS NULL;
-```
-
-### fragments / edges
-
-```sql
--- Fragments without page
-SELECT f.* FROM fragments f
-LEFT JOIN pages p ON f.page_id = p.id
-WHERE p.id IS NULL;
-
--- Edges with invalid fragment reference
-SELECT e.* FROM edges e
-LEFT JOIN fragments f ON e.fragment_id = f.id
-WHERE f.id IS NULL;
+-- Orphan fragments/edges
+SELECT f.* FROM fragments f LEFT JOIN pages p ON f.page_id = p.id WHERE p.id IS NULL;
+SELECT e.* FROM edges e LEFT JOIN fragments f ON e.fragment_id = f.id WHERE f.id IS NULL;
 ```
 
 ---
 
-## S_FULL_E2E execution checklist
+## E2E checklist
 
-### Preparation
-
-- [ ] `make doctor` passed
-- [ ] `make chrome-start` succeeded
-- [ ] `make dev-up` containers running
-- [ ] `make mcp` server started
-
-### Task execution
-
-- [ ] `create_task` returns task_id
-- [ ] `queue_searches` queues jobs
-- [ ] `get_status(wait=30)` shows progress
-- [ ] If `pending_auth_count > 0`: `get_auth_queue` → `resolve_auth`
-- [ ] Repeat `get_status` until searches complete
-
-### Materials retrieval
-
-- [ ] `get_materials(include_graph=true)` returns data
-- [ ] Evidence graph structure is valid
-- [ ] Sample 30 NLI judgments for expert review
-
-### Cleanup
-
-- [ ] `stop_task` stops the task
-- [ ] Remove debug instrumentation (after verification)
+1. `make doctor` → `make chrome-start` → `make dev-up` → `make mcp`
+2. `create_task` → `queue_searches` → `get_status(wait=30)`
+3. If auth needed: `get_auth_queue` → `resolve_auth`
+4. `get_materials(include_graph=true)` → validate graph
+5. `stop_task` → remove instrumentation
 
 ---
 
-## Useful commands
+## Commands
 
 ```bash
-# Check DB lock holders
-fuser data/lyra.db
-
-# Kill zombie test processes
-make test-kill-all
-
-# Query DB directly
-timeout 10 sqlite3 data/lyra.db "SELECT * FROM tasks LIMIT 5;"
-
-# MCP Server logs
-make mcp-logs                      # Recent 100 lines
-make mcp-logs-f                    # Follow (real-time)
-make mcp-logs-grep PATTERN="error" # Search by pattern
-
-# Container logs
-make dev-logs-f
-
-# Run specific tests
-make test TARGET=tests/test_specific.py
-make test-check RUN_ID=<run_id>
+fuser data/lyra.db                              # DB lock check
+timeout 10 sqlite3 data/lyra.db "SELECT ..."    # Direct query
+make test TARGET=tests/test_xxx.py              # Run specific test
 ```
 
 ---
 
-## Output (response format)
+## Output format
 
-- **Symptom**: expected vs actual
-- **Expected state**: what DB/queue should look like
-- **Root cause**: what, where, why
-- **Fix**: summary + files changed
-- **Verification**: what was run/checked and results
+Symptom → Expected state → Root cause → Fix → Verification
 
 ---
 
-## Debug report template
+## Report template
 
-Create a report in `docs/debug/DEBUG_E2E_NN.md` for significant debugging sessions:
-
-```markdown
-# E2E Debug Report (YYYY-MM-DD)
-
-## Summary
-One-line result: ✅ Resolved / ❌ Ongoing / ⚠️ Partial
-
-## Symptoms
-- Expected: ...
-- Actual: ...
-
-## Error Analysis
-| Category | Count | Event | Cause |
-|----------|-------|-------|-------|
-| ... | ... | ... | ... |
-
-## Hypotheses and Results
-| ID | Hypothesis | Result |
-|----|------------|--------|
-| A | ... | ✅ Adopted / ❌ Rejected |
-
-## Fixes Applied
-1. File: change summary
-2. File: change summary
-
-## Verification
-- Test command and result
-- Remaining issues (if any)
-```
+`docs/debug/DEBUG_E2E_NN.md` — See existing reports for structure.
 
 ---
 
-## Reference documents
+## References
 
-| Document | Path | Purpose |
-|----------|------|---------|
-| E2E scenario | `docs/S_FULL_E2E.md` | Experiment protocol |
-| ADRs | `docs/adr/` | Architecture decisions |
-| Schema | `src/storage/schema.sql` | Table structure |
-| MCP tools | `src/mcp/server.py` | Tool definitions |
-| Debug reports | `docs/debug/` | Past debugging sessions |
+| Path | Purpose |
+|------|---------|
+| `docs/S_FULL_E2E.md` | E2E protocol |
+| `docs/adr/` | Architecture decisions |
+| `docs/debug/` | Past sessions, known acceptable errors |
+| `src/storage/schema.sql` | Table structure |
 
 ---
 
-## Isolated debugging (when MCP Server holds DB lock)
+## Isolated debugging
 
-When the MCP Server is running, it holds a WAL write lock on `data/lyra.db`. 
-Direct DB writes from test scripts will hang. Use **isolated DB + debug scripts** instead.
+When MCP Server holds DB lock, use `src/storage/isolation.py:isolated_database_path()`.
 
-### Debug script pattern
+Run debug scripts: `timeout 120 uv run python scripts/debug_*.py`
+
+| Isolated script | API client, rate limiter, parse errors |
+|-----------------|----------------------------------------|
+| MCP tools | DB state, full E2E flow |
+
+---
+
+## Instrumentation
+
+Log file: `.cursor/debug.log` (NDJSON)
 
 ```bash
-# Run with timeout (required to prevent hangs)
-timeout 120 uv run python scripts/debug_e2e_test.py
-```
-
-The script uses `isolated_database_path()` context manager to create a temporary DB:
-
-```python
-from src.storage.isolation import isolated_database_path
-
-async def main():
-    async with isolated_database_path() as db_path:
-        # Your test code here - uses temp DB, not data/lyra.db
-        client = SomeAPIClient()
-        result = await client.search("test query")
-```
-
-**Key benefits**:
-- No DB lock conflicts with MCP Server
-- Clean state for each run
-- Auto-cleanup after test
-
-### When to use isolated debugging
-
-| Scenario | Use isolated script | Use MCP tools |
-|----------|---------------------|---------------|
-| API client bugs | ✅ | ❌ |
-| Rate limiter issues | ✅ | ❌ |
-| Parse/validation errors | ✅ | ❌ |
-| DB state issues | ❌ | ✅ |
-| Full E2E flow | ❌ | ✅ |
-
-### Instrumentation logs
-
-Debug logs are written to `.cursor/debug.log` in NDJSON format:
-
-```bash
-# View all logs as JSON array
-cat .cursor/debug.log | jq -s '.'
-
-# Filter by hypothesis ID
 cat .cursor/debug.log | jq -s 'map(select(.hypothesisId == "A"))'
-
-# Count by location
-cat .cursor/debug.log | jq -s 'group_by(.location) | map({loc: .[0].location, count: length})'
-
-# Clear logs before new run
-> .cursor/debug.log
+> .cursor/debug.log  # Clear before run
 ```
 
-### Adding instrumentation
-
-Use `#region agent log` markers for easy cleanup:
+Add instrumentation with region markers for easy cleanup:
 
 ```python
 # #region agent log
-import json
-with open("/home/statuser/lyra/.cursor/debug.log", "a") as f:
+import json, time
+with open(".cursor/debug.log", "a") as f:
     f.write(json.dumps({
-        "location": "src/module.py:func",
+        "hypothesisId": "A",
+        "location": "src/module.py:func_name",
         "message": "description",
         "data": {"key": "value"},
-        "timestamp": __import__("time").time() * 1000,
-        "hypothesisId": "A"
+        "timestamp": time.time() * 1000
     }) + "\n")
 # #endregion
 ```
@@ -382,9 +217,6 @@ After debugging, search and remove all `#region agent log` blocks.
 
 ---
 
-## Related rules
+## Related
 
-- `@.cursor/rules/debug-e2e.mdc`
-- `@.cursor/rules/code-execution.mdc`
-- `@.cursor/rules/integration-design.mdc` (for cross-module contract issues)
-
+`@.cursor/rules/debug-e2e.mdc` | `@.cursor/rules/code-execution.mdc`
