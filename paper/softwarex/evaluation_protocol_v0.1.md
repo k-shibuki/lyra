@@ -170,6 +170,34 @@ The following qualities are **not requested in the prompt** but are **evaluated 
 - `claims[].controversy`
 - `evidence_graph` (full provenance chain)
 
+### 5.4 Layer 4: Verification Cost (Practitioner Perspective)
+
+This layer measures the effort required for a healthcare practitioner to verify the claims in each report. This is a critical real-world metric: a report is only useful if its claims can be efficiently validated.
+
+| Metric | Definition | Measurement |
+|--------|------------|-------------|
+| **Time to First Quote** | Time to locate the cited passage from URL | Stopwatch (seconds) |
+| **Verification Time per Claim** | Average time to verify one claim against source | Stopwatch (seconds) |
+| **Total Verification Time** | Time to verify 10 randomly sampled claims | Stopwatch (minutes) |
+| **Click-to-Quote Distance** | Steps from URL to exact quote location | Count (0 = direct link, 1+ = navigation required) |
+| **Verification Success Rate** | Claims where cited passage was found | `found / attempted` |
+
+**Protocol**:
+1. Sample 10 claims randomly from each tool's output
+2. For each claim, attempt to locate the supporting passage in the cited source
+3. Record: time elapsed, number of clicks/scrolls, success/failure
+4. Stop after 2 minutes per claim (mark as "not found" if exceeded)
+
+**Expected Outcomes**:
+
+| Metric | Lyra | Google | ChatGPT |
+|--------|------|--------|---------|
+| Time to First Quote | <10s (Fragment has char offset) | 30-120s (search in page) | 30-120s |
+| Click-to-Quote Distance | 0 (direct link to fragment) | 2-5 (URL → search → scroll) | 2-5 |
+| Verification Success Rate | >90% | 30-60% | 40-70% |
+
+**Significance**: Even if all tools produce similar claim accuracy, the **cost of verification** determines practical utility. A 10x difference in verification time represents a 10x difference in usability for evidence-based practice.
+
 ---
 
 ## 6. Expert Evaluation Protocol
