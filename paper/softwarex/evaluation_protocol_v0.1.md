@@ -59,14 +59,12 @@ The prompt is intentionally **minimal and natural**—a straightforward research
 ### 3.2 Common Prompt (All Tools)
 
 ```
-I'm preparing a systematic review on DPP-4 inhibitors for type 2 diabetes.
+I'm a clinical pharmacist reviewing treatment options for a patient with
+type 2 diabetes. They're currently on insulin but their HbA1c remains above 7%.
 
-For patients already on insulin with HbA1c ≥7%, I need to understand the
-efficacy and safety of adding a DPP-4 inhibitor compared to adding placebo.
-
-Please research this topic and write a summary that I can use as a starting
-point for my literature review. Focus on clinical trial evidence and
-regulatory documents (FDA, EMA).
+I'm considering adding a DPP-4 inhibitor. Could you summarize what the
+clinical evidence says about efficacy and safety in this situation?
+I'd like to focus on RCTs and meta-analyses.
 ```
 
 ### 3.3 Lyra-Specific Suffix
