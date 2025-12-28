@@ -50,76 +50,54 @@ The evaluator (K.S.) is the developer of Lyra. This conflict is mitigated by:
 
 ## 3. Evaluation Prompt
 
-### 3.1 Prompt Design Principles
+### 3.1 Design Philosophy
 
-The prompt is designed to surface differences between tools in:
+The prompt is intentionally **minimal and natural**—a straightforward research request that any user might make. We do not explicitly request provenance tracking, contradiction detection, or confidence assessment. These qualities emerge (or fail to emerge) from each tool's inherent capabilities.
 
-| Capability | Prompt Element | Expected Lyra Advantage |
-|------------|----------------|-------------------------|
-| **Provenance** | "Cite sources with exact quotes" | Fragment-level attribution |
-| **Contradiction Detection** | "Identify conflicting evidence" | NLI REFUTES detection |
-| **Uncertainty** | "Indicate confidence levels" | Bayesian uncertainty scores |
-| **Primary Source Priority** | "Prioritize primary sources" | domain_category ranking |
+**Rationale**: Explicitly requesting Lyra's differentiating features would bias the evaluation. Instead, we ask a simple question and evaluate how each tool handles evidence quality *without being told to*.
 
 ### 3.2 Common Prompt (All Tools)
 
 ```
-You are a research assistant helping prepare a systematic review.
+I'm preparing a systematic review on DPP-4 inhibitors for type 2 diabetes.
 
-## Research Question (PICO)
+For patients already on insulin with HbA1c ≥7%, I need to understand the
+efficacy and safety of adding a DPP-4 inhibitor compared to adding placebo.
 
-- Population: Type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%
-- Intervention: DPP-4 inhibitors as add-on therapy
-- Comparison: Placebo as add-on (no additional active therapy)
-- Outcomes: Efficacy (HbA1c reduction) and safety (hypoglycemia risk)
-
-## Task
-
-Conduct a comprehensive literature review and provide:
-
-1. **Evidence Summary**: Summarize the key findings from clinical trials and meta-analyses
-2. **Source Attribution**: For each claim, cite the source with:
-   - URL or DOI
-   - Exact quote or paraphrase from the source
-   - Publication year
-3. **Conflicting Evidence**: Explicitly identify any evidence that contradicts the main findings
-4. **Confidence Assessment**: Indicate your confidence level for each major conclusion
-5. **Primary vs Secondary Sources**: Distinguish between primary sources (RCTs, FDA/EMA documents) and secondary sources (reviews, news articles)
-
-## Output Format
-
-Structure your response with clear sections for:
-- Main efficacy findings (HbA1c reduction)
-- Safety profile (hypoglycemia, cardiovascular)
-- Contradicting evidence (if any)
-- Limitations and uncertainties
-- Source list with full citations
+Please research this topic and write a summary that I can use as a starting
+point for my literature review. Focus on clinical trial evidence and
+regulatory documents (FDA, EMA).
 ```
 
 ### 3.3 Lyra-Specific Suffix
 
-For Cursor AI with Lyra MCP, append:
+For Cursor IDE with Lyra MCP, append only:
 
 ```
-## Tool Instruction
-
-Use the Lyra MCP tools to conduct this research:
-1. Create a task with create_task
-2. Design and queue search queries with queue_searches
-3. Monitor progress with get_status
-4. Retrieve materials with get_materials (include_graph=true)
-5. Synthesize the report from the collected evidence
+Use Lyra to conduct this research.
 ```
 
 ### 3.4 Prompt Equivalence
 
-| Tool | Prompt | Query Design By |
-|------|--------|-----------------|
-| **Lyra** | Common + Lyra Suffix | Cursor AI (Claude 3.5 Sonnet) |
-| **Google Deep Research** | Common only | Gemini (internal) |
-| **ChatGPT Deep Research** | Common only | GPT-4 (internal) |
+| Tool | Prompt | AI Backend |
+|------|--------|------------|
+| **Lyra** | Common + "Use Lyra to conduct this research." | Cursor IDE (Claude Opus 4.5 thinking) |
+| **Google Deep Research** | Common only | Gemini |
+| **ChatGPT Deep Research** | Common only | GPT-4 |
 
-**Key Principle**: Query decomposition is delegated to each tool's AI. We do not pre-specify search queries. This reflects real-world usage where users provide high-level questions.
+**Key Principle**: The prompt contains no instructions about citation format, contradiction handling, or confidence levels. Differences in these qualities reflect each tool's inherent design, not prompt engineering.
+
+### 3.5 Post-hoc Evaluation Criteria
+
+The following qualities are **not requested in the prompt** but are **evaluated in the output**:
+
+| Quality | Evaluation Question | Lyra Structural Advantage |
+|---------|---------------------|---------------------------|
+| **Traceability** | Can each claim be traced to a specific source passage? | Evidence Graph with Fragment→Page links |
+| **Contradiction Awareness** | Does the output acknowledge conflicting evidence? | NLI REFUTES detection |
+| **Source Quality** | Are primary sources distinguished from secondary? | domain_category classification |
+| **Uncertainty** | Are limitations or confidence levels mentioned? | Bayesian uncertainty scores |
+| **Verifiability** | Can cited quotes be found in the source? | Fragment text stored with char offsets |
 
 ---
 
@@ -127,7 +105,7 @@ Use the Lyra MCP tools to conduct this research:
 
 | Tool | Version/Access | AI Backend | Execution Date |
 |------|----------------|------------|----------------|
-| **Lyra** | v0.1.0 | Cursor AI (Claude 3.5 Sonnet) + Local ML | TBD (same day) |
+| **Lyra** | v0.1.0 | Cursor IDE (Claude Opus 4.5 thinking) + Local ML | TBD (same day) |
 | **Google Deep Research** | Gemini Advanced ($20/mo) | Gemini | TBD (same day) |
 | **ChatGPT Deep Research** | ChatGPT Pro ($200/mo) | GPT-4 | TBD (same day) |
 
