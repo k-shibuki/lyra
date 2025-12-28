@@ -174,6 +174,17 @@ The following qualities are **not requested in the prompt** but are **evaluated 
 
 This layer measures the effort required for a healthcare practitioner to verify the claims in each report. This is a critical real-world metric: a report is only useful if its claims can be efficiently validated.
 
+#### 5.4.1 Research Time
+
+| Metric | Definition | Measurement |
+|--------|------------|-------------|
+| **Total Research Time** | Time from prompt submission to final report | Stopwatch (minutes) |
+| **User Wait Time** | Time user must wait before receiving usable output | Stopwatch (minutes) |
+
+**Note**: Lyra operates asynchronously (user can monitor progress via `get_status`), while Deep Research tools require waiting for completion.
+
+#### 5.4.2 Verification Effort
+
 | Metric | Definition | Measurement |
 |--------|------------|-------------|
 | **Time to First Quote** | Time to locate the cited passage from URL | Stopwatch (seconds) |
@@ -192,11 +203,13 @@ This layer measures the effort required for a healthcare practitioner to verify 
 
 | Metric | Lyra | Google | ChatGPT |
 |--------|------|--------|---------|
-| Time to First Quote | <10s (Fragment has char offset) | 30-120s (search in page) | 30-120s |
-| Click-to-Quote Distance | 0 (direct link to fragment) | 2-5 (URL → search → scroll) | 2-5 |
+| Total Research Time | 5-15 min | 3-10 min | 3-10 min |
+| Time to First Quote | <10s | 30-120s | 30-120s |
+| Click-to-Quote Distance | 0 | 2-5 | 2-5 |
 | Verification Success Rate | >90% | 30-60% | 40-70% |
+| **Total Cost (Research + Verify 10)** | ~20 min | ~20-30 min | ~20-30 min |
 
-**Significance**: Even if all tools produce similar claim accuracy, the **cost of verification** determines practical utility. A 10x difference in verification time represents a 10x difference in usability for evidence-based practice.
+**Significance**: Lyra may take slightly longer for research, but the **total cost** (research + verification) is lower because verification is near-instantaneous. For practitioners who must verify claims before acting, this is the metric that matters.
 
 ---
 
