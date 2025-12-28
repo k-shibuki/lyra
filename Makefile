@@ -77,6 +77,15 @@ dev-clean: ## Remove containers and images
 mcp: ## Start MCP server (for Cursor)
 	@$(SCRIPTS)/mcp.sh
 
+mcp-stop: ## Stop MCP server (for code reload)
+	@$(SCRIPTS)/mcp.sh stop
+
+mcp-restart: ## Restart MCP server (stop + instructions)
+	@$(SCRIPTS)/mcp.sh restart
+
+mcp-status: ## Show MCP server status
+	@$(SCRIPTS)/mcp.sh status
+
 mcp-logs: ## Show MCP server logs (tail -100)
 	@$(SCRIPTS)/mcp.sh logs
 
