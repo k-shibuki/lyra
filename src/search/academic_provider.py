@@ -190,31 +190,78 @@ class AcademicSearchProvider(BaseSearchProvider):
         index = CanonicalPaperIndex()
         citations = []
         citation_pairs = set()  # Track citation pairs to avoid duplicates across APIs
-        to_explore = [(paper_id, 0)]  # (paper_id, current_depth)
+
+        # Get DOI for the starting paper to enable cross-API queries
+        initial_doi: str | None = None
+        if paper_id.startswith("s2:"):
+            # Try to get DOI from S2
+            paper_obj = await s2_client.get_paper(paper_id)
+            if paper_obj:
+                initial_doi = paper_obj.doi
+                index.register_paper(paper_obj, source_api="semantic_scholar")
+        elif paper_id.startswith("openalex:"):
+            # Try to get DOI from OpenAlex
+            paper_obj = await oa_client.get_paper(paper_id)
+            if paper_obj:
+                initial_doi = paper_obj.doi
+                index.register_paper(paper_obj, source_api="openalex")
+
+        # (paper_id, current_depth, doi) - DOI enables cross-API queries
+        to_explore: list[tuple[str, int, str | None]] = [(paper_id, 0, initial_doi)]
         explored = set()
 
         while to_explore:
-            current_id, current_depth = to_explore.pop(0)
+            current_id, current_depth, current_doi = to_explore.pop(0)
             if current_id in explored or current_depth >= depth:
                 continue
             explored.add(current_id)
 
-            # Get references from both APIs in parallel
-            if direction in ("references", "both"):
-                s2_refs_task = s2_client.get_references(current_id)
-                oa_refs_task = oa_client.get_references(current_id)
+            # Determine IDs for each API based on prefix and DOI availability
+            # DOI is the universal identifier that both APIs can resolve
+            s2_query_id: str | None = None
+            oa_query_id: str | None = None
 
-                try:
-                    results = await asyncio.gather(
-                        s2_refs_task, oa_refs_task, return_exceptions=True
-                    )
-                    s2_refs_raw, oa_refs_raw = results
-                except Exception as e:
-                    logger.debug(
-                        "Failed to get references in parallel", paper_id=current_id, error=str(e)
-                    )
-                    s2_refs_raw = []
-                    oa_refs_raw = []
+            if current_doi:
+                # DOI available: both APIs can search using DOI
+                s2_query_id = f"DOI:{current_doi}"  # S2 accepts DOI: prefix
+                oa_query_id = f"https://doi.org/{current_doi}"  # OpenAlex accepts DOI URL
+            elif current_id.startswith("s2:") or current_id.startswith("DOI:") or current_id.startswith("ArXiv:") or current_id.startswith("PMID:"):
+                # S2-compatible ID only
+                s2_query_id = current_id
+            elif current_id.startswith("openalex:") or current_id.startswith("https://openalex.org/"):
+                # OpenAlex-compatible ID only
+                oa_query_id = current_id
+            else:
+                # Unknown format: try both with original ID
+                s2_query_id = current_id
+                oa_query_id = current_id
+
+            # Get references from appropriate APIs
+            if direction in ("references", "both"):
+                s2_refs_raw: list[Paper] | Exception = []
+                oa_refs_raw: list[Paper] | Exception = []
+
+                tasks = []
+                task_names = []
+                if s2_query_id:
+                    tasks.append(s2_client.get_references(s2_query_id))
+                    task_names.append("s2")
+                if oa_query_id:
+                    tasks.append(oa_client.get_references(oa_query_id))
+                    task_names.append("oa")
+
+                if tasks:
+                    try:
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for name, result in zip(task_names, results, strict=False):
+                            if name == "s2":
+                                s2_refs_raw = result
+                            else:
+                                oa_refs_raw = result
+                    except Exception as e:
+                        logger.debug(
+                            "Failed to get references", paper_id=current_id, error=str(e)
+                        )
 
                 # Handle exceptions
                 if isinstance(s2_refs_raw, Exception):
@@ -251,7 +298,8 @@ class AcademicSearchProvider(BaseSearchProvider):
                         )
                         citation_pairs.add(pair_key)
                     if current_depth + 1 < depth:
-                        to_explore.append((ref_paper.id, current_depth + 1))
+                        # Include DOI for cross-API queries in next iteration
+                        to_explore.append((ref_paper.id, current_depth + 1, ref_paper.doi))
 
                 for ref_paper in oa_refs:
                     index.register_paper(ref_paper, source_api="openalex")
@@ -267,24 +315,35 @@ class AcademicSearchProvider(BaseSearchProvider):
                         )
                         citation_pairs.add(pair_key)
                     if current_depth + 1 < depth:
-                        to_explore.append((ref_paper.id, current_depth + 1))
+                        # Include DOI for cross-API queries in next iteration
+                        to_explore.append((ref_paper.id, current_depth + 1, ref_paper.doi))
 
-            # Get citations from both APIs in parallel
+            # Get citations from appropriate APIs (based on ID format and DOI)
             if direction in ("citations", "both"):
-                s2_cits_task = s2_client.get_citations(current_id)
-                oa_cits_task = oa_client.get_citations(current_id)
+                s2_cits_raw: list[Paper] | Exception = []
+                oa_cits_raw: list[Paper] | Exception = []
 
-                try:
-                    results = await asyncio.gather(
-                        s2_cits_task, oa_cits_task, return_exceptions=True
-                    )
-                    s2_cits_raw, oa_cits_raw = results
-                except Exception as e:
-                    logger.debug(
-                        "Failed to get citations in parallel", paper_id=current_id, error=str(e)
-                    )
-                    s2_cits_raw = []
-                    oa_cits_raw = []
+                tasks = []
+                task_names = []
+                if s2_query_id:
+                    tasks.append(s2_client.get_citations(s2_query_id))
+                    task_names.append("s2")
+                if oa_query_id:
+                    tasks.append(oa_client.get_citations(oa_query_id))
+                    task_names.append("oa")
+
+                if tasks:
+                    try:
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for name, result in zip(task_names, results, strict=False):
+                            if name == "s2":
+                                s2_cits_raw = result
+                            else:
+                                oa_cits_raw = result
+                    except Exception as e:
+                        logger.debug(
+                            "Failed to get citations", paper_id=current_id, error=str(e)
+                        )
 
                 # Handle exceptions
                 if isinstance(s2_cits_raw, Exception):
@@ -319,7 +378,8 @@ class AcademicSearchProvider(BaseSearchProvider):
                         )
                         citation_pairs.add(pair_key)
                     if current_depth + 1 < depth:
-                        to_explore.append((cit_paper.id, current_depth + 1))
+                        # Include DOI for cross-API queries in next iteration
+                        to_explore.append((cit_paper.id, current_depth + 1, cit_paper.doi))
 
                 for cit_paper in oa_cits:
                     index.register_paper(cit_paper, source_api="openalex")
@@ -335,7 +395,8 @@ class AcademicSearchProvider(BaseSearchProvider):
                         )
                         citation_pairs.add(pair_key)
                     if current_depth + 1 < depth:
-                        to_explore.append((cit_paper.id, current_depth + 1))
+                        # Include DOI for cross-API queries in next iteration
+                        to_explore.append((cit_paper.id, current_depth + 1, cit_paper.doi))
 
         # Get unique papers from index
         unique_entries = index.get_all_entries()

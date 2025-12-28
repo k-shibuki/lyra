@@ -447,18 +447,61 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
 
 # Cache of exploration states per task
 _exploration_states: dict[str, Any] = {}
+# Lock to prevent race condition in _get_exploration_state (H-F fix)
+import asyncio
+_exploration_state_locks: dict[str, asyncio.Lock] = {}
+_exploration_state_global_lock = asyncio.Lock()
 
 
 async def _get_exploration_state(task_id: str) -> Any:
-    """Get or create exploration state for a task."""
+    """Get or create exploration state for a task.
+
+    Uses per-task locking to prevent race condition where multiple
+    coroutines create separate ExplorationState instances for the
+    same task_id (H-F fix).
+    """
     from src.research.state import ExplorationState
 
-    if task_id not in _exploration_states:
-        state = ExplorationState(task_id)
-        await state.load_state()
-        _exploration_states[task_id] = state
+    # Get or create per-task lock (with global lock protection)
+    async with _exploration_state_global_lock:
+        if task_id not in _exploration_state_locks:
+            _exploration_state_locks[task_id] = asyncio.Lock()
+        lock = _exploration_state_locks[task_id]
 
-    return _exploration_states[task_id]
+    # #region agent log
+    import json, time as _time
+    cache_hit = task_id in _exploration_states
+    existing_id = id(_exploration_states.get(task_id)) if cache_hit else None
+    with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+        _f.write(json.dumps({
+            "hypothesisId": "H-H",
+            "location": "src/mcp/server.py:_get_exploration_state_entry",
+            "message": "_get_exploration_state called",
+            "data": {"task_id": task_id, "cache_hit": cache_hit, "existing_state_id": existing_id},
+            "timestamp": _time.time() * 1000,
+            "sessionId": "debug-session"
+        }) + "\n")
+    # #endregion
+
+    # Use per-task lock to prevent race condition
+    async with lock:
+        if task_id not in _exploration_states:
+            state = ExplorationState(task_id)
+            await state.load_state()
+            _exploration_states[task_id] = state
+            # #region agent log
+            with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+                _f.write(json.dumps({
+                    "hypothesisId": "H-H",
+                    "location": "src/mcp/server.py:_get_exploration_state_new",
+                    "message": "Created new ExplorationState",
+                    "data": {"task_id": task_id, "new_state_id": id(state)},
+                    "timestamp": _time.time() * 1000,
+                    "sessionId": "debug-session"
+                }) + "\n")
+            # #endregion
+
+        return _exploration_states[task_id]
 
 
 def _clear_exploration_state(task_id: str) -> None:
@@ -470,6 +513,145 @@ def _clear_exploration_state(task_id: str) -> None:
 # ============================================================
 # Task Management Handlers
 # ============================================================
+
+
+async def _get_metrics_from_db(db: Any, task_id: str) -> dict[str, Any]:
+    """Get metrics directly from database for a task.
+
+    H-D fix: Fallback when ExplorationState is not available.
+    Fetches counts from DB tables instead of returning zeros.
+
+    Note: DB schema has task_id on queries and claims, but pages/fragments
+    are linked via serp_items → pages → fragments chain.
+
+    Args:
+        db: Database connection.
+        task_id: Task ID.
+
+    Returns:
+        Metrics dict with counts from DB.
+    """
+    # #region agent log
+    import json, time as _time
+    with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+        _f.write(json.dumps({
+            "hypothesisId": "H-D",
+            "location": "src/mcp/server.py:_get_metrics_from_db_entry",
+            "message": "Fetching metrics from DB (fallback)",
+            "data": {"task_id": task_id},
+            "timestamp": _time.time() * 1000,
+            "sessionId": "debug-session"
+        }) + "\n")
+    # #endregion
+
+    try:
+        # Count queries/searches
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM queries WHERE task_id = ?",
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        total_searches = row[0] if row else 0
+
+        # Count pages via serp_items (pages don't have task_id directly)
+        cursor = await db.execute(
+            """
+            SELECT COUNT(DISTINCT p.id)
+            FROM pages p
+            JOIN serp_items si ON p.url = si.url
+            JOIN queries q ON si.query_id = q.id
+            WHERE q.task_id = ?
+            """,
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        total_pages = row[0] if row else 0
+
+        # Count fragments via pages → serp_items → queries
+        cursor = await db.execute(
+            """
+            SELECT COUNT(DISTINCT f.id)
+            FROM fragments f
+            JOIN pages p ON f.page_id = p.id
+            JOIN serp_items si ON p.url = si.url
+            JOIN queries q ON si.query_id = q.id
+            WHERE q.task_id = ?
+            """,
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        total_fragments = row[0] if row else 0
+
+        # Count claims (has direct task_id)
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM claims WHERE task_id = ?",
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        total_claims = row[0] if row else 0
+
+        # Get task creation time for elapsed_seconds
+        cursor = await db.execute(
+            "SELECT created_at FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        elapsed_seconds = 0
+        if row and row[0]:
+            from datetime import datetime, timezone
+            try:
+                created_at = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
+                elapsed_seconds = int((datetime.now(timezone.utc) - created_at).total_seconds())
+            except (ValueError, TypeError):
+                pass
+
+        result = {
+            "total_searches": total_searches,
+            "satisfied_count": 0,  # Can't determine from DB alone
+            "total_pages": total_pages,
+            "total_fragments": total_fragments,
+            "total_claims": total_claims,
+            "elapsed_seconds": elapsed_seconds,
+        }
+
+        # #region agent log
+        import json, time as _time
+        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({
+                "hypothesisId": "H-D",
+                "location": "src/mcp/server.py:_get_metrics_from_db_result",
+                "message": "DB metrics fetched successfully",
+                "data": {"task_id": task_id, "metrics": result},
+                "timestamp": _time.time() * 1000,
+                "sessionId": "debug-session"
+            }) + "\n")
+        # #endregion
+
+        return result
+    except Exception as e:
+        logger.warning("Failed to get metrics from DB", task_id=task_id, error=str(e))
+
+        # #region agent log
+        import json, time as _time
+        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({
+                "hypothesisId": "H-D",
+                "location": "src/mcp/server.py:_get_metrics_from_db_error",
+                "message": "DB metrics fetch failed",
+                "data": {"task_id": task_id, "error": str(e)},
+                "timestamp": _time.time() * 1000,
+                "sessionId": "debug-session"
+            }) + "\n")
+        # #endregion
+
+        return {
+            "total_searches": 0,
+            "satisfied_count": 0,
+            "total_pages": 0,
+            "total_fragments": 0,
+            "total_claims": 0,
+            "elapsed_seconds": 0,
+        }
 
 
 async def _get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
@@ -801,6 +983,19 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 )
 
         # Build unified response per ADR-0003
+        # #region agent log
+        import json, time as _time
+        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({
+                "hypothesisId": "H-D",
+                "location": "src/mcp/server.py:_handle_get_status_branch",
+                "message": "get_status exploration_status check",
+                "data": {"task_id": task_id, "has_exploration_status": exploration_status is not None},
+                "timestamp": _time.time() * 1000,
+                "sessionId": "debug-session"
+            }) + "\n")
+        # #endregion
+
         if exploration_status:
             # Convert searches to ADR-0003 format (text -> query field name mapping)
             searches = []
@@ -902,6 +1097,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get pending auth info (ADR-0007)
             pending_auth = await _get_pending_auth_info(db, task_id)
 
+            # H-D fix: Fetch metrics directly from DB when exploration state unavailable
+            db_metrics = await _get_metrics_from_db(db, task_id)
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -912,20 +1110,13 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
                 # Convenience field for agents/clients: quick check without parsing nested structures
                 "pending_auth_count": int(pending_auth.get("pending_captchas", 0)),
-                "metrics": {
-                    "total_searches": 0,
-                    "satisfied_count": 0,
-                    "total_pages": 0,
-                    "total_fragments": 0,
-                    "total_claims": 0,
-                    "elapsed_seconds": 0,
-                },
+                "metrics": db_metrics,
                 "budget": {
-                    "budget_pages_used": 0,
+                    "budget_pages_used": db_metrics.get("total_pages", 0),
                     "budget_pages_limit": 120,
-                    "time_used_seconds": 0,
+                    "time_used_seconds": db_metrics.get("elapsed_seconds", 0),
                     "time_limit_seconds": 1200,
-                    "remaining_percent": 100,
+                    "remaining_percent": max(0, int((1 - db_metrics.get("total_pages", 0) / 120) * 100)),
                 },
                 "auth_queue": None,
                 "warnings": [],

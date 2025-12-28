@@ -6,6 +6,10 @@
 #
 # Usage:
 #   ./scripts/mcp.sh          # Start MCP server (default)
+#   ./scripts/mcp.sh start    # Start MCP server (explicit)
+#   ./scripts/mcp.sh stop     # Stop MCP server (for code reload)
+#   ./scripts/mcp.sh restart  # Restart MCP server
+#   ./scripts/mcp.sh status   # Show MCP server status
 #   ./scripts/mcp.sh logs     # Show recent logs (tail -100)
 #   ./scripts/mcp.sh logs -f  # Follow logs
 #   ./scripts/mcp.sh logs --grep "pattern"  # Search logs
@@ -22,20 +26,108 @@
 set -euo pipefail
 
 # =============================================================================
-# EARLY INITIALIZATION (for logs subcommand - before STDIO guard)
+# EARLY INITIALIZATION (for subcommands before STDIO guard)
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Source logs library (standalone, no common.sh dependency)
 # shellcheck source=lib/logs.sh
 source "${SCRIPT_DIR}/lib/logs.sh"
 
-# Handle 'logs' subcommand before STDIO guard (logs go to stdout)
-if [[ "${1:-}" == "logs" ]]; then
+# =============================================================================
+# MCP PROCESS MANAGEMENT (before STDIO guard)
+# =============================================================================
+
+# Find MCP server process(es)
+find_mcp_processes() {
+    pgrep -f "python -m src.mcp.server" 2>/dev/null || true
+}
+
+# Stop MCP server
+mcp_stop() {
+    local pids
+    pids=$(find_mcp_processes)
+    if [[ -z "$pids" ]]; then
+        echo "No MCP server processes found"
+        return 0
+    fi
+    
+    echo "Stopping MCP server processes: $pids"
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    
+    # Wait for processes to terminate
+    local timeout=5
+    local count=0
+    while [[ $count -lt $timeout ]]; do
+        pids=$(find_mcp_processes)
+        if [[ -z "$pids" ]]; then
+            echo "MCP server stopped"
+            return 0
+        fi
+        sleep 1
+        ((count++))
+    done
+    
+    # Force kill if still running
+    pids=$(find_mcp_processes)
+    if [[ -n "$pids" ]]; then
+        echo "Force killing MCP server processes: $pids"
+        # shellcheck disable=SC2086
+        kill -9 $pids 2>/dev/null || true
+    fi
+    echo "MCP server stopped"
+}
+
+# Show MCP server status
+mcp_status() {
+    local pids
+    pids=$(find_mcp_processes)
+    if [[ -z "$pids" ]]; then
+        echo "MCP server: not running"
+        return 1
+    fi
+    
+    echo "MCP server: running"
+    echo "PIDs: $pids"
+    # Show process details
+    # shellcheck disable=SC2086
+    ps -p $pids -o pid,ppid,etime,cmd --no-headers 2>/dev/null || true
+}
+
+# Handle subcommands before STDIO guard
+case "${1:-}" in
+    logs)
     shift
     show_lyra_logs "$@"
-fi
+        ;;
+    stop)
+        mcp_stop
+        exit 0
+        ;;
+    status)
+        mcp_status
+        exit $?
+        ;;
+    restart)
+        mcp_stop
+        echo ""
+        echo "To complete restart, reconnect MCP in Cursor:"
+        echo "  1. Open Command Palette (Ctrl+Shift+P)"
+        echo "  2. Run 'MCP: Reconnect Server'"
+        echo "  3. Select 'lyra'"
+        exit 0
+        ;;
+    start|"")
+        # Continue to main startup logic
+        ;;
+    *)
+        # Unknown command - continue to main startup logic
+        # (might be flags or handled by common.sh)
+        ;;
+esac
 
 # =============================================================================
 # STDIO PROTOCOL GUARD (Cursor MCP)

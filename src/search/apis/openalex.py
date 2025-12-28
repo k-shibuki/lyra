@@ -5,6 +5,7 @@ Large-scale search API (priority=2).
 """
 
 import asyncio
+import time
 from typing import Any, cast
 
 from src.search.apis.base import BaseAcademicClient
@@ -13,6 +14,10 @@ from src.utils.logging import get_logger
 from src.utils.schemas import AcademicSearchResult, Author, Paper
 
 logger = get_logger(__name__)
+
+# H-C: Negative cache for 404 responses (TTL-based)
+_404_cache: dict[str, float] = {}  # paper_id -> timestamp
+_404_CACHE_TTL = 3600  # 1 hour
 
 
 class OpenAlexClient(BaseAcademicClient):
@@ -57,7 +62,7 @@ class OpenAlexClient(BaseAcademicClient):
             return cast(dict[str, Any], response.json())
 
         try:
-            data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
+            data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
             papers = [self._parse_paper(w) for w in data.get("results", [])]
 
             return AcademicSearchResult(
@@ -74,6 +79,57 @@ class OpenAlexClient(BaseAcademicClient):
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
+        # #region agent log
+        import json
+        import time as _time
+        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({
+                "hypothesisId": "H-B",
+                "location": "src/search/apis/openalex.py:get_paper_entry",
+                "message": "OpenAlex get_paper called",
+                "data": {"paper_id": paper_id, "has_s2_prefix": paper_id.startswith("s2:")},
+                "timestamp": _time.time() * 1000,
+                "sessionId": "debug-session"
+            }) + "\n")
+        # #endregion
+
+        # H-B: Skip S2 paper IDs - OpenAlex cannot resolve Semantic Scholar IDs
+        if paper_id.strip().startswith("s2:"):
+            # #region agent log
+            with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+                _f.write(json.dumps({
+                    "hypothesisId": "H-B",
+                    "location": "src/search/apis/openalex.py:get_paper_s2_skip",
+                    "message": "Skipping S2 paper ID (not queryable on OpenAlex)",
+                    "data": {"paper_id": paper_id},
+                    "timestamp": _time.time() * 1000,
+                    "sessionId": "debug-session"
+                }) + "\n")
+            # #endregion
+            logger.debug("Skipping S2 paper ID (not queryable on OpenAlex)", paper_id=paper_id)
+            return None
+
+        # H-C: Check negative cache for known 404s
+        if paper_id in _404_cache:
+            cache_time = _404_cache[paper_id]
+            if time.time() - cache_time < _404_CACHE_TTL:
+                # #region agent log
+                with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+                    _f.write(json.dumps({
+                        "hypothesisId": "H-C",
+                        "location": "src/search/apis/openalex.py:get_paper_404_cache_hit",
+                        "message": "Skipping paper due to cached 404",
+                        "data": {"paper_id": paper_id, "cache_age_seconds": time.time() - cache_time},
+                        "timestamp": _time.time() * 1000,
+                        "sessionId": "debug-session"
+                    }) + "\n")
+                # #endregion
+                logger.debug("Skipping paper (cached 404)", paper_id=paper_id)
+                return None
+            else:
+                # Cache expired, remove entry
+                del _404_cache[paper_id]
+
         # Apply rate limiting (fix for hypothesis B)
         from src.search.apis.rate_limiter import get_academic_rate_limiter
 
@@ -96,9 +152,28 @@ class OpenAlexClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
                 return self._parse_paper(data)
             except Exception as e:
+                # #region agent log
+                import httpx as _httpx
+                is_404 = isinstance(e, _httpx.HTTPStatusError) and e.response.status_code == 404
+                with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+                    _f.write(json.dumps({
+                        "hypothesisId": "H-C",
+                        "location": "src/search/apis/openalex.py:get_paper_error",
+                        "message": "OpenAlex get_paper failed",
+                        "data": {"paper_id": paper_id, "error_type": type(e).__name__, "is_404": is_404},
+                        "timestamp": _time.time() * 1000,
+                        "sessionId": "debug-session"
+                    }) + "\n")
+                # #endregion
+
+                # H-C: Cache 404 responses to avoid repeated lookups
+                if is_404:
+                    _404_cache[paper_id] = time.time()
+                    logger.debug("Cached 404 for paper", paper_id=paper_id)
+
                 logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
                 return None
         finally:
@@ -131,7 +206,7 @@ class OpenAlexClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
             except Exception as e:
                 logger.debug(
                     "OpenAlex referenced_works fetch failed", paper_id=paper_id, error=str(e)
@@ -159,7 +234,36 @@ class OpenAlexClient(BaseAcademicClient):
         return [p for p in papers if p and p.abstract]
 
     async def get_citations(self, paper_id: str) -> list[Paper]:
-        """Get citing papers via filter=cites:{work_id}."""
+        """Get citing papers via filter=cites:{work_id}.
+
+        Note: The cites filter requires an OpenAlex work ID (Wxxx).
+        If a DOI URL is provided, we first resolve it to a work ID.
+        """
+        # #region agent log
+        import json
+        import time as _time
+        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({
+                "hypothesisId": "H-J",
+                "location": "src/search/apis/openalex.py:get_citations_entry",
+                "message": "OpenAlex get_citations called",
+                "data": {"paper_id": paper_id},
+                "timestamp": _time.time() * 1000,
+                "sessionId": "debug-session"
+            }) + "\n")
+        # #endregion
+
+        # DOI URL needs to be resolved to work ID first
+        # because filter=cites:xxx requires OpenAlex work ID (Wxxx), not DOI
+        if paper_id.startswith("https://doi.org/") or paper_id.startswith("doi:"):
+            # Resolve DOI to work ID by fetching the paper first
+            paper = await self.get_paper(paper_id)
+            if paper is None:
+                logger.debug("Cannot get citations: DOI not found in OpenAlex", paper_id=paper_id)
+                return []
+            # Extract work ID from paper.id (format: "openalex:Wxxx")
+            paper_id = paper.id
+
         # Apply rate limiting
         from src.search.apis.rate_limiter import get_academic_rate_limiter
 
@@ -183,7 +287,7 @@ class OpenAlexClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY)
+                data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
                 papers = [self._parse_paper(w) for w in data.get("results", [])]
                 return [p for p in papers if p and p.abstract]
             except Exception as e:
@@ -193,12 +297,36 @@ class OpenAlexClient(BaseAcademicClient):
             limiter.release(self.name)
 
     def _normalize_work_id(self, paper_id: str) -> str:
-        """Normalize OpenAlex work identifiers for API usage."""
+        """Normalize OpenAlex work identifiers for API usage.
+
+        OpenAlex accepts:
+        - Work ID: W1234567890
+        - Full URL: https://openalex.org/W1234567890
+        - DOI URL: https://doi.org/10.1234/xxx (kept as-is, OpenAlex resolves it)
+        """
         pid = paper_id.strip()
         if pid.startswith("openalex:"):
             pid = pid.split("openalex:", 1)[1]
-        if pid.startswith("https://"):
-            pid = pid.split("/")[-1]
+        # DOI URL should be kept as-is (OpenAlex can resolve it)
+        elif pid.startswith("https://doi.org/"):
+            pass  # Keep DOI URL as-is
+        elif pid.startswith("https://openalex.org/"):
+            pid = pid.split("/")[-1]  # Extract work ID
+
+        # #region agent log
+        import json
+        import time as _time
+        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({
+                "hypothesisId": "H-B",
+                "location": "src/search/apis/openalex.py:_normalize_work_id_exit",
+                "message": "OpenAlex _normalize_work_id result",
+                "data": {"input": paper_id, "output": pid, "still_has_s2": pid.startswith("s2:")},
+                "timestamp": _time.time() * 1000,
+                "sessionId": "debug-session"
+            }) + "\n")
+        # #endregion
+
         return pid
 
     def _parse_paper(self, data: dict) -> Paper:

@@ -10,9 +10,12 @@ apis:
       # API limit: 100 requests per 5 minutes = 0.33 req/s
       requests_per_interval: 100
       interval_seconds: 300  # 5 minutes
-      # Explicit rate control (conservative)
-      min_interval_seconds: 3.0  # ~0.33 req/s with margin
-      max_parallel: 1  # Provider-level concurrency cap (global across all workers)
+      # Conservative rate control for cross-API queries + 2 workers
+      # Safety calculation: 0.33 req/s / 3 (cross-API multiplier) = 0.11 req/s
+      # With margin: 0.1 req/s → 10 seconds interval
+      # Compromise: 6 seconds (0.17 req/s) for reasonable throughput
+      min_interval_seconds: 6.0  # ~0.17 req/s (50% margin)
+      max_parallel: 1  # Global cap: only 1 S2 request at a time across all workers
     timeout_seconds: 30
     priority: 1  # Highest priority (best citation graph coverage)
 
