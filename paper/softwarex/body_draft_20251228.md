@@ -60,6 +60,9 @@ BLOCKING ITEMS BEFORE SUBMISSION:
 | Code versioning system | git |
 | Software code language | Python 3.13 |
 | Compilation requirements | NVIDIA GPU (8GB+ VRAM), CUDA 12.x |
+| Operating system | Windows 11 + WSL2 (Ubuntu 22.04/24.04) |
+| RAM | 32GB+ (WSL2 allocation) |
+| Storage | ~25GB (ML containers ~18GB + Ollama models ~5GB) |
 | Dependencies | See pyproject.toml |
 | Support email | TODO |
 
@@ -319,6 +322,13 @@ Key contributions:
 - **LoRA fine-tuning**: Train domain-specific NLI adapters from accumulated feedback (100+ corrections trigger training)
 - **Confidence calibration**: Apply Platt scaling or temperature scaling to improve NLI probability estimates
 - **Multi-worker scaling**: Validate performance with >2 workers after browser SERP stability confirmed
+
+## 5.2 Limitations
+
+- **Platform**: Currently requires Windows 11 + WSL2; cross-platform support (native Linux, macOS) planned
+- **GPU**: NVIDIA GPU with 8GB+ VRAM required; no CPU fallback implemented
+- **Browser**: Chrome with CDP (Chrome DevTools Protocol) required for browser-based search
+- **HTML Selectors**: Search engine HTML changes may require selector updates in configuration
 
 # Acknowledgements
 

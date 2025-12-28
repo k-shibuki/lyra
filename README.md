@@ -228,29 +228,29 @@ Lyra maintains a directed graph linking claims to supporting evidence:
     └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
-### Trust Levels
+### Domain Categories
 
-Sources are classified by institutional authority:
+Sources are classified by institutional category for **ranking adjustment only** (not used in confidence calculation—confidence is computed purely from fragment-level NLI scores):
 
-| Level | Description |
-|-------|-------------|
+| Category | Description |
+|----------|-------------|
 | `PRIMARY` | Standards bodies, registries (iso.org, ietf.org) |
 | `GOVERNMENT` | Government agencies (.go.jp, .gov) |
 | `ACADEMIC` | Academic/research institutions (arxiv.org, pubmed.gov) |
-| `TRUSTED` | Trusted media, knowledge bases (wikipedia.org) |
+| `TRUSTED` | Curated knowledge bases (wikipedia.org) |
 | `LOW` | Verified through L6 (promoted from UNVERIFIED) |
 | `UNVERIFIED` | Unknown domains (default) |
-| `BLOCKED` | Excluded (contradiction detected) |
+| `BLOCKED` | Excluded (high rejection rate or contradiction) |
 
-**How trust levels are assigned:**
+**How categories are assigned:**
 
-1. **Pre-assigned (allowlist)**: Known domains in `config/domains.yaml` have fixed trust levels
+1. **Pre-assigned (allowlist)**: Known domains in `config/domains.yaml` have fixed categories
 2. **Unknown domains**: Start as `UNVERIFIED`
 3. **L6 verification** promotes/demotes based on evidence (see `src/filter/source_verification.py`):
    - Corroborated by ≥2 independent sources → `UNVERIFIED` promoted to `LOW`
    - Contradiction detected → `UNVERIFIED` demoted to `BLOCKED`
    - Rejection rate >30% → `UNVERIFIED`/`LOW` demoted to `BLOCKED`
-   - Higher trust levels (PRIMARY–TRUSTED): marked REJECTED but not auto-demoted
+   - Higher categories (PRIMARY–TRUSTED): marked REJECTED but not auto-demoted
 
 ### Security Architecture (8 Layers)
 
@@ -772,10 +772,7 @@ lyra/
 
 ## Roadmap
 
-- [ ] Japanese Government API integration (e-Stat, e-Gov, EDINET)
-- [ ] Patent database integration (USPTO, EPO, J-PlatPat)
-- [ ] Automated parser repair for search engine changes
-- [ ] Cross-platform support (Linux, macOS)
+- [ ] LoRA fine-tuning for domain-specific NLI adaptation (see [T_LORA.md](docs/T_LORA.md))
 
 ---
 
@@ -783,7 +780,7 @@ lyra/
 
 | Document | Description |
 |----------|-------------|
-| [ADRs](docs/adr/) | Architecture Decision Records (15 ADRs) |
+| [ADRs](docs/adr/) | Architecture Decision Records (16 ADRs) |
 | [T_LORA.md](docs/T_LORA.md) | LoRA fine-tuning design (planned) |
 | [archive/](docs/archive/) | Historical snapshots (not maintained) |
 
@@ -791,7 +788,7 @@ lyra/
 
 ```
 docs/
-├── adr/           # Architecture Decision Records (15 ADRs)
+├── adr/           # Architecture Decision Records (16 ADRs)
 ├── archive/       # Historical snapshots (not maintained)
 └── T_LORA.md
 ```
