@@ -37,13 +37,7 @@ The evaluator (K.S.) is the developer of Lyra. This conflict is mitigated by:
 | **Comparison** | Placebo as add-on (no additional active therapy) |
 | **Outcomes** | Efficacy (HbA1c reduction) and safety (hypoglycemia risk) |
 
-**Query Text**:
-```
-What is the efficacy and safety of DPP-4 inhibitors as add-on therapy
-for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?
-```
-
-### 2.2 Query Selection Rationale
+### 2.2 Topic Selection Rationale
 
 | Criterion | Justification |
 |-----------|---------------|
@@ -52,40 +46,104 @@ for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?
 | **Evidence Availability** | Sufficient RCTs and meta-analyses exist in PubMed, Cochrane, FDA/EMA |
 | **Refutability** | The condition "HbA1c ≥7% despite insulin" creates room for nuanced evidence |
 
-### 2.3 Decomposed Queries (for Lyra execution)
+---
 
-These queries will be submitted via `queue_searches`:
+## 3. Evaluation Prompt
 
-1. `DPP-4 inhibitors efficacy meta-analysis HbA1c`
-2. `DPP-4 inhibitors safety cardiovascular outcomes`
-3. `sitagliptin add-on therapy insulin-treated HbA1c 7 RCT`
-4. `DPP-4 inhibitors vs GLP-1 agonists comparison`
-5. `FDA DPP-4 inhibitors approval label`
-6. `EMA DPP-4 inhibitors EPAR`
-7. `DPP-4 inhibitors hypoglycemia risk systematic review`
+### 3.1 Prompt Design Principles
+
+The prompt is designed to surface differences between tools in:
+
+| Capability | Prompt Element | Expected Lyra Advantage |
+|------------|----------------|-------------------------|
+| **Provenance** | "Cite sources with exact quotes" | Fragment-level attribution |
+| **Contradiction Detection** | "Identify conflicting evidence" | NLI REFUTES detection |
+| **Uncertainty** | "Indicate confidence levels" | Bayesian uncertainty scores |
+| **Primary Source Priority** | "Prioritize primary sources" | domain_category ranking |
+
+### 3.2 Common Prompt (All Tools)
+
+```
+You are a research assistant helping prepare a systematic review.
+
+## Research Question (PICO)
+
+- Population: Type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%
+- Intervention: DPP-4 inhibitors as add-on therapy
+- Comparison: Placebo as add-on (no additional active therapy)
+- Outcomes: Efficacy (HbA1c reduction) and safety (hypoglycemia risk)
+
+## Task
+
+Conduct a comprehensive literature review and provide:
+
+1. **Evidence Summary**: Summarize the key findings from clinical trials and meta-analyses
+2. **Source Attribution**: For each claim, cite the source with:
+   - URL or DOI
+   - Exact quote or paraphrase from the source
+   - Publication year
+3. **Conflicting Evidence**: Explicitly identify any evidence that contradicts the main findings
+4. **Confidence Assessment**: Indicate your confidence level for each major conclusion
+5. **Primary vs Secondary Sources**: Distinguish between primary sources (RCTs, FDA/EMA documents) and secondary sources (reviews, news articles)
+
+## Output Format
+
+Structure your response with clear sections for:
+- Main efficacy findings (HbA1c reduction)
+- Safety profile (hypoglycemia, cardiovascular)
+- Contradicting evidence (if any)
+- Limitations and uncertainties
+- Source list with full citations
+```
+
+### 3.3 Lyra-Specific Suffix
+
+For Cursor AI with Lyra MCP, append:
+
+```
+## Tool Instruction
+
+Use the Lyra MCP tools to conduct this research:
+1. Create a task with create_task
+2. Design and queue search queries with queue_searches
+3. Monitor progress with get_status
+4. Retrieve materials with get_materials (include_graph=true)
+5. Synthesize the report from the collected evidence
+```
+
+### 3.4 Prompt Equivalence
+
+| Tool | Prompt | Query Design By |
+|------|--------|-----------------|
+| **Lyra** | Common + Lyra Suffix | Cursor AI (Claude 3.5 Sonnet) |
+| **Google Deep Research** | Common only | Gemini (internal) |
+| **ChatGPT Deep Research** | Common only | GPT-4 (internal) |
+
+**Key Principle**: Query decomposition is delegated to each tool's AI. We do not pre-specify search queries. This reflects real-world usage where users provide high-level questions.
 
 ---
 
-## 3. Tools Under Evaluation
+## 4. Tools Under Evaluation
 
-| Tool | Version/Access | MCP Client | Execution Date |
+| Tool | Version/Access | AI Backend | Execution Date |
 |------|----------------|------------|----------------|
-| **Lyra** | v0.1.0 | Cursor AI (Claude 3.5 Sonnet) | TBD (same day) |
-| **Google Deep Research** | Gemini Advanced ($20/mo) | N/A | TBD (same day) |
-| **ChatGPT Deep Research** | ChatGPT Pro ($200/mo) | N/A | TBD (same day) |
+| **Lyra** | v0.1.0 | Cursor AI (Claude 3.5 Sonnet) + Local ML | TBD (same day) |
+| **Google Deep Research** | Gemini Advanced ($20/mo) | Gemini | TBD (same day) |
+| **ChatGPT Deep Research** | ChatGPT Pro ($200/mo) | GPT-4 | TBD (same day) |
 
-### 3.1 Execution Conditions
+### 4.1 Execution Conditions
 
-- All tools receive the identical primary query (Section 2.1)
+- All tools receive the Common Prompt (Section 3.2)
+- Lyra additionally receives the Lyra-Specific Suffix (Section 3.3)
 - Execution occurs on the same calendar day to control for temporal availability
 - No manual intervention during tool execution (except CAPTCHA resolution for Lyra)
 - Output is frozen immediately after completion
 
 ---
 
-## 4. Evaluation Metrics
+## 5. Evaluation Metrics
 
-### 4.1 Layer 1: Retrieval Metrics (Fully Automated)
+### 5.1 Layer 1: Retrieval Metrics (Fully Automated)
 
 | Metric | Definition | Calculation | Data Source |
 |--------|------------|-------------|-------------|
@@ -104,7 +162,7 @@ These queries will be submitted via `queue_searches`:
 
 **Google/ChatGPT Data Source**: Manual extraction from output text
 
-### 4.2 Layer 2: Factuality Metrics (Semi-Automated)
+### 5.2 Layer 2: Factuality Metrics (Semi-Automated)
 
 | Metric | Definition | Calculation | Automation |
 |--------|------------|-------------|------------|
@@ -119,7 +177,7 @@ These queries will be submitted via `queue_searches`:
 - FDA Prescribing Information (Januvia, Onglyza, Tradjenta, Nesina)
 - EMA EPAR documents
 
-### 4.3 Layer 3: Attribution Metrics (Lyra Differentiation)
+### 5.3 Layer 3: Attribution Metrics (Lyra Differentiation)
 
 | Metric | Definition | Lyra | Google | ChatGPT |
 |--------|------------|------|--------|---------|
@@ -138,9 +196,9 @@ These queries will be submitted via `queue_searches`:
 
 ---
 
-## 5. Expert Evaluation Protocol
+## 6. Expert Evaluation Protocol
 
-### 5.1 Evaluator Credentials
+### 6.1 Evaluator Credentials
 
 | Item | Value |
 |------|-------|
@@ -149,14 +207,14 @@ These queries will be submitted via `queue_searches`:
 | **Relevant Publications** | 2 peer-reviewed meta-regression papers on incretin drugs |
 | **Conflict of Interest** | Lyra developer (disclosed) |
 
-### 5.2 Blinding
+### 6.2 Blinding
 
 | Aspect | Decision | Rationale |
 |--------|----------|-----------|
 | **Tool Identity** | Single-blind (evaluator knows) | Lyra outputs include Evidence Graph structure |
 | **Claim Order** | Randomized | Prevent order bias in accuracy assessment |
 
-### 5.3 Sampling Strategy
+### 6.3 Sampling Strategy
 
 | Evaluation Target | Sample Size | Method |
 |-------------------|-------------|--------|
@@ -164,16 +222,16 @@ These queries will be submitted via `queue_searches`:
 | **NLI Edges (Lyra only)** | 30 | Stratified by relation (10 SUPPORTS, 10 REFUTES, 10 NEUTRAL) |
 | **Overall Quality** | 3 reports | Full report review |
 
-### 5.4 Scoring Criteria
+### 6.4 Scoring Criteria
 
-#### 5.4.1 Claim Accuracy (Binary)
+#### 6.4.1 Claim Accuracy (Binary)
 
 | Score | Definition |
 |-------|------------|
 | **Correct** | Claim is factually accurate per Ground Truth |
 | **Incorrect** | Claim contains factual error or is unverifiable |
 
-#### 5.4.2 NLI Edge Accuracy (3-class)
+#### 6.4.2 NLI Edge Accuracy (3-class)
 
 | Score | Definition |
 |-------|------------|
@@ -181,7 +239,7 @@ These queries will be submitted via `queue_searches`:
 | **Incorrect** | NLI label contradicts expert judgment |
 | **Ambiguous** | Expert cannot determine correct label |
 
-#### 5.4.3 Overall Quality (5-point Likert)
+#### 6.4.3 Overall Quality (5-point Likert)
 
 | Score | Definition |
 |-------|------------|
@@ -193,14 +251,14 @@ These queries will be submitted via `queue_searches`:
 
 ---
 
-## 6. Statistical Analysis Plan
+## 7. Statistical Analysis Plan
 
-### 6.1 Descriptive Statistics
+### 7.1 Descriptive Statistics
 
 - Mean, SD, median, IQR for continuous metrics
 - Counts and proportions for categorical metrics
 
-### 6.2 Comparative Tests
+### 7.2 Comparative Tests
 
 | Comparison | Test | Justification |
 |------------|------|---------------|
@@ -208,16 +266,16 @@ These queries will be submitted via `queue_searches`:
 | Ratio comparisons | Mann-Whitney U | Non-parametric, small sample |
 | Accuracy rates | Fisher's exact | Small sample proportions |
 
-### 6.3 Significance Level
+### 7.3 Significance Level
 
 - α = 0.05 (two-tailed)
 - No correction for multiple comparisons (exploratory study)
 
 ---
 
-## 7. Data Management
+## 8. Data Management
 
-### 7.1 Output Preservation
+### 8.1 Output Preservation
 
 | Artifact | Format | Storage |
 |----------|--------|---------|
@@ -226,7 +284,7 @@ These queries will be submitted via `queue_searches`:
 | ChatGPT Deep Research output | Markdown + Screenshots | `data/case_study/chatgpt/` |
 | Expert evaluation sheets | CSV | `data/case_study/evaluation/` |
 
-### 7.2 Reproducibility
+### 8.2 Reproducibility
 
 - Lyra execution: Full database snapshot preserved
 - Commercial tools: Screenshots at each interaction step
@@ -234,7 +292,7 @@ These queries will be submitted via `queue_searches`:
 
 ---
 
-## 8. Limitations
+## 9. Limitations
 
 | Limitation | Impact | Mitigation |
 |------------|--------|------------|
@@ -245,7 +303,7 @@ These queries will be submitted via `queue_searches`:
 
 ---
 
-## 9. Timeline
+## 10. Timeline
 
 | Phase | Activities | Status |
 |-------|------------|--------|
@@ -259,7 +317,7 @@ These queries will be submitted via `queue_searches`:
 
 ---
 
-## 10. Version History
+## 11. Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
