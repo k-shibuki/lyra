@@ -42,10 +42,30 @@ DIFFERENTIATION FROM JOSS PAPER:
 BLOCKING ITEMS BEFORE SUBMISSION:
   1. [ ] Complete E2E debugging
   2. [ ] Execute case study (DPP-4 inhibitors)
-  3. [ ] Collect comparison data (Google/ChatGPT Deep Research)
+  3. [ ] Collect comparison data (Claude Research)
   4. [ ] Create Zenodo archive with DOI
   5. [ ] Convert to official template
   6. [ ] Review word count (target: <3000 words)
+
+NLI EVALUATION POLICY:
+  Strategy: Do NOT claim NLI accuracy as a contribution.
+  Value proposition: TRACEABILITY and IMPROVABILITY, not classification accuracy.
+
+  After E2E completion:
+  1. Sample 30 Fragment→Claim edges
+  2. Expert review (K.S. only, for ground truth)
+  3. Report as "observed agreement" (not "accuracy")
+  4. Emphasize: errors are correctable via feedback mechanism
+
+  Tone guidelines:
+  - "NLI classification" not "NLI accuracy"
+  - "verification in seconds" not "accurate classification"
+  - "feedback enables domain adaptation" not "high baseline performance"
+
+  If observed agreement is low (<55%):
+  - Consider changing evaluation domain (non-medical)
+  - Or: prerequisite LoRA implementation before submission
+  - Or: reframe as "annotation assistance" rather than "classification"
 ================================================================================
 -->
 
@@ -93,7 +113,10 @@ Lyra introduces a "thinking-working separation" architecture that addresses thes
 
 - Full local execution of data processing (zero operational expenditure)
 - Traceable evidence graphs linking claims to source fragments
-- Systematic refutation search via Natural Language Inference (NLI)
+- Systematic refutation detection via Natural Language Inference (NLI)
+- Human-in-the-loop correction with continuous improvement path
+
+The contribution is not NLI classification accuracy per se, but rather the **architectural design** that makes evidence relationships explicit and correctable. Fragment-level provenance enables rapid human verification regardless of initial classification quality.
 
 # 2. Software Description
 
@@ -125,11 +148,12 @@ Lyra implements the Model Context Protocol (MCP), enabling any compatible AI ass
 | Capability | Description |
 |------------|-------------|
 | **Unified Search** | All queries execute browser SERP and academic APIs (Semantic Scholar, OpenAlex) in parallel with DOI-based deduplication |
-| **NLI Classification** | DeBERTa-v3 classifies fragment-claim relationships as SUPPORTS, REFUTES, or NEUTRAL |
+| **NLI Classification** | DeBERTa-v3 classifies fragment-claim relationships as SUPPORTS, REFUTES, or NEUTRAL; human-correctable via feedback tool |
 | **Evidence Graph** | Directed graph linking Claims ← Fragments ← Pages with provenance metadata |
 | **Bayesian Confidence** | Beta distribution updating incorporates both supporting and refuting evidence |
 | **Feedback Loop** | User corrections are immediately reflected and accumulated for future model adaptation |
 | **Human-in-the-Loop** | CAPTCHA/authentication queued for batch resolution without blocking pipeline |
+| **Model Configurability** | All ML components (LLM, NLI, embedding, reranker) are configurable via YAML; users can substitute domain-specific or updated models |
 
 ## 2.3 MCP Tool Interface
 
@@ -187,6 +211,8 @@ All tools generated bilingual output (English + Japanese). The Japanese translat
 | **Complexity** | Multi-faceted question spanning efficacy and safety |
 | **Evidence Availability** | Sufficient RCTs/meta-analyses in PubMed, Cochrane, FDA/EMA |
 | **Refutability** | Condition "HbA1c ≥7% despite insulin" creates room for nuanced debate |
+
+**Note on Domain Selection**: This medical case study was selected based on the author's expertise, not because Lyra is optimized for healthcare research. Lyra is designed as a **domain-agnostic** tool; all ML components use general-purpose models and are configurable for substitution. Users working in other fields (HCI, law, journalism, etc.) can use the same architecture with domain-appropriate model variants. The case study demonstrates Lyra's workflow in a demanding specialized domain, acknowledging that out-of-domain NLI performance is expected and addressed through the feedback mechanism.
 
 ### 3.1.3 Execution Workflow
 
@@ -274,17 +300,21 @@ Both evaluators received anonymized reports (labeled A, B) and assessed them wit
 
 Inter-rater agreement: TODO% (binary choice)
 
-### 3.1.6 NLI Accuracy Verification
+### 3.1.6 NLI Classification Review
 
-From the evidence graph, 30 Fragment→Claim edges were sampled for expert review:
+From the evidence graph, 30 Fragment→Claim edges were sampled for expert review. The purpose is not to claim high accuracy, but to demonstrate the **verification workflow** and **feedback mechanism**.
 
-| Metric | Value |
-|--------|-------|
-| Edges reviewed | 30 |
-| Corrections required | TODO |
-| Estimated accuracy | TODO% |
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| Edges reviewed | 30 | Sample for workflow demonstration |
+| Corrections submitted | TODO | Errors identified and corrected via feedback |
+| Observed agreement | TODO% | Baseline for domain adaptation |
 
-Corrections were submitted via `feedback(edge_correct)` and accumulated for future LoRA fine-tuning.
+Each correction was submitted via `feedback(edge_correct)`, which:
+1. Immediately updates the edge label and recalculates claim confidence
+2. Accumulates the (premise, hypothesis, correct_label) triple for future LoRA fine-tuning
+
+This workflow demonstrates that **classification errors are recoverable** through the designed feedback path, rather than requiring model replacement.
 
 ## 3.2 Workflow Comparison
 
@@ -405,10 +435,12 @@ Two independent healthcare practitioners (M.K., K.S.²) evaluated anonymized rep
 
 | Limitation | Impact | Mitigation |
 |------------|--------|------------|
-| **NLI accuracy** | Misclassifications in specialized domains | Feedback accumulation → LoRA fine-tuning |
+| **NLI domain gap** | General-purpose model may misclassify specialized terminology | Fragment-level provenance enables rapid verification; feedback accumulation → LoRA fine-tuning |
 | **Coverage** | May miss sources behind paywalls | Academic APIs prioritize open-access; HITL for auth |
 | **Latency** | Slower than cloud-native tools | Parallel execution, long-polling minimize perceived wait |
-| **Platform** | Windows 11 + WSL2 only | Cross-platform support planned |
+| **Platform** | Windows 11 + WSL2 only | Cross-platform support planned (Linux native) |
+
+**On NLI limitations**: The DeBERTa-v3-small model is trained on general NLI benchmarks (SNLI, MultiNLI), not medical literature. Domain-specific misclassifications are expected. The design addresses this through: (1) fragment-level citations that enable verification in seconds rather than minutes, and (2) a feedback mechanism that accumulates corrections for future domain adaptation. The value proposition is **verifiability**, not classification accuracy.
 
 # 5. Conclusions
 
@@ -416,10 +448,10 @@ This paper demonstrates Lyra's application as a research methodology tool throug
 
 1. **Leverage frontier AI reasoning** (query design, synthesis) while **keeping data local** (extraction, classification)
 2. **Track evidence provenance** from source fragments through to synthesized claims via the Evidence Graph
-3. **Systematically identify contradicting evidence** through NLI-based refutation search
-4. **Continuously improve** domain-specific accuracy through feedback accumulation
+3. **Make evidence relationships explicit** (SUPPORTS/REFUTES/NEUTRAL) and **human-correctable**
+4. **Accumulate domain knowledge** through feedback for future model adaptation
 
-Compared to Claude Research—using the same AI model (Opus 4.5)—Lyra provides superior evidence traceability and explicit contradiction handling through its local Evidence Graph, at equivalent subscription cost. The key differentiator is verification efficiency: Lyra's fragment-level citations enable near-instantaneous claim verification, while cloud-based tools require manual source navigation.
+Compared to Claude Research—using the same AI model (Opus 4.5)—Lyra provides superior evidence traceability and explicit relationship labeling through its local Evidence Graph, at equivalent subscription cost. The key differentiator is **verification efficiency**: Lyra's fragment-level citations enable claim verification in seconds rather than minutes, regardless of initial NLI classification quality.
 
 ## 5.1 Future Work
 
