@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: "Lyra"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Shibuki
+    given-names: Katsuya
+    orcid: "https://orcid.org/0000-0003-3570-5038"
+version: "0.1.0"
+date-released: "2025-01-01"
+license: MIT
+repository-code: "https://github.com/k-shibuki/lyra"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.XXXXXXX"
+    description: "Zenodo archive"
+keywords:
+  - research automation
+  - evidence synthesis
+  - natural language inference
+  - Model Context Protocol
+  - Python
+abstract: >-
+  Lyra is a local-first MCP toolkit for AI-collaborative desktop research
+  with evidence graph construction. It enables AI assistants to conduct
+  research while keeping all data on the user's machine.
