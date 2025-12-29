@@ -19,10 +19,20 @@ This document defines the evaluation protocol for comparing Lyra against commerc
 
 ### 1.2 Conflict of Interest Disclosure
 
-The evaluator (K.S.) is the developer of Lyra. This conflict is mitigated by:
+The author (K.S.) is the developer of Lyra. This conflict is mitigated by:
 - Pre-registration of evaluation protocol before execution
-- Automated metrics where possible
+- Automated metrics where possible (Layers 1-3)
+- **Exclusion of the author from qualitative report evaluation**
+- **Independent blinded evaluation by two healthcare practitioners**
 - Transparent reporting of all results (including negative findings)
+
+The author's role is limited to:
+- Ground truth preparation from authoritative sources
+- Anonymization of tool outputs (A/B/C labeling)
+- Automated metric calculation
+- Statistical analysis of evaluator responses
+
+Qualitative evaluation (report ranking, clinical utility assessment) is performed exclusively by independent evaluators who have no involvement in Lyra's development and no prior knowledge of its existence.
 
 ---
 
@@ -215,56 +225,111 @@ This layer measures the effort required for a healthcare practitioner to verify 
 
 ## 6. Expert Evaluation Protocol
 
-### 6.1 Evaluator Credentials
+### 6.1 Evaluator Profiles
 
-| Item | Value |
-|------|-------|
-| **Evaluator ID** | K.S. |
-| **Credentials** | PhD Pharmaceutical Sciences |
-| **Relevant Publications** | 2 peer-reviewed meta-regression papers on incretin drugs |
-| **Conflict of Interest** | Lyra developer (disclosed) |
+| ID | Credentials | Expertise | Role | Conflict of Interest |
+|----|-------------|-----------|------|---------------------|
+| **K.S.** | PharmD, PhD Pharmaceutical Sciences | Meta-regression analysis (2 peer-reviewed papers on incretin drugs) | Protocol design, Ground Truth, automated metrics, statistical analysis | Lyra developer (disclosed) |
+| **M.K.** | PharmD | Hospital pharmacist (9 years), Nutrition Support Team (NST) | Blinded qualitative evaluation | None |
+| **K.S.²** | MD, PhD | Brain physiology research (30 years), Professor emeritus, Psychiatrist (4 years) | Blinded qualitative evaluation | None |
 
-### 6.2 Blinding
+**Evaluator Independence**:
+- M.K. and K.S.² are not AI tool users and have no prior knowledge of Lyra or its development
+- M.K. has direct clinical experience with DPP-4 inhibitors through diabetic patient management in NST
+- K.S.² brings extensive experience in scientific literature evaluation from a 30-year academic research career
 
-| Aspect | Decision | Rationale |
-|--------|----------|-----------|
-| **Tool Identity** | Single-blind (evaluator knows) | Lyra outputs include Evidence Graph structure |
-| **Claim Order** | Randomized | Prevent order bias in accuracy assessment |
+### 6.2 Role Separation
 
-### 6.3 Sampling Strategy
+To eliminate developer bias, the author (K.S.) is **excluded from qualitative report evaluation**.
 
-| Evaluation Target | Sample Size | Method |
-|-------------------|-------------|--------|
-| **Claims (per tool)** | 30 | Random sample if >30, else full enumeration |
-| **NLI Edges (Lyra only)** | 30 | Stratified by relation (10 SUPPORTS, 10 REFUTES, 10 NEUTRAL) |
-| **Overall Quality** | 3 reports | Full report review |
+| Task | K.S. (Author) | M.K. | K.S.² |
+|------|---------------|------|-------|
+| Ground Truth preparation | ✓ | | |
+| Tool output anonymization (A/B/C) | ✓ | | |
+| Automated metrics (Layers 1-3) | ✓ | | |
+| Report quality ranking | **Excluded** | ✓ | ✓ |
+| Clinical utility assessment | **Excluded** | ✓ | ✓ |
+| Statistical analysis | ✓ | | |
 
-### 6.4 Scoring Criteria
+### 6.3 Blinding Protocol
 
-#### 6.4.1 Claim Accuracy (Binary)
+#### 6.3.1 Output Anonymization
+
+1. Author collects outputs from all three tools (Lyra, Google Deep Research, ChatGPT Deep Research)
+2. Tool-identifying information is removed (UI elements, tool names, structural markers)
+3. Reports are labeled A, B, C using random assignment
+4. Mapping (A→Tool, B→Tool, C→Tool) is sealed until evaluation completion
+
+#### 6.3.2 Evaluator Declaration
+
+Before evaluation, each independent evaluator signs a declaration confirming:
+- No prior knowledge of any tool used to generate the reports
+- No involvement in the development of any AI research tool
+- Evaluation based solely on clinical utility and evidence quality
+
+### 6.4 Sampling Strategy
+
+| Evaluation Target | Sample Size | Method | Evaluator |
+|-------------------|-------------|--------|-----------|
+| **Report Quality** | 3 reports | Full report review | M.K., K.S.² |
+| **Report Ranking** | 3 reports | Forced ranking (1st, 2nd, 3rd) | M.K., K.S.² |
+| **Claims (per tool)** | 30 | Random sample if >30 | K.S. (automated) |
+| **NLI Edges (Lyra)** | 30 | Stratified sampling | K.S. (Ground Truth comparison) |
+
+### 6.5 Scoring Criteria
+
+#### 6.5.1 Report Quality Assessment (5-point Likert)
+
+Evaluated by M.K. and K.S.² independently:
+
+| Criterion | 1 (Poor) | 3 (Adequate) | 5 (Excellent) |
+|-----------|----------|--------------|---------------|
+| **Medical Accuracy** | Major errors | Minor errors | No errors detected |
+| **Evidence Coverage** | Key studies missing | Partial coverage | Comprehensive |
+| **Citation Verifiability** | Cannot verify | Some verifiable | All verifiable |
+| **Contradiction Awareness** | Conflicts ignored | Partially addressed | Explicitly discussed |
+| **Clinical Utility** | Not usable | Usable with caution | Directly actionable |
+
+#### 6.5.2 Report Ranking
+
+Each evaluator provides a forced ranking:
+
+| Rank | Description |
+|------|-------------|
+| **1st** | Most trustworthy for clinical decision support |
+| **2nd** | Acceptable with additional verification |
+| **3rd** | Least reliable, requires substantial verification |
+
+#### 6.5.3 Claim Accuracy (K.S. only, automated comparison)
 
 | Score | Definition |
 |-------|------------|
 | **Correct** | Claim is factually accurate per Ground Truth |
 | **Incorrect** | Claim contains factual error or is unverifiable |
 
-#### 6.4.2 NLI Edge Accuracy (3-class)
+#### 6.5.4 NLI Edge Accuracy (K.S. only, Ground Truth comparison)
 
 | Score | Definition |
 |-------|------------|
-| **Correct** | NLI label matches expert judgment |
-| **Incorrect** | NLI label contradicts expert judgment |
-| **Ambiguous** | Expert cannot determine correct label |
+| **Correct** | NLI label matches Ground Truth judgment |
+| **Incorrect** | NLI label contradicts Ground Truth judgment |
+| **Ambiguous** | Ground Truth cannot determine correct label |
 
-#### 6.4.3 Overall Quality (5-point Likert)
+### 6.6 Evidence Trail
 
-| Score | Definition |
-|-------|------------|
-| 5 | Excellent - comprehensive, accurate, well-sourced |
-| 4 | Good - minor gaps or inaccuracies |
-| 3 | Adequate - some significant gaps |
-| 2 | Poor - major gaps or inaccuracies |
-| 1 | Unacceptable - unreliable for research use |
+All evaluation artifacts are preserved with physical signatures:
+
+| Artifact | Format | Signatories |
+|----------|--------|-------------|
+| Blank score sheet template | PDF (Appendix C) | Pre-registered with protocol |
+| Completed score sheets | Handwritten, scanned PDF | Evaluator initials + date |
+| Verification record | Scanned PDF | Author full signature + date |
+
+**Verification Process**:
+1. Evaluators complete score sheets with handwritten initials and date
+2. Author verifies blinding conditions were maintained
+3. Author signs verification with full name and date
+4. All documents scanned and preserved as Supplementary Material
 
 ---
 
@@ -275,15 +340,31 @@ This layer measures the effort required for a healthcare practitioner to verify 
 - Mean, SD, median, IQR for continuous metrics
 - Counts and proportions for categorical metrics
 
-### 7.2 Comparative Tests
+### 7.2 Inter-Rater Reliability
+
+| Metric | Statistic | Interpretation |
+|--------|-----------|----------------|
+| **Report Ranking** | Kendall's W (coefficient of concordance) | Agreement on tool ordering |
+| **Quality Scores (Likert)** | Weighted Cohen's κ | Agreement on quality ratings |
+| **Overall Agreement** | Percentage exact match | Simple agreement rate |
+
+**Interpretation Guidelines** (Landis & Koch, 1977):
+- κ < 0.20: Poor
+- κ 0.21-0.40: Fair
+- κ 0.41-0.60: Moderate
+- κ 0.61-0.80: Substantial
+- κ > 0.80: Almost perfect
+
+### 7.3 Comparative Tests
 
 | Comparison | Test | Justification |
 |------------|------|---------------|
 | Source counts | Chi-square | Count data |
 | Ratio comparisons | Mann-Whitney U | Non-parametric, small sample |
 | Accuracy rates | Fisher's exact | Small sample proportions |
+| Ranking agreement | Kendall's W | Ordinal data, 2 raters |
 
-### 7.3 Significance Level
+### 7.4 Significance Level
 
 - α = 0.05 (two-tailed)
 - No correction for multiple comparisons (exploratory study)
@@ -299,13 +380,28 @@ This layer measures the effort required for a healthcare practitioner to verify 
 | Lyra `get_materials` output | JSON | `data/case_study/lyra_output.json` |
 | Google Deep Research output | Markdown + Screenshots | `data/case_study/google/` |
 | ChatGPT Deep Research output | Markdown + Screenshots | `data/case_study/chatgpt/` |
-| Expert evaluation sheets | CSV | `data/case_study/evaluation/` |
+| Anonymized reports (A/B/C) | PDF | `data/case_study/anonymized/` |
+| Signed score sheets (M.K.) | Scanned PDF | `data/case_study/evaluation/mk_scores.pdf` |
+| Signed score sheets (K.S.²) | Scanned PDF | `data/case_study/evaluation/ks2_scores.pdf` |
+| Author verification | Scanned PDF | `data/case_study/evaluation/verification.pdf` |
+| A/B/C mapping (sealed) | Encrypted file | `data/case_study/mapping.enc` |
 
 ### 8.2 Reproducibility
 
 - Lyra execution: Full database snapshot preserved
 - Commercial tools: Screenshots at each interaction step
 - Evaluation: Raw scores before aggregation
+- Blinding verification: Physical signatures preserved as scanned PDFs
+
+### 8.3 Supplementary Materials for Publication
+
+| Material | Description | Availability |
+|----------|-------------|--------------|
+| S1 | Signed evaluation score sheets | With manuscript |
+| S2 | Author verification document | With manuscript |
+| S3 | Anonymized report samples | With manuscript |
+| S4 | Raw Lyra output JSON | Zenodo archive |
+| S5 | Evaluation script (Python) | GitHub repository |
 
 ---
 
@@ -313,10 +409,11 @@ This layer measures the effort required for a healthcare practitioner to verify 
 
 | Limitation | Impact | Mitigation |
 |------------|--------|------------|
-| Single evaluator | Potential bias | Pre-registration, automated metrics |
-| Single query domain | Limited generalizability | Domain expertise ensures validity |
+| Single query domain | Limited generalizability | Domain expertise ensures validity; future work will extend to other domains |
 | Commercial tool opacity | Cannot control execution | Same-day execution, identical query |
-| Lyra developer as evaluator | Conflict of interest | Transparent disclosure, automated metrics prioritized |
+| Family relationship (evaluators) | Potential implicit bias | Evaluators have no knowledge of Lyra; complete blinding; physical signature trail |
+| Two independent evaluators | Limited statistical power | Inter-rater reliability reported; exploratory study design |
+| Lyra developer as author | Conflict of interest | Author excluded from qualitative evaluation; role limited to automated metrics and protocol design |
 
 ---
 
@@ -339,6 +436,7 @@ This layer measures the effort required for a healthcare practitioner to verify 
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2025-12-28 | Initial draft |
+| 0.2 | 2025-12-29 | Added independent evaluators (M.K., K.S.²); blinding protocol; evidence trail; score sheet template |
 
 ---
 
@@ -527,3 +625,99 @@ if __name__ == "__main__":
     results = asyncio.run(evaluate_lyra_output(materials))
     print(json.dumps(results, indent=2))
 ```
+
+---
+
+## Appendix C: Blinded Evaluation Score Sheet
+
+*This template is pre-registered with the evaluation protocol. Evaluators complete this form without knowledge of tool identities.*
+
+---
+
+### Evaluator Declaration
+
+**I declare that:**
+
+- [ ] I have no prior knowledge of any tool used to generate these reports
+- [ ] I have not been involved in the development of any AI research tool
+- [ ] I am evaluating these reports solely based on their clinical utility and evidence quality
+
+**Evaluator Initials:** ______  **Date:** ____/____/____
+
+---
+
+### Section 1: Report Ranking
+
+Please rank the three reports from most to least trustworthy for clinical decision support.
+
+| Rank | Report ID | Primary Reason for Ranking |
+|------|-----------|---------------------------|
+| **1st (Best)** | [ A / B / C ] | |
+| **2nd** | [ A / B / C ] | |
+| **3rd (Worst)** | [ A / B / C ] | |
+
+---
+
+### Section 2: Quality Assessment
+
+Rate each report on the following criteria (1 = Poor, 3 = Adequate, 5 = Excellent).
+
+| Criterion | Report A | Report B | Report C |
+|-----------|:--------:|:--------:|:--------:|
+| **Medical Accuracy** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Evidence Coverage** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Citation Verifiability** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Contradiction Awareness** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Clinical Utility** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
+
+---
+
+### Section 3: Clinical Usability
+
+For each report, would you use it in clinical practice?
+
+| Report | Usable? | If No, What Is Missing? |
+|--------|:-------:|------------------------|
+| A | Yes / No | |
+| B | Yes / No | |
+| C | Yes / No | |
+
+---
+
+### Section 4: Free Comments
+
+**What distinguishes the best report from the others?**
+
+_____________________________________________________________________________
+
+_____________________________________________________________________________
+
+**What concerns would you have about using the worst report?**
+
+_____________________________________________________________________________
+
+_____________________________________________________________________________
+
+---
+
+### Evaluator Signature
+
+I confirm that I completed this evaluation independently and without knowledge of tool identities.
+
+**Signature:** ___________________________ **Date:** ____/____/____
+
+---
+
+### Verification Section (Author Use Only)
+
+I confirm that:
+- This evaluation was conducted under blinded conditions
+- The evaluator had no knowledge of tool identities prior to or during evaluation
+- The evaluator had no involvement in Lyra development
+- The score sheet was completed before the A/B/C mapping was revealed
+
+**Author Full Name:** ___________________________
+
+**Verification Date:** ____/____/____
+
+**Author Signature:** ___________________________
