@@ -1,7 +1,8 @@
 # Evaluation Protocol for Lyra Case Study
 
-**Version**: 0.1 (Draft)
+**Version**: 0.3
 **Created**: 2025-12-28
+**Updated**: 2025-12-29
 **Status**: Pre-registration draft (pending Zenodo DOI)
 **Authors**: Katsuya Shibuki (ORCID: 0000-0003-3570-5038)
 
@@ -9,96 +10,93 @@
 
 ## 1. Overview
 
-This document defines the evaluation protocol for comparing Lyra against commercial AI research tools. The protocol is designed for pre-registration on Zenodo to ensure transparency and reduce bias.
+This document defines the evaluation protocol for comparing Lyra against Claude Research. The protocol uses **quantitative metrics only**, focusing on search quality, factuality, and verification cost across three research domains.
 
 ### 1.1 Objectives
 
-1. Quantitatively evaluate Lyra's evidence retrieval and attribution capabilities
-2. Compare with commercial tools (Google Deep Research, ChatGPT Deep Research)
-3. Assess factuality and provenance tracking in a medical research domain
+1. Quantitatively evaluate Lyra's evidence retrieval capabilities across multiple domains
+2. Compare with Claude Research using fair metrics achievable by both tools
+3. Measure verification cost as a practitioner-relevant outcome
 
-### 1.2 Conflict of Interest Disclosure
+### 1.2 Evaluation Design Philosophy
+
+This evaluation uses **quantitative metrics only**. Qualitative evaluation (expert rankings, Likert scales) is intentionally excluded for the following reasons:
+
+| Reason | Explanation |
+|--------|-------------|
+| **Reproducibility** | Quantitative metrics can be independently verified |
+| **Objectivity** | Removes evaluator bias and inter-rater reliability concerns |
+| **Scalability** | Protocol can be extended to additional domains without evaluator coordination |
+
+### 1.3 Conflict of Interest Disclosure
 
 The author (K.S.) is the developer of Lyra. This conflict is mitigated by:
+
 - Pre-registration of evaluation protocol before execution
-- Automated metrics where possible (Layers 1-3)
-- **Exclusion of the author from qualitative report evaluation**
-- **Independent blinded evaluation by two healthcare practitioners**
+- Automated metrics where possible
+- Screen recordings for verification cost measurements
 - Transparent reporting of all results (including negative findings)
+- Ground truth derived from authoritative external sources
 
-The author's role is limited to:
-- Ground truth preparation from authoritative sources
-- Anonymization of tool outputs (A/B/C labeling)
-- Automated metric calculation
-- Statistical analysis of evaluator responses
+### 1.4 Fair Comparison Principle
 
-Qualitative evaluation (report ranking, clinical utility assessment) is performed exclusively by independent evaluators who have no involvement in Lyra's development and no prior knowledge of its existence.
+**Critical**: All competitive metrics must be achievable by both tools. Architectural differences are reported descriptively, not as performance metrics.
 
-### 1.3 NLI Evaluation Policy
-
-**Important**: This study does NOT claim NLI classification accuracy as a contribution.
-
-The value proposition is:
-1. **Traceability**: Fragment-level provenance enables verification in seconds
-2. **Improvability**: Feedback mechanism accumulates corrections for domain adaptation
-3. **Transparency**: SUPPORTS/REFUTES/NEUTRAL relationships are explicit and auditable
-
-NLI classification review (Section 5.4) measures "observed agreement" as a baseline for future domain adaptation, not as a performance claim. The general-purpose DeBERTa-v3-small model is expected to require correction in specialized domains; the design explicitly accounts for this.
+```
+Fair metrics: Both tools can achieve (compete on performance)
+Descriptive features: Only one tool has (report as table, not metric)
+```
 
 ---
 
-## 2. Research Query
+## 2. Research Domains
 
-### 2.1 Primary Query (PICO Framework)
+Three domains are selected to demonstrate Lyra's capabilities across different research contexts and to leverage academic API coverage (Semantic Scholar, OpenAlex).
+
+### 2.1 Domain Overview
+
+| # | Domain | Focus | Lyra Advantage Hypothesis |
+|:-:|--------|-------|---------------------------|
+| 1 | Pharmacology | DPP-4 inhibitors | Author expertise; PubMed/FDA coverage |
+| 2 | Computer Science | LLM hallucination | Semantic Scholar API strength |
+| 3 | Health Science | Intermittent fasting | Contradicting evidence exists |
+
+### 2.2 Domain 1: Pharmacology (DPP-4 Inhibitors)
 
 | Element | Specification |
 |---------|---------------|
-| **Population** | Type 2 diabetes patients receiving insulin therapy with HbA1c ≥7% |
-| **Intervention** | DPP-4 inhibitors as add-on therapy |
-| **Comparison** | Placebo as add-on (no additional active therapy) |
-| **Outcomes** | Efficacy (HbA1c reduction) and safety (hypoglycemia risk) |
+| **Topic** | DPP-4 inhibitors as add-on therapy for insulin-treated T2DM |
+| **PICO** | P: T2DM + insulin + HbA1c ≥7%; I: DPP-4 inhibitor; C: Placebo; O: Efficacy + safety |
+| **Ground Truth Source** | Cochrane Review; FDA prescribing information; EMA EPAR |
+| **Selection Rationale** | Author has 2 peer-reviewed meta-regression publications on incretin drugs |
 
-### 2.2 Topic Selection Rationale
+### 2.3 Domain 2: Computer Science (LLM Hallucination)
 
-| Criterion | Justification |
-|-----------|---------------|
-| **Domain Expertise** | Evaluator has 2 peer-reviewed meta-regression publications on incretin-related drugs |
-| **Complexity** | Multi-faceted question spanning efficacy and safety domains |
-| **Evidence Availability** | Sufficient RCTs and meta-analyses exist in PubMed, Cochrane, FDA/EMA |
-| **Refutability** | The condition "HbA1c ≥7% despite insulin" creates room for nuanced evidence |
+| Element | Specification |
+|---------|---------------|
+| **Topic** | Techniques to reduce hallucination in large language models |
+| **Focus** | Comparison of RAG, fine-tuning, and prompt engineering approaches |
+| **Ground Truth Source** | Survey papers (2023-2024); citation counts; benchmark results |
+| **Selection Rationale** | Semantic Scholar is strongest in CS/AI; high open-access rate |
 
-### 2.3 Domain-Agnostic Design Note
+### 2.4 Domain 3: Health Science (Intermittent Fasting)
 
-**Important**: This medical case study was selected based on the author's expertise for rigorous evaluation, **not** because Lyra is optimized for healthcare research.
-
-Lyra is designed as a **domain-agnostic** tool:
-- All ML components (LLM, NLI, embedding, reranker) use general-purpose pre-trained models
-- All models are configurable via YAML for substitution with domain-specific variants
-- The feedback → LoRA pipeline enables per-user domain adaptation over time
-
-Users in other fields (HCI, law, journalism, computer science, etc.) use the same architecture. The medical case study demonstrates Lyra's workflow in a demanding specialized domain where out-of-domain NLI performance is expected—and where the value of traceability and feedback mechanisms is most apparent.
+| Element | Specification |
+|---------|---------------|
+| **Topic** | Evidence for intermittent fasting on weight loss and metabolic health |
+| **Focus** | RCTs and systematic reviews; contradicting findings |
+| **Ground Truth Source** | Cochrane/umbrella reviews; recent meta-analyses |
+| **Selection Rationale** | Well-studied topic with both supporting and refuting evidence |
 
 ---
 
-## 3. Evaluation Prompt
+## 3. Evaluation Prompts
 
 ### 3.1 Design Philosophy
 
-The prompt is intentionally **minimal and natural**—a straightforward research request that any user might make. We do not explicitly request provenance tracking, contradiction detection, or confidence assessment. These qualities emerge (or fail to emerge) from each tool's inherent capabilities.
+Prompts are intentionally **minimal and natural**. We do not explicitly request provenance tracking, academic sources, or contradiction detection. Differences in output quality reflect each tool's inherent capabilities.
 
-**Rationale**: Explicitly requesting Lyra's differentiating features would bias the evaluation. Instead, we ask a simple question and evaluate how each tool handles evidence quality *without being told to*.
-
-### 3.2 Bilingual Output Requirement
-
-All tools are instructed to generate reports in both English and Japanese:
-
-| Aspect | Rationale |
-|--------|-----------|
-| **English first** | Primary literature is predominantly English; ensures accurate source interpretation |
-| **Japanese translation** | Independent evaluators are native Japanese speakers |
-| **Tool-generated translation** | Author does not intervene; translation quality is part of tool assessment |
-
-### 3.3 Common Prompt (All Tools)
+### 3.2 Domain 1 Prompt (Pharmacology)
 
 ```
 I'm a clinical pharmacist reviewing treatment options for a patient with
@@ -108,41 +106,40 @@ I'm considering adding a DPP-4 inhibitor. Could you summarize what the
 clinical evidence says about efficacy and safety in this situation?
 I'd like to focus on RCTs and meta-analyses.
 
-Please provide:
-1. Complete report in English
-2. Japanese translation of the report
+Please provide a complete report in English.
 ```
 
-### 3.4 Lyra-Specific Suffix
+### 3.3 Domain 2 Prompt (Computer Science)
+
+```
+I'm a machine learning researcher investigating methods to reduce
+hallucination in large language models.
+
+Could you summarize the current evidence comparing retrieval-augmented
+generation (RAG), fine-tuning, and prompt engineering approaches?
+I'd like to focus on peer-reviewed papers and benchmark results.
+
+Please provide a complete report in English.
+```
+
+### 3.4 Domain 3 Prompt (Health Science)
+
+```
+I'm reviewing the evidence on intermittent fasting.
+
+Could you summarize what the research says about its effects
+on weight loss and metabolic health? Are there contradicting findings?
+
+Please provide a complete report in English.
+```
+
+### 3.5 Lyra-Specific Suffix
 
 For Cursor IDE with Lyra MCP, append only:
 
 ```
 Use Lyra to conduct this research.
 ```
-
-### 3.5 Prompt Equivalence
-
-| Tool | Prompt | AI Backend | Output |
-|------|--------|------------|--------|
-| **Lyra** | Common + Lyra suffix | Cursor Pro (Claude Opus 4.5) + Local ML | English + Japanese |
-| **Claude Research** | Common only | Claude Max (Claude Opus 4.5) | English + Japanese |
-
-**Key Design Choice**: Both tools use the same underlying AI model (Claude Opus 4.5), enabling a pure comparison of architectural differences (local processing with Evidence Graph vs. cloud-based research).
-
-**Key Principle**: The prompt contains no instructions about citation format, contradiction handling, or confidence levels. Differences in these qualities reflect each tool's inherent design, not prompt engineering. The author does not translate or modify the generated reports; the Japanese version provided to evaluators is produced entirely by each tool.
-
-### 3.6 Post-hoc Evaluation Criteria
-
-The following qualities are **not requested in the prompt** but are **evaluated in the output**:
-
-| Quality | Evaluation Question | Lyra Structural Advantage |
-|---------|---------------------|---------------------------|
-| **Traceability** | Can each claim be traced to a specific source passage? | Evidence Graph with Fragment→Page links |
-| **Contradiction Awareness** | Does the output acknowledge conflicting evidence? | NLI REFUTES detection |
-| **Source Quality** | Are primary sources distinguished from secondary? | domain_category classification |
-| **Uncertainty** | Are limitations or confidence levels mentioned? | Bayesian uncertainty scores |
-| **Verifiability** | Can cited quotes be found in the source? | Fragment text stored with char offsets |
 
 ---
 
@@ -153,224 +150,111 @@ The following qualities are **not requested in the prompt** but are **evaluated 
 | **Lyra** | v0.1.0 + Cursor Pro | Claude Opus 4.5 + Local ML | $16/mo |
 | **Claude Research** | Claude Pro | Claude Opus 4.5 | $17/mo |
 
-**Cost Parity**: Both tools require nearly identical subscription costs ($16-17/mo), enabling fair comparison without cost-based bias.
+**Same Model Comparison**: Both tools use Claude Opus 4.5 as the reasoning engine, isolating architectural differences:
 
-**Same Model Comparison**: Both tools use Claude Opus 4.5 as the reasoning engine, isolating the architectural difference:
-- **Lyra**: Thinking (cloud) + Working (local ML, Evidence Graph)
+- **Lyra**: Thinking (cloud) + Working (local ML, Evidence Graph, Academic APIs)
 - **Claude Research**: Fully cloud-based research and synthesis
 
 ### 4.1 Execution Conditions
 
-- Both tools receive the Common Prompt (Section 3.3)
-- Lyra additionally receives the Lyra-Specific Suffix (Section 3.4)
-- Execution occurs on the same calendar day to control for temporal availability
-- No manual intervention during tool execution (except CAPTCHA resolution for Lyra)
-- Output is frozen immediately after completion
+- Both tools receive identical prompts (Sections 3.2-3.4)
+- Lyra additionally receives the Lyra-Specific Suffix (Section 3.5)
+- All domains executed on the same calendar day
+- No manual intervention during execution (except CAPTCHA resolution for Lyra)
+- Screen recording enabled for verification cost measurement
+- Output frozen immediately after completion
 
 ---
 
 ## 5. Evaluation Metrics
 
-### 5.1 Layer 1: Retrieval Metrics (Fully Automated)
+### 5.1 Layer 1: Search Quality (Automated)
 
-| Metric | Definition | Calculation | Data Source |
-|--------|------------|-------------|-------------|
-| **Source Count** | Number of unique information sources | `len(unique(URLs))` | All tools |
-| **Primary Source Ratio** | Proportion of primary sources | `(PubMed + FDA/EMA + RCT) / Total` | Domain classification |
-| **Academic Source Ratio** | Proportion with DOI | `DOI_present / Total` | DOI extraction |
-| **Recency Ratio** | Proportion from 2020 onwards | `year >= 2020 / Total` | Publication year |
-| **Domain Diversity** | Number of unique domains | `len(unique(domains))` | URL parsing |
+All metrics are achievable by both tools.
 
-**Lyra Data Source**: `get_materials()` output
-- `claims[].sources[].url`
-- `claims[].sources[].domain`
-- `claims[].evidence[].doi`
-- `claims[].evidence[].year`
-- `summary.primary_source_ratio`
+| Metric | Definition | Calculation |
+|--------|------------|-------------|
+| **Recall@GT** | Proportion of Ground Truth papers found | `found ∩ GT / GT` |
+| **Source Count** | Number of unique sources cited | `len(unique(URLs))` |
+| **Academic Ratio** | Proportion of sources with DOI | `DOI_present / total` |
+| **Recency Ratio** | Proportion from 2020 onwards | `year >= 2020 / total` |
 
-**Claude Research Data Source**: Manual extraction from output text
+### 5.2 Layer 2: Factuality (Semi-Automated)
 
-### 5.2 Layer 2: Factuality Metrics (Semi-Automated)
+| Metric | Definition | Calculation |
+|--------|------------|-------------|
+| **URL Validity** | URLs returning HTTP 200 | `valid / total` |
+| **Quote Verifiability** | Cited text exists in source | `fuzzy_match > 0.8` |
+| **Claim Accuracy** | Claims accurate vs Ground Truth | `accurate / total` |
 
-| Metric | Definition | Calculation | Automation |
-|--------|------------|-------------|------------|
-| **URL Validity** | URLs returning HTTP 200 | `valid_URLs / total_URLs` | Automated |
-| **Quote Existence** | Cited text exists in source | `fuzzy_match(quote, page) > 0.8` | Semi-automated |
-| **Claim Precision** | Accurate claims / Total claims | Expert review | Manual |
-| **Claim Recall** | Accurate claims / Ground truth claims | Expert review | Manual |
-| **Hallucination Count** | Factually incorrect claims | Expert review | Manual |
-
-**Ground Truth Source**:
-- Cochrane Systematic Review on DPP-4 inhibitors for T2DM
-- FDA Prescribing Information (Januvia, Onglyza, Tradjenta, Nesina)
-- EMA EPAR documents
-
-### 5.3 Layer 3: Attribution Metrics (Lyra Differentiation)
-
-| Metric | Definition | Lyra | Claude Research |
-|--------|------------|------|-----------------|
-| **Provenance Depth** | Claim→Fragment→Page traceability | 100% | 0% |
-| **NLI Stance Explicit** | SUPPORTS/REFUTES/NEUTRAL labeled | Yes | No |
-| **Contradiction Count** | Explicit refuting evidence count | Measurable | N/A |
-| **Uncertainty Score** | Bayesian posterior stddev | Available | N/A |
-| **Controversy Score** | Evidence conflict degree | Available | N/A |
-
-**Lyra Data Source**:
-- `claims[].evidence[].relation` (supports/refutes/neutral)
-- `claims[].has_refutation`
-- `claims[].uncertainty`
-- `claims[].controversy`
-- `evidence_graph` (full provenance chain)
-
-### 5.4 Layer 4: Verification Cost (Practitioner Perspective)
-
-This layer measures the effort required for a healthcare practitioner to verify the claims in each report. This is a critical real-world metric: a report is only useful if its claims can be efficiently validated.
-
-#### 5.4.1 Research Time
+### 5.3 Layer 3: Verification Cost (Author-Measured, Recorded)
 
 | Metric | Definition | Measurement |
 |--------|------------|-------------|
-| **Total Research Time** | Time from prompt submission to final report | Stopwatch (minutes) |
-| **User Wait Time** | Time user must wait before receiving usable output | Stopwatch (minutes) |
+| **Total Verification Time** | Time to verify 10 sampled claims | Stopwatch (from recording) |
+| **Verification Success Rate** | Claims verified within 2 min each | `found / attempted` |
 
-**Note**: Lyra operates asynchronously (user can monitor progress via `get_status`), while Deep Research tools require waiting for completion.
-
-#### 5.4.2 Verification Effort
-
-| Metric | Definition | Measurement |
-|--------|------------|-------------|
-| **Time to First Quote** | Time to locate the cited passage from URL | Stopwatch (seconds) |
-| **Verification Time per Claim** | Average time to verify one claim against source | Stopwatch (seconds) |
-| **Total Verification Time** | Time to verify 10 randomly sampled claims | Stopwatch (minutes) |
-| **Click-to-Quote Distance** | Steps from URL to exact quote location | Count (0 = direct link, 1+ = navigation required) |
-| **Verification Success Rate** | Claims where cited passage was found | `found / attempted` |
+**Transparency Measures**:
+- Full screen recordings provided as Supplementary Video
+- Raw timing data provided as Supplementary Data
+- Timeout: 2 minutes per claim (mark as "not found" if exceeded)
 
 **Protocol**:
-1. Sample 10 claims randomly from each tool's output
+1. Sample 10 claims randomly from each tool's output (per domain)
 2. For each claim, attempt to locate the supporting passage in the cited source
-3. Record: time elapsed, number of clicks/scrolls, success/failure
-4. Stop after 2 minutes per claim (mark as "not found" if exceeded)
+3. Record: elapsed time, success/failure
+4. Stop after 2 minutes per claim
 
-**Expected Outcomes**:
+### 5.4 Architectural Comparison (Descriptive Only)
 
-| Metric | Lyra | Claude Research |
-|--------|------|-----------------|
-| Total Research Time | 5-15 min | 5-15 min |
-| Time to First Quote | <10s | 30-120s |
-| Click-to-Quote Distance | 0 | 2-5 |
-| Verification Success Rate | >90% | 40-70% |
-| **Total Cost (Research + Verify 10)** | ~20 min | ~25-35 min |
+Structural differences are reported as a descriptive table, **not as competitive metrics**.
 
-**Significance**: With the same AI model (Opus 4.5), both tools should produce similar research quality. The key difference is verification cost: Lyra's Evidence Graph enables near-instantaneous quote location, while Claude Research requires manual navigation to cited sources.
+| Capability | Lyra | Claude Research | Notes |
+|------------|:----:|:---------------:|-------|
+| Evidence Graph structure | ✓ | — | Claim→Fragment→Page links |
+| Explicit stance labels | ✓ | — | SUPPORTS/REFUTES/NEUTRAL |
+| Local ML processing | ✓ | — | NLI, embedding, reranking |
+| Academic API integration | ✓ | — | Semantic Scholar, OpenAlex |
+| Human-correctable outputs | ✓ | — | Feedback tool |
+
+*Note: The presence of a capability does not imply superiority. These are structural differences, reported for transparency.*
 
 ---
 
-## 6. Expert Evaluation Protocol
+## 6. Ground Truth Definition
 
-### 6.1 Evaluator Profiles
+### 6.1 Domain 1: Pharmacology
 
-| ID | Credentials | Expertise | Role | Conflict of Interest |
-|----|-------------|-----------|------|---------------------|
-| **K.S.** | PharmD, PhD Pharmaceutical Sciences | Meta-regression analysis (2 peer-reviewed papers on incretin drugs) | Protocol design, Ground Truth, automated metrics, statistical analysis | Lyra developer (disclosed) |
-| **M.K.** | PharmD | Hospital pharmacist (9 years), Nutrition Support Team (NST) | Blinded qualitative evaluation | None |
-| **K.S.²** | MD, PhD | Brain physiology research (30 years), Professor emeritus, Psychiatrist (4 years) | Blinded qualitative evaluation | None |
+| Source | Content | Papers |
+|--------|---------|:------:|
+| Cochrane Systematic Review | DPP-4 inhibitors for T2DM | Key RCTs |
+| FDA Prescribing Information | Januvia, Onglyza, Tradjenta, Nesina | 4 |
+| EMA EPAR documents | European assessment reports | 4 |
+| **Total Ground Truth Set** | | ~15-20 |
 
-**Evaluator Independence**:
-- M.K. and K.S.² are not AI tool users and have no prior knowledge of Lyra or its development
-- M.K. has direct clinical experience with DPP-4 inhibitors through diabetic patient management in NST
-- K.S.² brings extensive experience in scientific literature evaluation from a 30-year academic research career
+### 6.2 Domain 2: Computer Science
 
-### 6.2 Role Separation
+| Source | Content | Papers |
+|--------|---------|:------:|
+| Survey: "Hallucination in LLMs" (2024) | Comprehensive technique review | Key papers |
+| Semantic Scholar: Top cited | RAG, fine-tuning, prompt engineering | Top 10 each |
+| Benchmark papers | TruthfulQA, HaluEval, etc. | ~5 |
+| **Total Ground Truth Set** | | ~25-30 |
 
-To eliminate developer bias, the author (K.S.) is **excluded from qualitative report evaluation**.
+### 6.3 Domain 3: Health Science
 
-| Task | K.S. (Author) | M.K. | K.S.² |
-|------|---------------|------|-------|
-| Ground Truth preparation | ✓ | | |
-| Tool output anonymization (A/B) | ✓ | | |
-| Automated metrics (Layers 1-3) | ✓ | | |
-| Report quality ranking | **Excluded** | ✓ | ✓ |
-| Clinical utility assessment | **Excluded** | ✓ | ✓ |
-| Statistical analysis | ✓ | | |
+| Source | Content | Papers |
+|--------|---------|:------:|
+| Cochrane Review on IF | Systematic review | Key RCTs |
+| Umbrella reviews (2022-2024) | Meta-analyses of meta-analyses | ~5 |
+| Contradicting studies | Both positive and negative findings | ~5 each |
+| **Total Ground Truth Set** | | ~15-20 |
 
-### 6.3 Blinding Protocol
+### 6.4 Ground Truth Preparation
 
-#### 6.3.1 Output Anonymization
-
-1. Author collects outputs from both tools (Lyra, Claude Research)
-2. Tool-identifying information is removed (UI elements, tool names, structural markers)
-3. Reports are labeled A, B using random assignment
-4. Mapping (A→Tool, B→Tool) is sealed until evaluation completion
-
-#### 6.3.2 Evaluator Declaration
-
-Before evaluation, each independent evaluator signs a declaration confirming:
-- No prior knowledge of any tool used to generate the reports
-- No involvement in the development of any AI research tool
-- Evaluation based solely on clinical utility and evidence quality
-
-### 6.4 Sampling Strategy
-
-| Evaluation Target | Sample Size | Method | Evaluator |
-|-------------------|-------------|--------|-----------|
-| **Report Quality** | 2 reports | Full report review | M.K., K.S.² |
-| **Report Ranking** | 2 reports | Forced ranking (1st, 2nd) | M.K., K.S.² |
-| **Claims (per tool)** | 30 | Random sample if >30 | K.S. (automated) |
-| **NLI Edges (Lyra)** | 30 | Stratified sampling | K.S. (Ground Truth comparison) |
-
-### 6.5 Scoring Criteria
-
-#### 6.5.1 Report Quality Assessment (5-point Likert)
-
-Evaluated by M.K. and K.S.² independently:
-
-| Criterion | 1 (Poor) | 3 (Adequate) | 5 (Excellent) |
-|-----------|----------|--------------|---------------|
-| **Medical Accuracy** | Major errors | Minor errors | No errors detected |
-| **Evidence Coverage** | Key studies missing | Partial coverage | Comprehensive |
-| **Citation Verifiability** | Cannot verify | Some verifiable | All verifiable |
-| **Contradiction Awareness** | Conflicts ignored | Partially addressed | Explicitly discussed |
-| **Clinical Utility** | Not usable | Usable with caution | Directly actionable |
-
-#### 6.5.2 Report Ranking
-
-Each evaluator provides a forced ranking (binary choice):
-
-| Rank | Description |
-|------|-------------|
-| **1st** | More trustworthy for clinical decision support |
-| **2nd** | Less trustworthy, requires more verification |
-
-#### 6.5.3 Claim Accuracy (K.S. only, automated comparison)
-
-| Score | Definition |
-|-------|------------|
-| **Correct** | Claim is factually accurate per Ground Truth |
-| **Incorrect** | Claim contains factual error or is unverifiable |
-
-#### 6.5.4 NLI Edge Accuracy (K.S. only, Ground Truth comparison)
-
-| Score | Definition |
-|-------|------------|
-| **Correct** | NLI label matches Ground Truth judgment |
-| **Incorrect** | NLI label contradicts Ground Truth judgment |
-| **Ambiguous** | Ground Truth cannot determine correct label |
-
-### 6.6 Evidence Trail
-
-All evaluation artifacts are preserved with physical signatures:
-
-| Artifact | Format | Signatories |
-|----------|--------|-------------|
-| Blank score sheet template | PDF (Appendix C) | Pre-registered with protocol |
-| Completed score sheets | Handwritten, scanned PDF | Evaluator initials + date |
-| Verification record | Scanned PDF | Author full signature + date |
-
-**Verification Process**:
-1. Evaluators complete score sheets with handwritten initials and date
-2. Author verifies blinding conditions were maintained
-3. Author signs verification with full name and date
-4. All documents scanned and preserved as Supplementary Material
+1. Author prepares Ground Truth lists **before** tool execution
+2. Lists are sealed (hash recorded) before evaluation
+3. Ground Truth sources are documented in Supplementary Material
 
 ---
 
@@ -380,35 +264,24 @@ All evaluation artifacts are preserved with physical signatures:
 
 - Mean, SD, median, IQR for continuous metrics
 - Counts and proportions for categorical metrics
+- Per-domain and cross-domain aggregation
 
-### 7.2 Inter-Rater Reliability
+### 7.2 Cross-Domain Comparison
 
-| Metric | Statistic | Interpretation |
-|--------|-----------|----------------|
-| **Report Ranking** | Kendall's W (coefficient of concordance) | Agreement on tool ordering |
-| **Quality Scores (Likert)** | Weighted Cohen's κ | Agreement on quality ratings |
-| **Overall Agreement** | Percentage exact match | Simple agreement rate |
+| Comparison | Aggregation |
+|------------|-------------|
+| **Recall@GT** | Mean across 3 domains |
+| **Academic Ratio** | Mean across 3 domains |
+| **Verification Time** | Mean across 3 domains |
 
-**Interpretation Guidelines** (Landis & Koch, 1977):
-- κ < 0.20: Poor
-- κ 0.21-0.40: Fair
-- κ 0.41-0.60: Moderate
-- κ 0.61-0.80: Substantial
-- κ > 0.80: Almost perfect
+### 7.3 Reporting
 
-### 7.3 Comparative Tests
+Results are reported as:
+1. Per-domain tables with all metrics
+2. Cross-domain summary table
+3. Architectural comparison table (descriptive)
 
-| Comparison | Test | Justification |
-|------------|------|---------------|
-| Source counts | Chi-square | Count data |
-| Ratio comparisons | Mann-Whitney U | Non-parametric, small sample |
-| Accuracy rates | Fisher's exact | Small sample proportions |
-| Ranking agreement | Kendall's W | Ordinal data, 2 raters |
-
-### 7.4 Significance Level
-
-- α = 0.05 (two-tailed)
-- No correction for multiple comparisons (exploratory study)
+No statistical significance tests are performed (descriptive study design).
 
 ---
 
@@ -418,30 +291,19 @@ All evaluation artifacts are preserved with physical signatures:
 
 | Artifact | Format | Storage |
 |----------|--------|---------|
-| Lyra `get_materials` output | JSON | `data/case_study/lyra_output.json` |
-| Claude Research output | Markdown + Screenshots | `data/case_study/claude/` |
-| Anonymized reports (A/B) | PDF | `data/case_study/anonymized/` |
-| Signed score sheets (M.K.) | Scanned PDF | `data/case_study/evaluation/mk_scores.pdf` |
-| Signed score sheets (K.S.²) | Scanned PDF | `data/case_study/evaluation/ks2_scores.pdf` |
-| Author verification | Scanned PDF | `data/case_study/evaluation/verification.pdf` |
-| A/B mapping (sealed) | Encrypted file | `data/case_study/mapping.enc` |
+| Lyra `get_materials` output (×3 domains) | JSON | `data/case_study/lyra/` |
+| Claude Research output (×3 domains) | Markdown + Screenshots | `data/case_study/claude/` |
+| Screen recordings (verification) | MP4 | `data/case_study/recordings/` |
+| Ground Truth lists (sealed) | JSON + SHA256 | `data/case_study/ground_truth/` |
 
-### 8.2 Reproducibility
-
-- Lyra execution: Full database snapshot preserved
-- Claude Research: Screenshots at each interaction step
-- Evaluation: Raw scores before aggregation
-- Blinding verification: Physical signatures preserved as scanned PDFs
-
-### 8.3 Supplementary Materials for Publication
+### 8.2 Supplementary Materials for Publication
 
 | Material | Description | Availability |
 |----------|-------------|--------------|
-| S1 | Signed evaluation score sheets | With manuscript |
-| S2 | Author verification document | With manuscript |
-| S3 | Anonymized report samples | With manuscript |
-| S4 | Raw Lyra output JSON | Zenodo archive |
-| S5 | Evaluation script (Python) | GitHub repository |
+| S1 | Ground Truth paper lists (3 domains) | With manuscript |
+| S2 | Raw Lyra output JSON (3 domains) | Zenodo archive |
+| S3 | Screen recordings (verification) | Zenodo archive |
+| S4 | Evaluation script (Python) | GitHub repository |
 
 ---
 
@@ -449,11 +311,11 @@ All evaluation artifacts are preserved with physical signatures:
 
 | Limitation | Impact | Mitigation |
 |------------|--------|------------|
-| Single query domain | Limited generalizability | Domain expertise ensures validity; future work will extend to other domains |
-| Commercial tool opacity | Cannot control execution | Same-day execution, identical query |
-| Family relationship (evaluators) | Potential implicit bias | Evaluators have no knowledge of Lyra; complete blinding; physical signature trail |
-| Two independent evaluators | Limited statistical power | Inter-rater reliability reported; exploratory study design |
-| Lyra developer as author | Conflict of interest | Author excluded from qualitative evaluation; role limited to automated metrics and protocol design |
+| Author-measured verification cost | Potential expectation bias | Screen recordings for independent verification |
+| Commercial tool opacity | Cannot control Claude Research execution | Same-day execution, identical prompts |
+| Ground Truth completeness | May miss relevant papers | Multiple authoritative sources per domain |
+| Single evaluator for Claim Accuracy | Subjective judgment | Clear criteria documented; edge cases noted |
+| Lyra developer as author | Conflict of interest | Pre-registration; automated metrics; recordings |
 
 ---
 
@@ -462,11 +324,11 @@ All evaluation artifacts are preserved with physical signatures:
 | Phase | Activities | Status |
 |-------|------------|--------|
 | **Phase 1: Protocol Design** | This document | Complete |
-| **Phase 2: Pre-registration** | Zenodo DOI | Pending |
-| **Phase 3: E2E Completion** | Lyra debugging | In progress |
-| **Phase 4: Execution** | All tools, same day | Pending |
-| **Phase 5: Evaluation** | Expert review | Pending |
-| **Phase 6: Analysis** | Statistical analysis | Pending |
+| **Phase 2: Ground Truth Preparation** | 3 domain paper lists | Pending |
+| **Phase 3: Pre-registration** | Zenodo DOI | Pending |
+| **Phase 4: E2E Completion** | Lyra debugging | In progress |
+| **Phase 5: Execution** | All tools, all domains, same day | Pending |
+| **Phase 6: Metric Calculation** | Automated + manual verification | Pending |
 | **Phase 7: Reporting** | SoftwareX manuscript | Pending |
 
 ---
@@ -476,7 +338,8 @@ All evaluation artifacts are preserved with physical signatures:
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2025-12-28 | Initial draft |
-| 0.2 | 2025-12-29 | Added independent evaluators (M.K., K.S.²); blinding protocol; evidence trail; score sheet template; Japanese prompts for native-language evaluation |
+| 0.2 | 2025-12-29 | Added independent evaluators; blinding protocol; score sheet |
+| 0.3 | 2025-12-29 | **Major revision**: Removed qualitative evaluation entirely; expanded to 3 domains; redesigned metrics for fairness; architectural differences now descriptive only |
 
 ---
 
@@ -489,39 +352,21 @@ All evaluation artifacts are preserved with physical signatures:
     "text": "string",
     "confidence": "number (0-1)",
     "uncertainty": "number (Bayesian stddev)",
-    "controversy": "number (conflict degree)",
     "evidence_count": "integer",
-    "has_refutation": "boolean",
     "sources": [{
       "url": "string",
       "domain": "string",
-      "domain_category": "string",
-      "is_primary": "boolean"
-    }],
-    "evidence": [{
-      "relation": "supports|refutes|neutral",
-      "nli_confidence": "number",
-      "year": "integer",
-      "doi": "string|null",
-      "venue": "string|null"
+      "doi": "string|null"
     }]
   }],
   "fragments": [{
     "id": "string",
     "text": "string (max 500 chars)",
-    "source_url": "string",
-    "context": "string",
-    "is_primary": "boolean"
+    "source_url": "string"
   }],
   "summary": {
     "total_claims": "integer",
-    "verified_claims": "integer",
-    "refuted_claims": "integer",
     "primary_source_ratio": "number"
-  },
-  "evidence_graph": {
-    "nodes": [],
-    "edges": []
   }
 }
 ```
@@ -537,75 +382,73 @@ Run after get_materials() output is collected.
 """
 
 import asyncio
+import json
+import sys
+from dataclasses import asdict, dataclass
+
 import httpx
-from dataclasses import dataclass, asdict
-from typing import Any
+
 
 @dataclass
-class Layer1Metrics:
-    """Retrieval metrics (fully automated)."""
+class SearchQualityMetrics:
+    """Layer 1: Search quality metrics."""
+
     source_count: int
-    primary_source_ratio: float
-    academic_source_ratio: float
+    academic_ratio: float
     recency_ratio: float
-    domain_diversity: int
+    recall_at_gt: float  # Requires ground truth
+
 
 @dataclass
-class Layer2Metrics:
-    """Factuality metrics (semi-automated)."""
+class FactualityMetrics:
+    """Layer 2: Factuality metrics."""
+
     url_validity_ratio: float
     urls_checked: int
     urls_valid: int
 
-@dataclass
-class Layer3Metrics:
-    """Attribution metrics (Lyra-specific)."""
-    provenance_depth: float  # Always 1.0 for Lyra
-    contradiction_count: int
-    avg_uncertainty: float
-    avg_controversy: float
-    nli_supports_count: int
-    nli_refutes_count: int
-    nli_neutral_count: int
 
-async def evaluate_lyra_output(materials: dict[str, Any]) -> dict[str, Any]:
-    """Evaluate Lyra get_materials output."""
+async def evaluate_output(
+    materials: dict,
+    ground_truth_dois: set[str],
+) -> dict:
+    """Evaluate tool output against ground truth."""
     claims = materials.get("claims", [])
 
-    # Layer 1: Retrieval
+    # Collect all DOIs and URLs
     all_urls: set[str] = set()
-    all_domains: set[str] = set()
-    doi_count = 0
+    all_dois: set[str] = set()
     recent_count = 0
-    total_evidence = 0
+    total_sources = 0
 
     for claim in claims:
         for src in claim.get("sources", []):
             if url := src.get("url"):
                 all_urls.add(url)
-            if domain := src.get("domain"):
-                all_domains.add(domain)
+            if doi := src.get("doi"):
+                all_dois.add(doi.lower())
+            total_sources += 1
 
-        for ev in claim.get("evidence", []):
-            total_evidence += 1
-            if ev.get("doi"):
-                doi_count += 1
-            year = ev.get("year")
+            year = src.get("year")
             if year and int(year) >= 2020:
                 recent_count += 1
 
-    layer1 = Layer1Metrics(
+    # Layer 1: Search Quality
+    recall = len(all_dois & ground_truth_dois) / max(1, len(ground_truth_dois))
+
+    layer1 = SearchQualityMetrics(
         source_count=len(all_urls),
-        primary_source_ratio=materials.get("summary", {}).get("primary_source_ratio", 0.0),
-        academic_source_ratio=doi_count / max(1, total_evidence),
-        recency_ratio=recent_count / max(1, total_evidence),
-        domain_diversity=len(all_domains),
+        academic_ratio=len(all_dois) / max(1, total_sources),
+        recency_ratio=recent_count / max(1, total_sources),
+        recall_at_gt=recall,
     )
 
-    # Layer 2: URL Validity Check
+    # Layer 2: URL Validity
     valid_count = 0
+    urls_to_check = list(all_urls)[:50]
+
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-        for url in list(all_urls)[:50]:  # Limit to 50 URLs
+        for url in urls_to_check:
             try:
                 resp = await client.head(url)
                 if resp.status_code == 200:
@@ -613,149 +456,30 @@ async def evaluate_lyra_output(materials: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 pass
 
-    layer2 = Layer2Metrics(
-        url_validity_ratio=valid_count / max(1, min(len(all_urls), 50)),
-        urls_checked=min(len(all_urls), 50),
+    layer2 = FactualityMetrics(
+        url_validity_ratio=valid_count / max(1, len(urls_to_check)),
+        urls_checked=len(urls_to_check),
         urls_valid=valid_count,
     )
 
-    # Layer 3: Attribution
-    refuted = sum(1 for c in claims if c.get("has_refutation"))
-    uncertainties = [c.get("uncertainty", 0) for c in claims]
-    controversies = [c.get("controversy", 0) for c in claims]
-
-    supports = refutes = neutral = 0
-    for claim in claims:
-        for ev in claim.get("evidence", []):
-            rel = ev.get("relation", "").lower()
-            if rel == "supports":
-                supports += 1
-            elif rel == "refutes":
-                refutes += 1
-            elif rel == "neutral":
-                neutral += 1
-
-    layer3 = Layer3Metrics(
-        provenance_depth=1.0,  # Lyra always 100%
-        contradiction_count=refuted,
-        avg_uncertainty=sum(uncertainties) / max(1, len(uncertainties)),
-        avg_controversy=sum(controversies) / max(1, len(controversies)),
-        nli_supports_count=supports,
-        nli_refutes_count=refutes,
-        nli_neutral_count=neutral,
-    )
-
     return {
-        "layer1_retrieval": asdict(layer1),
+        "layer1_search_quality": asdict(layer1),
         "layer2_factuality": asdict(layer2),
-        "layer3_attribution": asdict(layer3),
     }
 
-if __name__ == "__main__":
-    import json
-    import sys
 
-    if len(sys.argv) < 2:
-        print("Usage: python evaluate.py <materials.json>")
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python evaluate.py <materials.json> <ground_truth.json>")
         sys.exit(1)
 
     with open(sys.argv[1]) as f:
         materials = json.load(f)
 
-    results = asyncio.run(evaluate_lyra_output(materials))
+    with open(sys.argv[2]) as f:
+        gt_data = json.load(f)
+        ground_truth_dois = set(d.lower() for d in gt_data.get("dois", []))
+
+    results = asyncio.run(evaluate_output(materials, ground_truth_dois))
     print(json.dumps(results, indent=2))
 ```
-
----
-
-## Appendix C: Blinded Evaluation Score Sheet
-
-*This template is pre-registered with the evaluation protocol. Evaluators complete this form without knowledge of tool identities.*
-
----
-
-### Evaluator Declaration
-
-**I declare that:**
-
-- [ ] I have no prior knowledge of any tool used to generate these reports
-- [ ] I have not been involved in the development of any AI research tool
-- [ ] I am evaluating these reports solely based on their clinical utility and evidence quality
-
-**Evaluator Initials:** ______  **Date:** ____/____/____
-
----
-
-### Section 1: Report Ranking
-
-Please select which report is more trustworthy for clinical decision support.
-
-| Rank | Report ID | Primary Reason for Ranking |
-|------|-----------|---------------------------|
-| **1st (Better)** | [ A / B ] | |
-| **2nd** | [ A / B ] | |
-
----
-
-### Section 2: Quality Assessment
-
-Rate each report on the following criteria (1 = Poor, 3 = Adequate, 5 = Excellent).
-
-| Criterion | Report A | Report B |
-|-----------|:--------:|:--------:|
-| **Medical Accuracy** | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Evidence Coverage** | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Citation Verifiability** | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Contradiction Awareness** | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Clinical Utility** | 1 2 3 4 5 | 1 2 3 4 5 |
-
----
-
-### Section 3: Clinical Usability
-
-For each report, would you use it in clinical practice?
-
-| Report | Usable? | If No, What Is Missing? |
-|--------|:-------:|------------------------|
-| A | Yes / No | |
-| B | Yes / No | |
-
----
-
-### Section 4: Free Comments
-
-**What distinguishes the best report from the others?**
-
-_____________________________________________________________________________
-
-_____________________________________________________________________________
-
-**What concerns would you have about using the worst report?**
-
-_____________________________________________________________________________
-
-_____________________________________________________________________________
-
----
-
-### Evaluator Signature
-
-I confirm that I completed this evaluation independently and without knowledge of tool identities.
-
-**Signature:** ___________________________ **Date:** ____/____/____
-
----
-
-### Verification Section (Author Use Only)
-
-I confirm that:
-- This evaluation was conducted under blinded conditions
-- The evaluator had no knowledge of tool identities prior to or during evaluation
-- The evaluator had no involvement in Lyra development
-- The score sheet was completed before the A/B mapping was revealed
-
-**Author Full Name:** ___________________________
-
-**Verification Date:** ____/____/____
-
-**Author Signature:** ___________________________
