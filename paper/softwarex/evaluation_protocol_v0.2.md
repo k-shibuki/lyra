@@ -103,9 +103,10 @@ Use Lyra to conduct this research.
 
 | Tool | Prompt | AI Backend | Output |
 |------|--------|------------|--------|
-| **Lyra** | Common + Lyra suffix | Cursor IDE (Claude Opus 4.5) + Local ML | English + Japanese |
-| **Google Deep Research** | Common only | Gemini | English + Japanese |
-| **ChatGPT Deep Research** | Common only | GPT-4 | English + Japanese |
+| **Lyra** | Common + Lyra suffix | Cursor Pro (Claude Opus 4.5) + Local ML | English + Japanese |
+| **Claude Research** | Common only | Claude Max (Claude Opus 4.5) | English + Japanese |
+
+**Key Design Choice**: Both tools use the same underlying AI model (Claude Opus 4.5), enabling a pure comparison of architectural differences (local processing with Evidence Graph vs. cloud-based research).
 
 **Key Principle**: The prompt contains no instructions about citation format, contradiction handling, or confidence levels. Differences in these qualities reflect each tool's inherent design, not prompt engineering. The author does not translate or modify the generated reports; the Japanese version provided to evaluators is produced entirely by each tool.
 
@@ -125,16 +126,21 @@ The following qualities are **not requested in the prompt** but are **evaluated 
 
 ## 4. Tools Under Evaluation
 
-| Tool | Version/Access | AI Backend | Execution Date |
-|------|----------------|------------|----------------|
-| **Lyra** | v0.1.0 | Cursor IDE (Claude Opus 4.5 thinking) + Local ML | TBD (same day) |
-| **Google Deep Research** | Gemini Advanced ($20/mo) | Gemini | TBD (same day) |
-| **ChatGPT Deep Research** | ChatGPT Pro ($200/mo) | GPT-4 | TBD (same day) |
+| Tool | Version/Access | AI Backend | Monthly Cost (Annual) |
+|------|----------------|------------|----------------------|
+| **Lyra** | v0.1.0 + Cursor Pro | Claude Opus 4.5 + Local ML | ~$16-20 (Cursor Pro) |
+| **Claude Research** | Claude Max | Claude Opus 4.5 | ~$16-20 (Claude Max) |
+
+**Cost Parity**: Both tools require similar subscription costs (~$16-20/mo with annual plans), enabling fair comparison without cost-based bias.
+
+**Same Model Comparison**: Both tools use Claude Opus 4.5 as the reasoning engine, isolating the architectural difference:
+- **Lyra**: Thinking (cloud) + Working (local ML, Evidence Graph)
+- **Claude Research**: Fully cloud-based research and synthesis
 
 ### 4.1 Execution Conditions
 
-- All tools receive the Common Prompt (Section 3.2)
-- Lyra additionally receives the Lyra-Specific Suffix (Section 3.3)
+- Both tools receive the Common Prompt (Section 3.3)
+- Lyra additionally receives the Lyra-Specific Suffix (Section 3.4)
 - Execution occurs on the same calendar day to control for temporal availability
 - No manual intervention during tool execution (except CAPTCHA resolution for Lyra)
 - Output is frozen immediately after completion
@@ -160,7 +166,7 @@ The following qualities are **not requested in the prompt** but are **evaluated 
 - `claims[].evidence[].year`
 - `summary.primary_source_ratio`
 
-**Google/ChatGPT Data Source**: Manual extraction from output text
+**Claude Research Data Source**: Manual extraction from output text
 
 ### 5.2 Layer 2: Factuality Metrics (Semi-Automated)
 
@@ -179,13 +185,13 @@ The following qualities are **not requested in the prompt** but are **evaluated 
 
 ### 5.3 Layer 3: Attribution Metrics (Lyra Differentiation)
 
-| Metric | Definition | Lyra | Google | ChatGPT |
-|--------|------------|------|--------|---------|
-| **Provenance Depth** | Claim→Fragment→Page traceability | 100% | 0% | 0% |
-| **NLI Stance Explicit** | SUPPORTS/REFUTES/NEUTRAL labeled | Yes | No | No |
-| **Contradiction Count** | Explicit refuting evidence count | Measurable | N/A | N/A |
-| **Uncertainty Score** | Bayesian posterior stddev | Available | N/A | N/A |
-| **Controversy Score** | Evidence conflict degree | Available | N/A | N/A |
+| Metric | Definition | Lyra | Claude Research |
+|--------|------------|------|-----------------|
+| **Provenance Depth** | Claim→Fragment→Page traceability | 100% | 0% |
+| **NLI Stance Explicit** | SUPPORTS/REFUTES/NEUTRAL labeled | Yes | No |
+| **Contradiction Count** | Explicit refuting evidence count | Measurable | N/A |
+| **Uncertainty Score** | Bayesian posterior stddev | Available | N/A |
+| **Controversy Score** | Evidence conflict degree | Available | N/A |
 
 **Lyra Data Source**:
 - `claims[].evidence[].relation` (supports/refutes/neutral)
@@ -225,15 +231,15 @@ This layer measures the effort required for a healthcare practitioner to verify 
 
 **Expected Outcomes**:
 
-| Metric | Lyra | Google | ChatGPT |
-|--------|------|--------|---------|
-| Total Research Time | 5-15 min | 3-10 min | 3-10 min |
-| Time to First Quote | <10s | 30-120s | 30-120s |
-| Click-to-Quote Distance | 0 | 2-5 | 2-5 |
-| Verification Success Rate | >90% | 30-60% | 40-70% |
-| **Total Cost (Research + Verify 10)** | ~20 min | ~20-30 min | ~20-30 min |
+| Metric | Lyra | Claude Research |
+|--------|------|-----------------|
+| Total Research Time | 5-15 min | 5-15 min |
+| Time to First Quote | <10s | 30-120s |
+| Click-to-Quote Distance | 0 | 2-5 |
+| Verification Success Rate | >90% | 40-70% |
+| **Total Cost (Research + Verify 10)** | ~20 min | ~25-35 min |
 
-**Significance**: Lyra may take slightly longer for research, but the **total cost** (research + verification) is lower because verification is near-instantaneous. For practitioners who must verify claims before acting, this is the metric that matters.
+**Significance**: With the same AI model (Opus 4.5), both tools should produce similar research quality. The key difference is verification cost: Lyra's Evidence Graph enables near-instantaneous quote location, while Claude Research requires manual navigation to cited sources.
 
 ---
 
@@ -259,7 +265,7 @@ To eliminate developer bias, the author (K.S.) is **excluded from qualitative re
 | Task | K.S. (Author) | M.K. | K.S.² |
 |------|---------------|------|-------|
 | Ground Truth preparation | ✓ | | |
-| Tool output anonymization (A/B/C) | ✓ | | |
+| Tool output anonymization (A/B) | ✓ | | |
 | Automated metrics (Layers 1-3) | ✓ | | |
 | Report quality ranking | **Excluded** | ✓ | ✓ |
 | Clinical utility assessment | **Excluded** | ✓ | ✓ |
@@ -269,10 +275,10 @@ To eliminate developer bias, the author (K.S.) is **excluded from qualitative re
 
 #### 6.3.1 Output Anonymization
 
-1. Author collects outputs from all three tools (Lyra, Google Deep Research, ChatGPT Deep Research)
+1. Author collects outputs from both tools (Lyra, Claude Research)
 2. Tool-identifying information is removed (UI elements, tool names, structural markers)
-3. Reports are labeled A, B, C using random assignment
-4. Mapping (A→Tool, B→Tool, C→Tool) is sealed until evaluation completion
+3. Reports are labeled A, B using random assignment
+4. Mapping (A→Tool, B→Tool) is sealed until evaluation completion
 
 #### 6.3.2 Evaluator Declaration
 
@@ -285,8 +291,8 @@ Before evaluation, each independent evaluator signs a declaration confirming:
 
 | Evaluation Target | Sample Size | Method | Evaluator |
 |-------------------|-------------|--------|-----------|
-| **Report Quality** | 3 reports | Full report review | M.K., K.S.² |
-| **Report Ranking** | 3 reports | Forced ranking (1st, 2nd, 3rd) | M.K., K.S.² |
+| **Report Quality** | 2 reports | Full report review | M.K., K.S.² |
+| **Report Ranking** | 2 reports | Forced ranking (1st, 2nd) | M.K., K.S.² |
 | **Claims (per tool)** | 30 | Random sample if >30 | K.S. (automated) |
 | **NLI Edges (Lyra)** | 30 | Stratified sampling | K.S. (Ground Truth comparison) |
 
@@ -306,13 +312,12 @@ Evaluated by M.K. and K.S.² independently:
 
 #### 6.5.2 Report Ranking
 
-Each evaluator provides a forced ranking:
+Each evaluator provides a forced ranking (binary choice):
 
 | Rank | Description |
 |------|-------------|
-| **1st** | Most trustworthy for clinical decision support |
-| **2nd** | Acceptable with additional verification |
-| **3rd** | Least reliable, requires substantial verification |
+| **1st** | More trustworthy for clinical decision support |
+| **2nd** | Less trustworthy, requires more verification |
 
 #### 6.5.3 Claim Accuracy (K.S. only, automated comparison)
 
@@ -392,18 +397,17 @@ All evaluation artifacts are preserved with physical signatures:
 | Artifact | Format | Storage |
 |----------|--------|---------|
 | Lyra `get_materials` output | JSON | `data/case_study/lyra_output.json` |
-| Google Deep Research output | Markdown + Screenshots | `data/case_study/google/` |
-| ChatGPT Deep Research output | Markdown + Screenshots | `data/case_study/chatgpt/` |
-| Anonymized reports (A/B/C) | PDF | `data/case_study/anonymized/` |
+| Claude Research output | Markdown + Screenshots | `data/case_study/claude/` |
+| Anonymized reports (A/B) | PDF | `data/case_study/anonymized/` |
 | Signed score sheets (M.K.) | Scanned PDF | `data/case_study/evaluation/mk_scores.pdf` |
 | Signed score sheets (K.S.²) | Scanned PDF | `data/case_study/evaluation/ks2_scores.pdf` |
 | Author verification | Scanned PDF | `data/case_study/evaluation/verification.pdf` |
-| A/B/C mapping (sealed) | Encrypted file | `data/case_study/mapping.enc` |
+| A/B mapping (sealed) | Encrypted file | `data/case_study/mapping.enc` |
 
 ### 8.2 Reproducibility
 
 - Lyra execution: Full database snapshot preserved
-- Commercial tools: Screenshots at each interaction step
+- Claude Research: Screenshots at each interaction step
 - Evaluation: Raw scores before aggregation
 - Blinding verification: Physical signatures preserved as scanned PDFs
 
@@ -662,13 +666,12 @@ if __name__ == "__main__":
 
 ### Section 1: Report Ranking
 
-Please rank the three reports from most to least trustworthy for clinical decision support.
+Please select which report is more trustworthy for clinical decision support.
 
 | Rank | Report ID | Primary Reason for Ranking |
 |------|-----------|---------------------------|
-| **1st (Best)** | [ A / B / C ] | |
-| **2nd** | [ A / B / C ] | |
-| **3rd (Worst)** | [ A / B / C ] | |
+| **1st (Better)** | [ A / B ] | |
+| **2nd** | [ A / B ] | |
 
 ---
 
@@ -676,13 +679,13 @@ Please rank the three reports from most to least trustworthy for clinical decisi
 
 Rate each report on the following criteria (1 = Poor, 3 = Adequate, 5 = Excellent).
 
-| Criterion | Report A | Report B | Report C |
-|-----------|:--------:|:--------:|:--------:|
-| **Medical Accuracy** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Evidence Coverage** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Citation Verifiability** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Contradiction Awareness** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
-| **Clinical Utility** | 1 2 3 4 5 | 1 2 3 4 5 | 1 2 3 4 5 |
+| Criterion | Report A | Report B |
+|-----------|:--------:|:--------:|
+| **Medical Accuracy** | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Evidence Coverage** | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Citation Verifiability** | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Contradiction Awareness** | 1 2 3 4 5 | 1 2 3 4 5 |
+| **Clinical Utility** | 1 2 3 4 5 | 1 2 3 4 5 |
 
 ---
 
@@ -694,7 +697,6 @@ For each report, would you use it in clinical practice?
 |--------|:-------:|------------------------|
 | A | Yes / No | |
 | B | Yes / No | |
-| C | Yes / No | |
 
 ---
 
@@ -728,7 +730,7 @@ I confirm that:
 - This evaluation was conducted under blinded conditions
 - The evaluator had no knowledge of tool identities prior to or during evaluation
 - The evaluator had no involvement in Lyra development
-- The score sheet was completed before the A/B/C mapping was revealed
+- The score sheet was completed before the A/B mapping was revealed
 
 **Author Full Name:** ___________________________
 
