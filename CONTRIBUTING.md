@@ -34,7 +34,35 @@ Branch naming examples:
 - Add tests for new functionality
 - Update documentation if needed
 
-### 3. Commit with Conventional Commits
+### 3. Run Tests and Quality Checks
+
+Use Makefile commands (run `make help` for full list):
+
+```bash
+# Setup
+make setup-dev          # Install development dependencies
+
+# Testing
+make test               # Run all tests
+make test-unit          # Run unit tests only
+
+# Code quality
+make lint               # Run ruff linter
+make typecheck          # Run mypy type checker
+make format-check       # Check code formatting
+make quality            # Run all quality checks (lint + typecheck + shellcheck)
+
+# Auto-fix
+make lint-fix           # Fix linter issues
+make format             # Format code (black + ruff)
+```
+
+Before submitting a PR, ensure:
+```bash
+make quality && make test-unit
+```
+
+### 4. Commit with Conventional Commits
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
@@ -60,7 +88,7 @@ docs(adr): add ADR-0017 for caching strategy
 refactor(crawler): simplify tab pool management
 ```
 
-### 4. Submit a Pull Request
+### 5. Submit a Pull Request
 
 - Provide a clear description of your changes
 - Reference any related issues
