@@ -38,47 +38,106 @@ TOOLS = [
     # ============================================================
     Tool(
         name="create_task",
-        description="Create a new research task. Returns task_id for subsequent operations.",
+        title="Create Research Task",
+        description="""Create a new research task to begin evidence collection.
+
+WORKFLOW: This is the first step. After creating a task, use queue_searches to add search queries.
+The same task_id accumulates data across multiple searches - design queries iteratively based on results.
+
+STRATEGY: Start with broad queries, then refine based on get_status metrics. Include both supporting
+and refuting queries to ensure balanced evidence collection.""",
         inputSchema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Research question or topic"},
+                "query": {
+                    "type": "string",
+                    "description": "Research question or hypothesis to investigate. Be specific - this guides the entire exploration.",
+                },
                 "config": {
                     "type": "object",
-                    "description": "Optional configuration",
+                    "description": "Task configuration. Defaults work well for most research.",
                     "properties": {
                         "budget": {
                             "type": "object",
+                            "description": "Resource limits for the task",
                             "properties": {
-                                "budget_pages": {"type": "integer", "default": 120},
-                                "max_seconds": {"type": "integer", "default": 1200},
+                                "budget_pages": {
+                                    "type": "integer",
+                                    "default": 120,
+                                    "description": "Max pages to fetch across all searches. Shared across the task.",
+                                },
+                                "max_seconds": {
+                                    "type": "integer",
+                                    "default": 1200,
+                                    "description": "Max task duration in seconds (20 min default).",
+                                },
                             },
                         },
                         "priority_domains": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Domains to prioritize",
+                            "description": "Domains to prioritize (e.g., ['arxiv.org', 'nature.com']). Academic sources recommended.",
                         },
                         "language": {
                             "type": "string",
-                            "description": "Primary language (ja, en, etc.)",
+                            "description": "Primary language for search (ja, en, etc.). Affects query expansion.",
                         },
                     },
                 },
             },
             "required": ["query"],
         },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean", "description": "True if task created successfully"},
+                "task_id": {"type": "string", "description": "Unique task identifier. Use this for all subsequent operations."},
+                "query": {"type": "string", "description": "The research query"},
+                "created_at": {"type": "string", "description": "ISO timestamp of creation"},
+                "budget": {
+                    "type": "object",
+                    "properties": {
+                        "budget_pages": {"type": "integer"},
+                        "max_seconds": {"type": "integer"},
+                    },
+                },
+            },
+            "required": ["ok", "task_id"],
+        },
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": False,
+        },
     ),
     Tool(
         name="get_status",
-        description="Get unified task and exploration status. Returns task info, search states (including queued), metrics, budget, and auth queue. Supports wait (long polling). Per ADR-0003, ADR-0010.",
+        title="Get Task Status",
+        description="""Get comprehensive task status including search progress, metrics, and pending auth.
+
+POLLING STRATEGY: Use wait=30 for efficient long-polling during active exploration.
+Use wait=0 for immediate status checks when making decisions.
+
+METRICS TO MONITOR:
+- searches[].satisfaction_score: 0.0-1.0, higher means query is well-covered
+- searches[].harvest_rate: Ratio of useful fragments found
+- metrics.total_claims: Growing count indicates productive exploration
+- budget.remaining_percent: Stop or adjust strategy when low
+
+DECISION POINTS:
+- If satisfaction_score < 0.5: Consider refining or expanding queries
+- If harvest_rate low: Try different query angles or sources
+- If pending_auth_count > 0: User needs to solve CAPTCHAs (use get_auth_queue)""",
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "description": "Task ID to get status for"},
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to check status for",
+                },
                 "wait": {
                     "type": "integer",
-                    "description": "Max seconds to wait for progress before returning (long polling). Default: 0 (immediate).",
+                    "description": "Long-polling: seconds to wait for changes before returning. 0=immediate, 30=recommended for monitoring.",
                     "default": 0,
                     "minimum": 0,
                     "maximum": 60,
@@ -86,71 +145,215 @@ TOOLS = [
             },
             "required": ["task_id"],
         },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "task_id": {"type": "string"},
+                "status": {
+                    "type": "string",
+                    "enum": ["exploring", "paused", "completed", "failed"],
+                    "description": "Current task state",
+                },
+                "query": {"type": "string", "description": "Original research query"},
+                "searches": {
+                    "type": "array",
+                    "description": "Status of each search query",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "query": {"type": "string"},
+                            "status": {"type": "string", "enum": ["queued", "running", "completed", "failed", "cancelled"]},
+                            "pages_fetched": {"type": "integer"},
+                            "useful_fragments": {"type": "integer"},
+                            "harvest_rate": {"type": "number", "description": "0.0-1.0, ratio of useful content found"},
+                            "satisfaction_score": {"type": "number", "description": "0.0-1.0, how well query is covered"},
+                            "has_primary_source": {"type": "boolean", "description": "True if academic/primary source found"},
+                        },
+                    },
+                },
+                "queue": {
+                    "type": "object",
+                    "description": "Search queue status",
+                    "properties": {
+                        "depth": {"type": "integer", "description": "Queued searches waiting"},
+                        "running": {"type": "integer", "description": "Currently executing searches"},
+                    },
+                },
+                "pending_auth_count": {
+                    "type": "integer",
+                    "description": "CAPTCHAs awaiting user resolution. If > 0, use get_auth_queue.",
+                },
+                "metrics": {
+                    "type": "object",
+                    "properties": {
+                        "total_searches": {"type": "integer"},
+                        "satisfied_count": {"type": "integer", "description": "Searches with satisfaction >= 0.7"},
+                        "total_pages": {"type": "integer"},
+                        "total_fragments": {"type": "integer"},
+                        "total_claims": {"type": "integer", "description": "Verified assertions extracted"},
+                        "elapsed_seconds": {"type": "integer"},
+                    },
+                },
+                "budget": {
+                    "type": "object",
+                    "properties": {
+                        "budget_pages_used": {"type": "integer"},
+                        "budget_pages_limit": {"type": "integer"},
+                        "remaining_percent": {"type": "integer", "description": "0-100, budget remaining"},
+                    },
+                },
+                "idle_seconds": {"type": "integer", "description": "Seconds since last activity"},
+                "warnings": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+        },
     ),
     # ============================================================
     # 2. Research Execution (2 tools)
     # ============================================================
     Tool(
         name="queue_searches",
-        description="Queue multiple search queries for background execution. Returns immediately. Use get_status(wait=N) to monitor progress. Per ADR-0010: Async search queue.",
+        title="Queue Search Queries",
+        description="""Queue multiple search queries for parallel background execution. Returns immediately.
+
+DUPLICATE HANDLING: Safe to queue overlapping queries - duplicates are auto-detected and skipped.
+Same URL/DOI content is cached and reused across queries, maximizing coverage without waste.
+
+EXPLORATION STRATEGY:
+1. Start with 3-5 diverse queries covering different angles of the research question
+2. Check results with get_status(wait=30) to monitor progress
+3. Based on findings, add more specific or contrasting queries
+4. IMPORTANT: Include refutation queries (e.g., "X criticism", "X limitations", "against X")
+   to ensure balanced evidence collection
+
+QUERY DESIGN TIPS:
+- Use academic terms and paper titles when known
+- Try both English and target language queries
+- Include author names for known experts
+- Add "site:arxiv.org" or domain hints for academic sources""",
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "description": "Task ID"},
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to add searches to",
+                },
                 "queries": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Search queries to execute in background",
+                    "description": "Search queries to execute. Include both supporting and refuting angles.",
                     "minItems": 1,
                 },
                 "options": {
                     "type": "object",
-                    "description": "Optional search options applied to all queries",
+                    "description": "Options applied to all queries in this batch",
                     "properties": {
                         "engines": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Specific engines to use (optional)",
+                            "description": "Specific search engines (google, bing, duckduckgo, scholar). Omit for auto-selection.",
                         },
                         "budget_pages": {
                             "type": "integer",
-                            "description": "Page fetch budget per search (max pages to fetch)",
+                            "description": "Max pages per query. Leave unset to use task default.",
                         },
                         "priority": {
                             "type": "string",
                             "enum": ["high", "medium", "low"],
                             "default": "medium",
-                            "description": "Scheduling priority. high=10, medium=50, low=90.",
+                            "description": "Scheduling priority. Use 'high' for critical queries, 'low' for exploratory.",
                         },
                     },
                 },
             },
             "required": ["task_id", "queries"],
         },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "queued_count": {"type": "integer", "description": "Number of queries added to queue"},
+                "skipped_count": {"type": "integer", "description": "Duplicates skipped (already queued/running)"},
+                "search_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "IDs of queued searches for tracking",
+                },
+                "message": {"type": "string", "description": "Human-readable status message"},
+            },
+        },
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+        },
     ),
-    # NOTE: search tool removed (ADR-0010: async search queue).
-    # Use queue_searches + get_status(wait=N) instead.
     Tool(
         name="stop_task",
-        description="Stop/finalize a research task. Returns summary with completion stats. Mode controls how running searches are handled (ADR-0010).",
+        title="Stop Research Task",
+        description="""Stop and finalize a research task. Cancels pending searches and prepares materials.
+
+WHEN TO STOP:
+- budget.remaining_percent approaching 0
+- All key queries have satisfaction_score >= 0.7
+- Sufficient claims collected (check metrics.total_claims)
+- Time constraints require wrapping up
+
+MODES:
+- graceful: Wait for running searches to complete, then stop. Recommended for quality.
+- immediate: Cancel everything now. Use when budget exhausted or time critical.
+
+AFTER STOPPING: Use get_materials to retrieve collected evidence for report composition.""",
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "description": "Task ID to stop"},
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to stop",
+                },
                 "reason": {
                     "type": "string",
-                    "description": "Stop reason",
                     "enum": ["completed", "budget_exhausted", "user_cancelled"],
                     "default": "completed",
+                    "description": "Why the task is stopping. Logged for analysis.",
                 },
                 "mode": {
                     "type": "string",
-                    "description": "Stop mode: graceful (wait for running searches) or immediate (cancel all)",
                     "enum": ["graceful", "immediate"],
                     "default": "graceful",
+                    "description": "graceful=wait for running searches, immediate=cancel all",
                 },
             },
             "required": ["task_id"],
+        },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "task_id": {"type": "string"},
+                "final_status": {"type": "string"},
+                "mode": {"type": "string"},
+                "metrics": {
+                    "type": "object",
+                    "description": "Final task metrics",
+                    "properties": {
+                        "total_searches": {"type": "integer"},
+                        "total_pages": {"type": "integer"},
+                        "total_claims": {"type": "integer"},
+                    },
+                },
+            },
+        },
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
         },
     ),
     # ============================================================
@@ -158,28 +361,168 @@ TOOLS = [
     # ============================================================
     Tool(
         name="get_materials",
-        description="Get report materials (claims, fragments, evidence graph) for Cursor AI to compose a report. Does NOT generate report - Cursor AI handles composition/writing (ADR-0002).",
+        title="Get Report Materials",
+        description="""Get structured research materials for report composition. You compose the final report.
+
+WHAT YOU RECEIVE:
+- claims: Verified assertions with confidence scores and NLI classification
+- fragments: Source excerpts with citations for inline quotes
+- evidence_graph: Claim-evidence relationships (optional, for visualization)
+
+USING CLAIMS FOR REPORT STRUCTURE:
+- Each claim has confidence (0.0-1.0) based on Bayesian aggregation of evidence
+- uncertainty: How much the evidence varies (high = conflicting sources)
+- controversy: Degree of support vs refutation (high = debated topic)
+- has_refutation: True if counter-evidence exists - address these in balanced reporting
+
+NLI CLASSIFICATION (on evidence edges):
+- supports: Evidence supports the claim
+- refutes: Evidence contradicts the claim
+- neutral: Evidence is related but neither supports nor refutes
+
+EVIDENCE GRAPH USES (when include_graph=true):
+- Visualize claim-evidence relationships
+- Build citation networks (which sources cite which)
+- Temporal analysis (evidence publication dates in evidence_years)
+- Identify key sources that support multiple claims""",
         inputSchema={
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "description": "Task ID"},
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID to get materials from",
+                },
                 "options": {
                     "type": "object",
                     "properties": {
                         "include_graph": {
                             "type": "boolean",
-                            "description": "Include evidence graph",
                             "default": False,
+                            "description": "Include evidence graph for visualization. Adds nodes/edges data.",
                         },
                         "format": {
                             "type": "string",
                             "enum": ["structured", "narrative"],
                             "default": "structured",
+                            "description": "Output format. 'structured' for programmatic use, 'narrative' for prose.",
                         },
                     },
                 },
             },
             "required": ["task_id"],
+        },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "task_id": {"type": "string"},
+                "query": {"type": "string", "description": "Original research query"},
+                "claims": {
+                    "type": "array",
+                    "description": "Verified assertions extracted from sources. Use as report structure.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "text": {"type": "string", "description": "The claim assertion"},
+                            "confidence": {"type": "number", "description": "0.0-1.0, Bayesian posterior mean"},
+                            "uncertainty": {"type": "number", "description": "0.0-1.0, posterior stddev"},
+                            "controversy": {"type": "number", "description": "0.0-1.0, support vs refute conflict"},
+                            "evidence_count": {"type": "integer"},
+                            "has_refutation": {"type": "boolean", "description": "True if refuting evidence exists"},
+                            "sources": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "url": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "domain": {"type": "string"},
+                                        "domain_category": {
+                                            "type": "string",
+                                            "enum": ["academic", "news", "government", "organization", "commercial", "social", "unknown"],
+                                        },
+                                        "is_primary": {"type": "boolean", "description": "True if academic/primary source"},
+                                    },
+                                },
+                            },
+                            "evidence": {
+                                "type": "array",
+                                "description": "Evidence details with NLI labels",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "fragment_id": {"type": "string"},
+                                        "relation": {"type": "string", "enum": ["supports", "refutes", "neutral"]},
+                                        "confidence": {"type": "number"},
+                                    },
+                                },
+                            },
+                            "evidence_years": {
+                                "type": "object",
+                                "description": "Publication year distribution for temporal analysis",
+                            },
+                        },
+                    },
+                },
+                "fragments": {
+                    "type": "array",
+                    "description": "Source excerpts for inline citations",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "text": {"type": "string", "description": "Excerpt content (max 500 chars)"},
+                            "source_url": {"type": "string"},
+                            "context": {"type": "string", "description": "Heading/section context"},
+                            "is_primary": {"type": "boolean"},
+                        },
+                    },
+                },
+                "evidence_graph": {
+                    "type": "object",
+                    "description": "Graph structure for visualization (only if include_graph=true)",
+                    "properties": {
+                        "nodes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "type": {"type": "string", "enum": ["claim", "fragment", "page"]},
+                                    "label": {"type": "string"},
+                                },
+                            },
+                        },
+                        "edges": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "source": {"type": "string"},
+                                    "target": {"type": "string"},
+                                    "relation": {"type": "string", "enum": ["supports", "refutes", "neutral", "cites"]},
+                                    "confidence": {"type": "number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "total_claims": {"type": "integer"},
+                        "verified_claims": {"type": "integer", "description": "Claims with 2+ evidence sources"},
+                        "refuted_claims": {"type": "integer", "description": "Claims with refuting evidence"},
+                        "primary_source_ratio": {"type": "number", "description": "Ratio of academic/primary sources"},
+                    },
+                },
+            },
+        },
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
         },
     ),
     # ============================================================
@@ -187,40 +530,101 @@ TOOLS = [
     # ============================================================
     Tool(
         name="calibration_metrics",
-        description="Calibration metrics operations. Actions: get_stats, get_evaluations. For ground-truth collection, use feedback(edge_correct). For rollback, use calibration_rollback. Batch evaluation/visualization are handled by scripts (see ADR-0011).",
+        title="Calibration Metrics",
+        description="""View NLI model calibration statistics and evaluation history.
+
+ACTIONS:
+- get_stats: Current calibration parameters and Brier scores per source model
+- get_evaluations: Historical evaluation records for trend analysis
+
+For collecting ground-truth corrections, use feedback(action=edge_correct).
+For rolling back to previous calibration, use calibration_rollback (separate tool for safety).""",
         inputSchema={
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": [
-                        "get_stats",
-                        "get_evaluations",
-                    ],
-                    "description": "Action to perform",
+                    "enum": ["get_stats", "get_evaluations"],
+                    "description": "get_stats: current params, get_evaluations: history",
                 },
                 "data": {
                     "type": "object",
-                    "description": "Action-specific data. get_evaluations: {source?, limit?, since?}. get_stats: no data required.",
+                    "description": "For get_evaluations: {source?, limit?, since?}",
+                    "properties": {
+                        "source": {"type": "string", "description": "Filter by source model (e.g., 'nli_judge')"},
+                        "limit": {"type": "integer", "default": 50},
+                        "since": {"type": "string", "description": "ISO timestamp to filter from"},
+                    },
                 },
             },
             "required": ["action"],
         },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "action": {"type": "string"},
+                "current_params": {
+                    "type": "object",
+                    "description": "For get_stats: calibration params per source",
+                },
+                "evaluations": {
+                    "type": "array",
+                    "description": "For get_evaluations: historical records",
+                },
+            },
+        },
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+        },
     ),
     Tool(
         name="calibration_rollback",
-        description="Rollback calibration parameters to a previous version (destructive operation). Per ADR-0003: Separate tool because rollback is destructive and irreversible.",
+        title="Rollback Calibration",
+        description="""Rollback NLI calibration parameters to a previous version. DESTRUCTIVE operation.
+
+USE CASES:
+- Brier score degraded after recalibration
+- Incorrect ground-truth samples contaminated training
+- Need to restore known-good parameters
+
+This is a separate tool from calibration_metrics because rollback is irreversible.
+Always provide a reason for audit trail.""",
         inputSchema={
             "type": "object",
             "properties": {
-                "source": {"type": "string", "description": "Source model identifier"},
+                "source": {
+                    "type": "string",
+                    "description": "Source model identifier (e.g., 'nli_judge', 'llm_extract')",
+                },
                 "version": {
                     "type": "integer",
-                    "description": "Target version (omit for previous version)",
+                    "description": "Target version number. Omit to rollback to previous version.",
                 },
-                "reason": {"type": "string", "description": "Reason for rollback (audit log)"},
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for rollback. Required for audit log.",
+                },
             },
             "required": ["source"],
+        },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "source": {"type": "string"},
+                "rolled_back_to": {"type": "integer", "description": "Version now active"},
+                "previous_version": {"type": "integer", "description": "Version that was replaced"},
+                "brier_after": {"type": "number", "description": "Brier score of restored version"},
+                "method": {"type": "string", "enum": ["platt", "temperature"]},
+            },
+        },
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
         },
     ),
     # ============================================================
@@ -228,72 +632,159 @@ TOOLS = [
     # ============================================================
     Tool(
         name="get_auth_queue",
-        description="Get pending authentication queue. Per ADR-0003: Supports grouping by domain/type and priority filtering.",
+        title="Get Auth Queue",
+        description="""Get pending CAPTCHA/authentication items awaiting user resolution.
+
+WORKFLOW: When get_status shows pending_auth_count > 0:
+1. Call get_auth_queue to see what needs solving
+2. User solves CAPTCHAs in browser (URLs are provided)
+3. Call resolve_auth to mark completion and trigger retry
+
+Group by domain to batch-solve CAPTCHAs from the same site.
+Research continues on other domains while CAPTCHAs are pending.""",
         inputSchema={
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID (optional, omit for all tasks)",
+                    "description": "Filter to specific task. Omit for all tasks.",
                 },
                 "group_by": {
                     "type": "string",
                     "enum": ["none", "domain", "type"],
-                    "description": "Grouping mode",
                     "default": "none",
+                    "description": "Group results by domain or auth type for batch handling.",
                 },
                 "priority_filter": {
                     "type": "string",
                     "enum": ["high", "medium", "low", "all"],
-                    "description": "Filter by priority",
                     "default": "all",
+                    "description": "Filter by priority level.",
                 },
             },
+        },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "group_by": {"type": "string"},
+                "total_count": {"type": "integer"},
+                "items": {
+                    "type": "array",
+                    "description": "When group_by=none",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "domain": {"type": "string"},
+                            "auth_type": {"type": "string"},
+                            "url": {"type": "string"},
+                            "priority": {"type": "string"},
+                        },
+                    },
+                },
+                "groups": {
+                    "type": "object",
+                    "description": "When group_by=domain or type",
+                },
+            },
+        },
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
         },
     ),
     Tool(
         name="resolve_auth",
-        description="Report authentication completion or skip. Per ADR-0003: Supports single item, domain-batch, or task-batch operations.",
+        title="Resolve Authentication",
+        description="""Mark CAPTCHA/auth items as solved or skipped. Triggers automatic retry of blocked searches.
+
+TARGETS:
+- item: Resolve single queue item by ID
+- domain: Batch resolve all items for a domain (efficient for same-site CAPTCHAs)
+- task: Resolve all auth items for a task
+
+On success, blocked searches are automatically requeued and circuit breakers reset.
+Session cookies are captured and reused for future requests to that domain.""",
         inputSchema={
             "type": "object",
             "properties": {
                 "target": {
                     "type": "string",
                     "enum": ["item", "domain", "task"],
-                    "description": "Resolution target type",
                     "default": "item",
+                    "description": "Resolution scope",
                 },
-                "queue_id": {"type": "string", "description": "Queue item ID (when target=item)"},
+                "queue_id": {
+                    "type": "string",
+                    "description": "Queue item ID (required when target=item)",
+                },
                 "domain": {
                     "type": "string",
-                    "description": "Domain to resolve (when target=domain)",
+                    "description": "Domain to resolve (required when target=domain)",
                 },
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID to resolve (when target=task)",
+                    "description": "Task ID (required when target=task)",
                 },
                 "action": {
                     "type": "string",
                     "enum": ["complete", "skip"],
-                    "description": "Resolution action",
+                    "description": "complete=auth successful, skip=abandon these items",
                 },
                 "success": {
                     "type": "boolean",
-                    "description": "Whether auth succeeded (for complete action)",
                     "default": True,
+                    "description": "For action=complete: whether auth actually succeeded",
                 },
             },
             "required": ["action"],
         },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "target": {"type": "string"},
+                "action": {"type": "string"},
+                "resolved_count": {"type": "integer", "description": "Items resolved"},
+                "requeued_count": {"type": "integer", "description": "Searches requeued for retry"},
+            },
+        },
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+        },
     ),
     # ============================================================
-    # 6. Feedback (1 tool - ADR-0012)
+    # 6. Feedback (1 tool)
     # ============================================================
-    # NOTE: notify_user and wait_for_user removed (ADR-0010: async search queue).
-    # Use get_status(wait=N) for long polling instead.
     Tool(
         name="feedback",
-        description="Human-in-the-loop feedback for domain/claim/edge management. Provides 6 actions across 3 levels (Domain, Claim, Edge).",
+        title="Submit Feedback",
+        description="""Human-in-the-loop corrections for improving evidence quality. Changes take effect immediately.
+
+3 LEVELS, 6 ACTIONS:
+
+DOMAIN LEVEL - Block/unblock sources:
+- domain_block: Block a domain (e.g., low-quality site). Requires reason.
+- domain_unblock: Unblock a previously blocked domain. Requires reason.
+- domain_clear_override: Remove all overrides for a domain pattern.
+
+CLAIM LEVEL - Accept/reject extracted claims:
+- claim_reject: Mark claim as invalid/irrelevant. Removes from materials. Requires reason.
+- claim_restore: Restore a previously rejected claim.
+
+EDGE LEVEL - Correct NLI classifications:
+- edge_correct: Fix incorrect supports/refutes/neutral label. This also marks the edge as
+  human-reviewed. Corrections are saved for future model improvement (LoRA training data).
+
+EDGE_CORRECT DETAILS:
+When you find an edge with wrong NLI classification (e.g., marked 'neutral' but actually 'supports'):
+1. Get edge_id from get_materials evidence data
+2. Call feedback(action=edge_correct, edge_id=..., correct_relation='supports')
+3. Edge confidence is set to 1.0 (human certainty) and claim confidence recalculates""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -307,31 +798,50 @@ TOOLS = [
                         "claim_restore",
                         "edge_correct",
                     ],
-                    "description": "Action to perform",
+                    "description": "Feedback action to perform",
                 },
                 "domain_pattern": {
                     "type": "string",
-                    "description": "For domain_* actions. Glob pattern (e.g., 'example.com', '*.example.com')",
+                    "description": "For domain_* actions. Glob pattern (e.g., 'example.com', '*.example.com'). TLD-level patterns forbidden.",
                 },
                 "claim_id": {
                     "type": "string",
-                    "description": "For claim_reject/claim_restore",
+                    "description": "For claim_reject/claim_restore. Get from get_materials claims[].id",
                 },
                 "edge_id": {
                     "type": "string",
-                    "description": "For edge_correct",
+                    "description": "For edge_correct. Get from get_materials claims[].evidence[].edge_id",
                 },
                 "correct_relation": {
                     "type": "string",
                     "enum": ["supports", "refutes", "neutral"],
-                    "description": "For edge_correct: the correct NLI relation",
+                    "description": "For edge_correct: the correct NLI label",
                 },
                 "reason": {
                     "type": "string",
-                    "description": "Required for domain_block, domain_unblock, domain_clear_override, claim_reject. Optional for edge_correct.",
+                    "description": "Required for domain_block, domain_unblock, domain_clear_override, claim_reject. Logged for audit.",
                 },
             },
             "required": ["action"],
+        },
+        outputSchema={
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "action": {"type": "string"},
+                "domain_pattern": {"type": "string"},
+                "claim_id": {"type": "string"},
+                "edge_id": {"type": "string"},
+                "previous_relation": {"type": "string", "description": "For edge_correct: old label"},
+                "new_relation": {"type": "string", "description": "For edge_correct: new label"},
+                "sample_id": {"type": "string", "description": "For edge_correct: training sample ID if label changed"},
+                "rule_id": {"type": "string", "description": "For domain_*: created rule ID"},
+            },
+        },
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": False,
         },
     ),
 ]
