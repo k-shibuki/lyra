@@ -369,11 +369,17 @@ WHAT YOU RECEIVE:
 - fragments: Source excerpts with citations for inline quotes
 - evidence_graph: Claim-evidence relationships (optional, for visualization)
 
+BAYESIAN CONFIDENCE MODEL:
+  α = 1 + Σ(supports_confidence)    -- pseudo-count for supporting evidence
+  β = 1 + Σ(refutes_confidence)     -- pseudo-count for refuting evidence
+  confidence = α / (α + β)          -- posterior mean (0.5 = no evidence)
+  uncertainty = sqrt(αβ / ((α+β)² × (α+β+1)))  -- posterior stddev
+  controversy = 2 × min(α-1, β-1) / (α + β - 2)  -- 0=one-sided, 1=balanced conflict
+
 USING CLAIMS FOR REPORT STRUCTURE:
-- Each claim has confidence (0.0-1.0) based on Bayesian aggregation of evidence
-- uncertainty: How much the evidence varies (high = conflicting sources)
-- controversy: Degree of support vs refutation (high = debated topic)
-- has_refutation: True if counter-evidence exists - address these in balanced reporting
+- confidence near 0.5 with low uncertainty = insufficient evidence
+- confidence near 0.5 with high controversy = genuinely debated topic
+- has_refutation: True if any refuting evidence exists - address in balanced reporting
 
 NLI CLASSIFICATION (on evidence edges):
 - supports: Evidence supports the claim
@@ -383,8 +389,10 @@ NLI CLASSIFICATION (on evidence edges):
 EVIDENCE GRAPH USES (when include_graph=true):
 - Visualize claim-evidence relationships
 - Build citation networks (which sources cite which)
-- Temporal analysis (evidence publication dates in evidence_years)
-- Identify key sources that support multiple claims""",
+- Temporal analysis (use evidence[].source_year and evidence_years)
+- Identify key sources that support multiple claims
+
+CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong NLI labels.""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -448,19 +456,22 @@ EVIDENCE GRAPH USES (when include_graph=true):
                             },
                             "evidence": {
                                 "type": "array",
-                                "description": "Evidence details with NLI labels",
+                                "description": "Evidence details with NLI labels. Use edge_id for feedback corrections.",
                                 "items": {
                                     "type": "object",
                                     "properties": {
+                                        "edge_id": {"type": "string", "description": "Edge ID for feedback(edge_correct)"},
                                         "fragment_id": {"type": "string"},
                                         "relation": {"type": "string", "enum": ["supports", "refutes", "neutral"]},
-                                        "confidence": {"type": "number"},
+                                        "confidence": {"type": "number", "description": "0.0-1.0, NLI model confidence"},
+                                        "source_year": {"type": "integer", "description": "Publication year for timeline analysis"},
                                     },
                                 },
                             },
                             "evidence_years": {
                                 "type": "object",
-                                "description": "Publication year distribution for temporal analysis",
+                                "description": "Year distribution: {2020: 3, 2021: 5, ...} for temporal analysis",
+                                "additionalProperties": {"type": "integer"},
                             },
                         },
                     },
