@@ -140,7 +140,7 @@ DECISION POINTS:
                     "description": "Long-polling: seconds to wait for changes before returning. 0=immediate, 30=recommended for monitoring.",
                     "default": 0,
                     "minimum": 0,
-                    "maximum": 60,
+                    "maximum": 180,
                 },
             },
             "required": ["task_id"],
