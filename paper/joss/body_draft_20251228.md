@@ -164,8 +164,6 @@ This paper's value proposition is the ARCHITECTURE, not NLI accuracy.
 
 # Acknowledgements
 
-Development was assisted by AI tools (Cursor AI, Claude) for code generation and documentation. The author maintains responsibility for all design decisions and code review.
-
 Lyra builds upon:
 
 - [Ollama](https://ollama.ai/) for local LLM runtime
