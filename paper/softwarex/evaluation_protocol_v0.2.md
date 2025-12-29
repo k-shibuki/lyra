@@ -67,6 +67,17 @@ NLI classification review (Section 5.4) measures "observed agreement" as a basel
 | **Evidence Availability** | Sufficient RCTs and meta-analyses exist in PubMed, Cochrane, FDA/EMA |
 | **Refutability** | The condition "HbA1c ≥7% despite insulin" creates room for nuanced evidence |
 
+### 2.3 Domain-Agnostic Design Note
+
+**Important**: This medical case study was selected based on the author's expertise for rigorous evaluation, **not** because Lyra is optimized for healthcare research.
+
+Lyra is designed as a **domain-agnostic** tool:
+- All ML components (LLM, NLI, embedding, reranker) use general-purpose pre-trained models
+- All models are configurable via YAML for substitution with domain-specific variants
+- The feedback → LoRA pipeline enables per-user domain adaptation over time
+
+Users in other fields (HCI, law, journalism, computer science, etc.) use the same architecture. The medical case study demonstrates Lyra's workflow in a demanding specialized domain where out-of-domain NLI performance is expected—and where the value of traceability and feedback mechanisms is most apparent.
+
 ---
 
 ## 3. Evaluation Prompt

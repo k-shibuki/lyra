@@ -153,6 +153,7 @@ Lyra implements the Model Context Protocol (MCP), enabling any compatible AI ass
 | **Bayesian Confidence** | Beta distribution updating incorporates both supporting and refuting evidence |
 | **Feedback Loop** | User corrections are immediately reflected and accumulated for future model adaptation |
 | **Human-in-the-Loop** | CAPTCHA/authentication queued for batch resolution without blocking pipeline |
+| **Model Configurability** | All ML components (LLM, NLI, embedding, reranker) are configurable via YAML; users can substitute domain-specific or updated models |
 
 ## 2.3 MCP Tool Interface
 
@@ -210,6 +211,8 @@ All tools generated bilingual output (English + Japanese). The Japanese translat
 | **Complexity** | Multi-faceted question spanning efficacy and safety |
 | **Evidence Availability** | Sufficient RCTs/meta-analyses in PubMed, Cochrane, FDA/EMA |
 | **Refutability** | Condition "HbA1c ≥7% despite insulin" creates room for nuanced debate |
+
+**Note on Domain Selection**: This medical case study was selected based on the author's expertise, not because Lyra is optimized for healthcare research. Lyra is designed as a **domain-agnostic** tool; all ML components use general-purpose models and are configurable for substitution. Users working in other fields (HCI, law, journalism, etc.) can use the same architecture with domain-appropriate model variants. The case study demonstrates Lyra's workflow in a demanding specialized domain, acknowledging that out-of-domain NLI performance is expected and addressed through the feedback mechanism.
 
 ### 3.1.3 Execution Workflow
 
