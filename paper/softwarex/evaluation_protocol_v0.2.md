@@ -126,12 +126,12 @@ The following qualities are **not requested in the prompt** but are **evaluated 
 
 ## 4. Tools Under Evaluation
 
-| Tool | Version/Access | AI Backend | Monthly Cost (Annual) |
-|------|----------------|------------|----------------------|
-| **Lyra** | v0.1.0 + Cursor Pro | Claude Opus 4.5 + Local ML | ~$16-20 (Cursor Pro) |
-| **Claude Research** | Claude Max | Claude Opus 4.5 | ~$16-20 (Claude Max) |
+| Tool | Version/Access | AI Backend | Monthly Cost |
+|------|----------------|------------|--------------|
+| **Lyra** | v0.1.0 + Cursor Pro | Claude Opus 4.5 + Local ML | $16/mo |
+| **Claude Research** | Claude Pro | Claude Opus 4.5 | $17/mo |
 
-**Cost Parity**: Both tools require similar subscription costs (~$16-20/mo with annual plans), enabling fair comparison without cost-based bias.
+**Cost Parity**: Both tools require nearly identical subscription costs ($16-17/mo), enabling fair comparison without cost-based bias.
 
 **Same Model Comparison**: Both tools use Claude Opus 4.5 as the reasoning engine, isolating the architectural difference:
 - **Lyra**: Thinking (cloud) + Working (local ML, Evidence Graph)
