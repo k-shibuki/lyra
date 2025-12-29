@@ -26,9 +26,9 @@ Status: DRAFT (Pre-E2E completion)
 REQUIRED FILES:
   [x] LICENSE (MIT) - exists
   [x] README.md - exists (37KB, comprehensive)
-  [ ] CONTRIBUTING.md - TODO: Create before submission
-  [ ] CITATION.cff - TODO: Create before submission
-  [ ] paper.bib - TODO: Create with references
+  [x] CONTRIBUTING.md - created
+  [x] CITATION.cff - created (Zenodo DOI placeholder)
+  [ ] paper.bib - Quarto will generate
 
 JOSS CRITERIA:
   [x] Software functionality documented - README comprehensive
@@ -53,9 +53,9 @@ AI-GENERATED CONTENT NOTICE:
 
 BLOCKING ITEMS BEFORE SUBMISSION:
   1. [ ] Complete E2E debugging (currently in progress)
-  2. [ ] Create CONTRIBUTING.md
-  3. [ ] Create CITATION.cff
-  4. [ ] Create paper.bib with all references
+  2. [x] Create CONTRIBUTING.md
+  3. [x] Create CITATION.cff
+  4. [ ] Create paper.bib (Quarto will generate)
   5. [x] Confirm author affiliation and ORCID
   6. [ ] Review word count (target: 250-1000 words)
 ================================================================================
