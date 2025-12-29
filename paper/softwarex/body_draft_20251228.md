@@ -341,7 +341,7 @@ To isolate the impact of Lyra's architecture, we compared it against Claude Rese
 | **Evidence relationships explicit** | Yes (SUPPORTS/REFUTES) | No |
 | **Processing local** | Yes (NLI, extraction) | No |
 | **Contradicting evidence highlighted** | Yes (NLI) | No |
-| **Monthly cost (annual)** | ~$16-20 (Cursor Pro) | ~$16-20 (Claude Max) |
+| **Monthly cost** | $16/mo (Cursor Pro) | $17/mo (Claude Pro) |
 
 ### 4.1.2 Quantitative Comparison
 
