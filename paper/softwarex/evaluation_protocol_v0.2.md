@@ -125,11 +125,10 @@ Please provide a complete report in English.
 ### 3.4 Domain 3 Prompt (Health Science)
 
 ```
-I'm a nutrition researcher reviewing the evidence on intermittent fasting.
+I'm reviewing the evidence on intermittent fasting.
 
-Could you summarize what the clinical evidence says about its effects
+Could you summarize what the research says about its effects
 on weight loss and metabolic health? Are there contradicting findings?
-I'd like to focus on RCTs and systematic reviews.
 
 Please provide a complete report in English.
 ```
