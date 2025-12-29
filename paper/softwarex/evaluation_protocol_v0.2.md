@@ -34,6 +34,17 @@ The author's role is limited to:
 
 Qualitative evaluation (report ranking, clinical utility assessment) is performed exclusively by independent evaluators who have no involvement in Lyra's development and no prior knowledge of its existence.
 
+### 1.3 NLI Evaluation Policy
+
+**Important**: This study does NOT claim NLI classification accuracy as a contribution.
+
+The value proposition is:
+1. **Traceability**: Fragment-level provenance enables verification in seconds
+2. **Improvability**: Feedback mechanism accumulates corrections for domain adaptation
+3. **Transparency**: SUPPORTS/REFUTES/NEUTRAL relationships are explicit and auditable
+
+NLI classification review (Section 5.4) measures "observed agreement" as a baseline for future domain adaptation, not as a performance claim. The general-purpose DeBERTa-v3-small model is expected to require correction in specialized domains; the design explicitly accounts for this.
+
 ---
 
 ## 2. Research Query

@@ -67,7 +67,7 @@ Lyra is an open-source Python toolkit that enables AI assistants to conduct desk
 
 The toolkit embeds four ML components for local inference: a 3B-parameter LLM (Qwen2.5) for claim extraction, BGE-M3 embeddings for semantic ranking, a cross-encoder reranker, and a DeBERTa-based NLI classifier for stance detection. All inference runs on local GPU (NVIDIA, 8GB+ VRAM required), eliminating API costs and external data transmission.
 
-Lyra constructs an **evidence graph** linking extracted claims to source fragments with provenance metadata, enabling verification and reproducibility. Confidence is calculated via Bayesian updating over NLI-weighted evidence, with explicit tracking of supporting and refuting sources.
+Lyra constructs an **evidence graph** linking extracted claims to source fragments with provenance metadata, enabling verification and reproducibility. Confidence is calculated via Bayesian updating over NLI-weighted evidence, with explicit tracking of supporting and refuting sources. Crucially, the architecture supports **human-in-the-loop correction**: users can override NLI judgments via the feedback tool, with corrections immediately reflected in confidence scores and accumulated for future domain adaptation via LoRA fine-tuning.
 
 <!-- TODO: After E2E completion, add concrete metrics:
      - Typical research session statistics (pages processed, claims extracted)
@@ -132,12 +132,34 @@ Lyra is implemented in Python 3.13 with an async architecture (~76,000 lines of 
 
 All queries execute both browser SERP and academic APIs in parallel, with DOI-based deduplication (ADR-0016). The feedback tool enables human correction of NLI judgments, accumulating training data for future LoRA fine-tuning (ADR-0011, ADR-0012).
 
+The NLI component uses a general-purpose DeBERTa-v3-small model, which may require domain adaptation for specialized fields. The design explicitly accounts for this: fragment-level provenance enables rapid human verification, and the feedback mechanism provides a path to continuous improvement without retraining the full model.
+
 The codebase includes 16 Architecture Decision Records (ADRs) documenting design rationale, from local-first principles (ADR-0001) to thinking-working separation (ADR-0002) to evidence graph structure (ADR-0005).
 
 <!-- TODO: After E2E completion, add:
      - Performance characteristics (throughput, latency)
      - Resource requirements validation
      - Any benchmark results
+-->
+
+<!--
+================================================================================
+NLI EVALUATION POLICY (Internal Note)
+================================================================================
+Strategy: Do NOT claim NLI accuracy as a contribution. Instead, emphasize:
+  1. Traceability: Fragment-level provenance enables rapid verification
+  2. Improvability: Feedback → immediate correction → LoRA accumulation
+  3. Transparency: SUPPORTS/REFUTES/NEUTRAL explicitly visible
+
+Evaluation approach after E2E completion:
+  1. Sample 30 edges from case study
+  2. Expert review for accuracy measurement
+  3. If ≥70%: Report as baseline with improvement path
+  4. If 55-70%: Emphasize "human verification required" design
+  5. If <55%: Consider domain change or LoRA prerequisite
+
+This paper's value proposition is the ARCHITECTURE, not NLI accuracy.
+================================================================================
 -->
 
 # Acknowledgements
