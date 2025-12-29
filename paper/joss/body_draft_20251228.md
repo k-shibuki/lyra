@@ -132,7 +132,7 @@ Lyra is implemented in Python 3.13 with an async architecture (~76,000 lines of 
 
 All queries execute both browser SERP and academic APIs in parallel, with DOI-based deduplication (ADR-0016). The feedback tool enables human correction of NLI judgments, accumulating training data for future LoRA fine-tuning (ADR-0011, ADR-0012).
 
-The NLI component uses a general-purpose DeBERTa-v3-small model, which may require domain adaptation for specialized fields. The design explicitly accounts for this: fragment-level provenance enables rapid human verification, and the feedback mechanism provides a path to continuous improvement without retraining the full model.
+The NLI component uses a general-purpose DeBERTa-v3-small model, which may require domain adaptation for specialized fields. The design explicitly accounts for this: fragment-level provenance enables rapid human verification, and the feedback mechanism provides a path to continuous improvement without retraining the full model. All ML components (LLM, NLI, embedding, reranker) are configurable via YAML, allowing users to substitute domain-specific or updated models as they become available.
 
 The codebase includes 16 Architecture Decision Records (ADRs) documenting design rationale, from local-first principles (ADR-0001) to thinking-working separation (ADR-0002) to evidence graph structure (ADR-0005).
 
