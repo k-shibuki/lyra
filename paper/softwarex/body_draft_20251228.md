@@ -163,11 +163,21 @@ To evaluate Lyra's capabilities for systematic evidence synthesis, we conducted 
 | **Comparison** | Placebo as add-on (no additional active therapy) |
 | **Outcomes** | Efficacy (HbA1c reduction) and safety (hypoglycemia risk) |
 
-**Main Query**:
+**Evaluation Prompt** (identical for all tools):
 ```
-What is the efficacy and safety of DPP-4 inhibitors as add-on therapy
-for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?
+I'm a clinical pharmacist reviewing treatment options for a patient with
+type 2 diabetes. They're currently on insulin but their HbA1c remains above 7%.
+
+I'm considering adding a DPP-4 inhibitor. Could you summarize what the
+clinical evidence says about efficacy and safety in this situation?
+I'd like to focus on RCTs and meta-analyses.
+
+Please provide:
+1. Complete report in English
+2. Japanese translation of the report
 ```
+
+All tools generated bilingual output (English + Japanese). The Japanese translations, produced entirely by each tool without author intervention, were provided to independent evaluators (native Japanese speakers) for blinded assessment.
 
 ### 3.1.2 Query Selection Rationale
 
@@ -236,15 +246,33 @@ The evidence graph for this case study contains:
 
 ### 3.1.5 Expert Evaluation
 
-The evaluator (pharmaceutical sciences PhD, meta-regression specialist) assessed the collected evidence against ground truth:
+To eliminate developer bias, qualitative evaluation was performed by two independent healthcare practitioners who had no prior knowledge of Lyra:
 
-| Criterion | Score (1-5) | Notes |
-|-----------|-------------|-------|
-| **Accuracy** | TODO | Medical correctness of extracted claims |
-| **Coverage** | TODO | Inclusion of major RCTs/meta-analyses |
-| **Recency** | TODO | Presence of post-2020 evidence |
-| **Primary Source Ratio** | TODO% | Original papers vs. secondary sources |
-| **Citation Verifiability** | TODO | Ability to trace claims to sources |
+| Evaluator | Credentials | Expertise |
+|-----------|-------------|-----------|
+| **M.K.** | PharmD | Hospital pharmacist (9 years), NST member |
+| **K.S.²** | MD, PhD | Brain physiology research (30 years), Professor emeritus |
+
+Both evaluators received anonymized reports (labeled A, B) and assessed them without knowing which tool produced each output. The author (K.S.) was excluded from qualitative evaluation; their role was limited to ground truth preparation and automated metrics.
+
+#### Blinded Quality Assessment
+
+| Criterion | M.K. Score | K.S.² Score | Notes |
+|-----------|:----------:|:-----------:|-------|
+| **Medical Accuracy** | TODO | TODO | |
+| **Evidence Coverage** | TODO | TODO | |
+| **Citation Verifiability** | TODO | TODO | |
+| **Contradiction Awareness** | TODO | TODO | |
+| **Clinical Utility** | TODO | TODO | |
+
+#### Report Ranking
+
+| Evaluator | 1st (Better) | 2nd |
+|-----------|:------------:|:---:|
+| **M.K.** | TODO | TODO |
+| **K.S.²** | TODO | TODO |
+
+Inter-rater agreement: TODO% (binary choice)
 
 ### 3.1.6 NLI Accuracy Verification
 
@@ -298,44 +326,71 @@ This non-blocking design maintained research momentum while preserving automatio
 
 # 4. Impact
 
-## 4.1 Comparison with Commercial Tools
+## 4.1 Comparison with Claude Research
 
-To contextualize Lyra's capabilities, we compared results with commercial AI research tools using the identical DPP-4 inhibitors query.
+To isolate the impact of Lyra's architecture, we compared it against Claude Research—both tools use the same AI model (Claude Opus 4.5), enabling a pure comparison of local vs. cloud-based research approaches.
 
-### 4.1.1 Qualitative Comparison
+### 4.1.1 Architectural Comparison
 
-| Criterion | Lyra | Google Deep Research | ChatGPT Deep Research |
-|-----------|------|---------------------|----------------------|
-| **Source URLs visible** | Yes (all) | Partial | Partial |
-| **Citation location traceable** | Yes (fragment-level) | No | No |
-| **Search queries auditable** | Yes | No | No |
-| **Evidence relationships explicit** | Yes (SUPPORTS/REFUTES) | No | No |
-| **Processing local** | Yes | No | No |
-| **Contradicting evidence highlighted** | Yes (NLI) | No | No |
+| Criterion | Lyra | Claude Research |
+|-----------|------|-----------------|
+| **AI Model** | Claude Opus 4.5 | Claude Opus 4.5 |
+| **Source URLs visible** | Yes (all) | Partial |
+| **Citation location traceable** | Yes (fragment-level) | No |
+| **Search queries auditable** | Yes | No |
+| **Evidence relationships explicit** | Yes (SUPPORTS/REFUTES) | No |
+| **Processing local** | Yes (NLI, extraction) | No |
+| **Contradicting evidence highlighted** | Yes (NLI) | No |
+| **Monthly cost** | $16/mo (Cursor Pro) | $17/mo (Claude Pro) |
 
 ### 4.1.2 Quantitative Comparison
 
 <!-- TODO: Fill in after case study execution -->
 
-| Metric | Lyra | Google Deep Research | ChatGPT Deep Research |
-|--------|------|---------------------|----------------------|
-| **Sources cited** | TODO | TODO | TODO |
-| **Primary sources** | TODO | TODO | TODO |
-| **Processing time** | TODO | TODO | TODO |
-| **Monthly cost** | $0 | $20 | $200 |
-| **Data transmitted externally** | Query only | All | All |
+| Metric | Lyra | Claude Research |
+|--------|------|-----------------|
+| **Sources cited** | TODO | TODO |
+| **Primary sources** | TODO | TODO |
+| **Processing time** | TODO | TODO |
+| **Verification time (10 claims)** | TODO | TODO |
+| **Data transmitted externally** | Query only | All |
 
-### 4.1.3 Expert Quality Assessment
+### 4.1.3 Expert Quality Assessment (Blinded)
+
+Two independent healthcare practitioners (M.K., K.S.²) evaluated anonymized reports without knowledge of tool identities. Signed score sheets are provided as Supplementary Material S1.
 
 <!-- TODO: Fill in after case study execution -->
 
-| Criterion | Lyra | Google | ChatGPT |
-|-----------|------|--------|---------|
-| Accuracy (1-5) | TODO | TODO | TODO |
-| Coverage (1-5) | TODO | TODO | TODO |
-| Recency (1-5) | TODO | TODO | TODO |
-| Verifiability (1-5) | TODO | TODO | TODO |
-| **Overall** | TODO | TODO | TODO |
+**M.K. (Hospital Pharmacist, 9 years)**:
+
+| Criterion | Report A | Report B |
+|-----------|:--------:|:--------:|
+| Medical Accuracy (1-5) | TODO | TODO |
+| Evidence Coverage (1-5) | TODO | TODO |
+| Citation Verifiability (1-5) | TODO | TODO |
+| Contradiction Awareness (1-5) | TODO | TODO |
+| Clinical Utility (1-5) | TODO | TODO |
+| **Ranking** | TODO | TODO |
+
+**K.S.² (MD, PhD, Professor emeritus)**:
+
+| Criterion | Report A | Report B |
+|-----------|:--------:|:--------:|
+| Medical Accuracy (1-5) | TODO | TODO |
+| Evidence Coverage (1-5) | TODO | TODO |
+| Citation Verifiability (1-5) | TODO | TODO |
+| Contradiction Awareness (1-5) | TODO | TODO |
+| Clinical Utility (1-5) | TODO | TODO |
+| **Ranking** | TODO | TODO |
+
+**Inter-rater Reliability**:
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| Agreement (binary ranking) | TODO% | TODO |
+| Weighted Cohen's κ (quality) | TODO | TODO |
+
+*Note: A→Tool, B→Tool mapping revealed after evaluation completion.*
 
 ## 4.2 Research Applications
 
@@ -364,7 +419,7 @@ This paper demonstrates Lyra's application as a research methodology tool throug
 3. **Systematically identify contradicting evidence** through NLI-based refutation search
 4. **Continuously improve** domain-specific accuracy through feedback accumulation
 
-Compared to commercial tools (Google Deep Research, ChatGPT Deep Research), Lyra provides superior evidence traceability and explicit contradiction handling at zero operational cost, albeit with current limitations in NLI accuracy for specialized domains.
+Compared to Claude Research—using the same AI model (Opus 4.5)—Lyra provides superior evidence traceability and explicit contradiction handling through its local Evidence Graph, at equivalent subscription cost. The key differentiator is verification efficiency: Lyra's fragment-level citations enable near-instantaneous claim verification, while cloud-based tools require manual source navigation.
 
 ## 5.1 Future Work
 
