@@ -462,8 +462,6 @@ Compared to Claude Research—using the same AI model (Opus 4.5)—Lyra provides
 
 # Acknowledgements
 
-Development was assisted by AI tools (Cursor AI, Claude) for code generation and documentation. The author maintains full responsibility for all design decisions and code review.
-
 Lyra builds upon: Ollama, Playwright, Trafilatura, Semantic Scholar API, OpenAlex API, Hugging Face Transformers.
 
 <!-- TODO: Add funding acknowledgements if applicable -->
