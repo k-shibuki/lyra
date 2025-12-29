@@ -163,19 +163,21 @@ To evaluate Lyra's capabilities for systematic evidence synthesis, we conducted 
 | **Comparison** | Placebo as add-on (no additional active therapy) |
 | **Outcomes** | Efficacy (HbA1c reduction) and safety (hypoglycemia risk) |
 
-**Evaluation Prompt** (Japanese, used for all tools):
+**Evaluation Prompt** (identical for all tools):
 ```
-私は病院薬剤師です。2型糖尿病でインスリン治療中の患者さんの治療選択肢を検討しています。
-現在インスリンを使用していますが、HbA1cが7%以上のままです。
+I'm a clinical pharmacist reviewing treatment options for a patient with
+type 2 diabetes. They're currently on insulin but their HbA1c remains above 7%.
 
-DPP-4阻害薬の追加を検討しています。この状況での有効性と安全性について、
-臨床エビデンスをまとめていただけますか？
-RCTとメタアナリシスを中心にお願いします。
+I'm considering adding a DPP-4 inhibitor. Could you summarize what the
+clinical evidence says about efficacy and safety in this situation?
+I'd like to focus on RCTs and meta-analyses.
 
-レポートは日本語で作成してください。
+Please provide:
+1. Complete report in English
+2. Japanese translation of the report
 ```
 
-All tools received identical prompts in Japanese. Reports were used as-is without author translation, ensuring zero intervention in output content. Independent evaluators (native Japanese speakers) assessed reports in their native language.
+All tools generated bilingual output (English + Japanese). The Japanese translations, produced entirely by each tool without author intervention, were provided to independent evaluators (native Japanese speakers) for blinded assessment.
 
 ### 3.1.2 Query Selection Rationale
 
