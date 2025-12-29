@@ -66,36 +66,62 @@ The prompt is intentionally **minimal and natural**—a straightforward research
 
 **Rationale**: Explicitly requesting Lyra's differentiating features would bias the evaluation. Instead, we ask a simple question and evaluate how each tool handles evidence quality *without being told to*.
 
-### 3.2 Common Prompt (All Tools)
+### 3.2 Language Selection
+
+**All reports are generated in Japanese** for the following reasons:
+
+| Reason | Justification |
+|--------|---------------|
+| **Evaluator native language** | Both independent evaluators (M.K., K.S.²) are native Japanese speakers |
+| **No author intervention** | Reports are used as-is without translation, eliminating translation bias |
+| **Practical evaluation** | Evaluators can assess nuance and accuracy in their native language |
+| **Tool capability inclusion** | Japanese generation quality becomes part of overall tool assessment |
+
+### 3.3 Common Prompt (All Tools)
 
 ```
-I'm a clinical pharmacist reviewing treatment options for a patient with
+私は病院薬剤師です。2型糖尿病でインスリン治療中の患者さんの治療選択肢を検討しています。
+現在インスリンを使用していますが、HbA1cが7%以上のままです。
+
+DPP-4阻害薬の追加を検討しています。この状況での有効性と安全性について、
+臨床エビデンスをまとめていただけますか？
+RCTとメタアナリシスを中心にお願いします。
+
+レポートは日本語で作成してください。
+```
+
+**English translation** (for protocol documentation only):
+
+```
+I'm a hospital pharmacist reviewing treatment options for a patient with
 type 2 diabetes. They're currently on insulin but their HbA1c remains above 7%.
 
 I'm considering adding a DPP-4 inhibitor. Could you summarize what the
 clinical evidence says about efficacy and safety in this situation?
 I'd like to focus on RCTs and meta-analyses.
+
+Please write the report in Japanese.
 ```
 
-### 3.3 Lyra-Specific Suffix
+### 3.4 Lyra-Specific Suffix
 
 For Cursor IDE with Lyra MCP, append only:
 
 ```
-Use Lyra to conduct this research.
+Lyraを使用してこのリサーチを実行してください。
 ```
 
-### 3.4 Prompt Equivalence
+### 3.5 Prompt Equivalence
 
-| Tool | Prompt | AI Backend |
-|------|--------|------------|
-| **Lyra** | Common + "Use Lyra to conduct this research." | Cursor IDE (Claude Opus 4.5 thinking) |
-| **Google Deep Research** | Common only | Gemini |
-| **ChatGPT Deep Research** | Common only | GPT-4 |
+| Tool | Prompt | AI Backend | Output Language |
+|------|--------|------------|-----------------|
+| **Lyra** | Common + Lyra suffix | Cursor IDE (Claude Opus 4.5) + Local ML | Japanese |
+| **Google Deep Research** | Common only | Gemini | Japanese |
+| **ChatGPT Deep Research** | Common only | GPT-4 | Japanese |
 
-**Key Principle**: The prompt contains no instructions about citation format, contradiction handling, or confidence levels. Differences in these qualities reflect each tool's inherent design, not prompt engineering.
+**Key Principle**: The prompt contains no instructions about citation format, contradiction handling, or confidence levels. Differences in these qualities reflect each tool's inherent design, not prompt engineering. The author does not translate or modify the generated reports.
 
-### 3.5 Post-hoc Evaluation Criteria
+### 3.6 Post-hoc Evaluation Criteria
 
 The following qualities are **not requested in the prompt** but are **evaluated in the output**:
 
@@ -436,7 +462,7 @@ All evaluation artifacts are preserved with physical signatures:
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2025-12-28 | Initial draft |
-| 0.2 | 2025-12-29 | Added independent evaluators (M.K., K.S.²); blinding protocol; evidence trail; score sheet template |
+| 0.2 | 2025-12-29 | Added independent evaluators (M.K., K.S.²); blinding protocol; evidence trail; score sheet template; Japanese prompts for native-language evaluation |
 
 ---
 

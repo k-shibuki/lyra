@@ -163,11 +163,19 @@ To evaluate Lyra's capabilities for systematic evidence synthesis, we conducted 
 | **Comparison** | Placebo as add-on (no additional active therapy) |
 | **Outcomes** | Efficacy (HbA1c reduction) and safety (hypoglycemia risk) |
 
-**Main Query**:
+**Evaluation Prompt** (Japanese, used for all tools):
 ```
-What is the efficacy and safety of DPP-4 inhibitors as add-on therapy
-for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?
+私は病院薬剤師です。2型糖尿病でインスリン治療中の患者さんの治療選択肢を検討しています。
+現在インスリンを使用していますが、HbA1cが7%以上のままです。
+
+DPP-4阻害薬の追加を検討しています。この状況での有効性と安全性について、
+臨床エビデンスをまとめていただけますか？
+RCTとメタアナリシスを中心にお願いします。
+
+レポートは日本語で作成してください。
 ```
+
+All tools received identical prompts in Japanese. Reports were used as-is without author translation, ensuring zero intervention in output content. Independent evaluators (native Japanese speakers) assessed reports in their native language.
 
 ### 3.1.2 Query Selection Rationale
 
