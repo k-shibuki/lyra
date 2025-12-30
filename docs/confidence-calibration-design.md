@@ -875,25 +875,31 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 
 ## 11. 実装ロードマップ
 
-### Phase 0: E2Eデバッグ（現在進行中）
+### Phase 1: 用語統一 & 校正配線（E2Eデバッグ前に実施）
 
-**前提**: 以下の Phase 1 以降は、E2Eデバッグ完了後に着手する。
+**優先度 P0**: システムの正確性と可読性に直接影響する修正
 
-| タスク | ステータス | 備考 |
-|--------|:----------:|------|
-| E2Eデバッグ完了 | 🔄 進行中 | 校正未適用の影響を考慮（D.7.6参照） |
-
-### Phase 1: クリティカル修正（E2Eデバッグ後）
-
-**優先度 P0-P1**: システムの正確性に直接影響する修正
+**方針**: E2E デバッグ開始前に用語統一と校正配線を完了させる（D.8.9 参照）。
 
 | 優先度 | タスク | ファイル | 詳細 | ステータス |
 |:------:|--------|----------|------|:----------:|
-| **P0** | NLI推論への校正適用 | `src/filter/nli.py` | `calibrate()` を `predict()` に配線 | ❌ |
-| **P0** | batch_predict への校正適用 | `src/filter/nli.py` | 同上（バッチ処理用） | ❌ |
-| **P1** | MCPスキーマ不整合修正 | `src/mcp/server.py` | outputSchema を実装に合わせる（D.2.2） | ❌ |
+| **P0-a** | 用語統一: DB スキーマ | `src/storage/schema.sql` | D.8.4 参照、DB 再作成必須 | ❌ |
+| **P0-a** | 用語統一: evidence_graph.py | `src/filter/evidence_graph.py` | `nli_confidence` → `nli_edge_confidence` | ❌ |
+| **P0-a** | 用語統一: executor.py | `src/research/executor.py` | 同上 + `confidence=` 行削除 | ❌ |
+| **P0-a** | 用語統一: materials.py | `src/research/materials.py` | `confidence` → `bayesian_claim_confidence` | ❌ |
+| **P0-b** | NLI推論への校正適用 | `src/filter/nli.py` | `calibrate()` を `predict()` に配線 | ❌ |
+| **P0-b** | batch_predict への校正適用 | `src/filter/nli.py` | 同上（バッチ処理用） | ❌ |
+| **P1** | MCPスキーマ整合性修正 | `src/mcp/server.py` | outputSchema を実装に合わせる（D.2.2, D.8.8） | ❌ |
+| **P1** | テスト更新 | `tests/test_*.py` | 約30ファイル（D.8.6） | ❌ |
+| **P1** | DB 再作成 & 動作確認 | - | Phase 1 完了条件 | ❌ |
 
-### Phase 2: MCPクライアント支援（P0完了後）
+### Phase 2: E2Eデバッグ（Phase 1 完了後）
+
+| タスク | ステータス | 備考 |
+|--------|:----------:|------|
+| E2Eデバッグ実施 | ⏳ 待機中 | Phase 1 完了後に開始 |
+
+### Phase 3: MCPクライアント支援（E2Eデバッグ後）
 
 **優先度 P2-P3**: クライアントの意思決定を支援する改善
 
@@ -903,7 +909,7 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | **P2** | uncertainty/controversy ガイド追加 | `config/mcp/get_materials.json` | D.5 参照 | ❌ |
 | **P3** | 評価結果の永続化 | `src/utils/calibration.py` | `save_evaluation_result()` 追加 | ❌ |
 
-### Phase 3: コード品質（全て完了後）
+### Phase 4: コード品質（全て完了後）
 
 **優先度 P4**: 可読性・保守性の向上
 
@@ -1407,3 +1413,173 @@ src/filter/evidence_graph.py:406
 - `edges.nli_confidence` の分布（0.8-1.0 に偏っていないか）
 - `calculate_claim_confidence()` の uncertainty 値（極端に低くないか）
 - 校正適用後に改善が見込める箇所の特定
+
+### D.8 用語統一（Terminology Unification）
+
+#### D.8.1 背景
+
+コードベース全体で `confidence` という用語が曖昧に使用されており、出自と意味が不明確。
+本セクションでは **全ての confidence 関連用語を統一** し、命名規則を確立する。
+
+#### D.8.2 命名規則
+
+```
+{source}_{entity}_{type}
+```
+
+- **source**: 生成元（`nli`, `llm`, `bayesian`, `query`, `metrics`, `classification`, `relation`）
+- **entity**: 対象エンティティ（`edge`, `claim`, `extraction`, etc.）
+- **type**: 値の種類（`confidence`, `confidence_raw`, etc.）
+
+#### D.8.3 完全な用語マッピング
+
+##### A. コア Confidence（エビデンスシステム）
+
+| 現在の名前 | 場所 | 意味 | **統一後の名前** |
+|-----------|------|------|-----------------|
+| `edges.confidence` | schema.sql:164 | NLI信頼度（legacy冗長） | **削除** |
+| `edges.nli_confidence` | schema.sql:166 | NLI モデル出力 | `nli_edge_confidence` |
+| `claims.claim_confidence` | schema.sql:140 | LLM抽出時の自己報告 | `llm_claim_confidence` |
+| `confidence` | nli.py:88 返却値 | NLI生スコア | `nli_raw_confidence` |
+| `confidence` | nli_judge() 返却値 | NLI生スコア（校正後） | `nli_edge_confidence` |
+| `confidence` | calculate_claim_confidence() | Bayesian更新結果 | `bayesian_claim_confidence` |
+| `confidence` | get_materials claims[] | Bayesian更新結果 | `bayesian_claim_confidence` |
+| `nli_confidence` | get_materials evidence[] | NLI信頼度 | `nli_edge_confidence` |
+
+##### B. その他の Confidence
+
+| 現在の名前 | 場所 | 意味 | **統一後の名前** |
+|-----------|------|------|-----------------|
+| `high_yield_queries.confidence` | schema.sql:841 | クエリ収穫率信頼度 | `query_yield_confidence` |
+| `feedback_events.predicted_confidence` | schema.sql:732 | 訂正前信頼度 | そのまま（文脈が明確） |
+| `confidence` | policy_engine.py | メトリクス時間減衰 | `metrics_decay_confidence` |
+| `confidence` | page_classifier.py | 分類信頼度 | `classification_confidence` |
+| `confidence` | entity_integration.py | 関係性信頼度 | `relation_confidence` |
+| `adjusted_confidence` | wayback_fallback.py | 時間減衰後信頼度 | そのまま（文脈が明確） |
+
+#### D.8.4 DB スキーマ変更
+
+**方針**: マイグレーションではなく **DB 再作成** を行う。
+
+##### 変更一覧
+
+| テーブル | 現在のカラム | 変更後 | 備考 |
+|---------|-------------|--------|------|
+| `edges` | `confidence` | **削除** | `nli_edge_confidence` に統合 |
+| `edges` | `nli_confidence` | `nli_edge_confidence` | リネーム |
+| `claims` | `claim_confidence` | `llm_claim_confidence` | リネーム（意味を明確化） |
+| `high_yield_queries` | `confidence` | `query_yield_confidence` | リネーム |
+
+##### schema.sql 修正案
+
+```sql
+-- edges テーブル
+CREATE TABLE edges (
+    ...
+    nli_edge_confidence REAL,  -- NLI モデル出力（校正済み）
+    -- confidence カラムは削除
+    ...
+);
+
+-- claims テーブル
+CREATE TABLE claims (
+    ...
+    llm_claim_confidence REAL,  -- LLM 抽出時の自己報告
+    ...
+);
+
+-- high_yield_queries テーブル
+CREATE TABLE high_yield_queries (
+    ...
+    query_yield_confidence REAL DEFAULT 0.5,
+    ...
+);
+```
+
+#### D.8.5 コード変更一覧
+
+##### 必須変更（DB カラム名変更に伴う）
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/storage/schema.sql` | カラム名変更 |
+| `src/filter/evidence_graph.py` | `nli_confidence` → `nli_edge_confidence` |
+| `src/filter/evidence_graph.py:511` | `confidence` → `nli_edge_confidence` |
+| `src/research/executor.py` | `nli_confidence` → `nli_edge_confidence` |
+| `src/research/executor.py` | `confidence=nli_conf` 行を削除 |
+| `src/research/materials.py` | フィールド名変更 |
+| `src/mcp/server.py` | outputSchema 更新 |
+| `src/mcp/schemas/get_materials.json` | フィールド名更新 |
+| `src/mcp/feedback_handler.py` | フィールド名変更 |
+| `src/research/pipeline.py` | フィールド名変更 |
+| `src/research/refutation.py` | フィールド名変更 |
+
+##### NLI 返却値の変更
+
+| ファイル | 現在 | 変更後 |
+|---------|------|--------|
+| `src/filter/nli.py:88` | `"confidence": result["score"]` | `"nli_raw_confidence": result["score"], "nli_edge_confidence": calibrated` |
+| `src/filter/nli.py:128` | 同上 | 同上 |
+| `src/ml_server/nli.py:112` | `"confidence": result["score"]` | 同上 |
+
+##### Bayesian 計算結果の変更
+
+| ファイル | 現在 | 変更後 |
+|---------|------|--------|
+| `src/filter/evidence_graph.py` | `"confidence"` in result | `"bayesian_claim_confidence"` |
+| `src/research/materials.py` | `"confidence"` in claims | `"bayesian_claim_confidence"` |
+
+#### D.8.6 テスト更新
+
+全ての `confidence` / `nli_confidence` を使用するテストファイル（約30ファイル）を更新。
+
+主要なテストファイル:
+- `tests/test_evidence_graph.py`
+- `tests/test_executor_nli_edges.py`
+- `tests/test_mcp_integration.py`
+- `tests/test_feedback.py`
+
+#### D.8.7 実装順序
+
+| 順序 | タスク | 前提 |
+|:----:|--------|------|
+| 1 | schema.sql 更新 | なし |
+| 2 | evidence_graph.py 更新 | 1 |
+| 3 | nli.py 更新（校正配線含む） | 1 |
+| 4 | executor.py 更新 | 1, 2, 3 |
+| 5 | materials.py / MCP 更新 | 1, 2 |
+| 6 | テスト更新 | 1-5 |
+| 7 | DB 再作成 & 動作確認 | 1-6 |
+
+#### D.8.8 MCP スキーマ（統一後）
+
+```json
+{
+  "claims": [{
+    "id": "string",
+    "text": "string",
+    "bayesian_claim_confidence": 0.85,
+    "llm_claim_confidence": 0.7,
+    "uncertainty": 0.1,
+    "controversy": 0.05,
+    "evidence": [{
+      "edge_id": "string",
+      "source_id": "string",
+      "relation": "supports",
+      "nli_edge_confidence": 0.9
+    }]
+  }]
+}
+```
+
+#### D.8.9 Phase 1 スコープ確定
+
+用語統一を Phase 1 に含め、E2E デバッグ**前**に実施する。
+
+| 優先度 | タスク | 備考 |
+|:------:|--------|------|
+| **P0-a** | 用語統一（D.8.4-D.8.6） | DB 再作成が必要 |
+| **P0-b** | NLI 校正配線（D.7.4） | P0-a と同時実施 |
+| **P1** | MCP スキーマ整合性 | P0 完了後 |
+
+**Phase 1 完了後に E2E デバッグを開始する。**
