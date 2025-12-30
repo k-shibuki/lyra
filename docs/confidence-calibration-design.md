@@ -1,7 +1,7 @@
 # Confidence & Calibration Design
 
-**Date:** 2025-12-27
-**Status:** Proposal (v2 - Updated for implementation/ADR alignment)
+**Date:** 2025-12-29
+**Status:** Proposal (v3 - MCP Schema Alignment Review integrated)
 **Related:**
 - ADR-0005: Evidence Graph Structure
 - ADR-0011: LoRA Fine-tuning Strategy
@@ -1035,3 +1035,159 @@ MCPクライアントが「どのモデルの何のスコアか」を誤解し�
 | **LoRA** | Low-Rank Adaptation。パラメータ効率的なファインチューニング手法。 |
 | **Beta 分布** | 確率の確率分布。ベイズ更新で使用。 |
 | **Evidence Graph** | 主張と証拠の関係を表す有向グラフ。 |
+
+## Appendix D: MCP Schema Alignment Review（2025-12-29）
+
+### D.1 レビュー概要
+
+MCPツールのAction スキーマをレビューし、以下の観点で検証した：
+1. **コードベースとの正確性**: server.py outputSchema / get_materials.json / 実装の整合性
+2. **ADRとの戦略性**: ADR-0012 feedbackワークフローのガイダンス
+
+### D.2 発見された問題と修正
+
+#### D.2.1 CRITICAL: edge_id の欠落（✅ 修正済み）
+
+**問題**: `get_materials` の `claims[].evidence[]` に `edge_id` が返されていなかった。
+
+| 箇所 | 修正前 | 修正後 |
+|------|--------|--------|
+| `evidence_graph.py:add_edge()` | `edge_id` パラメータなし | `edge_id: str \| None = None` 追加 |
+| `evidence_graph.py:load_from_db()` | DB の `edges.id` を渡さない | `edge_id=edge.get("id")` 追加 |
+| `evidence_graph.py:get_all_evidence()` | `edge_id` を返さない | `"edge_id": edge_data.get("edge_id")` 追加 |
+| `evidence_graph.py:calculate_claim_confidence()` | evidence_list に `edge_id` なし | `"edge_id": e.get("edge_id")` 追加 |
+| `get_materials.json` | `edge_id` フィールドなし | スキーマに追加 |
+
+**コミット**: `ab1735d fix(mcp): add edge_id to get_materials response for feedback workflow`
+
+**影響**: ADR-0012 の feedback ワークフロー（`get_materials` → `feedback(edge_correct)`）が正常に機能するようになった。
+
+```
+修正前のデータフロー（broken）:
+DB (edges.id)
+    ↓
+load_from_db() ─── edges.id を渡していない ❌
+    ↓
+add_edge() ─────── 新しい UUID を生成 ❌
+    ↓
+get_all_evidence() ─ edge_id を返さない ❌
+    ↓
+calculate_claim_confidence() ─ evidence_list に edge_id なし ❌
+    ↓
+get_materials() → MCPレスポンス（edge_id なし）
+
+修正後のデータフロー（working）:
+DB (edges.id = "edge_abc123")
+    ↓
+load_from_db() ─── edge_id=edge.get("id") ✅
+    ↓
+add_edge() ─────── 既存 ID を保持 ✅
+    ↓
+get_all_evidence() ─ edge_id を返す ✅
+    ↓
+calculate_claim_confidence() ─ evidence_list に edge_id 含む ✅
+    ↓
+get_materials() → MCPレスポンス（edge_id あり）
+    ↓
+feedback(action=edge_correct, edge_id="edge_abc123") ✅
+```
+
+#### D.2.2 残存する不整合: フィールド名の乖離
+
+**現状**: server.py の `outputSchema` と実装（evidence_graph.py）が一致していない。
+
+| フィールド | server.py outputSchema (L463-468) | get_materials.json | 実装 (evidence_graph.py) |
+|-----------|-----------------------------------|-------------------|--------------------------|
+| Edge ID | `edge_id` ✅ | `edge_id` ✅ | `edge_id` ✅ |
+| NLI信頼度 | `confidence` | `nli_confidence` | `nli_confidence` |
+| 発行年 | `source_year` | `year` | `year` |
+| ソースID | `fragment_id` | `source_id` | `source_id` |
+| ソース種別 | なし | `source_type` | `source_type` |
+| ドメインカテゴリ | なし | `source_domain_category` | `source_domain_category` |
+| DOI | なし | `doi` | `doi` |
+| 出版場所 | なし | `venue` | `venue` |
+
+**問題点**:
+1. `confidence` vs `nli_confidence`: 名前が異なる（実装は `nli_confidence` で正確）
+2. `source_year` vs `year`: 名前が異なる
+3. `fragment_id` vs `source_id`: 実装は汎用的だが、MCPクライアントには `fragment_id` の方が直感的
+4. server.py outputSchema に追加フィールド（doi, venue等）がない
+
+**推奨対応**:
+- **Phase 1**: server.py outputSchema を実装に合わせる（§13.5 の命名統一と連携）
+- **理由**: 実装の `nli_confidence` は意味論的に正確（NLIモデルの信頼度）、`source_id/source_type` はエビデンスソースが fragment 以外（page）の場合もカバー
+
+### D.3 get_materials スキーマの evidence 項目（現状）
+
+```json
+{
+  "evidence": {
+    "type": "array",
+    "description": "Evidence items with NLI labels and temporal metadata. Use edge_id with feedback(edge_correct) to fix NLI errors.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "edge_id": {
+          "type": ["string", "null"],
+          "description": "Edge ID for feedback(edge_correct). Use this to correct NLI classification errors."
+        },
+        "relation": {"type": "string", "enum": ["supports", "refutes", "neutral"]},
+        "source_id": {"type": ["string", "null"]},
+        "source_type": {"type": ["string", "null"]},
+        "year": {"type": ["integer", "string", "null"]},
+        "nli_confidence": {"type": ["number", "null"]},
+        "source_domain_category": {"type": ["string", "null"]},
+        "doi": {"type": ["string", "null"]},
+        "venue": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
+```
+
+### D.4 ADR-0012 との整合性
+
+| ADR-0012 の要件 | 実装状況 |
+|-----------------|----------|
+| `edge_correct` で `edge_id` を使用 | ✅ 修正により可能に |
+| `nli_corrections` テーブルへの保存 | ✅ 既存実装で対応 |
+| 修正後の edge confidence = 1.0 | ✅ feedback_handler.py で実装済み |
+| claim confidence の再計算 | ✅ edge 更新後に自動反映 |
+
+### D.5 MCPクライアントへのガイダンス（戦略性）
+
+**現状の課題**: Bayesian confidence model の高度な使い方がスキーマから読み取りにくい。
+
+**server.py description (L374-377)** には詳細な数式が記載されているが、get_materials.json には反映されていない。
+
+```
+BAYESIAN CONFIDENCE MODEL:
+  α = 1 + Σ(supports_confidence)
+  β = 1 + Σ(refutes_confidence)
+  confidence = α / (α + β)
+  uncertainty = sqrt(αβ / ((α+β)² × (α+β+1)))
+  controversy = 2 × min(α-1, β-1) / (α + β - 2)
+```
+
+**推奨**: get_materials.json の claims 項目に `uncertainty` / `controversy` の解釈ガイドを追加：
+
+```json
+{
+  "uncertainty": {
+    "type": "number",
+    "description": "Bayesian uncertainty (stddev). High value (>0.2) indicates insufficient evidence - consider queue_searches for more sources."
+  },
+  "controversy": {
+    "type": "number",
+    "description": "Degree of conflict between supports/refutes. High value (>0.3) indicates contested claim - investigate both sides."
+  }
+}
+```
+
+### D.6 TODO: 残作業
+
+| 優先度 | タスク | 関連セクション |
+|--------|--------|----------------|
+| P1 | server.py outputSchema を実装に合わせる | §13.5 |
+| P2 | get_materials.json に uncertainty/controversy ガイド追加 | D.5 |
+| P3 | §3.4.2 の `llm_confidence` / `bayesian_confidence` 分離実装 | §3.4.2, §8.5 |
