@@ -64,7 +64,9 @@ class OpenAlexClient(BaseAcademicClient):
             return cast(dict[str, Any], response.json())
 
         try:
-            data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+            data = await retry_api_call(
+                _search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+            )
             papers = [self._parse_paper(w) for w in data.get("results", [])]
 
             return AcademicSearchResult(
@@ -118,7 +120,9 @@ class OpenAlexClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+                data = await retry_api_call(
+                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                )
                 return self._parse_paper(data)
             except Exception as e:
                 # H-C: Cache 404 responses to avoid repeated lookups
@@ -159,7 +163,9 @@ class OpenAlexClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+                data = await retry_api_call(
+                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                )
             except Exception as e:
                 logger.debug(
                     "OpenAlex referenced_works fetch failed", paper_id=paper_id, error=str(e)
@@ -195,15 +201,21 @@ class OpenAlexClient(BaseAcademicClient):
         # #region agent log
         import json
         import time as _time
+
         with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-J",
-                "location": "src/search/apis/openalex.py:get_citations_entry",
-                "message": "OpenAlex get_citations called",
-                "data": {"paper_id": paper_id},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
+            _f.write(
+                json.dumps(
+                    {
+                        "hypothesisId": "H-J",
+                        "location": "src/search/apis/openalex.py:get_citations_entry",
+                        "message": "OpenAlex get_citations called",
+                        "data": {"paper_id": paper_id},
+                        "timestamp": _time.time() * 1000,
+                        "sessionId": "debug-session",
+                    }
+                )
+                + "\n"
+            )
         # #endregion
 
         # DOI URL needs to be resolved to work ID first
@@ -240,7 +252,9 @@ class OpenAlexClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+                data = await retry_api_call(
+                    _search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                )
                 papers = [self._parse_paper(w) for w in data.get("results", [])]
                 return [p for p in papers if p and p.abstract]
             except Exception as e:
@@ -269,15 +283,25 @@ class OpenAlexClient(BaseAcademicClient):
         # #region agent log
         import json
         import time as _time
+
         with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-B",
-                "location": "src/search/apis/openalex.py:_normalize_work_id_exit",
-                "message": "OpenAlex _normalize_work_id result",
-                "data": {"input": paper_id, "output": pid, "still_has_s2": pid.startswith("s2:")},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
+            _f.write(
+                json.dumps(
+                    {
+                        "hypothesisId": "H-B",
+                        "location": "src/search/apis/openalex.py:_normalize_work_id_exit",
+                        "message": "OpenAlex _normalize_work_id result",
+                        "data": {
+                            "input": paper_id,
+                            "output": pid,
+                            "still_has_s2": pid.startswith("s2:"),
+                        },
+                        "timestamp": _time.time() * 1000,
+                        "sessionId": "debug-session",
+                    }
+                )
+                + "\n"
+            )
         # #endregion
 
         return pid

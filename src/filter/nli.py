@@ -5,16 +5,16 @@ Determines stance relationships between claims.
 When ml.use_remote=True, NLI inference is performed via HTTP calls
 to the lyra-ml container on internal network.
 
-Confidence terminology (see docs/confidence-calibration-design.md):
+Confidence terminology (see docs/archive/Rc_CONFIDENCE_CALIBRATION_DESIGN.md):
 - nli_raw_confidence: Raw model output (softmax score)
 - nli_edge_confidence: Calibrated confidence used in Bayesian update
 """
 
 from typing import Any
 
-from src.utils.nli_calibration import get_calibrator
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.nli_calibration import get_calibrator
 
 logger = get_logger(__name__)
 

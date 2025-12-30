@@ -49,7 +49,7 @@ class ClassificationResult:
     """Result of page type classification."""
 
     page_type: PageType
-    confidence: float  # 0.0 to 1.0
+    classification_confidence: float  # 0.0 to 1.0
     features: dict[str, Any]
     reason: str
 
@@ -423,7 +423,7 @@ class PageClassifier:
             url: URL of the page (optional, provides hints).
 
         Returns:
-            ClassificationResult with type, confidence, and reasoning.
+            ClassificationResult with type, classification_confidence, and reasoning.
         """
         # Extract features from HTML
         features = self._extract_features(html, url)
@@ -434,9 +434,9 @@ class PageClassifier:
         # Determine best match
         best_type, best_score = max(scores.items(), key=lambda x: x[1])
 
-        # Calculate confidence (normalized score)
+        # Calculate classification confidence (normalized score)
         total_score = sum(scores.values())
-        confidence = best_score / total_score if total_score > 0 else 0.0
+        classification_confidence = best_score / total_score if total_score > 0 else 0.0
 
         # Generate reasoning
         reason = self._generate_reason(best_type, features, best_score)
@@ -444,13 +444,13 @@ class PageClassifier:
         logger.debug(
             "Page classification complete",
             page_type=best_type.value,
-            confidence=confidence,
+            classification_confidence=classification_confidence,
             scores={k.value: v for k, v in scores.items()},
         )
 
         return ClassificationResult(
             page_type=best_type,
-            confidence=confidence,
+            classification_confidence=classification_confidence,
             features=self._features_to_dict(features),
             reason=reason,
         )
@@ -1440,7 +1440,7 @@ def classify_page(
         url: URL of the page (optional).
 
     Returns:
-        ClassificationResult with type, confidence, and features.
+        ClassificationResult with type, classification_confidence, and features.
     """
     classifier = get_classifier()
     return classifier.classify(html, url)

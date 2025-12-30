@@ -97,7 +97,7 @@ class DateExtraction:
     month: int | None = None
     day: int | None = None
     source: str = ""  # Where the date was extracted from
-    confidence: float = 0.5  # Confidence in extraction
+    extraction_confidence: float = 0.5  # Confidence in extraction
 
     def to_datetime(self) -> datetime | None:
         """Convert to datetime object.
@@ -137,7 +137,7 @@ class DateExtraction:
             "month": self.month,
             "day": self.day,
             "source": self.source,
-            "confidence": self.confidence,
+            "extraction_confidence": self.extraction_confidence,
             "is_complete": self.is_complete(),
         }
 
@@ -205,7 +205,7 @@ class DateExtractor:
                 if extraction and extraction.year:
                     extractions.append(extraction)
 
-        # Remove duplicates and sort by confidence
+        # Remove duplicates and sort by extraction confidence
         seen = set()
         unique = []
         for e in extractions:
@@ -214,7 +214,7 @@ class DateExtractor:
                 seen.add(key)
                 unique.append(e)
 
-        return sorted(unique, key=lambda x: x.confidence, reverse=True)
+        return sorted(unique, key=lambda x: x.extraction_confidence, reverse=True)
 
     def _parse_match(
         self,
@@ -241,7 +241,7 @@ class DateExtractor:
                         month=int(groups[1]),
                         day=int(groups[2]),
                         source="iso_format",
-                        confidence=0.95,
+                        extraction_confidence=0.95,
                     )
 
             # Japanese format: YYYY年MM月DD日 (year month day)
@@ -252,7 +252,7 @@ class DateExtractor:
                         month=int(groups[1]),
                         day=int(groups[2]),
                         source="japanese_format",
-                        confidence=0.95,
+                        extraction_confidence=0.95,
                     )
 
             # Month name formats
@@ -271,7 +271,7 @@ class DateExtractor:
                                     month=month_num,
                                     day=day,
                                     source="month_name_format",
-                                    confidence=0.85,
+                                    extraction_confidence=0.85,
                                 )
                         break
 
@@ -283,7 +283,7 @@ class DateExtractor:
                         return DateExtraction(
                             year=year,
                             source="year_only",
-                            confidence=0.5,
+                            extraction_confidence=0.5,
                         )
 
             # Japanese era: Reiwa (令和), Heisei (平成)
@@ -293,7 +293,7 @@ class DateExtractor:
                 return DateExtraction(
                     year=2018 + era_year,
                     source="reiwa_era",
-                    confidence=0.8,
+                    extraction_confidence=0.8,
                 )
 
             if "平成" in pattern:
@@ -302,7 +302,7 @@ class DateExtractor:
                 return DateExtraction(
                     year=1988 + era_year,
                     source="heisei_era",
-                    confidence=0.8,
+                    extraction_confidence=0.8,
                 )
 
         except (ValueError, IndexError, TypeError):
@@ -373,7 +373,7 @@ class DateExtractor:
                 month=dt.month,
                 day=dt.day,
                 source=source,
-                confidence=0.99,
+                extraction_confidence=0.99,
             )
         except (ValueError, TypeError):
             pass

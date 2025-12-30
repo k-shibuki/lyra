@@ -83,7 +83,7 @@ class TestAtomicClaim:
         assert claim.granularity == ClaimGranularity.ATOMIC
         assert claim.claim_type == ClaimType.FACTUAL
         assert claim.parent_claim_id is None
-        assert claim.confidence == 1.0
+        assert claim.decomposed_claim_confidence == 1.0
         assert claim.keywords == []
         assert claim.verification_hints == []
 
@@ -99,7 +99,7 @@ class TestAtomicClaim:
             claim_type=ClaimType.QUANTITATIVE,
             parent_claim_id="parent_001",
             source_question="東京の人口について教えてください",
-            confidence=0.95,
+            decomposed_claim_confidence=0.95,
             keywords=["東京", "人口", "1400万人"],
             verification_hints=["統計局データ", "国勢調査"],
         )
@@ -108,7 +108,7 @@ class TestAtomicClaim:
         assert claim.claim_type == ClaimType.QUANTITATIVE
         assert claim.parent_claim_id == "parent_001"
         assert claim.source_question == "東京の人口について教えてください"
-        assert claim.confidence == 0.95
+        assert claim.decomposed_claim_confidence == 0.95
         assert len(claim.keywords) == 3
         assert "東京" in claim.keywords
         assert len(claim.verification_hints) == 2
@@ -137,15 +137,15 @@ class TestAtomicClaim:
         assert d["keywords"] == ["test", "claim"]
 
     def test_from_dict_deserialization(self) -> None:
-        """Test deserialization from dictionary."""
-        # Given: Dictionary with claim data
+        """Test deserialization from dictionary (with new key)."""
+        # Given: Dictionary with claim data (using new key)
         data = {
             "claim_id": "test_004",
             "text": "Deserialized claim",
             "expected_polarity": "negative",
             "granularity": "atomic",
             "claim_type": "temporal",
-            "confidence": 0.8,
+            "decomposed_claim_confidence": 0.8,
             "keywords": ["time", "date"],
             "verification_hints": ["archives"],
         }
@@ -159,7 +159,7 @@ class TestAtomicClaim:
         assert claim.expected_polarity == ClaimPolarity.NEGATIVE
         assert claim.granularity == ClaimGranularity.ATOMIC
         assert claim.claim_type == ClaimType.TEMPORAL
-        assert claim.confidence == 0.8
+        assert claim.decomposed_claim_confidence == 0.8
 
     def test_from_dict_with_missing_optional_fields(self) -> None:
         """Test deserialization handles missing optional fields."""

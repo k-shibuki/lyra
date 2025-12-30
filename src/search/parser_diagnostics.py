@@ -155,7 +155,7 @@ class CandidateElement:
     selector: str
     sample_text: str
     occurrence_count: int
-    confidence: float  # 0.0 to 1.0
+    selector_confidence: float  # 0.0 to 1.0
     reason: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -165,7 +165,7 @@ class CandidateElement:
             "selector": self.selector,
             "sample_text": self.sample_text[:100] if self.sample_text else "",
             "occurrence_count": self.occurrence_count,
-            "confidence": self.confidence,
+            "selector_confidence": self.selector_confidence,
             "reason": self.reason,
         }
 
@@ -386,8 +386,8 @@ class HTMLAnalyzer:
                 similar = self._safe_select(selector)
                 count = len(similar)
 
-                # Higher confidence if multiple occurrences (search results repeat)
-                confidence = min(0.9, 0.3 + (count * 0.1))
+                # Higher selector_confidence if multiple occurrences (search results repeat)
+                conf = min(0.9, 0.3 + (count * 0.1))
 
                 candidates.append(
                     CandidateElement(
@@ -395,7 +395,7 @@ class HTMLAnalyzer:
                         selector=selector,
                         sample_text=self._get_sample_text(elem),
                         occurrence_count=count,
-                        confidence=confidence,
+                        selector_confidence=conf,
                         reason=f"Class matches result pattern: {class_str}",
                     )
                 )
@@ -415,7 +415,7 @@ class HTMLAnalyzer:
                         selector=selector,
                         sample_text=self._get_sample_text(elem),
                         occurrence_count=len(similar),
-                        confidence=0.8,
+                        selector_confidence=0.8,
                         reason=f"data-testid matches result pattern: {test_id_attr}",
                     )
                 )
@@ -436,15 +436,15 @@ class HTMLAnalyzer:
                             selector=selector,
                             sample_text=self._get_sample_text(li_items[0]) if li_items else "",
                             occurrence_count=len(li_items),
-                            confidence=0.7,
+                            selector_confidence=0.7,
                             reason="List items with links (common result pattern)",
                         )
                     )
 
-        # Deduplicate and sort by confidence
+        # Deduplicate and sort by selector_confidence
         seen_selectors = set()
         unique_candidates = []
-        for c in sorted(candidates, key=lambda x: -x.confidence):
+        for c in sorted(candidates, key=lambda x: -x.selector_confidence):
             if c.selector not in seen_selectors:
                 seen_selectors.add(c.selector)
                 unique_candidates.append(c)
@@ -477,7 +477,7 @@ class HTMLAnalyzer:
                             selector=selector,
                             sample_text=self._get_sample_text(h),
                             occurrence_count=len(context.find_all(f"h{level}")),
-                            confidence=0.8 - (level * 0.05),  # h2 > h3 > h4
+                            selector_confidence=0.8 - (level * 0.05),  # h2 > h3 > h4
                             reason=f"Heading with link (h{level})",
                         )
                     )
@@ -497,7 +497,7 @@ class HTMLAnalyzer:
                         selector=selector,
                         sample_text=self._get_sample_text(elem),
                         occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.7,
+                        selector_confidence=0.7,
                         reason=f"Class matches title pattern: {class_str}",
                     )
                 )
@@ -505,7 +505,7 @@ class HTMLAnalyzer:
         # Deduplicate and sort
         seen = set()
         unique = []
-        for c in sorted(candidates, key=lambda x: -x.confidence):
+        for c in sorted(candidates, key=lambda x: -x.selector_confidence):
             if c.selector not in seen:
                 seen.add(c.selector)
                 unique.append(c)
@@ -537,7 +537,7 @@ class HTMLAnalyzer:
                         selector=selector,
                         sample_text=text[:100],
                         occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.6,
+                        selector_confidence=0.6,
                         reason="Paragraph with snippet-length text",
                     )
                 )
@@ -559,7 +559,7 @@ class HTMLAnalyzer:
                             selector=selector,
                             sample_text=text,
                             occurrence_count=len(self._safe_select(selector, context)),
-                            confidence=0.75,
+                            selector_confidence=0.75,
                             reason=f"Class matches snippet pattern: {class_str}",
                         )
                     )
@@ -567,7 +567,7 @@ class HTMLAnalyzer:
         # Deduplicate and sort
         seen = set()
         unique = []
-        for c in sorted(candidates, key=lambda x: -x.confidence):
+        for c in sorted(candidates, key=lambda x: -x.selector_confidence):
             if c.selector not in seen:
                 seen.add(c.selector)
                 unique.append(c)
@@ -601,7 +601,7 @@ class HTMLAnalyzer:
                         selector=selector,
                         sample_text=href_attr[:100],
                         occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.7,
+                        selector_confidence=0.7,
                         reason="Link with external URL",
                     )
                 )
@@ -621,7 +621,7 @@ class HTMLAnalyzer:
                         selector=selector,
                         sample_text=self._get_sample_text(elem),
                         occurrence_count=len(self._safe_select(selector, context)),
-                        confidence=0.65,
+                        selector_confidence=0.65,
                         reason=f"Class matches URL pattern: {class_str}",
                     )
                 )
@@ -629,7 +629,7 @@ class HTMLAnalyzer:
         # Deduplicate and sort
         seen = set()
         unique = []
-        for c in sorted(candidates, key=lambda x: -x.confidence):
+        for c in sorted(candidates, key=lambda x: -x.selector_confidence):
             if c.selector not in seen:
                 seen.add(c.selector)
                 unique.append(c)
@@ -679,7 +679,7 @@ def generate_yaml_fix(
       diagnostic_message: |
         {selector_name.replace("_", " ").title()} not found.
         Expected: {escaped_selector}
-        Confidence: {candidate.confidence:.0%}
+        Confidence: {candidate.selector_confidence:.0%}
 """
     return yaml_fix
 

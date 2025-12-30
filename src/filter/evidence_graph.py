@@ -1372,7 +1372,7 @@ async def add_citation(
             "target_type": NodeType.PAGE.value,
             "target_id": page_id,
             "relation": RelationType.CITES.value,
-            "confidence": 1.0,
+            # NOTE: No nli_edge_confidence for CITES edges (not NLI-derived)
             "citation_source": citation_source,
             "citation_context": citation_context,
             "source_domain_category": source_domain_category,
@@ -1526,7 +1526,7 @@ async def add_academic_page_with_citations(
                 "target_type": NodeType.PAGE.value,
                 "target_id": target_page_id,
                 "relation": RelationType.CITES.value,
-                "confidence": 1.0,
+                # NOTE: No nli_edge_confidence for CITES edges (not NLI-derived)
                 "citation_source": citation.source_api,
                 "citation_context": citation.context,
                 "source_domain_category": source_domain_category,

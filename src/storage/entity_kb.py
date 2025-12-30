@@ -213,7 +213,7 @@ class EntityRecord:
     normalized_address: NormalizedAddress | None = None
 
     # Metadata
-    confidence: float = 0.5
+    entity_extraction_confidence: float = 0.5
     source_type: SourceType = SourceType.MANUAL
     source_url: str | None = None
 
@@ -235,7 +235,7 @@ class EntityRecord:
             "normalized_address": (
                 self.normalized_address.to_dict() if self.normalized_address else None
             ),
-            "confidence": self.confidence,
+            "entity_extraction_confidence": self.entity_extraction_confidence,
             "source_type": self.source_type.value,
             "source_url": self.source_url,
             "created_at": self.created_at.isoformat(),
@@ -254,7 +254,7 @@ class EntityAlias:
     alias_normalized: str
     alias_type: str  # "name", "abbreviation", "translation", etc.
     language: str | None = None
-    confidence: float = 0.5
+    alias_match_confidence: float = 0.5
     source_type: SourceType = SourceType.MANUAL
 
     def to_dict(self) -> dict[str, Any]:
@@ -266,7 +266,7 @@ class EntityAlias:
             "alias_normalized": self.alias_normalized,
             "alias_type": self.alias_type,
             "language": self.language,
-            "confidence": self.confidence,
+            "alias_match_confidence": self.alias_match_confidence,
             "source_type": self.source_type.value,
         }
 
@@ -281,7 +281,7 @@ class EntityIdentifier:
     identifier_value: str
     identifier_normalized: str
     is_primary: bool = False
-    confidence: float = 0.5
+    identifier_confidence: float = 0.5
     source_type: SourceType = SourceType.MANUAL
     valid_from: datetime | None = None
     valid_until: datetime | None = None
@@ -295,7 +295,7 @@ class EntityIdentifier:
             "identifier_value": self.identifier_value,
             "identifier_normalized": self.identifier_normalized,
             "is_primary": self.is_primary,
-            "confidence": self.confidence,
+            "identifier_confidence": self.identifier_confidence,
             "source_type": self.source_type.value,
             "valid_from": self.valid_from.isoformat() if self.valid_from else None,
             "valid_until": self.valid_until.isoformat() if self.valid_until else None,
@@ -910,7 +910,7 @@ class EntityKB:
                 display_name TEXT NOT NULL,
                 normalized_name_json TEXT,
                 normalized_address_json TEXT,
-                confidence REAL DEFAULT 0.5,
+                entity_extraction_confidence REAL DEFAULT 0.5,
                 source_type TEXT,
                 source_url TEXT,
                 extra_data_json TEXT,
@@ -927,7 +927,7 @@ class EntityKB:
                 alias_normalized TEXT NOT NULL,
                 alias_type TEXT NOT NULL,
                 language TEXT,
-                confidence REAL DEFAULT 0.5,
+                alias_match_confidence REAL DEFAULT 0.5,
                 source_type TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (entity_id) REFERENCES entities(id)
@@ -942,7 +942,7 @@ class EntityKB:
                 identifier_value TEXT NOT NULL,
                 identifier_normalized TEXT NOT NULL,
                 is_primary BOOLEAN DEFAULT 0,
-                confidence REAL DEFAULT 0.5,
+                identifier_confidence REAL DEFAULT 0.5,
                 source_type TEXT,
                 valid_from DATETIME,
                 valid_until DATETIME,
@@ -958,7 +958,7 @@ class EntityKB:
                 source_entity_id TEXT NOT NULL,
                 target_entity_id TEXT NOT NULL,
                 relationship_type TEXT NOT NULL,
-                confidence REAL DEFAULT 0.5,
+                relationship_confidence REAL DEFAULT 0.5,
                 source_type TEXT,
                 evidence_json TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -1034,7 +1034,7 @@ class EntityKB:
             if matches:
                 # Update existing entity if new info has higher confidence
                 existing = matches[0].entity
-                if confidence > existing.confidence:
+                if confidence > existing.entity_extraction_confidence:
                     await self._update_entity(
                         existing, normalized_name, normalized_address, confidence
                     )
@@ -1059,7 +1059,7 @@ class EntityKB:
             display_name=normalized_name.original,
             normalized_name=normalized_name,
             normalized_address=normalized_address,
-            confidence=confidence,
+            entity_extraction_confidence=confidence,
             source_type=source_type,
             source_url=source_url,
             extra_data=extra_data or {},
@@ -1078,7 +1078,7 @@ class EntityKB:
                     "normalized_address_json": (
                         json.dumps(normalized_address.to_dict()) if normalized_address else None
                     ),
-                    "confidence": confidence,
+                    "entity_extraction_confidence": confidence,
                     "source_type": source_type.value,
                     "source_url": source_url,
                     "extra_data_json": json.dumps(extra_data) if extra_data else None,
@@ -1320,7 +1320,7 @@ class EntityKB:
                     "source_entity_id": source_entity_id,
                     "target_entity_id": target_entity_id,
                     "relationship_type": relationship_type,
-                    "confidence": confidence,
+                    "relationship_confidence": confidence,
                     "source_type": source_type.value,
                     "evidence_json": json.dumps(evidence) if evidence else None,
                 },
@@ -1353,7 +1353,7 @@ class EntityKB:
 
         rows = await self._db.fetch_all(
             f"""
-            SELECT target_entity_id, relationship_type, confidence
+            SELECT target_entity_id, relationship_type, relationship_confidence
             FROM entity_relationships
             WHERE source_entity_id = ? {type_filter}
             """,
@@ -1364,7 +1364,7 @@ class EntityKB:
         for row in rows:
             entity = await self._get_entity(row["target_entity_id"])
             if entity:
-                results.append((entity, row["relationship_type"], row["confidence"]))
+                results.append((entity, row["relationship_type"], row["relationship_confidence"]))
 
         return results
 
@@ -1418,7 +1418,7 @@ class EntityKB:
                 display_name=row["display_name"],
                 normalized_name=normalized_name,
                 normalized_address=normalized_address,
-                confidence=row.get("confidence", 0.5),
+                entity_extraction_confidence=row.get("entity_extraction_confidence", 0.5),
                 source_type=(
                     SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL
                 ),
@@ -1438,7 +1438,7 @@ class EntityKB:
             identifier_value=row["identifier_value"],
             identifier_normalized=row["identifier_normalized"],
             is_primary=bool(row.get("is_primary", False)),
-            confidence=row.get("confidence", 0.5),
+            identifier_confidence=row.get("identifier_confidence", 0.5),
             source_type=(
                 SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL
             ),
@@ -1453,7 +1453,7 @@ class EntityKB:
             alias_normalized=row["alias_normalized"],
             alias_type=row["alias_type"],
             language=row.get("language"),
-            confidence=row.get("confidence", 0.5),
+            alias_match_confidence=row.get("alias_match_confidence", 0.5),
             source_type=(
                 SourceType(row["source_type"]) if row.get("source_type") else SourceType.MANUAL
             ),
@@ -1562,7 +1562,7 @@ class EntityKB:
         """Update an existing entity with new information."""
         if self._db:
             update_data = {
-                "confidence": confidence,
+                "entity_extraction_confidence": confidence,
                 "updated_at": datetime.now(UTC).isoformat(),
             }
 
@@ -1577,7 +1577,7 @@ class EntityKB:
             )
 
         # Update cache
-        entity.confidence = confidence
+        entity.entity_extraction_confidence = confidence
         if normalized_address and not entity.normalized_address:
             entity.normalized_address = normalized_address
 

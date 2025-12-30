@@ -98,7 +98,7 @@ class TestDateExtraction:
             month=6,
             day=15,
             source="test",
-            confidence=0.9,
+            extraction_confidence=0.9,
         )
 
         d = extraction.to_dict()
@@ -107,7 +107,7 @@ class TestDateExtraction:
         assert d["month"] == 6
         assert d["day"] == 15
         assert d["source"] == "test"
-        assert d["confidence"] == 0.9
+        assert d["extraction_confidence"] == 0.9
         assert d["is_complete"] is True
 
 
@@ -202,7 +202,7 @@ class TestDateExtractor:
         assert extraction.year == 2024
         assert extraction.month == 6
         assert extraction.day == 15
-        assert extraction.confidence >= 0.95
+        assert extraction.extraction_confidence >= 0.95
 
     def test_extract_from_metadata_priority(self, extractor: DateExtractor) -> None:
         """Should prioritize published_date over modified_date."""

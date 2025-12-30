@@ -71,7 +71,7 @@ class AtomicClaim:
     claim_type: ClaimType = ClaimType.FACTUAL
     parent_claim_id: str | None = None
     source_question: str = ""
-    confidence: float = 1.0
+    decomposed_claim_confidence: float = 1.0
     keywords: list[str] = field(default_factory=list)
     verification_hints: list[str] = field(default_factory=list)
 
@@ -85,7 +85,7 @@ class AtomicClaim:
             "claim_type": self.claim_type.value,
             "parent_claim_id": self.parent_claim_id,
             "source_question": self.source_question,
-            "confidence": self.confidence,
+            "decomposed_claim_confidence": self.decomposed_claim_confidence,
             "keywords": self.keywords,
             "verification_hints": self.verification_hints,
         }
@@ -101,7 +101,7 @@ class AtomicClaim:
             claim_type=ClaimType(data.get("claim_type", "factual")),
             parent_claim_id=data.get("parent_claim_id"),
             source_question=data.get("source_question", ""),
-            confidence=data.get("confidence", 1.0),
+            decomposed_claim_confidence=data.get("decomposed_claim_confidence", 1.0),
             keywords=data.get("keywords", []),
             verification_hints=data.get("verification_hints", []),
         )
@@ -290,7 +290,7 @@ class ClaimDecomposer:
                     granularity=granularity,
                     claim_type=claim_type,
                     source_question=source_question,
-                    confidence=0.9,
+                    decomposed_claim_confidence=0.9,
                     keywords=item.keywords,
                     verification_hints=item.hints,
                 )
@@ -330,7 +330,7 @@ class ClaimDecomposer:
                 granularity=ClaimGranularity.ATOMIC,
                 claim_type=claim_type,
                 source_question=question,
-                confidence=0.7,  # Lower confidence for rule-based
+                decomposed_claim_confidence=0.7,  # Lower confidence for rule-based
                 keywords=keywords,
                 verification_hints=self._generate_hints(claim_type, keywords),
             )
@@ -346,7 +346,7 @@ class ClaimDecomposer:
                     granularity=ClaimGranularity.COMPOSITE,
                     claim_type=ClaimType.FACTUAL,
                     source_question=question,
-                    confidence=0.5,
+                    decomposed_claim_confidence=0.5,
                     keywords=self._extract_keywords(question),
                     verification_hints=["一般的な検索で調査"],
                 )

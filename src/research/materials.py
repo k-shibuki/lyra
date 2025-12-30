@@ -214,9 +214,9 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                 {
                     "id": row["id"],
                     "text": row.get("claim_text", ""),
-                    # Bayesian posterior (primary confidence for AI decision-making)
+                    # Bayesian posterior (primary truth metric) - no fallback to LLM (different semantics)
                     "bayesian_claim_confidence": confidence_info.get(
-                        "bayesian_claim_confidence", row.get("llm_claim_confidence", 0.5)
+                        "bayesian_claim_confidence", 0.5
                     ),
                     # LLM's self-reported extraction quality (not truth confidence)
                     "llm_claim_confidence": row.get("llm_claim_confidence", 0.5),

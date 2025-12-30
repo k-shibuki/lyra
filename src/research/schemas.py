@@ -26,11 +26,14 @@ class MaterialsSource(BaseModel):
 class EvidenceItem(BaseModel):
     """Evidence item returned from EvidenceGraph Bayesian calculation."""
 
+    edge_id: str | None = Field(None, description="Edge ID for feedback(edge_correct)")
     relation: str = Field(..., description="Relation type (supports/refutes/neutral)")
     source_id: str | None = Field(None, description="Source object ID")
     source_type: str | None = Field(None, description="Source node type (fragment/page/...)")
     year: int | str | None = Field(None, description="Year extracted from source metadata")
-    nli_confidence: float | None = Field(None, description="NLI confidence if available")
+    nli_edge_confidence: float | None = Field(
+        None, description="NLI model calibrated confidence (used in Bayesian update)"
+    )
     source_domain_category: str | None = Field(None, description="Domain category used for ranking")
     doi: str | None = Field(None, description="DOI if available (academic sources)")
     venue: str | None = Field(None, description="Venue/journal if available (academic sources)")
@@ -49,9 +52,17 @@ class MaterialsClaim(BaseModel):
     id: str = Field(..., description="Claim ID")
     text: str = Field("", description="Claim text")
 
-    confidence: float = Field(..., description="Aggregated claim confidence")
-    uncertainty: float = Field(0.0, description="Bayesian uncertainty")
-    controversy: float = Field(0.0, description="Bayesian controversy")
+    # Confidence separation: Bayesian posterior for truth, LLM for extraction quality
+    bayesian_claim_confidence: float = Field(
+        ..., description="Bayesian posterior mean (primary truth metric)"
+    )
+    llm_claim_confidence: float = Field(
+        0.5, description="LLM extraction quality (NOT truth confidence)"
+    )
+    uncertainty: float = Field(
+        0.0, description="Posterior standard deviation (>0.2 = need more evidence)"
+    )
+    controversy: float = Field(0.0, description="Support vs refute conflict (>0.3 = contested)")
 
     evidence_count: int = Field(0, description="Count of evidence edges for this claim")
     has_refutation: bool = Field(False, description="Whether a refuting edge exists")

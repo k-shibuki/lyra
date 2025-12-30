@@ -406,9 +406,8 @@ class ChainOfDensityCompressor:
             dense_claim = DenseClaim(
                 claim_id=claim_id,
                 text=claim.get("claim_text", claim.get("text", "")),
-                llm_claim_confidence=claim.get(
-                    "llm_claim_confidence", claim.get("bayesian_claim_confidence", 0.5)
-                ),
+                # LLM extraction quality only - no fallback to Bayesian (different semantics)
+                llm_claim_confidence=claim.get("llm_claim_confidence", 0.5),
                 citations=citations,
                 claim_type=claim.get("claim_type", "fact"),
                 is_verified=False,  # DB column removed

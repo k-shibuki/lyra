@@ -1245,7 +1245,7 @@ class SearchPipeline:
                                 {
                                     "id": f"c_{uuid.uuid4().hex[:8]}",
                                     "text": refutation["refuting_passage"][:200],
-                                    "confidence": refutation["nli_confidence"],
+                                    "nli_edge_confidence": refutation["nli_edge_confidence"],
                                     "source_url": url,
                                     "is_primary_source": self._is_primary_source(url),
                                     "is_refutation": True,
@@ -1329,15 +1329,15 @@ class SearchPipeline:
 
             if results and len(results) > 0:
                 stance = results[0].get("stance", "neutral")
-                confidence = results[0].get("confidence", 0)
+                nli_edge_confidence = results[0].get("nli_edge_confidence", 0)
 
-                if stance == "refutes" and confidence > 0.6:
+                if stance == "refutes" and nli_edge_confidence > 0.6:
                     return {
                         "claim_text": claim_text[:100],
                         "refuting_passage": passage[:200],
                         "source_url": source_url,
                         "source_title": source_title,
-                        "nli_confidence": confidence,
+                        "nli_edge_confidence": nli_edge_confidence,
                     }
 
         except Exception as e:

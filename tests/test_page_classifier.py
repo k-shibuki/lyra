@@ -75,7 +75,7 @@ class TestArticleClassification:
         result = classifier.classify(html, "https://example.com/news/2024/01/15/breaking-news")
 
         assert result.page_type == PageType.ARTICLE
-        assert result.confidence > 0.3
+        assert result.classification_confidence > 0.3
         assert result.features["structure"]["has_article_tag"] is True
         assert result.features["semantic"]["has_date"] is True
 
@@ -322,7 +322,7 @@ class TestLoginWallClassification:
         result = classifier.classify(html, "https://example.com/login")
 
         assert result.page_type == PageType.LOGIN_WALL
-        assert result.confidence > 0.4
+        assert result.classification_confidence > 0.4
         assert result.features["login"]["has_login_form"] is True
         assert result.features["login"]["has_password_field"] is True
 
@@ -601,7 +601,7 @@ class TestClassifierUtilities:
 
         assert isinstance(result, ClassificationResult)
         assert isinstance(result.page_type, PageType)
-        assert 0.0 <= result.confidence <= 1.0
+        assert 0.0 <= result.classification_confidence <= 1.0
 
     def test_url_hint_extraction(self, classifier: PageClassifier) -> None:
         """URL hints should be extracted from various URL patterns."""

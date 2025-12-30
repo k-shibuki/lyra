@@ -1,7 +1,14 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2025-12-31
+
 # Confidence & Calibration Design
 
-**Date:** 2025-12-30
-**Status:** Proposal (v4 - Implementation Gaps Analysis integrated)
+**Date:** 2025-12-31
+**Status:** ✅ Completed
 **Related:**
 - ADR-0005: Evidence Graph Structure
 - ADR-0011: LoRA Fine-tuning Strategy
@@ -13,7 +20,8 @@
 
 ## 0. この文書の位置づけ
 
-この文書は「confidence / calibration」に関する **現状分析（as-is）** と、プロダクトに対する**改善提案（to-be）** をまとめる。
+この文書は「confidence / calibration」に関する設計と実装状況をまとめたものである。
+**Phase 1-3 および非コア confidence 用語統一は完了**。LoRA 実装（Phase T）は将来計画として別途管理する。
 
 ## 1. 概念定義
 
@@ -601,19 +609,15 @@ class CalibrationHistory:
 | nli_corrections テーブル | LoRA 訓練データ蓄積 | schema.sql |
 | Domain Category 非使用 | Confidence 計算に影響しない | ADR-0005 |
 
-### 7.2 ⚠️ 未決定・議論中
+### 7.2 ✅ 決定済み
 
-| 項目 | オプション | 推奨 | 参照 |
-|------|-----------|------|------|
-| **llm-confidence の扱い** | ~~A: 削除, B: フィルタ, C: 弱い事前分布~~, **D: 抽出品質スコアとしてのみ活用** | **D で確定** | §8.5 |
+| 項目 | 決定内容 | 参照 |
+|------|---------|------|
+| **llm-confidence の扱い** | **D: 抽出品質スコアとしてのみ活用**（真偽推定には混ぜない） | §8.5 |
 
-### 7.3 ❌ 未実装・将来計画
+### 7.3 将来計画（Phase T）
 
-| 項目 | フェーズ | 前提条件 |
-|------|----------|----------|
-| LoRA 訓練スクリプト | Phase T | PEFT ライブラリ統合 |
-| アダプタバージョン管理 | Phase T | 訓練スクリプト完成 |
-| シャドウ評価 | Phase T | 100+サンプル蓄積 |
+LoRA 関連は ADR-0011 に移管。100+ フィードバックサンプル蓄積後に着手予定。
 
 ---
 
@@ -811,15 +815,15 @@ def apply_temporal_decay(confidence: float, publication_year: int) -> float:
 
 ## 10. 課題と技術的解決策
 
-### 10.1 現在の課題
+### 10.1 解決済み課題 ✅
 
-| 課題 | 詳細 | 優先度 |
-|------|------|--------|
-| **用語の混乱** | 3種類の confidence が混在 | 高 |
-| **llm-confidence の意味論** | 抽出品質/真偽が混線しやすい | 中 |
-| **校正ファイル名** | ~~`calibration.py` が NLI 専用に見えない~~ ✅ 解決済み (`nli_calibration.py`) | - |
-| **LoRA 未実装** | フィードバックが活用されていない | 低（将来） |
-| **校正の配線不足** | NLI推論→edgesへの校正適用、評価結果の永続化が未整備 | 高 |
+| 課題 | 解決内容 |
+|------|---------|
+| **用語の混乱** | ✅ 全 confidence フィールドに意味論的プレフィックスを付与 |
+| **llm-confidence の意味論** | ✅ `llm_claim_confidence` / `bayesian_claim_confidence` に分離 |
+| **校正ファイル名** | ✅ `nli_calibration.py` にリネーム |
+| **校正の配線不足** | ✅ NLI推論→edges への校正適用完了 |
+| **LoRA 未実装** | 📝 Phase T（将来計画）として ADR-0011 に移管 |
 
 ### 10.2 技術的解決策
 
@@ -922,20 +926,15 @@ curl -X POST http://localhost:8001/nli/adapter/load \
   - `tests/test_integration.py`
   - `tests/test_mcp_calibration_metrics.py`
 
-### Phase 4: E2Eデバッグ
+### Phase Rc: 完了 ✅
 
-| タスク | ステータス | 備考 |
-|--------|:----------:|------|
-| E2Eデバッグ実施 | - | 📝 |
+用語統一・校正配線・MCP スキーマ整合性・コード品質改善がすべて完了。
+E2E デバッグは運用フェーズで継続的に実施する。
 
-### Phase T: LoRA 実装（将来）
+### Phase T: LoRA 実装（将来計画）
 
-| タスク | 内容 | ステータス |
-|--------|------|:----------:|
-| R.1.x | PEFT/LoRA ライブラリ統合 | ❌ |
-| R.2.x | 訓練スクリプト作成 | ❌ |
-| R.3.x | アダプタバージョン管理 | ❌ |
-| R.4.x | テストと検証 | ❌ |
+LoRA によるNLIモデルのファインチューニングは、100+ フィードバックサンプル蓄積後に着手予定。
+詳細は ADR-0011 を参照。
 
 ---
 
@@ -1288,19 +1287,19 @@ NLI推論（`predict()` / `predict_batch()`）で校正を適用し、`edges.nli
 
 実装の詳細は `src/filter/nli.py` を参照。
 
-**Step 3: 評価結果の永続化（未実装、Phase 3 で対応）**
+**Step 3: 評価結果の永続化 ✅ 実装完了**
 
-`calibration_evaluations` テーブルへの INSERT は Phase 3 で対応予定。
+`save_evaluation_result()` により `calibration_evaluations` テーブルへの永続化が可能。
 
-#### D.7.5 実装優先順位 ✅ **P0-P1 完了**
+#### D.7.5 実装優先順位 ✅ **全完了**
 
 | 優先度 | タスク | ステータス |
 |:------:|--------|:----------:|
 | **P0** | NLI推論への校正適用 | ✅ 完了 |
 | **P1** | MCPスキーマ不整合の修正 | ✅ 完了 |
-| **P2** | llm-confidence のMCP露出 | ⏳ Phase 3 |
-| **P3** | 評価永続化 | ⏳ Phase 3 |
-| **P4** | ファイル名変更 | 📝 Phase 4 |
+| **P2** | llm-confidence のMCP露出 | ✅ 完了 |
+| **P3** | 評価永続化 | ✅ 完了 |
+| **P4** | ファイル名変更 | ✅ 完了 (`nli_calibration.py`) |
 
 #### D.7.5.1 P0 精密影響範囲 ✅ **修正完了 (PR #50)**
 
@@ -1689,26 +1688,27 @@ CREATE TABLE high_yield_queries (
 ```
 - 異なるキー名で明確に区別
 
-#### D.9.4 Entity KB の confidence（別ドメイン）
+#### D.9.4 Entity KB の confidence（別ドメイン）✅ **実装完了**
 
-Entity KB の confidence はエビデンスシステムとは独立した概念。
+Entity KB の confidence はエビデンスシステムとは独立した概念。DB スキーマ・Python dataclass・`to_dict()` 出力すべてで統一済み。
 
-| クラス | 現在 | 変更後 | 理由 |
-|-------|-----|-------|------|
+| クラス | 旧名 | 新名（実装済み） | 理由 |
+|-------|-----|-----------------|------|
 | `EntityRecord.confidence` | `confidence` | `entity_extraction_confidence` | 統一ルール適用 |
 | `EntityAlias.confidence` | `confidence` | `alias_match_confidence` | 意味を正確に |
 | `EntityIdentifier.confidence` | `confidence` | `identifier_confidence` | 統一ルール適用 |
+| `EntityRelationship` (DB) | `confidence` | `relationship_confidence` | DB列名も統一 |
 
-#### D.9.5 その他ドメインの confidence
+#### D.9.5 その他ドメインの confidence ✅ **実装完了**
 
-| ファイル | 現在 | 変更後 | 備考 |
-|---------|-----|-------|------|
-| `temporal_consistency.py` | `confidence` | `temporal_confidence` | 時間整合性 |
-| `claim_decomposition.py` | `confidence` | `decomposed_claim_confidence` | 分解時継承 |
-| `claim_timeline.py` | `confidence` | `timeline_event_confidence` | イベント信頼度 |
-| `parser_diagnostics.py` | `confidence` | `parser_confidence` | パース信頼度 |
-| `page_classifier.py` | `confidence` | `classification_confidence` | 分類信頼度 |
-| `policy_engine.py` | `confidence` | `metrics_decay_confidence` | メトリクス減衰 |
+| ファイル | 旧名 | 新名（実装済み） | ステータス | 備考 |
+|---------|-----|-----------------|:----------:|------|
+| `temporal_consistency.py` | `confidence` | `extraction_confidence` | ✅ | 日付抽出信頼度 |
+| `claim_decomposition.py` | `confidence` | `decomposed_claim_confidence` | ✅ | 分解claim品質 |
+| `claim_timeline.py` | `confidence` | `timeline_event_confidence` | ✅ | イベント信頼度 |
+| `parser_diagnostics.py` | `confidence` | `selector_confidence` | ✅ | セレクタ信頼度 |
+| `page_classifier.py` | `confidence` | `classification_confidence` | ✅ | 分類信頼度 |
+| `policy_engine.py` | `confidence` | `metrics_decay_confidence` | ✅ | メトリクス減衰 |
 
 #### D.9.6 D.8.3 への修正反映 ✅ **適用済み (PR #50)**
 
@@ -1726,24 +1726,25 @@ Entity KB の confidence はエビデンスシステムとは独立した概念�
 | `confidence` (get_materials claims[]) | `bayesian_claim_confidence` / `llm_claim_confidence` | 分離出力 |
 | `nli_confidence` (get_materials evidence[]) | `nli_edge_confidence` | NLI信頼度 |
 
-##### B. Entity KB Confidence
+##### B. Entity KB Confidence ✅ **実装完了**
 
-| 現在の名前 | 場所 | 意味 | **統一後の名前** |
+| 旧名 | 場所 | 意味 | **新名（実装済み）** |
 |-----------|------|------|-----------------|
 | `EntityRecord.confidence` | entity_kb.py | エンティティ抽出信頼度 | `entity_extraction_confidence` |
 | `EntityAlias.confidence` | entity_kb.py | エイリアス一致信頼度 | `alias_match_confidence` |
 | `EntityIdentifier.confidence` | entity_kb.py | 識別子信頼度 | `identifier_confidence` |
+| `entity_relationships.confidence` | schema.sql | 関係信頼度 | `relationship_confidence` |
 
-##### C. その他 Confidence
+##### C. その他 Confidence ✅ **実装完了**
 
-| 現在の名前 | 場所 | 意味 | **統一後の名前** |
-|-----------|------|------|-----------------|
-| `high_yield_queries.confidence` | schema.sql:841 | クエリ収穫率信頼度 | `query_yield_confidence` |
-| `feedback_events.predicted_confidence` | schema.sql:732 | 訂正前信頼度 | そのまま（文脈が明確） |
-| `confidence` | policy_engine.py | メトリクス時間減衰 | `metrics_decay_confidence` |
-| `confidence` | page_classifier.py | 分類信頼度 | `classification_confidence` |
-| `confidence` | temporal_consistency.py | 時間整合性信頼度 | `temporal_confidence` |
-| `confidence` | claim_decomposition.py | 分解claim信頼度 | `decomposed_claim_confidence` |
-| `confidence` | claim_timeline.py | タイムラインイベント信頼度 | `timeline_event_confidence` |
-| `confidence` | parser_diagnostics.py | パース信頼度 | `parser_confidence` |
-| `adjusted_confidence` | wayback_fallback.py | 時間減衰後信頼度 | そのまま（文脈が明確） |
+| 旧名 | 場所 | 意味 | **新名（実装済み）** | ステータス |
+|-----------|------|------|-----------------|:----------:|
+| `high_yield_queries.confidence` | schema.sql | クエリ収穫率信頼度 | `query_yield_confidence` | ✅ |
+| `feedback_events.predicted_confidence` | schema.sql | 訂正前信頼度 | そのまま（文脈が明確） | - |
+| `confidence` | policy_engine.py | メトリクス時間減衰 | `metrics_decay_confidence` | ✅ |
+| `confidence` | page_classifier.py | 分類信頼度 | `classification_confidence` | ✅ |
+| `confidence` | temporal_consistency.py | 日付抽出信頼度 | `extraction_confidence` | ✅ |
+| `confidence` | claim_decomposition.py | 分解claim信頼度 | `decomposed_claim_confidence` | ✅ |
+| `confidence` | claim_timeline.py | タイムラインイベント信頼度 | `timeline_event_confidence` | ✅ |
+| `confidence` | parser_diagnostics.py | セレクタ信頼度 | `selector_confidence` | ✅ |
+| `adjusted_confidence` | wayback_fallback.py | 時間減衰後信頼度 | そのまま（文脈が明確） | - |

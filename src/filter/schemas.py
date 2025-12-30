@@ -23,13 +23,16 @@ class EvidenceYears(BaseModel):
 class EvidenceItem(BaseModel):
     """A single evidence item returned by EvidenceGraph confidence calculation."""
 
+    edge_id: str | None = Field(None, description="Edge ID for feedback(edge_correct)")
     relation: Literal["supports", "refutes", "neutral"] = Field(..., description="Edge relation")
     source_id: str | None = Field(None, description="Evidence node object ID")
     source_type: Literal["claim", "fragment", "page"] | None = Field(
         None, description="Evidence node type"
     )
     year: int | str | None = Field(None, description="Year metadata if available")
-    nli_confidence: float | None = Field(None, description="NLI confidence carried by the edge")
+    nli_edge_confidence: float | None = Field(
+        None, description="NLI model calibrated confidence (used in Bayesian update)"
+    )
     source_domain_category: str | None = Field(
         None, description="Domain category derived from source side (if available)"
     )
@@ -40,9 +43,11 @@ class EvidenceItem(BaseModel):
 class ClaimConfidenceAssessment(BaseModel):
     """Contract for EvidenceGraph.calculate_claim_confidence()."""
 
-    confidence: float = Field(..., ge=0.0, le=1.0)
-    uncertainty: float = Field(..., ge=0.0)
-    controversy: float = Field(..., ge=0.0, le=1.0)
+    bayesian_claim_confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Bayesian posterior mean (primary truth metric)"
+    )
+    uncertainty: float = Field(..., ge=0.0, description="Posterior standard deviation")
+    controversy: float = Field(..., ge=0.0, le=1.0, description="Support vs refute conflict")
     supporting_count: int = Field(..., ge=0)
     refuting_count: int = Field(..., ge=0)
     neutral_count: int = Field(..., ge=0)

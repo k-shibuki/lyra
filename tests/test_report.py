@@ -284,3 +284,112 @@ class TestCitationSourcePriority:
         assert (
             citation.is_primary_source is expected
         ), f"Source tag '{source_tag}' should be primary={expected}"
+
+
+# =============================================================================
+# get_evidence_graph Output Format Tests (Phase 1-3 Terminology Unification)
+# =============================================================================
+
+
+class TestGetEvidenceGraphFormat:
+    """
+    Tests for get_evidence_graph output format.
+
+    Phase 1-3: Verify edges use nli_edge_confidence (not legacy confidence).
+    """
+
+    @pytest.mark.asyncio
+    async def test_edge_list_uses_nli_edge_confidence(self) -> None:
+        """
+        TC-RG-N-01: Edge list includes nli_edge_confidence instead of confidence.
+
+        // Given: DB edges with nli_edge_confidence=0.9 and nli_label="supports"
+        // When: Calling get_evidence_graph
+        // Then: edge_list has nli_edge_confidence and nli_label, not legacy confidence
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.report.generator import get_evidence_graph
+
+        # Given: Mock database with edges containing nli_edge_confidence
+        mock_db = AsyncMock()
+        mock_db.fetch_all = AsyncMock(
+            side_effect=[
+                # Claims query result
+                [{"id": "claim-1", "claim_text": "Test claim", "claim_type": "fact"}],
+                # Edges query result
+                [
+                    {
+                        "id": "edge-1",
+                        "source_type": "fragment",
+                        "source_id": "frag-1",
+                        "target_type": "claim",
+                        "target_id": "claim-1",
+                        "relation": "supports",
+                        "nli_edge_confidence": 0.9,
+                        "nli_label": "supports",
+                    }
+                ],
+            ]
+        )
+
+        # When: Get evidence graph (include_fragments=False to avoid 3rd fetch_all)
+        with patch("src.report.generator.get_database", new=AsyncMock(return_value=mock_db)):
+            result = await get_evidence_graph("test-task-id", include_fragments=False)
+
+        # Then: Edge list uses nli_edge_confidence
+        assert "edges" in result
+        assert len(result["edges"]) == 1
+        edge = result["edges"][0]
+        assert "nli_edge_confidence" in edge
+        assert edge["nli_edge_confidence"] == 0.9
+        assert "nli_label" in edge
+        assert edge["nli_label"] == "supports"
+        assert "confidence" not in edge  # Legacy key should not exist
+
+    @pytest.mark.asyncio
+    async def test_edge_list_handles_null_nli_confidence(self) -> None:
+        """
+        TC-RG-A-01: Edge with NULL nli_edge_confidence is handled correctly.
+
+        // Given: DB edge with nli_edge_confidence=NULL
+        // When: Calling get_evidence_graph
+        // Then: edge_list has nli_edge_confidence: None
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.report.generator import get_evidence_graph
+
+        # Given: Mock database with edge containing NULL nli_edge_confidence
+        mock_db = AsyncMock()
+        mock_db.fetch_all = AsyncMock(
+            side_effect=[
+                # Claims query result
+                [{"id": "claim-1", "claim_text": "Test claim", "claim_type": "fact"}],
+                # Edges query result
+                [
+                    {
+                        "id": "edge-1",
+                        "source_type": "page",
+                        "source_id": "page-1",
+                        "target_type": "page",
+                        "target_id": "page-2",
+                        "relation": "cites",
+                        "nli_edge_confidence": None,  # CITES edges have no NLI
+                        "nli_label": None,
+                    }
+                ],
+            ]
+        )
+
+        # When: Get evidence graph (include_fragments=False to avoid 3rd fetch_all)
+        with patch("src.report.generator.get_database", new=AsyncMock(return_value=mock_db)):
+            result = await get_evidence_graph("test-task-id", include_fragments=False)
+
+        # Then: Edge list includes None for nli_edge_confidence
+        assert "edges" in result
+        assert len(result["edges"]) == 1
+        edge = result["edges"][0]
+        assert "nli_edge_confidence" in edge
+        assert edge["nli_edge_confidence"] is None
+        assert "confidence" not in edge  # Legacy key should not exist

@@ -93,7 +93,7 @@ class TestTimelineEvent:
             evidence_fragment_id="frag_001",
             wayback_snapshot_url="https://web.archive.org/web/...",
             notes="Initial discovery",
-            confidence=0.95,
+            timeline_event_confidence=0.95,
         )
 
         # Then: All fields correctly stored
@@ -103,7 +103,7 @@ class TestTimelineEvent:
         assert event.evidence_fragment_id == "frag_001"
         assert event.wayback_snapshot_url == "https://web.archive.org/web/..."
         assert event.notes == "Initial discovery"
-        assert event.confidence == 0.95
+        assert event.timeline_event_confidence == 0.95
         assert len(event.event_id) == 8
 
     def test_to_dict_serialization(self) -> None:
@@ -114,7 +114,7 @@ class TestTimelineEvent:
             event_type=TimelineEventType.CONFIRMED,
             timestamp=timestamp,
             source_url="https://example.com",
-            confidence=0.8,
+            timeline_event_confidence=0.8,
         )
 
         # When: Serializing to dict
@@ -124,19 +124,19 @@ class TestTimelineEvent:
         assert result["event_type"] == "confirmed"
         assert result["timestamp"] == "2024-01-15T10:30:00+00:00"
         assert result["source_url"] == "https://example.com"
-        assert result["confidence"] == 0.8
+        assert result["timeline_event_confidence"] == 0.8
         assert "event_id" in result
 
     def test_from_dict_deserialization(self) -> None:
         """Verify TimelineEvent deserializes from dictionary correctly."""
-        # Given: Dictionary with event data
+        # Given: Dictionary with event data (using new key name)
         data = {
             "event_id": "test1234",
             "event_type": "retracted",
             "timestamp": "2024-02-20T14:00:00+00:00",
             "source_url": "https://retraction.example.com",
             "notes": "Claim withdrawn",
-            "confidence": 0.9,
+            "timeline_event_confidence": 0.9,
         }
 
         # When: Deserializing from dict
@@ -150,7 +150,7 @@ class TestTimelineEvent:
         assert event.timestamp.day == 20
         assert event.source_url == "https://retraction.example.com"
         assert event.notes == "Claim withdrawn"
-        assert event.confidence == 0.9
+        assert event.timeline_event_confidence == 0.9
 
     def test_from_dict_with_missing_fields(self) -> None:
         """Verify TimelineEvent handles missing optional fields gracefully."""
@@ -169,7 +169,7 @@ class TestTimelineEvent:
         assert event.evidence_fragment_id is None
         assert event.wayback_snapshot_url is None
         assert event.notes is None
-        assert event.confidence == 1.0
+        assert event.timeline_event_confidence == 1.0
 
 
 # =============================================================================

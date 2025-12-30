@@ -262,6 +262,7 @@ async def retry_api_call[T](
             if status_code == 429 and rate_limiter_provider:
                 try:
                     from src.search.apis.rate_limiter import get_academic_rate_limiter
+
                     limiter = get_academic_rate_limiter()
                     await limiter.report_429(rate_limiter_provider)
                 except Exception as report_err:

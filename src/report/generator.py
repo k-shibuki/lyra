@@ -1041,7 +1041,8 @@ async def get_evidence_graph(
             "target_type": e.get("target_type"),
             "target_id": e.get("target_id"),
             "relation": e.get("relation"),
-            "confidence": e.get("confidence"),
+            "nli_edge_confidence": e.get("nli_edge_confidence"),
+            "nli_label": e.get("nli_label"),
         }
         for e in edges
     ]

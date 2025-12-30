@@ -864,17 +864,17 @@ class PolicyEngine:
             last_used_at: Last usage timestamp for time decay calculation.
 
         Returns:
-            Tuple of (dynamic_weight, confidence):
+            Tuple of (dynamic_weight, metrics_decay_confidence):
             - dynamic_weight: Adjusted weight (0.1-1.0)
-            - confidence: Metrics confidence based on time decay (0.1-1.0)
+            - metrics_decay_confidence: Metrics confidence based on time decay (0.1-1.0)
         """
-        # 1. Calculate metrics confidence (time decay)
+        # 1. Calculate metrics decay confidence (time decay)
         # Per plan: 48 hours for 90% decay to default
         if last_used_at:
             hours_since_use = (datetime.now(UTC) - last_used_at).total_seconds() / 3600
-            confidence = max(0.1, 1.0 - (hours_since_use / 48))
+            metrics_decay_confidence = max(0.1, 1.0 - (hours_since_use / 48))
         else:
-            confidence = 0.1  # Never used = almost default
+            metrics_decay_confidence = 0.1  # Never used = almost default
 
         # 2. Calculate raw dynamic weight from metrics
         # Success factor: weighted average of short and long term
@@ -890,13 +890,13 @@ class PolicyEngine:
         raw_weight = base_weight * success_factor * captcha_penalty * latency_factor
 
         # 3. Apply time decay: blend raw weight with base weight
-        # based on confidence
-        final_weight = confidence * raw_weight + (1 - confidence) * base_weight
+        # based on metrics_decay_confidence
+        final_weight = metrics_decay_confidence * raw_weight + (1 - metrics_decay_confidence) * base_weight
 
         # 4. Clamp to valid range
         final_weight = max(0.1, min(1.0, final_weight))
 
-        return final_weight, confidence
+        return final_weight, metrics_decay_confidence
 
     async def get_dynamic_engine_weight(
         self,
@@ -967,7 +967,7 @@ class PolicyEngine:
                     last_used_at = None
 
             # Calculate dynamic weight
-            dynamic_weight, confidence = self.calculate_dynamic_weight(
+            dynamic_weight, metrics_decay_confidence = self.calculate_dynamic_weight(
                 base_weight=base_weight,
                 success_rate_1h=metrics.get("success_rate_1h", 1.0),
                 success_rate_24h=metrics.get("success_rate_24h", 1.0),
@@ -981,7 +981,7 @@ class PolicyEngine:
                 engine=engine,
                 base_weight=base_weight,
                 dynamic_weight=round(dynamic_weight, 3),
-                confidence=round(confidence, 3),
+                metrics_decay_confidence=round(metrics_decay_confidence, 3),
                 category=category,
             )
 

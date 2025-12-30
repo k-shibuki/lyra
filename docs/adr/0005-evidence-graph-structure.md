@@ -208,4 +208,4 @@ Reasons:
 ## References
 - `src/storage/schema.sql` - Graph schema (edges, claims, fragments tables)
 - `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)
-- `docs/confidence-calibration-design.md` - Confidence/Calibration design (including implementation gaps)
+- `docs/archive/Rc_CONFIDENCE_CALIBRATION_DESIGN.md` - Confidence/Calibration design (completed)

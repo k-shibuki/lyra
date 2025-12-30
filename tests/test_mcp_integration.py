@@ -357,7 +357,7 @@ class TestGetMaterialsIntegration:
         """
         TC-4.3-N-01: get_materials includes uncertainty and controversy .
 
-        // Given: Task with claims and evidence edges (with nli_confidence)
+        // Given: Task with claims and evidence edges (with nli_edge_confidence)
         // When: Calling get_materials_action
         // Then: Claims include uncertainty and controversy fields
         """
@@ -382,7 +382,7 @@ class TestGetMaterialsIntegration:
                 "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
             ),
         ):
-            # Add edges with nli_confidence to evidence graph
+            # Add edges with nli_edge_confidence to evidence graph
             graph = EvidenceGraph(task_id=task_id)
             await graph.load_from_db(task_id=task_id)
 

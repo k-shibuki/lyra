@@ -225,10 +225,17 @@ class AcademicSearchProvider(BaseSearchProvider):
                 # DOI available: both APIs can search using DOI
                 s2_query_id = f"DOI:{current_doi}"  # S2 accepts DOI: prefix
                 oa_query_id = f"https://doi.org/{current_doi}"  # OpenAlex accepts DOI URL
-            elif current_id.startswith("s2:") or current_id.startswith("DOI:") or current_id.startswith("ArXiv:") or current_id.startswith("PMID:"):
+            elif (
+                current_id.startswith("s2:")
+                or current_id.startswith("DOI:")
+                or current_id.startswith("ArXiv:")
+                or current_id.startswith("PMID:")
+            ):
                 # S2-compatible ID only
                 s2_query_id = current_id
-            elif current_id.startswith("openalex:") or current_id.startswith("https://openalex.org/"):
+            elif current_id.startswith("openalex:") or current_id.startswith(
+                "https://openalex.org/"
+            ):
                 # OpenAlex-compatible ID only
                 oa_query_id = current_id
             else:
@@ -259,9 +266,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                             else:
                                 oa_refs_raw = result
                     except Exception as e:
-                        logger.debug(
-                            "Failed to get references", paper_id=current_id, error=str(e)
-                        )
+                        logger.debug("Failed to get references", paper_id=current_id, error=str(e))
 
                 # Handle exceptions
                 if isinstance(s2_refs_raw, Exception):
@@ -341,9 +346,7 @@ class AcademicSearchProvider(BaseSearchProvider):
                             else:
                                 oa_cits_raw = result
                     except Exception as e:
-                        logger.debug(
-                            "Failed to get citations", paper_id=current_id, error=str(e)
-                        )
+                        logger.debug("Failed to get citations", paper_id=current_id, error=str(e))
 
                 # Handle exceptions
                 if isinstance(s2_cits_raw, Exception):

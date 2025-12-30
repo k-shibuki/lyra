@@ -576,7 +576,7 @@ class TestEntityKB:
         assert entity.id is not None
         assert entity.display_name == name
         assert entity.entity_type == EntityType.ORGANIZATION
-        assert entity.confidence == 0.9
+        assert entity.entity_extraction_confidence == 0.9
 
     async def test_add_entity_with_address(self, entity_kb: EntityKB) -> None:
         """Test adding entity with address normalization."""

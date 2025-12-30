@@ -12,11 +12,11 @@ Validates:
 Test Perspectives Table:
 | Case ID   | Input / Precondition                     | Perspective              | Expected Result                        | Notes |
 |-----------|------------------------------------------|--------------------------|----------------------------------------|-------|
-| TC-N-01   | Valid HTML with result elements          | Equivalence - normal     | Candidates found with confidence > 0   |       |
+| TC-N-01   | Valid HTML with result elements          | Equivalence - normal     | Candidates found with selector_confidence > 0 |       |
 | TC-N-02   | Failed selectors list                    | Equivalence - normal     | YAML fixes generated                   |       |
 | TC-N-03   | Diagnostic report creation               | Equivalence - normal     | Report contains all required fields    |       |
 | TC-A-01   | Empty HTML                               | Boundary - empty         | Empty candidates list                  |       |
-| TC-A-02   | HTML without result patterns             | Equivalence - abnormal   | Low confidence candidates              |       |
+| TC-A-02   | HTML without result patterns             | Equivalence - abnormal   | Low selector_confidence candidates     |       |
 | TC-A-03   | Invalid selector in failed list          | Equivalence - abnormal   | Fix still generated with escaped chars |       |
 | TC-B-01   | HTML with data-testid attributes         | Equivalence - specific   | data-testid candidates detected        |       |
 | TC-B-02   | HTML with list structure (ul/li)         | Equivalence - specific   | List-based candidates detected         |       |
@@ -237,7 +237,7 @@ class TestCandidateElement:
             selector=".result",
             sample_text=long_text,
             occurrence_count=5,
-            confidence=0.8,
+            selector_confidence=0.8,
             reason="Pattern match",
         )
 
@@ -257,7 +257,7 @@ class TestCandidateElement:
             selector=".snippet",
             sample_text=short_text,
             occurrence_count=3,
-            confidence=0.6,
+            selector_confidence=0.6,
             reason="Snippet pattern",
         )
 
@@ -275,7 +275,7 @@ class TestCandidateElement:
             selector="a.link",
             sample_text="",
             occurrence_count=1,
-            confidence=0.5,
+            selector_confidence=0.5,
             reason="Link element",
         )
 
@@ -307,7 +307,7 @@ class TestParserDiagnosticReport:
                     selector=".result",
                     sample_text="Sample",
                     occurrence_count=5,
-                    confidence=0.8,
+                    selector_confidence=0.8,
                     reason="Test",
                 ),
             ],
@@ -361,7 +361,7 @@ class TestParserDiagnosticReport:
                     selector=".top-candidate",
                     sample_text="Top",
                     occurrence_count=3,
-                    confidence=0.9,
+                    selector_confidence=0.9,
                     reason="Best match",
                 ),
             ],
@@ -531,7 +531,7 @@ class TestYAMLFixGeneration:
             selector=".new-result",
             sample_text="Sample result text",
             occurrence_count=5,
-            confidence=0.85,
+            selector_confidence=0.85,
             reason="Class matches result pattern",
         )
 
@@ -553,7 +553,7 @@ class TestYAMLFixGeneration:
             selector='[data-testid="result"]',
             sample_text="Test",
             occurrence_count=3,
-            confidence=0.9,
+            selector_confidence=0.9,
             reason="data-testid",
         )
 
@@ -573,7 +573,7 @@ class TestYAMLFixGeneration:
             selector="#result\\.item",
             sample_text="Test",
             occurrence_count=3,
-            confidence=0.9,
+            selector_confidence=0.9,
             reason="ID selector with escaped dot",
         )
 
@@ -594,7 +594,7 @@ class TestYAMLFixGeneration:
             selector="div.class\\.name",
             sample_text="Test",
             occurrence_count=5,
-            confidence=0.8,
+            selector_confidence=0.8,
             reason="Class selector with escaped dot",
         )
 
@@ -614,7 +614,7 @@ class TestYAMLFixGeneration:
             selector='div.result\\.item[data-testid="value"]',
             sample_text="Test",
             occurrence_count=2,
-            confidence=0.7,
+            selector_confidence=0.7,
             reason="Complex selector",
         )
 
@@ -634,7 +634,7 @@ class TestYAMLFixGeneration:
             selector="",
             sample_text="Test",
             occurrence_count=1,
-            confidence=0.5,
+            selector_confidence=0.5,
             reason="Empty selector",
         )
 
@@ -653,7 +653,7 @@ class TestYAMLFixGeneration:
             selector="\\",
             sample_text="Test",
             occurrence_count=1,
-            confidence=0.5,
+            selector_confidence=0.5,
             reason="Single backslash",
         )
 
@@ -672,7 +672,7 @@ class TestYAMLFixGeneration:
             selector="a\\\\b",  # Two backslashes in Python string
             sample_text="Test",
             occurrence_count=1,
-            confidence=0.5,
+            selector_confidence=0.5,
             reason="Multiple backslashes",
         )
 
@@ -695,7 +695,7 @@ class TestYAMLFixGeneration:
                     selector=".result",
                     sample_text="Result",
                     occurrence_count=5,
-                    confidence=0.8,
+                    selector_confidence=0.8,
                     reason="Test",
                 ),
             ],
@@ -705,7 +705,7 @@ class TestYAMLFixGeneration:
                     selector="h2 a",
                     sample_text="Title",
                     occurrence_count=5,
-                    confidence=0.7,
+                    selector_confidence=0.7,
                     reason="Test",
                 ),
             ],

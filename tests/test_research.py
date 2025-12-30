@@ -1062,6 +1062,127 @@ class TestSubqueryExecutor:
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)
             assert has_suffix, f"Query '{rq}' doesn't have a mechanical suffix"
 
+    @pytest.mark.asyncio
+    async def test_detect_refutation_nli_returns_nli_edge_confidence(self) -> None:
+        """
+        TC-PL-N-01: nli_judge returns nli_edge_confidence and it propagates to output.
+
+        // Given: nli_judge mock returning {"stance": "refutes", "nli_edge_confidence": 0.8}
+        // When: Calling _detect_refutation_nli via SearchPipeline
+        // Then: Returned dict has "nli_edge_confidence" key with correct value
+        """
+        from src.research.pipeline import SearchPipeline
+
+        # Given: Mock nli_judge returning refutation with nli_edge_confidence
+        state = MagicMock()
+        pipeline = SearchPipeline("task_001", state)
+
+        mock_nli_judge = AsyncMock(return_value=[{"stance": "refutes", "nli_edge_confidence": 0.8}])
+
+        # When: Detect refutation
+        result = await pipeline._detect_refutation_nli(
+            claim_text="AIは安全である",
+            passage="AI systems have numerous safety issues and risks.",
+            source_url="https://example.com/safety",
+            source_title="AI Safety Report",
+            nli_judge=mock_nli_judge,
+        )
+
+        # Then: Result contains nli_edge_confidence (not legacy "confidence")
+        assert result is not None
+        assert "nli_edge_confidence" in result
+        assert result["nli_edge_confidence"] == 0.8
+        assert "nli_confidence" not in result  # Legacy key should not exist
+
+    @pytest.mark.asyncio
+    async def test_detect_refutation_nli_threshold_boundary(self) -> None:
+        """
+        TC-PL-A-01: nli_edge_confidence below threshold (0.6) returns None.
+
+        // Given: nli_judge mock returning {"stance": "refutes", "nli_edge_confidence": 0.5}
+        // When: Calling _detect_refutation_nli via SearchPipeline
+        // Then: Returns None (threshold 0.6 not met)
+        """
+        from src.research.pipeline import SearchPipeline
+
+        # Given: Mock nli_judge returning low confidence refutation
+        state = MagicMock()
+        pipeline = SearchPipeline("task_001", state)
+
+        mock_nli_judge = AsyncMock(return_value=[{"stance": "refutes", "nli_edge_confidence": 0.5}])
+
+        # When: Detect refutation
+        result = await pipeline._detect_refutation_nli(
+            claim_text="AIは安全である",
+            passage="AI has some concerns.",
+            source_url="https://example.com",
+            source_title="AI Report",
+            nli_judge=mock_nli_judge,
+        )
+
+        # Then: Below threshold (0.6), returns None
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_detect_refutation_nli_supports_returns_none(self) -> None:
+        """
+        TC-PL-N-02: nli_judge returning "supports" stance returns None.
+
+        // Given: nli_judge mock returning {"stance": "supports", "nli_edge_confidence": 0.9}
+        // When: Calling _detect_refutation_nli via SearchPipeline
+        // Then: Returns None (not a refutation)
+        """
+        from src.research.pipeline import SearchPipeline
+
+        # Given: Mock nli_judge returning supports
+        state = MagicMock()
+        pipeline = SearchPipeline("task_001", state)
+
+        mock_nli_judge = AsyncMock(
+            return_value=[{"stance": "supports", "nli_edge_confidence": 0.9}]
+        )
+
+        # When: Detect refutation
+        result = await pipeline._detect_refutation_nli(
+            claim_text="AIは安全である",
+            passage="AI is safe and beneficial.",
+            source_url="https://example.com",
+            source_title="AI Report",
+            nli_judge=mock_nli_judge,
+        )
+
+        # Then: Not a refutation (supports stance)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_detect_refutation_nli_empty_results_returns_none(self) -> None:
+        """
+        TC-PL-A-02: nli_judge returning empty dict handles gracefully.
+
+        // Given: nli_judge mock returning [{}]
+        // When: Calling _detect_refutation_nli via SearchPipeline
+        // Then: Returns None (no valid stance/confidence)
+        """
+        from src.research.pipeline import SearchPipeline
+
+        # Given: Mock nli_judge returning empty result
+        state = MagicMock()
+        pipeline = SearchPipeline("task_001", state)
+
+        mock_nli_judge = AsyncMock(return_value=[{}])
+
+        # When: Detect refutation
+        result = await pipeline._detect_refutation_nli(
+            claim_text="AIは安全である",
+            passage="Some text.",
+            source_url="https://example.com",
+            source_title="Report",
+            nli_judge=mock_nli_judge,
+        )
+
+        # Then: Empty result defaults to 0, returns None
+        assert result is None
+
 
 # =============================================================================
 # RefutationExecutor Tests (ADR-0010)

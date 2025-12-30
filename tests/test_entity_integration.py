@@ -67,7 +67,7 @@ def mock_entity_kb() -> MagicMock:
         entity.id = entity_id
         entity.display_name = kwargs.get("name", "")
         entity.entity_type = kwargs.get("entity_type")
-        entity.confidence = kwargs.get("confidence", 0.5)
+        entity.entity_extraction_confidence = kwargs.get("confidence", 0.5)
         entity.to_dict = lambda: {"id": entity_id, "name": kwargs.get("name")}
 
         kb._entities[entity_id] = entity

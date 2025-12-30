@@ -54,7 +54,9 @@ class SemanticScholarClient(BaseAcademicClient):
             return cast(dict[str, Any], response.json())
 
         try:
-            data = await retry_api_call(_search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+            data = await retry_api_call(
+                _search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+            )
             papers = [self._parse_paper(p) for p in data.get("data", [])]
 
             next_cursor = data.get("next")
@@ -96,7 +98,9 @@ class SemanticScholarClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+                data = await retry_api_call(
+                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                )
                 return self._parse_paper(data)
             except Exception as e:
                 logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
@@ -155,7 +159,9 @@ class SemanticScholarClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+                data = await retry_api_call(
+                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                )
                 results = []
                 # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]
                 refs_list = (data.get("data") if data else None) or []
@@ -201,7 +207,9 @@ class SemanticScholarClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
+                data = await retry_api_call(
+                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                )
                 results = []
                 # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]
                 cits_list = (data.get("data") if data else None) or []

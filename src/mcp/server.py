@@ -91,7 +91,10 @@ and refuting queries to ensure balanced evidence collection.""",
             "type": "object",
             "properties": {
                 "ok": {"type": "boolean", "description": "True if task created successfully"},
-                "task_id": {"type": "string", "description": "Unique task identifier. Use this for all subsequent operations."},
+                "task_id": {
+                    "type": "string",
+                    "description": "Unique task identifier. Use this for all subsequent operations.",
+                },
                 "query": {"type": "string", "description": "The research query"},
                 "created_at": {"type": "string", "description": "ISO timestamp of creation"},
                 "budget": {
@@ -164,12 +167,24 @@ DECISION POINTS:
                         "properties": {
                             "id": {"type": "string"},
                             "query": {"type": "string"},
-                            "status": {"type": "string", "enum": ["queued", "running", "completed", "failed", "cancelled"]},
+                            "status": {
+                                "type": "string",
+                                "enum": ["queued", "running", "completed", "failed", "cancelled"],
+                            },
                             "pages_fetched": {"type": "integer"},
                             "useful_fragments": {"type": "integer"},
-                            "harvest_rate": {"type": "number", "description": "0.0-1.0, ratio of useful content found"},
-                            "satisfaction_score": {"type": "number", "description": "0.0-1.0, how well query is covered"},
-                            "has_primary_source": {"type": "boolean", "description": "True if academic/primary source found"},
+                            "harvest_rate": {
+                                "type": "number",
+                                "description": "0.0-1.0, ratio of useful content found",
+                            },
+                            "satisfaction_score": {
+                                "type": "number",
+                                "description": "0.0-1.0, how well query is covered",
+                            },
+                            "has_primary_source": {
+                                "type": "boolean",
+                                "description": "True if academic/primary source found",
+                            },
                         },
                     },
                 },
@@ -178,7 +193,10 @@ DECISION POINTS:
                     "description": "Search queue status",
                     "properties": {
                         "depth": {"type": "integer", "description": "Queued searches waiting"},
-                        "running": {"type": "integer", "description": "Currently executing searches"},
+                        "running": {
+                            "type": "integer",
+                            "description": "Currently executing searches",
+                        },
                     },
                 },
                 "pending_auth_count": {
@@ -189,10 +207,16 @@ DECISION POINTS:
                     "type": "object",
                     "properties": {
                         "total_searches": {"type": "integer"},
-                        "satisfied_count": {"type": "integer", "description": "Searches with satisfaction >= 0.7"},
+                        "satisfied_count": {
+                            "type": "integer",
+                            "description": "Searches with satisfaction >= 0.7",
+                        },
                         "total_pages": {"type": "integer"},
                         "total_fragments": {"type": "integer"},
-                        "total_claims": {"type": "integer", "description": "Verified assertions extracted"},
+                        "total_claims": {
+                            "type": "integer",
+                            "description": "Verified assertions extracted",
+                        },
                         "elapsed_seconds": {"type": "integer"},
                     },
                 },
@@ -201,7 +225,10 @@ DECISION POINTS:
                     "properties": {
                         "budget_pages_used": {"type": "integer"},
                         "budget_pages_limit": {"type": "integer"},
-                        "remaining_percent": {"type": "integer", "description": "0-100, budget remaining"},
+                        "remaining_percent": {
+                            "type": "integer",
+                            "description": "0-100, budget remaining",
+                        },
                     },
                 },
                 "idle_seconds": {"type": "integer", "description": "Seconds since last activity"},
@@ -278,8 +305,14 @@ QUERY DESIGN TIPS:
             "type": "object",
             "properties": {
                 "ok": {"type": "boolean"},
-                "queued_count": {"type": "integer", "description": "Number of queries added to queue"},
-                "skipped_count": {"type": "integer", "description": "Duplicates skipped (already queued/running)"},
+                "queued_count": {
+                    "type": "integer",
+                    "description": "Number of queries added to queue",
+                },
+                "skipped_count": {
+                    "type": "integer",
+                    "description": "Duplicates skipped (already queued/running)",
+                },
                 "search_ids": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -433,12 +466,27 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                         "properties": {
                             "id": {"type": "string"},
                             "text": {"type": "string", "description": "The claim assertion"},
-                            "bayesian_claim_confidence": {"type": "number", "description": "0.0-1.0, Bayesian posterior mean (primary truth metric)"},
-                            "llm_claim_confidence": {"type": "number", "description": "0.0-1.0, LLM extraction quality (NOT truth)"},
-                            "uncertainty": {"type": "number", "description": "0.0-0.5, posterior stddev. >0.2 = need more evidence"},
-                            "controversy": {"type": "number", "description": "0.0-0.5, support vs refute conflict. >0.3 = contested"},
+                            "bayesian_claim_confidence": {
+                                "type": "number",
+                                "description": "0.0-1.0, Bayesian posterior mean (primary truth metric)",
+                            },
+                            "llm_claim_confidence": {
+                                "type": "number",
+                                "description": "0.0-1.0, LLM extraction quality (NOT truth)",
+                            },
+                            "uncertainty": {
+                                "type": "number",
+                                "description": "0.0-0.5, posterior stddev. >0.2 = need more evidence",
+                            },
+                            "controversy": {
+                                "type": "number",
+                                "description": "0.0-0.5, support vs refute conflict. >0.3 = contested",
+                            },
                             "evidence_count": {"type": "integer"},
-                            "has_refutation": {"type": "boolean", "description": "True if refuting evidence exists"},
+                            "has_refutation": {
+                                "type": "boolean",
+                                "description": "True if refuting evidence exists",
+                            },
                             "sources": {
                                 "type": "array",
                                 "items": {
@@ -449,9 +497,20 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                         "domain": {"type": "string"},
                                         "domain_category": {
                                             "type": "string",
-                                            "enum": ["academic", "news", "government", "organization", "commercial", "social", "unknown"],
+                                            "enum": [
+                                                "academic",
+                                                "news",
+                                                "government",
+                                                "organization",
+                                                "commercial",
+                                                "social",
+                                                "unknown",
+                                            ],
                                         },
-                                        "is_primary": {"type": "boolean", "description": "True if academic/primary source"},
+                                        "is_primary": {
+                                            "type": "boolean",
+                                            "description": "True if academic/primary source",
+                                        },
                                     },
                                 },
                             },
@@ -461,12 +520,24 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "edge_id": {"type": "string", "description": "Edge ID for feedback(edge_correct)"},
+                                        "edge_id": {
+                                            "type": "string",
+                                            "description": "Edge ID for feedback(edge_correct)",
+                                        },
                                         "source_id": {"type": "string"},
                                         "source_type": {"type": "string"},
-                                        "relation": {"type": "string", "enum": ["supports", "refutes", "neutral"]},
-                                        "nli_edge_confidence": {"type": "number", "description": "0.0-1.0, NLI model calibrated confidence"},
-                                        "year": {"type": "integer", "description": "Publication year for timeline analysis"},
+                                        "relation": {
+                                            "type": "string",
+                                            "enum": ["supports", "refutes", "neutral"],
+                                        },
+                                        "nli_edge_confidence": {
+                                            "type": "number",
+                                            "description": "0.0-1.0, NLI model calibrated confidence",
+                                        },
+                                        "year": {
+                                            "type": "integer",
+                                            "description": "Publication year for timeline analysis",
+                                        },
                                     },
                                 },
                             },
@@ -488,7 +559,10 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                         "type": "object",
                         "properties": {
                             "id": {"type": "string"},
-                            "text": {"type": "string", "description": "Excerpt content (max 500 chars)"},
+                            "text": {
+                                "type": "string",
+                                "description": "Excerpt content (max 500 chars)",
+                            },
                             "source_url": {"type": "string"},
                             "context": {"type": "string", "description": "Heading/section context"},
                             "is_primary": {"type": "boolean"},
@@ -505,7 +579,10 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                 "type": "object",
                                 "properties": {
                                     "id": {"type": "string"},
-                                    "type": {"type": "string", "enum": ["claim", "fragment", "page"]},
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["claim", "fragment", "page"],
+                                    },
                                     "label": {"type": "string"},
                                 },
                             },
@@ -517,8 +594,18 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                 "properties": {
                                     "source": {"type": "string"},
                                     "target": {"type": "string"},
-                                    "relation": {"type": "string", "enum": ["supports", "refutes", "neutral", "cites"]},
-                                    "confidence": {"type": "number"},
+                                    "relation": {
+                                        "type": "string",
+                                        "enum": ["supports", "refutes", "neutral", "cites"],
+                                    },
+                                    "nli_edge_confidence": {
+                                        "type": "number",
+                                        "description": "NLI calibrated confidence (for NLI-derived edges)",
+                                    },
+                                    "nli_label": {
+                                        "type": "string",
+                                        "description": "NLI label (supports/refutes/neutral)",
+                                    },
                                 },
                             },
                         },
@@ -528,9 +615,18 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                     "type": "object",
                     "properties": {
                         "total_claims": {"type": "integer"},
-                        "verified_claims": {"type": "integer", "description": "Claims with 2+ evidence sources"},
-                        "refuted_claims": {"type": "integer", "description": "Claims with refuting evidence"},
-                        "primary_source_ratio": {"type": "number", "description": "Ratio of academic/primary sources"},
+                        "verified_claims": {
+                            "type": "integer",
+                            "description": "Claims with 2+ evidence sources",
+                        },
+                        "refuted_claims": {
+                            "type": "integer",
+                            "description": "Claims with refuting evidence",
+                        },
+                        "primary_source_ratio": {
+                            "type": "number",
+                            "description": "Ratio of academic/primary sources",
+                        },
                     },
                 },
             },
@@ -567,7 +663,10 @@ For rolling back to previous calibration, use calibration_rollback (separate too
                     "type": "object",
                     "description": "For get_evaluations: {source?, limit?, since?}",
                     "properties": {
-                        "source": {"type": "string", "description": "Filter by source model (e.g., 'nli_judge')"},
+                        "source": {
+                            "type": "string",
+                            "description": "Filter by source model (e.g., 'nli_judge')",
+                        },
                         "limit": {"type": "integer", "default": 50},
                         "since": {"type": "string", "description": "ISO timestamp to filter from"},
                     },
@@ -848,9 +947,15 @@ When you find an edge with wrong NLI classification (e.g., marked 'neutral' but 
                 "domain_pattern": {"type": "string"},
                 "claim_id": {"type": "string"},
                 "edge_id": {"type": "string"},
-                "previous_relation": {"type": "string", "description": "For edge_correct: old label"},
+                "previous_relation": {
+                    "type": "string",
+                    "description": "For edge_correct: old label",
+                },
                 "new_relation": {"type": "string", "description": "For edge_correct: new label"},
-                "sample_id": {"type": "string", "description": "For edge_correct: training sample ID if label changed"},
+                "sample_id": {
+                    "type": "string",
+                    "description": "For edge_correct: training sample ID if label changed",
+                },
                 "rule_id": {"type": "string", "description": "For domain_*: created rule ID"},
             },
         },
@@ -1085,6 +1190,7 @@ async def _get_metrics_from_db(db: Any, task_id: str) -> dict[str, Any]:
         elapsed_seconds = 0
         if row and row[0]:
             from datetime import UTC, datetime
+
             try:
                 created_at = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
                 elapsed_seconds = int((datetime.now(UTC) - created_at).total_seconds())
@@ -1560,7 +1666,9 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                     "budget_pages_limit": 120,
                     "time_used_seconds": db_metrics.get("elapsed_seconds", 0),
                     "time_limit_seconds": 1200,
-                    "remaining_percent": max(0, int((1 - db_metrics.get("total_pages", 0) / 120) * 100)),
+                    "remaining_percent": max(
+                        0, int((1 - db_metrics.get("total_pages", 0) / 120) * 100)
+                    ),
                 },
                 "auth_queue": None,
                 "warnings": [],

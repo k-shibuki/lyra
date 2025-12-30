@@ -450,7 +450,9 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Confidence near 0.5, high controversy
-        assert abs(result["bayesian_claim_confidence"] - 0.5) < 0.1  # α≈5.5, β≈5.5 → confidence ≈ 0.5
+        assert (
+            abs(result["bayesian_claim_confidence"] - 0.5) < 0.1
+        )  # α≈5.5, β≈5.5 → confidence ≈ 0.5
         assert result["controversy"] > 0.4  # High controversy
         assert (
             result["uncertainty"] < 0.15
@@ -458,9 +460,9 @@ class TestClaimConfidence:
         assert result["supporting_count"] == 5
         assert result["refuting_count"] == 5
 
-    def test_calculate_confidence_zero_nli_confidence(self) -> None:
+    def test_calculate_confidence_zero_nli_edge_confidence(self) -> None:
         """Test that edges with nli_edge_confidence=0 do not update alpha/beta."""
-        # Given: Edges with zero nli_confidence
+        # Given: Edges with zero nli_edge_confidence
         graph = EvidenceGraph()
         graph.add_edge(
             source_type=NodeType.FRAGMENT,
@@ -468,7 +470,6 @@ class TestClaimConfidence:
             target_type=NodeType.CLAIM,
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
-            confidence=0.9,
             nli_edge_confidence=0.0,  # Zero weight
         )
 
@@ -490,7 +491,6 @@ class TestClaimConfidence:
             target_type=NodeType.CLAIM,
             target_id="claim-1",
             relation=RelationType.NEUTRAL,
-            confidence=0.5,
             nli_edge_confidence=0.8,  # Even high confidence neutral doesn't update
         )
 

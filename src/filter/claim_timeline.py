@@ -56,7 +56,7 @@ class TimelineEvent:
         evidence_fragment_id: ID of the supporting fragment.
         wayback_snapshot_url: Optional Wayback Machine snapshot URL.
         notes: Optional notes about the event.
-        confidence: Confidence in this event (0.0-1.0).
+        timeline_event_confidence: Confidence in this event observation (0.0-1.0).
     """
 
     event_type: TimelineEventType
@@ -65,7 +65,7 @@ class TimelineEvent:
     evidence_fragment_id: str | None = None
     wayback_snapshot_url: str | None = None
     notes: str | None = None
-    confidence: float = 1.0
+    timeline_event_confidence: float = 1.0
     event_id: str = field(default_factory=lambda: str(uuid4())[:8])
 
     def to_dict(self) -> dict[str, Any]:
@@ -78,7 +78,7 @@ class TimelineEvent:
             "evidence_fragment_id": self.evidence_fragment_id,
             "wayback_snapshot_url": self.wayback_snapshot_url,
             "notes": self.notes,
-            "confidence": self.confidence,
+            "timeline_event_confidence": self.timeline_event_confidence,
         }
 
     @classmethod
@@ -98,7 +98,7 @@ class TimelineEvent:
             evidence_fragment_id=data.get("evidence_fragment_id"),
             wayback_snapshot_url=data.get("wayback_snapshot_url"),
             notes=data.get("notes"),
-            confidence=data.get("confidence", 1.0),
+            timeline_event_confidence=data.get("timeline_event_confidence", 1.0),
         )
 
 
@@ -163,7 +163,7 @@ class ClaimTimeline:
         evidence_fragment_id: str | None = None,
         wayback_snapshot_url: str | None = None,
         notes: str | None = None,
-        confidence: float = 1.0,
+        timeline_event_confidence: float = 1.0,
     ) -> TimelineEvent:
         """Add an event to the timeline.
 
@@ -174,7 +174,7 @@ class ClaimTimeline:
             evidence_fragment_id: Supporting fragment ID.
             wayback_snapshot_url: Wayback snapshot if applicable.
             notes: Additional notes.
-            confidence: Event confidence.
+            timeline_event_confidence: Event observation confidence.
 
         Returns:
             The created TimelineEvent.
@@ -189,7 +189,7 @@ class ClaimTimeline:
             evidence_fragment_id=evidence_fragment_id,
             wayback_snapshot_url=wayback_snapshot_url,
             notes=notes,
-            confidence=confidence,
+            timeline_event_confidence=timeline_event_confidence,
         )
 
         self.events.append(event)
@@ -239,7 +239,7 @@ class ClaimTimeline:
 
         Note: Confidence adjustment is no longer calculated here.
         Per ADR-0005, confidence is computed solely via Bayesian updating
-        on evidence graph edges (SUPPORTS/REFUTES with nli_confidence).
+        on evidence graph edges (SUPPORTS/REFUTES with nli_edge_confidence).
         Timeline events are for audit logging only.
         """
         return {
@@ -526,7 +526,7 @@ class ClaimTimelineManager:
             evidence_fragment_id=fragment_id,
             wayback_snapshot_url=wayback_url,
             notes=notes,
-            confidence=0.8,  # Corrections have slightly lower confidence
+            timeline_event_confidence=0.8,  # Corrections have slightly lower confidence
         )
 
         await self.save_timeline(timeline)
@@ -714,7 +714,7 @@ class ClaimTimelineManager:
             source_url=source_url,
             evidence_fragment_id=fragment_id,
             notes=notes,
-            confidence=adjusted_confidence,
+            timeline_event_confidence=adjusted_confidence,
         )
 
         await self.save_timeline(timeline)
