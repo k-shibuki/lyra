@@ -7,7 +7,7 @@
 - ADR-0011: LoRA Fine-tuning Strategy
 - ADR-0012: Feedback Tool Design
 - `src/filter/evidence_graph.py`
-- `src/utils/calibration.py`
+- `src/utils/nli_calibration.py`
 
 ---
 
@@ -408,12 +408,14 @@ class ClaimConfidenceAssessment(BaseModel):
 |---------------|:----------:|------|
 | **校正アルゴリズム** | ✅ 実装済み | Platt Scaling, Temperature Scaling |
 | **評価指標** | ✅ 実装済み | Brier Score, ECE |
-| **劣化検知・ロールバック** | ✅ 実装済み | CalibrationHistory クラス |
+| **劣化検知（fit時）** | ✅ 実装済み | `fit()` 呼び出し時に Brier 5%悪化でロールバック |
 | **NLI推論への適用** | ✅ **配線完了 (PR #50)** | `nli.py` の `predict()`/`predict_batch()` で校正適用 |
-| **評価結果の永続化** | ⚠️ **未整備** | `calibration_evaluations` テーブルへの INSERT なし |
+| **評価結果の永続化** | ✅ **実装済み (PR #50)** | `save_evaluation_result()` で `calibration_evaluations` テーブルへ永続化 |
 | **MCPツール** | ✅ 実装済み | `calibration_metrics` (get_stats/get_evaluations) |
 
 **Note (PR #50)**: NLI推論経路への校正配線が完了。`edges.nli_edge_confidence` には校正済みスコアが保存される。
+
+**劣化検知の動作**: スクリプトから `Calibrator.fit()` を手動呼び出した際、新しいパラメータで Brier スコアが5%以上悪化した場合に自動的に前のパラメータにロールバックする。自動再校正トリガーは存在しない。
 
 ### 5.1 アーキテクチャ
 
@@ -449,7 +451,7 @@ class ClaimConfidenceAssessment(BaseModel):
 #### 5.2.1 Platt Scaling（ロジスティック回帰）
 
 ```python
-# src/utils/calibration.py:178-244
+# src/utils/nli_calibration.py:178-244
 
 # 数式: P_calibrated = 1 / (1 + exp(A × logit + B))
 
@@ -475,7 +477,7 @@ class PlattScaling:
 #### 5.2.2 Temperature Scaling
 
 ```python
-# src/utils/calibration.py:247-312
+# src/utils/nli_calibration.py:247-312
 
 # 数式: P_calibrated = sigmoid(logit / T)
 
@@ -505,11 +507,11 @@ class TemperatureScaling:
 | **ECE** | Σ(\|B_m\| / n × \|accuracy(B_m) - confidence(B_m)\|) | 0.0 | ビン別の校正誤差 |
 
 ```python
-# Brier Score（src/utils/calibration.py:320-342）
+# Brier Score（src/utils/nli_calibration.py:320-342）
 def brier_score(predictions, labels):
     return sum((p - l)**2 for p, l in zip(predictions, labels)) / len(predictions)
 
-# ECE（src/utils/calibration.py:345-406）
+# ECE（src/utils/nli_calibration.py:345-406）
 def expected_calibration_error(predictions, labels, n_bins=10):
     # 10ビンに分割して各ビンの |accuracy - confidence| を計算
     ...
@@ -518,7 +520,7 @@ def expected_calibration_error(predictions, labels, n_bins=10):
 ### 5.4 劣化検知とロールバック
 
 ```python
-# src/utils/calibration.py:414-700
+# src/utils/nli_calibration.py:414-700
 
 class CalibrationHistory:
     DEGRADATION_THRESHOLD = 0.05  # 5% Brier 悪化でロールバック
@@ -532,21 +534,20 @@ class CalibrationHistory:
 **保存先**:
 - `data/calibration_params.json`: 現在のパラメータ
 - `data/calibration_history.json`: バージョン履歴
-- `data/calibration_samples.json`: 保留中サンプル
 - `data/calibration_rollback_log.json`: ロールバック記録
 
-### 5.5 再校正トリガー
+### 5.5 校正の実行方法
 
-| 条件 | 閾値 | 実装 |
+| 操作 | 方法 | 備考 |
 |------|------|------|
-| サンプル蓄積 | 10件以上 | `RECALIBRATION_THRESHOLD = 10`（※サンプル蓄積の“自動配線”は別途必要） |
-| 劣化検知 | Brier 5%悪化 | 自動ロールバック |
+| 校正パラメータ更新 | スクリプトから `Calibrator.fit()` を呼び出し | 手動実行のみ（自動トリガーなし） |
+| 劣化検知 | `fit()` 内で自動判定 | Brier 5%悪化でロールバック |
 
-**重要（PR #50 後の状態）**:
-- ✅ 校正モジュール（`src/utils/calibration.py`）は NLI推論→`edges.nli_edge_confidence` への適用が配線済み。
+**重要**:
+- ✅ 校正モジュール（`src/utils/nli_calibration.py`）は NLI推論→`edges.nli_edge_confidence` への適用が配線済み。
 - MCPの `calibration_metrics` は **get_stats / get_evaluations** に限定される（評価/学習の実行はMCP経由では行わない設計）。
-- `calibration_evaluations` テーブルは存在するが、評価結果の永続化（INSERT）は Phase 2 で対応予定。
-- 校正自体を自動トリガーする想定は一切ない。
+- ✅ `save_evaluation_result()` で評価結果を `calibration_evaluations` テーブルに永続化可能。
+- **校正自体を自動トリガーする仕組みは存在しない**。スクリプトから手動で `fit()` を呼び出す運用。
 
 ---
 
@@ -595,7 +596,7 @@ class CalibrationHistory:
 | Evidence Graph 構造 | NetworkX + SQLite | ADR-0005 |
 | ベイズ Confidence 計算 | Beta 分布更新 | evidence_graph.py:344-474 |
 | NLI モデル | Transformers sequence classifier（DeBERTa系） | ADR-0004 |
-| 校正モジュール | Platt/Temperature Scaling | calibration.py（※適用配線は別） |
+| 校正モジュール | Platt/Temperature Scaling | nli_calibration.py |
 | フィードバックツール | 3レベル6アクション | ADR-0012 |
 | nli_corrections テーブル | LoRA 訓練データ蓄積 | schema.sql |
 | Domain Category 非使用 | Confidence 計算に影響しない | ADR-0005 |
@@ -816,7 +817,7 @@ def apply_temporal_decay(confidence: float, publication_year: int) -> float:
 |------|------|--------|
 | **用語の混乱** | 3種類の confidence が混在 | 高 |
 | **llm-confidence の意味論** | 抽出品質/真偽が混線しやすい | 中 |
-| **校正ファイル名** | `calibration.py` が NLI 専用に見えない | 中 |
+| **校正ファイル名** | ~~`calibration.py` が NLI 専用に見えない~~ ✅ 解決済み (`nli_calibration.py`) | - |
 | **LoRA 未実装** | フィードバックが活用されていない | 低（将来） |
 | **校正の配線不足** | NLI推論→edgesへの校正適用、評価結果の永続化が未整備 | 高 |
 
@@ -895,21 +896,31 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 |:------:|--------|----------|------|:----------:|
 | **P2** | llm-confidence のMCP露出 | `src/research/materials.py` | §3.4.2 の分離実装 | ✅ (PR #50 で実装済み) |
 | **P2** | uncertainty/controversy ガイド追加 | `src/mcp/schemas/get_materials.json` | D.5 参照 | ✅ |
-| **P3** | 評価結果の永続化 | `src/utils/calibration.py` | `save_evaluation_result()` 追加 | ✅ |
+| **P3** | 評価結果の永続化 | `src/utils/nli_calibration.py` | `save_evaluation_result()` 追加 | ✅ |
 
 **Phase 2 実装詳細**:
 - `get_materials.json` スキーマに `bayesian_claim_confidence` / `llm_claim_confidence` / `uncertainty` / `controversy` / `nli_edge_confidence` の説明とガイダンスを追加
 - `server.py` の outputSchema を実装に合わせて更新
 - `save_evaluation_result()` 関数を追加し、`calibration_evaluations` テーブルへの永続化を実装
 
-### Phase 3: コード品質
+### Phase 3: コード品質 ✅ **完了**
 
 **優先度 P4**: 可読性・保守性の向上
 
 | 優先度 | タスク | 変更前 | 変更後 | ステータス |
 |:------:|--------|--------|--------|:----------:|
-| **P4** | ファイルリネーム | `calibration.py` | `nli_calibration.py` | 📝 |
-| **P4** | import 更新 | 全参照箇所 | - | 📝 |
+| **P4** | ファイルリネーム | `calibration.py` | `nli_calibration.py` | ✅ |
+| **P4** | import 更新 | 全参照箇所 | - | ✅ |
+
+**変更内容**:
+- `src/utils/calibration.py` → `src/utils/nli_calibration.py` にリネーム
+- 以下のファイルの import を更新:
+  - `src/mcp/server.py`
+  - `src/filter/nli.py`
+  - `tests/test_calibration.py`
+  - `tests/test_calibration_rollback.py`
+  - `tests/test_integration.py`
+  - `tests/test_mcp_calibration_metrics.py`
 
 ### Phase 4: E2Eデバッグ
 
@@ -935,8 +946,7 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | 高 Confidence | ≥ 0.7 | report/generator.py | レポート内分類 |
 | 反論検出 | > 0.7 | filter/nli.py | 矛盾検出 |
 | OCR 行信頼度 | > 0.5 | extractor/content.py | OCRの低信頼行を除外 |
-| 校正劣化 | 0.05 | utils/calibration.py | ロールバックトリガー |
-| 再校正 | ≥ 10 samples | utils/calibration.py | 再校正トリガー |
+| 校正劣化 | 0.05 | utils/nli_calibration.py | fit()時のロールバックトリガー |
 | LoRA 訓練 | ≥ 100 samples | ADR-0011 | 訓練開始条件 |
 
 ---
@@ -1046,7 +1056,7 @@ MCPクライアントが「どのモデルの何のスコアか」を誤解し�
 | calculate_claim_confidence() | `src/filter/evidence_graph.py` | Beta更新（supports/refutesのnli_confidenceを加算） |
 | add_claim_evidence() | `src/filter/evidence_graph.py` | edges永続化（nli_confidence/label含む） |
 | ClaimConfidenceAssessment | `src/filter/schemas.py` | get_materialsとの境界契約 |
-| Calibrator / Platt / Temperature | `src/utils/calibration.py` | 校正モジュール（ただし適用配線は別） |
+| Calibrator / Platt / Temperature | `src/utils/nli_calibration.py` | 校正モジュール |
 | NLI judge | `src/filter/nli.py` | local/remote NLI（Transformers） |
 | Ranking | `src/filter/ranking.py` | DomainCategory重みはrankingのみ |
 | DB schema | `src/storage/schema.sql` | pages/fragments/claims/edges/nli_corrections 等 |
@@ -1238,7 +1248,7 @@ BAYESIAN CONFIDENCE MODEL:
 
 #### D.7.1 問題の概要 ✅ **解決済み (PR #50)**
 
-~~校正モジュール（`src/utils/calibration.py`）は **完全に実装済み** だが、NLI推論経路への適用が **配線されていない**。~~
+~~校正モジュール（`src/utils/nli_calibration.py`）は **完全に実装済み** だが、NLI推論経路への適用が **配線されていない**。~~
 
 **修正後のデータフロー（PR #50 で実装完了）**:
 ```

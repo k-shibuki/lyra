@@ -52,7 +52,7 @@ class TestCalibrationRollbackHandler:
         """
         from src.mcp.server import _handle_calibration_rollback
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             result = await _handle_calibration_rollback(
                 {
                     "source": "llm_extract",
@@ -89,7 +89,7 @@ class TestCalibrationRollbackHandler:
         rollback_params.method = "platt"
         mock_calibrator.rollback_to_version.return_value = rollback_params
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             result = await _handle_calibration_rollback(
                 {
                     "source": "llm_extract",
@@ -118,7 +118,7 @@ class TestCalibrationRollbackHandler:
         """
         from src.mcp.server import _handle_calibration_rollback
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             result = await _handle_calibration_rollback(
                 {
                     "source": "nli_judge",
@@ -182,7 +182,7 @@ class TestCalibrationRollbackHandler:
         # No calibration history
         mock_calibrator.get_params.return_value = None
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
                 await _handle_calibration_rollback({"source": "unknown_source"})
 
@@ -205,7 +205,7 @@ class TestCalibrationRollbackHandler:
         current_params.version = 1
         mock_calibrator.get_params.return_value = current_params
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
                 await _handle_calibration_rollback({"source": "llm_extract"})
 
@@ -226,7 +226,7 @@ class TestCalibrationRollbackHandler:
         # rollback_to_version raises ValueError for invalid version
         mock_calibrator.rollback_to_version.side_effect = ValueError("Version 999 not found")
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
                 await _handle_calibration_rollback(
                     {
@@ -250,7 +250,7 @@ class TestCalibrationRollbackHandler:
 
         mock_calibrator.rollback_to_version.return_value = None
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             with pytest.raises(CalibrationError) as exc_info:
                 await _handle_calibration_rollback(
                     {
@@ -273,7 +273,7 @@ class TestCalibrationRollbackHandler:
         """
         from src.mcp.server import _handle_calibration_rollback
 
-        with patch("src.utils.calibration.get_calibrator", return_value=mock_calibrator):
+        with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             result = await _handle_calibration_rollback(
                 {
                     "source": "llm_extract",

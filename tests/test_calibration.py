@@ -35,10 +35,6 @@ Covers:
 | TC-CA-N-03 | calibrate valid | Equivalence – normal | [0, 1] output | - |
 | TC-CA-N-04 | calibrate no params | Equivalence – normal | Original returned | - |
 | TC-CA-N-05 | evaluate metrics | Equivalence – normal | Metrics returned | - |
-| TC-CA-N-06 | needs_recalib new | Equivalence – normal | False initially | - |
-| TC-CA-N-07 | needs_recalib pending | Equivalence – normal | True at threshold | - |
-| TC-CA-N-08 | add_sample accumulates | Equivalence – normal | Count increases | - |
-| TC-CA-N-09 | add_sample triggers | Equivalence – normal | Returns True | - |
 | TC-ED-N-01 | Escalate low conf | Equivalence – normal | True | - |
 | TC-ED-N-02 | No escalate high | Equivalence – normal | False | - |
 | TC-ED-N-03 | Uses calibrated | Equivalence – normal | Calibrated used | - |
@@ -46,7 +42,6 @@ Covers:
 | TC-MF-N-02 | evaluate_calibration | Equivalence – normal | Metrics dict | - |
 | TC-MF-N-03 | fit_calibration | Equivalence – normal | Params dict | - |
 | TC-MF-N-04 | check_escalation | Equivalence – normal | Decision dict | - |
-| TC-MF-N-05 | add_calibration_sample | Equivalence – normal | Status dict | - |
 | TC-EC-B-01 | Empty brier score | Boundary – empty | NaN | - |
 | TC-EC-B-02 | Insufficient samples | Boundary – min | Default params | - |
 | TC-EC-B-03 | Extreme probs | Boundary – 0/1 | No exception | - |
@@ -92,7 +87,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.utils.calibration import (
+from src.utils.nli_calibration import (
     CalibrationHistory,
     CalibrationParams,
     CalibrationResult,
@@ -101,7 +96,6 @@ from src.utils.calibration import (
     PlattScaling,
     RollbackEvent,
     TemperatureScaling,
-    add_calibration_sample,
     brier_score,
     calibrate_confidence,
     evaluate_calibration,
@@ -359,7 +353,7 @@ class TestCalibrator:
     @pytest.fixture
     def calibrator(self, tmp_path: Path) -> Calibrator:
         """Create calibrator with temp storage."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
+        with patch("src.utils.nli_calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             return Calibrator()
 
@@ -419,59 +413,6 @@ class TestCalibrator:
         assert result.expected_calibration_error >= 0
         assert result.samples_evaluated == len(samples)
 
-    def test_needs_recalibration_new_source(self, calibrator: Calibrator) -> None:
-        """New sources without samples don't need calibration (can't calibrate yet)."""
-        # No samples yet - can't calibrate
-        assert calibrator.needs_recalibration("new_source") is False
-
-        # Add enough samples - now needs calibration
-        for _ in range(Calibrator.RECALIBRATION_THRESHOLD):
-            calibrator._pending_samples.setdefault("new_source", []).append(
-                CalibrationSample(predicted_prob=0.5, actual_label=1, source="new_source")
-            )
-        assert calibrator.needs_recalibration("new_source") is True
-
-    def test_needs_recalibration_with_pending_samples(self, calibrator: Calibrator) -> None:
-        """Should trigger recalibration when enough samples pending."""
-        # Initially calibrated
-        samples = [
-            CalibrationSample(predicted_prob=p, actual_label=label, source="test")
-            for p, label in zip(OVERCONFIDENT_PREDICTIONS, OVERCONFIDENT_LABELS, strict=False)
-        ]
-        calibrator.fit(samples, "test")
-
-        # No pending samples yet
-        assert calibrator.needs_recalibration("test") is False
-
-        # Add samples up to threshold
-        for _i in range(Calibrator.RECALIBRATION_THRESHOLD):
-            calibrator._pending_samples.setdefault("test", []).append(
-                CalibrationSample(predicted_prob=0.5, actual_label=1, source="test")
-            )
-
-        assert calibrator.needs_recalibration("test") is True
-
-    def test_add_sample_accumulates(self, calibrator: Calibrator) -> None:
-        """add_sample should accumulate pending samples."""
-        calibrator.add_sample(0.8, 1, "test")
-        calibrator.add_sample(0.6, 0, "test")
-
-        assert calibrator.get_pending_sample_count("test") == 2
-
-    def test_add_sample_triggers_recalibration(self, calibrator: Calibrator) -> None:
-        """add_sample should trigger recalibration at threshold."""
-        # Add samples up to threshold - 1
-        for _i in range(Calibrator.RECALIBRATION_THRESHOLD - 1):
-            result = calibrator.add_sample(0.8, 1, "test")
-            assert result is False  # Not yet
-
-        # Add one more to trigger
-        result = calibrator.add_sample(0.8, 1, "test")
-        assert result is True  # Triggered
-
-        # Pending should be cleared after recalibration
-        assert calibrator.get_pending_sample_count("test") == 0
-
 
 # =============================================================================
 # MCP Tool Function Tests
@@ -484,7 +425,7 @@ class TestMCPToolFunctions:
     @pytest.mark.asyncio
     async def test_calibrate_confidence(self) -> None:
         """calibrate_confidence should return result."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.calibrate.return_value = 0.75
             mock_calibrator.get_params.return_value = CalibrationParams(
@@ -502,7 +443,7 @@ class TestMCPToolFunctions:
     @pytest.mark.asyncio
     async def test_evaluate_calibration(self) -> None:
         """evaluate_calibration should return metrics."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.evaluate.return_value = CalibrationResult(
                 brier_score=0.15,
@@ -522,7 +463,7 @@ class TestMCPToolFunctions:
     @pytest.mark.asyncio
     async def test_fit_calibration(self) -> None:
         """fit_calibration should return params."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.fit.return_value = CalibrationParams(
                 method="temperature",
@@ -540,21 +481,6 @@ class TestMCPToolFunctions:
             assert result["method"] == "temperature"
             assert result["temperature"] == 1.3
 
-    @pytest.mark.asyncio
-    async def test_add_calibration_sample(self) -> None:
-        """add_calibration_sample should add sample and return status."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
-            mock_calibrator = MagicMock()
-            mock_calibrator.add_sample.return_value = False
-            mock_calibrator.get_pending_sample_count.return_value = 5
-            mock_get.return_value = mock_calibrator
-
-            result = await add_calibration_sample(0.8, 1, "test")
-
-            assert result["sample_added"] is True
-            assert result["pending_samples"] == 5
-            assert result["recalibrated"] is False
-
 
 # =============================================================================
 # Edge Cases
@@ -571,7 +497,7 @@ class TestEdgeCases:
 
     def test_fit_insufficient_samples(self, tmp_path: Path) -> None:
         """Should handle insufficient samples gracefully."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
+        with patch("src.utils.nli_calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             calibrator = Calibrator()
 
@@ -584,7 +510,7 @@ class TestEdgeCases:
 
     def test_prob_to_logit_extreme_values(self, tmp_path: Path) -> None:
         """Should handle extreme probabilities."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
+        with patch("src.utils.nli_calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             calibrator = Calibrator()
 
@@ -668,7 +594,7 @@ class TestCalibrationHistory:
     @pytest.fixture
     def history(self, tmp_path: Path) -> CalibrationHistory:
         """Create history with temp storage."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
+        with patch("src.utils.nli_calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             return CalibrationHistory(max_history=5)
 
@@ -850,7 +776,7 @@ class TestCalibratorRollback:
     @pytest.fixture
     def calibrator(self, tmp_path: Path) -> Calibrator:
         """Create calibrator with temp storage."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
+        with patch("src.utils.nli_calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
             return Calibrator(enable_auto_rollback=True)
 
@@ -955,7 +881,7 @@ class TestMCPRollbackTools:
     @pytest.mark.asyncio
     async def test_rollback_calibration_success(self) -> None:
         """rollback_calibration should rollback and return result."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.rollback.return_value = CalibrationParams(
                 method="temperature",
@@ -973,7 +899,7 @@ class TestMCPRollbackTools:
     @pytest.mark.asyncio
     async def test_rollback_calibration_no_previous(self) -> None:
         """rollback_calibration should handle no previous version."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.rollback.return_value = None
             mock_get.return_value = mock_calibrator
@@ -986,7 +912,7 @@ class TestMCPRollbackTools:
     @pytest.mark.asyncio
     async def test_get_calibration_history(self) -> None:
         """get_calibration_history should return version list."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.get_history.return_value = [
                 CalibrationParams(
@@ -1017,7 +943,7 @@ class TestMCPRollbackTools:
     @pytest.mark.asyncio
     async def test_get_rollback_events(self) -> None:
         """get_rollback_events should return event list."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.get_rollback_log.return_value = [
                 RollbackEvent(
@@ -1039,7 +965,7 @@ class TestMCPRollbackTools:
     @pytest.mark.asyncio
     async def test_get_calibration_stats(self) -> None:
         """get_calibration_stats should return comprehensive stats."""
-        with patch("src.utils.calibration.get_calibrator") as mock_get:
+        with patch("src.utils.nli_calibration.get_calibrator") as mock_get:
             mock_calibrator = MagicMock()
             mock_calibrator.get_all_sources.return_value = ["test"]
             mock_calibrator.get_params.return_value = CalibrationParams(
@@ -1059,7 +985,7 @@ class TestMCPRollbackTools:
 
             assert "current_params" in result
             assert "history" in result
-            assert "recalibration_threshold" in result
+            assert "degradation_threshold" in result
 
 
 # =============================================================================

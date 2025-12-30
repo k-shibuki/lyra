@@ -12,7 +12,7 @@ Confidence terminology (see docs/confidence-calibration-design.md):
 
 from typing import Any
 
-from src.utils.calibration import get_calibrator
+from src.utils.nli_calibration import get_calibrator
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 

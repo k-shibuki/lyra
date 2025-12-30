@@ -686,6 +686,82 @@ def shadow_evaluation(val_set, old_adapter, new_adapter):
 - **LoRA（本ドキュメント）**: `nli_corrections` を教師データとして NLIモデルのラベル誤り自体を減らす
 - **校正（計測）**: `scripts/evaluate_calibration.py` が同じ蓄積データを用いて Brier/ECE 等を算出し、改善・劣化の監査に使う
 
+### 13.1 校正・ロールバックの運用手順
+
+**重要**: 校正は**すべて手動運用**である。自動再校正は実装していない。
+
+#### (1) 校正パラメータの更新
+
+```bash
+# スクリプトから Calibrator.fit() を呼び出す
+uv run python -c "
+from src.utils.nli_calibration import Calibrator, CalibrationSample
+
+calibrator = Calibrator()
+
+# nli_corrections テーブルから訓練データを取得（別途実装）
+samples = [...]
+
+# 校正パラメータを更新
+params = calibrator.fit(samples, source='nli_judge', method='temperature')
+print(f'Brier: {params.brier_before:.4f} → {params.brier_after:.4f}')
+"
+```
+
+**動作**:
+- `fit()` 実行時に Brier スコアが5%以上悪化 → **自動ロールバック**（前パラメータに戻る）
+- 悪化なし → パラメータ保存 + 履歴に追加
+
+#### (2) 手動ロールバック（MCPツール経由）
+
+```json
+// MCP: calibration_rollback
+{
+  "source": "nli_judge",
+  "version": 2,        // 省略で直前バージョンに戻る
+  "reason": "品質低下のため"
+}
+```
+
+#### (3) 状態確認（MCPツール経由）
+
+```json
+// MCP: calibration_metrics
+{
+  "action": "get_stats"
+}
+```
+
+#### (4) 運用フロー図
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      校正運用フロー                              │
+├─────────────────────────────────────────────────────────────────┤
+│  [1] フィードバック蓄積                                          │
+│      └── feedback(edge_correct) → nli_corrections テーブル       │
+│                         ↓                                        │
+│  [2] 訓練データ収集（手動/スクリプト）                           │
+│      └── nli_corrections から CalibrationSample[] を構築         │
+│                         ↓                                        │
+│  [3] 校正実行（手動）                                            │
+│      └── Calibrator.fit(samples, "nli_judge")                   │
+│                         ↓                                        │
+│          ┌─────────────┴─────────────┐                          │
+│          │                           │                          │
+│    Brier 5%悪化               Brier 改善                        │
+│          ↓                           ↓                          │
+│    自動ロールバック            パラメータ保存                    │
+│    (前バージョンに戻る)        (履歴に追加)                      │
+│                                                                  │
+│  [4] 状態確認（随時）                                            │
+│      └── calibration_metrics(get_stats)                         │
+│                                                                  │
+│  [5] 手動ロールバック（必要時）                                  │
+│      └── calibration_rollback(source, version)                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## 14. 関連ドキュメント

@@ -1,7 +1,7 @@
 """
-Confidence calibration for Lyra.
+NLI confidence calibration for Lyra.
 
-Implements probability calibration for LLM/NLI outputs :
+Implements probability calibration for NLI model outputs:
 - Platt scaling (logistic regression on logits)
 - Temperature scaling (single parameter scaling)
 - Brier score evaluation
@@ -795,30 +795,25 @@ class Calibrator:
     """Main calibration manager.
 
     Handles:
-    - Training calibration on validation data
+    - Training calibration on validation data (via fit())
     - Applying calibration to predictions
     - Persistence of calibration parameters
-    - Incremental recalibration as new samples arrive
-    - Degradation detection and automatic rollback
+    - Degradation detection on fit() (rollback if Brier worsens by >5%)
     """
 
     PARAMS_FILE = "calibration_params.json"
-    SAMPLES_FILE = "calibration_samples.json"
-    RECALIBRATION_THRESHOLD = 10  # Recalibrate after N new samples
 
     def __init__(self, enable_auto_rollback: bool = True):
         """Initialize calibrator.
 
         Args:
-            enable_auto_rollback: Enable automatic rollback on degradation.
+            enable_auto_rollback: Enable rollback on degradation when fit() is called.
         """
         self._settings = get_settings()
         self._params: dict[str, CalibrationParams] = {}  # source -> params
-        self._pending_samples: dict[str, list[CalibrationSample]] = {}  # source -> samples
         self._history = CalibrationHistory()
         self._enable_auto_rollback = enable_auto_rollback
         self._load_params()
-        self._load_samples()
 
     def _get_params_path(self) -> Path:
         """Get path to calibration parameters file."""
@@ -852,117 +847,6 @@ class Calibrator:
 
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
-
-    def _get_samples_path(self) -> Path:
-        """Get path to pending samples file."""
-        return get_project_root() / "data" / self.SAMPLES_FILE
-
-    def _load_samples(self) -> None:
-        """Load pending calibration samples."""
-        path = self._get_samples_path()
-
-        if path.exists():
-            try:
-                with open(path) as f:
-                    data = json.load(f)
-
-                for source, samples_data in data.items():
-                    self._pending_samples[source] = [
-                        CalibrationSample(
-                            predicted_prob=s["predicted_prob"],
-                            actual_label=s["actual_label"],
-                            logit=s.get("logit"),
-                            source=s.get("source", source),
-                        )
-                        for s in samples_data
-                    ]
-            except Exception as e:
-                logger.warning("Failed to load calibration samples", error=str(e))
-
-    def _save_samples(self) -> None:
-        """Save pending calibration samples."""
-        path = self._get_samples_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        data = {
-            source: [
-                {
-                    "predicted_prob": s.predicted_prob,
-                    "actual_label": s.actual_label,
-                    "logit": s.logit,
-                    "source": s.source,
-                }
-                for s in samples
-            ]
-            for source, samples in self._pending_samples.items()
-        }
-
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2)
-
-    def add_sample(
-        self,
-        predicted_prob: float,
-        actual_label: int,
-        source: str,
-        logit: float | None = None,
-    ) -> bool:
-        """Add a new calibration sample and trigger recalibration if needed.
-
-        Call this after each prediction when ground truth becomes available.
-
-        Args:
-            predicted_prob: Model's predicted probability.
-            actual_label: Ground truth label (0 or 1).
-            source: Source model identifier.
-            logit: Raw logit if available.
-
-        Returns:
-            True if recalibration was triggered.
-        """
-        sample = CalibrationSample(
-            predicted_prob=predicted_prob,
-            actual_label=actual_label,
-            logit=logit,
-            source=source,
-        )
-
-        if source not in self._pending_samples:
-            self._pending_samples[source] = []
-
-        self._pending_samples[source].append(sample)
-        self._save_samples()
-
-        # Check if recalibration needed
-        if self.needs_recalibration(source):
-            self._recalibrate(source)
-            return True
-
-        return False
-
-    def _recalibrate(self, source: str) -> None:
-        """Recalibrate using accumulated samples.
-
-        Args:
-            source: Source model identifier.
-        """
-        samples = self._pending_samples.get(source, [])
-
-        if len(samples) < self.RECALIBRATION_THRESHOLD:
-            return
-
-        logger.info(
-            "Triggering recalibration",
-            source=source,
-            samples=len(samples),
-        )
-
-        # Use temperature scaling by default
-        self.fit(samples, source, method="temperature")
-
-        # Clear pending samples after recalibration
-        self._pending_samples[source] = []
-        self._save_samples()
 
     def fit(
         self,
@@ -1180,37 +1064,6 @@ class Calibrator:
         """
         return self._params.get(source)
 
-    def needs_recalibration(self, source: str) -> bool:
-        """Check if source needs recalibration.
-
-        Recalibration is triggered when enough new samples have accumulated.
-
-        Args:
-            source: Source model identifier.
-
-        Returns:
-            True if recalibration recommended.
-        """
-        pending_count = len(self._pending_samples.get(source, []))
-
-        # If never calibrated, need at least threshold samples
-        if source not in self._params:
-            return pending_count >= self.RECALIBRATION_THRESHOLD
-
-        # If already calibrated, recalibrate when new samples accumulate
-        return pending_count >= self.RECALIBRATION_THRESHOLD
-
-    def get_pending_sample_count(self, source: str) -> int:
-        """Get number of pending samples for source.
-
-        Args:
-            source: Source model identifier.
-
-        Returns:
-            Number of pending samples.
-        """
-        return len(self._pending_samples.get(source, []))
-
     def get_all_sources(self) -> list[str]:
         """Get all calibrated sources.
 
@@ -1421,44 +1274,6 @@ async def fit_calibration(
     return params.to_dict()
 
 
-async def add_calibration_sample(
-    predicted_prob: float,
-    actual_label: int,
-    source: str,
-    logit: float | None = None,
-) -> dict[str, Any]:
-    """Add a calibration sample and trigger recalibration if needed (for MCP tool use).
-
-    Call this after each prediction when ground truth becomes available.
-    This enables incremental recalibration as data accumulates.
-
-    Args:
-        predicted_prob: Model's predicted probability.
-        actual_label: Ground truth label (0 or 1).
-        source: Source model identifier.
-        logit: Raw logit if available.
-
-    Returns:
-        Status including whether recalibration occurred.
-    """
-    calibrator = get_calibrator()
-
-    recalibrated = calibrator.add_sample(
-        predicted_prob=predicted_prob,
-        actual_label=actual_label,
-        source=source,
-        logit=logit,
-    )
-
-    return {
-        "sample_added": True,
-        "source": source,
-        "recalibrated": recalibrated,
-        "pending_samples": calibrator.get_pending_sample_count(source),
-        "threshold": Calibrator.RECALIBRATION_THRESHOLD,
-    }
-
-
 async def rollback_calibration(
     source: str,
     version: int | None = None,
@@ -1579,7 +1394,6 @@ async def get_calibration_stats() -> dict[str, Any]:
     return {
         "current_params": current_params,
         "history": history_stats,
-        "recalibration_threshold": Calibrator.RECALIBRATION_THRESHOLD,
         "degradation_threshold": CalibrationHistory.DEGRADATION_THRESHOLD,
     }
 
@@ -1679,7 +1493,6 @@ async def calibration_metrics_action(
     """Unified calibration metrics API for MCP.
 
     This is the single entry point for calibration metrics operations (except rollback).
-    Renamed from calibrate_action; add_sample removed.
 
     Batch evaluation and visualization are handled by scripts, not MCP tools.
     See ADR-0011 for LoRA fine-tuning design and script usage.
@@ -1697,11 +1510,8 @@ async def calibration_metrics_action(
             data: {source?: str, limit?: int, since?: str}
 
     Note:
-        add_sample was removed. Use feedback(edge_correct) for
-        ground-truth collection which accumulates samples in nli_corrections table.
-
-        Batch evaluation and visualization are handled by scripts.
-        See ADR-0011 for LoRA fine-tuning design and script usage.
+        Ground-truth collection is done via feedback(edge_correct),
+        which accumulates samples in nli_corrections table.
 
     Raises:
         ValueError: If action is invalid or required data is missing

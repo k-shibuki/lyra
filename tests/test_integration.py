@@ -541,10 +541,10 @@ class TestCalibrationIntegration:
     @pytest.mark.asyncio
     async def test_calibrator_initialization(self, tmp_path: Path) -> None:
         """Verify calibrator can be initialized."""
-        with patch("src.utils.calibration.get_project_root") as mock_root:
+        with patch("src.utils.nli_calibration.get_project_root") as mock_root:
             mock_root.return_value = tmp_path
 
-            from src.utils.calibration import Calibrator
+            from src.utils.nli_calibration import Calibrator
 
             # Given/When: Instantiate Calibrator
             calibrator = Calibrator()

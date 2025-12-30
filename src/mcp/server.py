@@ -1995,7 +1995,7 @@ async def _handle_calibration_metrics(args: dict[str, Any]) -> dict[str, Any]:
     For rollback (destructive operation), use calibration_rollback tool.
     """
     from src.mcp.errors import InvalidParamsError
-    from src.utils.calibration import calibration_metrics_action
+    from src.utils.nli_calibration import calibration_metrics_action
 
     action = args.get("action")
     data = args.get("data", {})
@@ -2021,7 +2021,7 @@ async def _handle_calibration_rollback(args: dict[str, Any]) -> dict[str, Any]:
         CalibrationError,
         InvalidParamsError,
     )
-    from src.utils.calibration import get_calibrator
+    from src.utils.nli_calibration import get_calibrator
 
     source = args.get("source")
     version = args.get("version")

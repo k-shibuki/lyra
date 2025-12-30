@@ -156,7 +156,7 @@ See `docs/T_LORA.md` for detailed task list.
 
 ### Current State (Implemented)
 - `feedback(edge_correct)` accumulates NLI correction samples in `nli_corrections` table
-- `src/utils/calibration.py` provides probability calibration primitives (Platt Scaling / Temperature Scaling) and rollback-ready history.
+- `src/utils/nli_calibration.py` provides probability calibration primitives (Platt Scaling / Temperature Scaling) and rollback-ready history.
 - `calibration_rollback` tool enables parameter rollback
 
 **Implementation note (as of PR #50)**:
@@ -180,7 +180,7 @@ To start LoRA training, the following are required:
 
 ## References
 - `docs/T_LORA.md` - LoRA fine-tuning detailed design
-- `src/utils/calibration.py` - Probability calibration implementation
+- `src/utils/nli_calibration.py` - Probability calibration implementation
 - `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations` tables
 - `src/mcp/server.py` - `calibration_metrics`, `calibration_rollback` MCP tools
 - ADR-0012: Feedback Tool Design

@@ -87,7 +87,7 @@ class TestCalibrationMetricsHandler:
         from src.mcp.server import _handle_calibration_metrics
 
         with patch(
-            "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock
+            "src.utils.nli_calibration.get_calibration_stats", new_callable=AsyncMock
         ) as mock_stats:
             mock_stats.return_value = mock_calibration_stats
 
@@ -115,7 +115,7 @@ class TestCalibrationMetricsHandler:
         from src.mcp.server import _handle_calibration_metrics
 
         with patch(
-            "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock
+            "src.utils.nli_calibration.get_calibration_stats", new_callable=AsyncMock
         ) as mock_stats:
             mock_stats.return_value = mock_calibration_stats
 
@@ -313,10 +313,10 @@ class TestCalibrationMetricsActionDirectly:
         // When: Calling calibration_metrics_action
         // Then: ok=False with error=INTERNAL_ERROR
         """
-        from src.utils.calibration import calibration_metrics_action
+        from src.utils.nli_calibration import calibration_metrics_action
 
         with patch(
-            "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock
+            "src.utils.nli_calibration.get_calibration_stats", new_callable=AsyncMock
         ) as mock_stats:
             mock_stats.side_effect = RuntimeError("Database connection failed")
 
@@ -335,10 +335,10 @@ class TestCalibrationMetricsActionDirectly:
         // When: Calling calibration_metrics_action
         // Then: Handled gracefully (uses empty dict)
         """
-        from src.utils.calibration import calibration_metrics_action
+        from src.utils.nli_calibration import calibration_metrics_action
 
         with patch(
-            "src.utils.calibration.get_calibration_stats", new_callable=AsyncMock
+            "src.utils.nli_calibration.get_calibration_stats", new_callable=AsyncMock
         ) as mock_stats:
             mock_stats.return_value = {"current_params": {}, "history": {}}
 
@@ -355,7 +355,7 @@ class TestCalibrationMetricsActionDirectly:
         // When: Calling calibration_metrics_action
         // Then: Response includes action="get_evaluations"
         """
-        from src.utils.calibration import calibration_metrics_action
+        from src.utils.nli_calibration import calibration_metrics_action
 
         # Mock database cursor and connection
         mock_cursor = MagicMock()
