@@ -150,7 +150,7 @@ Fragment  Fragment  Fragment
 
 Current implementation uses **Beta distribution updating** (conjugate prior) with an uninformative prior `Beta(1, 1)`.
 
-- Evidence edges carry `edges.nli_confidence` (a model probability-like score).
+- Evidence edges carry `edges.nli_edge_confidence` (NLI model output, calibrated).
 - For a claim, all incoming evidence edges of type `supports/refutes/neutral` are collected.
 - Only `supports/refutes` update the posterior; `neutral` is treated as "no information".
 
@@ -159,24 +159,18 @@ Implementation-equivalent formulation:
 ```text
 Prior: Beta(α=1, β=1)
 
-α = 1 + Σ nli_confidence(e) for e in SUPPORTS edges
-β = 1 + Σ nli_confidence(e) for e in REFUTES edges
+α = 1 + Σ nli_edge_confidence(e) for e in SUPPORTS edges
+β = 1 + Σ nli_edge_confidence(e) for e in REFUTES edges
 
-confidence  = α / (α + β)                       # posterior mean
+bayesian_claim_confidence  = α / (α + β)                       # posterior mean
 uncertainty = sqrt( (αβ) / ((α+β)^2 (α+β+1)) )   # posterior stddev
 controversy = min(α-1, β-1) / (α+β-2)            # conflict degree (0 when no evidence)
 ```
 
 **Important semantics**:
-- `edges.nli_confidence` is treated as *evidence weight* (not a calibrated probability unless calibration is applied).
-- `edges.confidence` is a **compatibility alias** with overloaded semantics today:
-  - For **Fragment → Claim** evidence edges, the current ingestion path explicitly sets
-    `edges.confidence == edges.nli_confidence` (see `src/research/executor.py`: `confidence=nli_conf` with an in-code comment).
-  - For **CITES (Page → Page)** edges, the current implementation persists `edges.confidence = 1.0` and `edges.nli_confidence = NULL`
-    (see `src/filter/evidence_graph.py:add_citation`).
-
-This overloading is precisely why generic `"confidence"` keys must be treated as **split** during normalization: a single field name does not
-uniquely identify producer/object semantics.
+- `edges.nli_edge_confidence` is treated as *evidence weight* (calibrated probability from NLI model).
+- Legacy `edges.confidence` column has been **removed** as of PR #50 (terminology unification).
+- `claims.llm_claim_confidence` stores LLM's self-reported extraction quality (NOT used in Bayesian update).
 
 ### Domain Category (Reference Only)
 

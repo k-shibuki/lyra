@@ -185,7 +185,7 @@ async def apply_feedback(action: str, args: dict):
         if previous_label != args["correct_relation"]:
             edge.relation = args["correct_relation"]
             edge.nli_label = args["correct_relation"]
-            edge.nli_confidence = 1.0
+            edge.nli_edge_confidence = 1.0  # Human correction has maximum confidence
             edge.edge_correction_reason = args.get("reason")
         else:
             # Review only (no correction): keep existing model outputs

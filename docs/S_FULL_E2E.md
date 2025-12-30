@@ -245,7 +245,7 @@ stop_task(task_id, reason="completed")
 SELECT
   e.id AS edge_id,
   e.nli_label,
-  e.nli_confidence,
+  e.nli_edge_confidence,  -- NLI model output (calibrated)
   f.text_content AS premise,
   c.claim_text AS hypothesis
 FROM edges e

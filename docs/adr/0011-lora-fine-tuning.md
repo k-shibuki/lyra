@@ -159,9 +159,10 @@ See `docs/T_LORA.md` for detailed task list.
 - `src/utils/calibration.py` provides probability calibration primitives (Platt Scaling / Temperature Scaling) and rollback-ready history.
 - `calibration_rollback` tool enables parameter rollback
 
-**Implementation note (important)**:
-- NLI inference (`src/filter/nli.py`) currently emits `confidence` directly from the model and persists it as `edges.nli_confidence`.
-- The calibration module exists, but calibrated probabilities are not yet applied to `edges.nli_confidence` in the main ingestion path.
+**Implementation note (as of PR #50)**:
+- NLI inference (`src/filter/nli.py`) applies calibration and persists results as `edges.nli_edge_confidence`.
+- Calibration is now wired into the NLI prediction path (Platt Scaling or Temperature Scaling).
+- LLM extraction confidence is stored separately as `claims.llm_claim_confidence` and is NOT used in Bayesian updates.
 
 ### Prerequisites (Phase 6)
 To start LoRA training, the following are required:

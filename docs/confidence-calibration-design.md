@@ -144,8 +144,8 @@ Lyra のエビデンスグラフは以下の4つの主要エンティティで�
 
 | 用語 | 定義 | 生成元 | DB フィールド | 用途 | 校正可能性 |
 |------|------|--------|---------------|------|------------|
-| **llm-confidence** | LLM が抽出時に自己報告する確信度（抽出の自己評価） | Ollama (extract_claims.j2) | `claims.claim_confidence` | 並び替え・低証拠時の暫定表示など（※真偽の根拠としては扱わない） | 低 |
-| **nli-confidence** | NLI モデルによる証拠関係判定の確信度 | Transformers NLI (nli_judge) | `edges.nli_confidence` | ベイズ更新の入力（証拠の重み） | 中〜高（ただし校正適用は別途配線が必要） |
+| **llm-confidence** | LLM が抽出時に自己報告する確信度（抽出の自己評価） | Ollama (extract_claims.j2) | `claims.llm_claim_confidence` | 並び替え・低証拠時の暫定表示など（※真偽の根拠としては扱わない） | 低 |
+| **nli-confidence** | NLI モデルによる証拠関係判定の確信度 | Transformers NLI (nli_judge) | `edges.nli_edge_confidence` | ベイズ更新の入力（証拠の重み） | 中〜高（✅ 校正配線済み PR #50） |
 | **bayesian-confidence** | 全証拠を集約した主張の信頼度 | `calculate_claim_confidence()` | 計算値（非永続） | レポート、UI | 導出値（N/A） |
 
 ### 2.2 意味論的な違い
@@ -305,25 +305,18 @@ final_score = rerank_score * category_weight
   - `get_status`: 探索進捗・予算・キュー等の状態取得。
   - `feedback`: claim/edge/domainの修正（教師データの種）。
   - `calibration_metrics`: 統計/履歴の参照（get_stats/get_evaluations）。
-- **問題**
-  - `get_materials.claims[].confidence` は実質 **bayesian-confidence（証拠集約後）**であり、`claims.claim_confidence`（llm-confidence）が
-    **別フィールドとして露出していない**。
-  - 結果としてクライアントは「そのclaimが抽出品質として怪しい/堅い」という信号を**安定に受け取れない**。
+- **問題** ✅ **PR #50 で解決済み**
+  - ~~`get_materials.claims[].confidence` は実質 **bayesian-confidence（証拠集約後）**であり、`claims.llm_claim_confidence`（llm-confidence）が別フィールドとして露出していない。~~
+  - PR #50 で `bayesian_claim_confidence` と `llm_claim_confidence` を分離して返すよう実装完了。
 
-#### 3.4.2 To-Be（提案：MCPクライアントへ渡す契約）
+#### 3.4.2 To-Be（提案：MCPクライアントへ渡す契約）✅ **Phase 1 で実装済み**
 
-`get_materials` の `claims[]` に、**"真偽推定"と"抽出品質"の分離**を明示する。
+`get_materials` の `claims[]` に、**"真偽推定"と"抽出品質"の分離**を実装完了。
 
-**実装方針（確定）**:
-- **後方互換性は不要**（破壊的変更として実施）
-- **前提条件**: E2Eデバッグが完了してから着手する
-- 理由: E2E完了前に契約を変えると、デバッグ対象が増え収束しない
-
-- **提案フィールド（例）**
-  - `bayesian_confidence`: 現在 `confidence` に入っている値（証拠集約後）
-  - `llm_confidence`: `claims.claim_confidence`（抽出品質の自己評価の生値）
-  - `confidence_source`: `bayesian | llm_fallback`（混同防止）
-  - `extraction_quality_flag`: `low | medium | high`（クライアント側の意思決定を単純化）
+**実装済みフィールド（PR #50）**:
+  - `bayesian_claim_confidence`: 証拠集約後の Bayesian 信頼度
+  - `llm_claim_confidence`: LLM 抽出時の自己報告（抽出品質）
+  - `nli_edge_confidence`: evidence[] 内のNLI信頼度（校正済み）
 
 #### 3.4.3 次クエリ選定（queue_searches）をどう改善するか
 
@@ -416,12 +409,11 @@ class ClaimConfidenceAssessment(BaseModel):
 | **校正アルゴリズム** | ✅ 実装済み | Platt Scaling, Temperature Scaling |
 | **評価指標** | ✅ 実装済み | Brier Score, ECE |
 | **劣化検知・ロールバック** | ✅ 実装済み | CalibrationHistory クラス |
-| **NLI推論への適用** | ⚠️ **未配線** | `nli.py` で `calibrate()` が呼ばれていない |
+| **NLI推論への適用** | ✅ **配線完了 (PR #50)** | `nli.py` の `predict()`/`predict_batch()` で校正適用 |
 | **評価結果の永続化** | ⚠️ **未整備** | `calibration_evaluations` テーブルへの INSERT なし |
 | **MCPツール** | ✅ 実装済み | `calibration_metrics` (get_stats/get_evaluations) |
 
-**Critical Issue**: 校正モジュールは完成しているが、NLI推論経路（`src/filter/nli.py`）への適用が**配線されていない**。
-詳細は **Appendix D.7** を参照。
+**Note (PR #50)**: NLI推論経路への校正配線が完了。`edges.nli_edge_confidence` には校正済みスコアが保存される。
 
 ### 5.1 アーキテクチャ
 
@@ -550,10 +542,10 @@ class CalibrationHistory:
 | サンプル蓄積 | 10件以上 | `RECALIBRATION_THRESHOLD = 10`（※サンプル蓄積の“自動配線”は別途必要） |
 | 劣化検知 | Brier 5%悪化 | 自動ロールバック |
 
-**重要（現状の事実）**:
-- 校正モジュール（`src/utils/calibration.py`）は存在するが、NLI推論→`edges.nli_confidence` への適用は未配線。
+**重要（PR #50 後の状態）**:
+- ✅ 校正モジュール（`src/utils/calibration.py`）は NLI推論→`edges.nli_edge_confidence` への適用が配線済み。
 - MCPの `calibration_metrics` は **get_stats / get_evaluations** に限定される（評価/学習の実行はMCP経由では行わない設計）。
-- `calibration_evaluations` テーブルは存在するが、現状コードでは主に参照（SELECT）用途で、評価結果の永続化（INSERT）は未整備の可能性が高い。
+- `calibration_evaluations` テーブルは存在するが、評価結果の永続化（INSERT）は Phase 2 で対応予定。
 - 校正自体を自動トリガーする想定は一切ない。
 
 ---
@@ -646,13 +638,15 @@ class CalibrationHistory:
 # extract_claims.j2 から confidence フィールドを削除
 {"claim": "主張の内容", "type": "fact|opinion|prediction"}
 
-# claims.claim_confidence は deprecated
+# claims.llm_claim_confidence は抽出品質の自己評価としてのみ使用
 ```
 
 | Pros | Cons |
 |------|------|
 | シンプル | 将来の拡張性を失う |
 | 誤解なし | 既存データの活用不可 |
+
+**注**: Option A は採用されず、**Option D**（抽出品質としてのみ活用）が採用された。
 
 #### Option B: フィルタ用（品質ゲート）
 
@@ -718,7 +712,7 @@ def calculate_claim_confidence(
 - **用途例**:
   - 低 `llm-confidence` の claim を「要再確認」「優先度低」として材料整形・UIで扱う
   - （将来）低 `llm-confidence` を再抽出/人手レビューの優先度に使う
-  - `edges.nli_confidence`（証拠の重み）や bayesian-confidence には混ぜない
+  - `edges.nli_edge_confidence`（証拠の重み）や bayesian-confidence には混ぜない
 
 | Pros | Cons |
 |------|------|
@@ -875,7 +869,7 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 
 ## 11. 実装ロードマップ
 
-### Phase 1: 用語統一 & 校正配線（E2Eデバッグ前に実施）
+### Phase 1: 用語統一 & 校正配線（E2Eデバッグ前に実施）✅ **完了 (PR #50)**
 
 **優先度 P0**: システムの正確性と可読性に直接影響する修正
 
@@ -883,23 +877,17 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 
 | 優先度 | タスク | ファイル | 詳細 | ステータス |
 |:------:|--------|----------|------|:----------:|
-| **P0-a** | 用語統一: DB スキーマ | `src/storage/schema.sql` | D.8.4 参照、DB 再作成必須 | ❌ |
-| **P0-a** | 用語統一: evidence_graph.py | `src/filter/evidence_graph.py` | `nli_confidence` → `nli_edge_confidence` | ❌ |
-| **P0-a** | 用語統一: executor.py | `src/research/executor.py` | 同上 + `confidence=` 行削除 | ❌ |
-| **P0-a** | 用語統一: materials.py | `src/research/materials.py` | `confidence` → `bayesian_claim_confidence` | ❌ |
-| **P0-b** | NLI推論への校正適用 | `src/filter/nli.py` | `calibrate()` を `predict()` に配線 | ❌ |
-| **P0-b** | batch_predict への校正適用 | `src/filter/nli.py` | 同上（バッチ処理用） | ❌ |
-| **P1** | MCPスキーマ整合性修正 | `src/mcp/server.py` | outputSchema を実装に合わせる（D.2.2, D.8.8） | ❌ |
-| **P1** | テスト更新 | `tests/test_*.py` | 約30ファイル（D.8.6） | ❌ |
-| **P1** | DB 再作成 & 動作確認 | - | Phase 1 完了条件 | ❌ |
+| **P0-a** | 用語統一: DB スキーマ | `src/storage/schema.sql` | D.8.4 参照、DB 再作成必須 | ✅ |
+| **P0-a** | 用語統一: evidence_graph.py | `src/filter/evidence_graph.py` | `nli_confidence` → `nli_edge_confidence` | ✅ |
+| **P0-a** | 用語統一: executor.py | `src/research/executor.py` | 同上 + `confidence=` 行削除 | ✅ |
+| **P0-a** | 用語統一: materials.py | `src/research/materials.py` | `confidence` → `bayesian_claim_confidence` | ✅ |
+| **P0-b** | NLI推論への校正適用 | `src/filter/nli.py` | `calibrate()` を `predict()` に配線 | ✅ |
+| **P0-b** | batch_predict への校正適用 | `src/filter/nli.py` | 同上（バッチ処理用） | ✅ |
+| **P1** | MCPスキーマ整合性修正 | `src/mcp/server.py` | outputSchema を実装に合わせる（D.2.2, D.8.8） | ✅ |
+| **P1** | テスト更新 | `tests/test_*.py` | 約30ファイル（D.8.6） | ✅ |
+| **P1** | DB 再作成 & 動作確認 | - | Phase 1 完了条件 | ✅ |
 
-### Phase 2: E2Eデバッグ（Phase 1 完了後）
-
-| タスク | ステータス | 備考 |
-|--------|:----------:|------|
-| E2Eデバッグ実施 | ⏳ 待機中 | Phase 1 完了後に開始 |
-
-### Phase 3: MCPクライアント支援（E2Eデバッグ後）
+### Phase 2: MCPクライアント支援
 
 **優先度 P2-P3**: クライアントの意思決定を支援する改善
 
@@ -909,7 +897,7 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | **P2** | uncertainty/controversy ガイド追加 | `config/mcp/get_materials.json` | D.5 参照 | ❌ |
 | **P3** | 評価結果の永続化 | `src/utils/calibration.py` | `save_evaluation_result()` 追加 | ❌ |
 
-### Phase 4: コード品質（全て完了後）
+### Phase 3: コード品質
 
 **優先度 P4**: 可読性・保守性の向上
 
@@ -918,12 +906,11 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | **P4** | ファイルリネーム | `calibration.py` | `nli_calibration.py` | 📝 |
 | **P4** | import 更新 | 全参照箇所 | - | 📝 |
 
-### Phase D: ドキュメント（並行作業可）
+### Phase 4: E2Eデバッグ
 
-| タスク | ファイル | ステータス |
-|--------|----------|:----------:|
-| 本設計文書の確定 | `docs/confidence-calibration-design.md` | ✅ |
-| ADR-0011 への参照追加 | `docs/adr/0011-lora-fine-tuning.md` | 📝 |
+| タスク | ステータス | 備考 |
+|--------|:----------:|------|
+| E2Eデバッグ実施 | - | 📝 |
 
 ### Phase T: LoRA 実装（将来）
 
@@ -982,21 +969,21 @@ MCPクライアントが「どのモデルの何のスコアか」を誤解し�
 | `rank.fragment.score_rerank` | `fragments.rerank_score` / `passage["score_rerank"]` | score | ランキング用 |
 | `rank.fragment.weight_category` | `passage["category_weight"]` / `CATEGORY_WEIGHTS` | weight | ranking調整のみ |
 | `rank.fragment.score_final` | `passage["final_score"]` | score | ranking最終 |
-| `llm.claim.confidence_raw` | `claims.claim_confidence`（promptの `confidence`） | confidence | 抽出品質（真偽ではない） |
+| `llm.claim.confidence_raw` | `claims.llm_claim_confidence` | confidence | 抽出品質（真偽ではない） |
 | `nli.edge.label` | `edges.nli_label` | label | supports/refutes/neutral |
-| `nli.edge.confidence_raw` | `edges.nli_confidence` | confidence | NLI出力スコア（現状未校正） |
-| `bayes.claim.confidence` | `get_materials.claims[].confidence`（現状） | confidence | EvidenceGraph集約後 |
+| `nli.edge.confidence` | `edges.nli_edge_confidence` | confidence | NLI出力スコア（✅ 校正済み） |
+| `bayes.claim.confidence` | `get_materials.claims[].bayesian_claim_confidence` | confidence | EvidenceGraph集約後 |
 | `bayes.claim.uncertainty` | `get_materials.claims[].uncertainty` | uncertainty | Beta事後のstddev |
 | `bayes.claim.controversy` | `get_materials.claims[].controversy` | controversy | 支持/反証の対立度 |
 | `meta.claim.source_domain_category` | `_lyra_meta.claims[].source_domain_category` | meta | ranking由来の参照情報 |
 
-### 13.4 MCPツールの命名（提案）
+### 13.4 MCPツールの命名 ✅ **PR #50 で実装済み**
 
-レスポンス内フィールドは上記の正規名に沿う（またはそれを明示できる構造）に寄せる。MCPツール名は変えないが、MCP action名は変更可能とする。
+レスポンス内フィールドは上記の正規名に沿う形で実装完了。
 
 - `get_materials`
-  - 現状: `claims[].confidence` が “bayesian” なのか “llmフォールバック” なのか曖昧。
-  - 提案: `confidence_source` と `llm_confidence` / `bayesian_confidence` を併置して混同を防ぐ（§3.4）。
+  - ✅ `claims[].bayesian_claim_confidence` / `claims[].llm_claim_confidence` を分離して返却
+  - ✅ `evidence[].nli_edge_confidence` で校正済みNLI信頼度を返却
 - `calibration_metrics`
   - 現状: `source` が自由文字列で、何のモデルかが曖昧になり得る。
   - 提案: `source` は `nli` 等の固定namespaceを含める（例: `nli_judge` を正規化して `nli.edge.confidence` の系統に揃える）。
@@ -1244,182 +1231,106 @@ BAYESIAN CONFIDENCE MODEL:
 
 ### D.7 校正の配線不足（Critical）
 
-#### D.7.1 問題の概要
+#### D.7.1 問題の概要 ✅ **解決済み (PR #50)**
 
-校正モジュール（`src/utils/calibration.py`）は **完全に実装済み** だが、NLI推論経路への適用が **配線されていない**。
+~~校正モジュール（`src/utils/calibration.py`）は **完全に実装済み** だが、NLI推論経路への適用が **配線されていない**。~~
 
-**現状のデータフロー（Broken）**:
+**修正後のデータフロー（PR #50 で実装完了）**:
 ```
 NLI Model (DeBERTa)
-    ↓ predict()
+    ↓ predict() / predict_batch()
 result["score"] (生の softmax 出力)
-    ↓ そのまま使用（校正なし）❌
-edges.nli_confidence (未校正の生スコア)
+    ↓ calibrator.calibrate(prob, "nli_judge") ✅
+nli_edge_confidence (校正済み)
+    ↓
+edges.nli_edge_confidence (校正済みスコア)
     ↓
 calculate_claim_confidence() (ベイズ更新)
 ```
 
-**あるべきデータフロー**:
-```
-NLI Model (DeBERTa)
-    ↓ predict()
-result["score"] (生の softmax 出力)
-    ↓ calibrator.calibrate(prob, "nli_judge")
-calibrated_confidence (校正済み) ✅
-    ↓
-edges.nli_confidence (校正済みスコア)
-    ↓
-calculate_claim_confidence() (ベイズ更新)
-```
+#### D.7.2 影響範囲 ✅ **解決済み**
 
-#### D.7.2 影響範囲
-
-| 影響 | 詳細 |
+| 影響 | PR #50 後の状態 |
 |------|------|
-| **E2Eデバッグ** | 未校正の NLI スコアがベイズ更新に入るため、claim confidence が過信/過小評価される可能性 |
-| **Feedback効果** | `edge_correct` で訂正しても、新規エッジは未校正のまま作成される |
-| **校正パラメータ** | `data/calibration_params.json` が存在しても適用されない |
+| **E2Eデバッグ** | ✅ 校正済み NLI スコアがベイズ更新に入る |
+| **Feedback効果** | ✅ 新規エッジも校正済みスコアで作成される |
+| **校正パラメータ** | ✅ `data/calibration_params.json` が適用される |
 
-#### D.7.3 関連コード箇所
+#### D.7.3 関連コード箇所 ✅ **修正完了**
 
-| ファイル | 行 | 現状 |
-|----------|-----|------|
-| `src/filter/nli.py:88-91` | `predict()` | `result["score"]` をそのまま返す |
-| `src/filter/nli.py:149-152` | `batch_predict()` | 同上 |
-| `src/utils/calibration.py:85-120` | `calibrate()` | 実装済みだが呼び出し元なし |
-| `src/mcp/server.py:1050-1070` | `calibration_metrics` | get_stats/get_evaluations のみ |
+| ファイル | 修正内容 |
+|----------|------|
+| `src/filter/nli.py` | `predict()` で `get_calibrator().calibrate()` を呼び出し |
+| `src/filter/nli.py` | `predict_batch()` で同様に校正適用 |
+| `src/filter/evidence_graph.py` | `nli_edge_confidence` カラムを使用 |
+| `src/research/executor.py` | 校正済みスコアを保存 |
 
-#### D.7.4 修正案
+#### D.7.4 修正案 ✅ **実装完了 (PR #50)**
 
-**Step 1: NLI推論に校正を適用**
+**Step 1-2: 実装完了**
 
-```python
-# src/filter/nli.py の predict() を修正
+NLI推論（`predict()` / `predict_batch()`）で校正を適用し、`edges.nli_edge_confidence` に校正済みスコアを保存するよう修正完了。
 
-async def predict(self, premise: str, hypothesis: str) -> dict[str, Any]:
-    # ... existing code ...
+実装の詳細は `src/filter/nli.py` を参照。
 
-    # 校正を適用（新規追加）
-    from src.utils.calibration import get_calibrator
-    calibrator = get_calibrator()
+**Step 3: 評価結果の永続化（未実装、Phase 3 で対応）**
 
-    raw_confidence = result["score"]
-    calibrated_confidence = calibrator.calibrate(
-        raw_confidence,
-        source="nli_judge",
-        logit=None,  # logit が取得可能なら使用
-    )
+`calibration_evaluations` テーブルへの INSERT は Phase 3 で対応予定。
 
-    return {
-        "label": label,
-        "confidence": calibrated_confidence,      # 校正済み（ベイズ更新用）
-        "confidence_raw": raw_confidence,         # 生スコア（デバッグ/評価用）
-    }
+#### D.7.5 実装優先順位 ✅ **P0-P1 完了**
+
+| 優先度 | タスク | ステータス |
+|:------:|--------|:----------:|
+| **P0** | NLI推論への校正適用 | ✅ 完了 |
+| **P1** | MCPスキーマ不整合の修正 | ✅ 完了 |
+| **P2** | llm-confidence のMCP露出 | ⏳ Phase 3 |
+| **P3** | 評価永続化 | ⏳ Phase 3 |
+| **P4** | ファイル名変更 | 📝 Phase 4 |
+
+#### D.7.5.1 P0 精密影響範囲 ✅ **修正完了 (PR #50)**
+
+**修正済みデータフロー:**
 ```
-
-**Step 2: edges.nli_confidence に校正済みスコアを保存**
-
-`src/filter/evidence_graph.py:add_claim_evidence()` は既に `nli_confidence` を受け取る設計なので、Step 1 の修正で自動的に校正済みスコアが保存される。
-
-**Step 3: 評価結果の永続化**
-
-```python
-# src/utils/calibration.py に追加
-
-async def save_evaluation_result(
-    source: str,
-    result: CalibrationResult,
-    calibration_version: int | None = None,
-) -> str:
-    """評価結果を calibration_evaluations テーブルに永続化"""
-    from src.storage.database import get_database
-    import uuid
-
-    db = await get_database()
-    eval_id = str(uuid.uuid4())
-    await db.execute(
-        """INSERT INTO calibration_evaluations
-           (id, source, brier_score, brier_score_calibrated,
-            improvement_ratio, expected_calibration_error,
-            samples_evaluated, bins_json, calibration_version, evaluated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (eval_id, source, result.brier_score, result.brier_score_calibrated,
-         result.improvement_ratio, result.ece,
-         result.samples_evaluated, json.dumps(result.bins),
-         calibration_version)
-    )
-    return eval_id
-```
-
-#### D.7.5 実装優先順位
-
-| 優先度 | タスク | 前提条件 | 影響 |
-|:------:|--------|----------|------|
-| **P0** | NLI推論への校正適用（Step 1-2） | E2Eデバッグ完了 | 全 claim confidence に影響 |
-| **P1** | MCPスキーマ不整合の修正（D.2.2） | P0と同時可 | MCPクライアントの期待値調整 |
-| **P2** | llm-confidence のMCP露出（§3.4.2） | P1完了後 | クライアントの意思決定支援 |
-| **P3** | 評価永続化（Step 3） | P0完了後 | 校正履歴の追跡 |
-| **P4** | ファイル名変更（§10.2） | 全て完了後 | 可読性向上のみ |
-
-#### D.7.5.1 P0 精密影響範囲（2024-12-30 調査確定）
-
-**修正対象ファイル:** `src/filter/nli.py`（2箇所のみ）
-
-| 行番号 | メソッド | 現在のコード | 修正後 |
-|--------|----------|--------------|--------|
-| 88 | `NLIModel.predict()` | `confidence = result["score"]` | 校正適用 |
-| 128 | `NLIModel.predict_batch()` | `"confidence": result["score"]` | 校正適用 |
-
-**データフロー（コード追跡で確認）:**
-```
-src/filter/nli.py:88
-  └── NLIModel.predict() が生スコアを返却
+src/filter/nli.py
+  └── predict() / predict_batch() で校正を適用
        ↓
-src/filter/nli.py:222-224
-  └── _nli_judge_local() が confidence をそのまま結果に含める
+nli_edge_confidence (校正済みスコア)
        ↓
-src/research/executor.py:977
-  └── nli_conf = float(nli_results[0].get("confidence", 0.0))
+src/research/executor.py
+  └── add_claim_evidence(nli_edge_confidence=nli_conf, ...)
        ↓
-src/research/executor.py:994
-  └── add_claim_evidence(nli_confidence=nli_conf, ...)
+src/storage/schema.sql
+  └── edges.nli_edge_confidence に永続化
        ↓
-src/storage/schema.sql:166
-  └── edges.nli_confidence に永続化
-       ↓
-src/filter/evidence_graph.py:406
+src/filter/evidence_graph.py
   └── calculate_claim_confidence() で Bayesian更新に使用
 ```
 
 **リモートモード補足:**
 `settings.ml.use_remote=True` の場合、`src/ml_server/main.py` でも同様の校正が必要。
 
-**Phase 1 実行可否: ✅ 可能**
-- 影響範囲が明確に限定されている
-- 既存テスト（`tests/test_executor_nli_edges.py`, `tests/test_evidence_graph.py`）でカバー済み
-- 校正モジュール（`src/utils/calibration.py`）は動作確認済み
+**Phase 1 実行可否: ✅ 完了 (PR #50)**
 
-#### D.7.6 E2Eデバッグへの影響
+#### D.7.6 E2Eデバッグへの影響 ✅ **校正適用済み (PR #50)**
 
-**現状（校正未適用）での注意点**:
+**PR #50 後の状態**:
 
-1. **NLI スコアの解釈**: `edges.nli_confidence` は未校正の生スコア。DeBERTa系モデルは一般的に過信傾向があるため、0.9 のスコアが実際には 0.7-0.8 相当の可能性がある。
+1. **NLI スコアの解釈**: `edges.nli_edge_confidence` は校正済みスコア。過信傾向は軽減されている。
 
-2. **claim confidence のデバッグ**: `calculate_claim_confidence()` の出力が期待と異なる場合、校正未適用が原因の可能性を考慮。
+2. **claim confidence のデバッグ**: `calculate_claim_confidence()` は校正済みスコアを使用するため、より信頼性の高い値が出力される。
 
-3. **Feedback ワークフロー**: `edge_correct` は正常動作するが、新規エッジは未校正のまま。訂正後の claim confidence 改善が限定的な可能性あり。
+3. **Feedback ワークフロー**: `edge_correct` は正常動作し、新規エッジも校正済みスコアで作成される。
 
-**推奨**: E2Eデバッグ中は以下を確認：
-- `edges.nli_confidence` の分布（0.8-1.0 に偏っていないか）
-- `calculate_claim_confidence()` の uncertainty 値（極端に低くないか）
-- 校正適用後に改善が見込める箇所の特定
+**E2Eデバッグ中の確認事項**:
+- `edges.nli_edge_confidence` の分布が適切か
+- `calculate_claim_confidence()` の uncertainty 値が妥当か
 
-### D.8 用語統一（Terminology Unification）
+### D.8 用語統一（Terminology Unification）✅ **完了 (PR #50)**
 
 #### D.8.1 背景
 
-コードベース全体で `confidence` という用語が曖昧に使用されており、出自と意味が不明確。
-本セクションでは **全ての confidence 関連用語を統一** し、命名規則を確立する。
+コードベース全体で `confidence` という用語が曖昧に使用されていた。
+PR #50 で命名規則を確立し、用語統一を完了。
 
 #### D.8.2 命名規則
 
@@ -1431,31 +1342,30 @@ src/filter/evidence_graph.py:406
 - **entity**: 対象エンティティ（`edge`, `claim`, `extraction`, etc.）
 - **type**: 値の種類（`confidence`, `confidence_raw`, etc.）
 
-#### D.8.3 完全な用語マッピング
+#### D.8.3 完全な用語マッピング ✅ **適用済み (PR #50)**
 
 ##### A. コア Confidence（エビデンスシステム）
 
-| 現在の名前 | 場所 | 意味 | **統一後の名前** |
-|-----------|------|------|-----------------|
-| `edges.confidence` | schema.sql:164 | NLI信頼度（legacy冗長） | **削除** |
-| `edges.nli_confidence` | schema.sql:166 | NLI モデル出力 | `nli_edge_confidence` |
-| `claims.claim_confidence` | schema.sql:140 | LLM抽出時の自己報告 | `llm_claim_confidence` |
-| `confidence` | nli.py:88 返却値 | NLI生スコア | `nli_raw_confidence` |
-| `confidence` | nli_judge() 返却値 | NLI生スコア（校正後） | `nli_edge_confidence` |
-| `confidence` | calculate_claim_confidence() | Bayesian更新結果 | `bayesian_claim_confidence` |
-| `confidence` | get_materials claims[] | Bayesian更新結果 | `bayesian_claim_confidence` |
-| `nli_confidence` | get_materials evidence[] | NLI信頼度 | `nli_edge_confidence` |
+| 実装済みの名前 | 場所 | 意味 | ステータス |
+|-----------|------|------|:----------:|
+| `edges.nli_edge_confidence` | schema.sql | NLI モデル出力（校正済み） | ✅ |
+| `claims.llm_claim_confidence` | schema.sql | LLM抽出時の自己報告 | ✅ |
+| `nli_raw_confidence` | nli.py 返却値 | NLI生スコア | ✅ |
+| `nli_edge_confidence` | nli.py 返却値 | NLI校正後スコア | ✅ |
+| `bayesian_claim_confidence` | calculate_claim_confidence() | Bayesian更新結果 | ✅ |
+| `bayesian_claim_confidence` | get_materials claims[] | Bayesian更新結果 | ✅ |
+| `nli_edge_confidence` | get_materials evidence[] | NLI信頼度 | ✅ |
 
-##### B. その他の Confidence
+**削除された用語**:
+- `edges.confidence` (legacy冗長カラム)
 
-| 現在の名前 | 場所 | 意味 | **統一後の名前** |
-|-----------|------|------|-----------------|
-| `high_yield_queries.confidence` | schema.sql:841 | クエリ収穫率信頼度 | `query_yield_confidence` |
-| `feedback_events.predicted_confidence` | schema.sql:732 | 訂正前信頼度 | そのまま（文脈が明確） |
-| `confidence` | policy_engine.py | メトリクス時間減衰 | `metrics_decay_confidence` |
-| `confidence` | page_classifier.py | 分類信頼度 | `classification_confidence` |
-| `confidence` | entity_integration.py | 関係性信頼度 | `relation_confidence` |
-| `adjusted_confidence` | wayback_fallback.py | 時間減衰後信頼度 | そのまま（文脈が明確） |
+##### B. その他の Confidence（変更なし）
+
+| 名前 | 場所 | 意味 | 備考 |
+|-----------|------|------|------|
+| `high_yield_queries.confidence` | schema.sql | クエリ収穫率信頼度 | 文脈が明確 |
+| `feedback_events.predicted_confidence` | schema.sql | 訂正前信頼度 | 文脈が明確 |
+| `adjusted_confidence` | wayback_fallback.py | 時間減衰後信頼度 | 文脈が明確 |
 
 #### D.8.4 DB スキーマ変更
 
@@ -1572,21 +1482,23 @@ CREATE TABLE high_yield_queries (
 }
 ```
 
-#### D.8.9 Phase 1 スコープ確定
+#### D.8.9 Phase 1 スコープ確定 ✅ **完了 (PR #50)**
 
-用語統一を Phase 1 に含め、E2E デバッグ**前**に実施する。
+用語統一を Phase 1 に含め、E2E デバッグ**前**に実施完了。
 
-| 優先度 | タスク | 備考 |
-|:------:|--------|------|
-| **P0-a** | 用語統一（D.8.4-D.8.6） | DB 再作成が必要 |
-| **P0-b** | NLI 校正配線（D.7.4） | P0-a と同時実施 |
-| **P1** | MCP スキーマ整合性 | P0 完了後 |
+| 優先度 | タスク | ステータス |
+|:------:|--------|:----------:|
+| **P0-a** | 用語統一（D.8.4-D.8.6） | ✅ |
+| **P0-b** | NLI 校正配線（D.7.4） | ✅ |
+| **P1** | MCP スキーマ整合性 | ✅ |
 
-**Phase 1 完了後に E2E デバッグを開始する。**
+**E2E デバッグを開始できる状態になった。**
 
-### D.9 Confidence データフロー完全図
+### D.9 Confidence データフロー完全図 ✅ **PR #50 で解決済み**
 
-#### D.9.1 全体フロー
+**注**: 以下の図は PR #50 以前の問題点を示す。現在は用語統一と校正配線が完了している。
+
+#### D.9.1 全体フロー（PR #50 以前の問題点）
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1639,7 +1551,7 @@ CREATE TABLE high_yield_queries (
 │  │  │ 入力: edges where target_id = claim_id              │             │   │
 │  │  │                                                      │             │   │
 │  │  │   for edge in edges:                                │             │   │
-│  │  │     nli_conf = edge.nli_confidence  ←─使用          │             │   │
+│  │  │     nli_conf = edge.nli_edge_confidence  ←─使用     │             │   │
 │  │  │     if relation == "supports":                      │             │   │
 │  │  │       alpha += nli_conf                             │             │   │
 │  │  │     elif relation == "refutes":                     │             │   │
@@ -1698,52 +1610,52 @@ CREATE TABLE high_yield_queries (
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### D.9.2 問題点サマリ
+#### D.9.2 問題点サマリ ✅ **PR #50 で解決済み**
 
-| Stage | 問題 | 影響 |
-|-------|------|------|
-| **Generation** | 同じ `confidence` キーで異なる意味（LLM自己報告 vs NLI出力） | 下流で混同 |
-| **Storage** | `edges.confidence` と `edges.nli_confidence` が重複 | 冗長 + 混乱 |
-| **Storage** | `claims.claim_confidence` の名前が意味と乖離（LLMの自己報告なのに「claim の confidence」） | 誤解 |
-| **Aggregation** | 問題なし（`nli_confidence` のみ使用） | - |
-| **Output** | フォールバックで Bayesian と LLM が混在 | 消費者が判別不能 |
-| **Output** | 同じ `confidence` キーで claims と edges に異なる意味 | API整合性なし |
+| Stage | 問題（PR #50 以前） | PR #50 後 |
+|-------|------|:----------:|
+| **Generation** | 同じ `confidence` キーで異なる意味 | ✅ `llm_claim_confidence` / `nli_edge_confidence` に分離 |
+| **Storage** | `edges.confidence` と `edges.nli_confidence` が重複 | ✅ `edges.confidence` 削除、`nli_edge_confidence` に統一 |
+| **Storage** | `claims.claim_confidence` の名前が意味と乖離 | ✅ `llm_claim_confidence` にリネーム |
+| **Aggregation** | 問題なし | ✅ `nli_edge_confidence` のみ使用 |
+| **Output** | フォールバックで Bayesian と LLM が混在 | ✅ 両方を分離して返却 |
+| **Output** | 同じ `confidence` キーで claims と edges に異なる意味 | ✅ 異なるキー名で明確に区別 |
 
-#### D.9.3 修正方針（確定版）
+#### D.9.3 修正方針（確定版）✅ **実装完了**
 
 ##### A. Generation（生成時）
 
-| 現在 | 変更後 | 理由 |
+| 旧 | 新（実装済み） | 理由 |
 |-----|-------|-----|
-| LLM: `"confidence": X` | `"llm_extraction_confidence": X` | 出自を明示 |
+| LLM: `"confidence": X` | `"llm_claim_confidence": X` | 出自を明示 |
 | NLI: `"confidence": X` | `"nli_raw_confidence": X, "nli_edge_confidence": calibrated` | 生スコアと校正済みを分離 |
 
-##### B. Storage（永続化）
+##### B. Storage（永続化）✅ 実装済み
 
-| テーブル.カラム | 現在 | 変更後 | 備考 |
+| テーブル.カラム | 旧 | 新（実装済み） | 備考 |
 |---------------|-----|-------|------|
-| `claims.claim_confidence` | LLM自己報告 | `llm_extraction_confidence` | 意味を正確に |
-| `edges.confidence` | NLI (legacy) | **削除** | 冗長 |
-| `edges.nli_confidence` | NLI | `nli_edge_confidence` | 意味を正確に |
+| `claims.llm_claim_confidence` | `claim_confidence` | ✅ | 意味を正確に |
+| `edges.confidence` | NLI (legacy) | ✅ **削除** | 冗長 |
+| `edges.nli_edge_confidence` | `nli_confidence` | ✅ | 意味を正確に |
 
-##### C. Aggregation（集約計算）
+##### C. Aggregation（集約計算）✅ 実装済み
 
-| 現在 | 変更後 |
+| 旧 | 新（実装済み） |
 |-----|-------|
-| 戻り値: `"confidence"` | `"bayesian_claim_confidence"` |
+| 戻り値: `"confidence"` | ✅ `"bayesian_claim_confidence"` |
 
-##### D. Output（API出力）
+##### D. Output（API出力）✅ 実装済み
 
 **get_materials claims[]:**
 ```json
 {
-  "llm_extraction_confidence": 0.7,     // 常にDB値（null不可）
+  "llm_claim_confidence": 0.7,          // LLM抽出品質（常にDB値）
   "bayesian_claim_confidence": 0.85,    // 計算値（null可 = 証拠なし）
   "uncertainty": 0.1,
   "controversy": 0.05
 }
 ```
-- **フォールバック廃止**: 両方を常に返す
+- ✅ **フォールバック廃止**: 両方を分離して返却
 - 消費者が用途に応じて選択可能
 
 **get_materials evidence[]:**
@@ -1783,22 +1695,21 @@ Entity KB の confidence はエビデンスシステムとは独立した概念�
 | `page_classifier.py` | `confidence` | `classification_confidence` | 分類信頼度 |
 | `policy_engine.py` | `confidence` | `metrics_decay_confidence` | メトリクス減衰 |
 
-#### D.9.6 D.8.3 への修正反映
+#### D.9.6 D.8.3 への修正反映 ✅ **適用済み (PR #50)**
 
-D.8.3 の表を以下に置き換える：
+以下は PR #50 で適用された用語変更の参照表：
 
 ##### A. コア Confidence（エビデンスシステム）
 
-| 現在の名前 | 場所 | 意味 | **統一後の名前** |
-|-----------|------|------|-----------------|
-| `edges.confidence` | schema.sql:164 | NLI信頼度（legacy冗長） | **削除** |
-| `edges.nli_confidence` | schema.sql:166 | NLI モデル出力（校正済み） | `nli_edge_confidence` |
-| `claims.claim_confidence` | schema.sql:140 | LLM抽出時の自己報告 | `llm_extraction_confidence` |
-| `confidence` | nli.py:88 返却値 | NLI生スコア | `nli_raw_confidence` |
-| `confidence` | nli.py 校正後 | NLI校正済み | `nli_edge_confidence` |
-| `confidence` | calculate_claim_confidence() | Bayesian更新結果 | `bayesian_claim_confidence` |
-| `confidence` | get_materials claims[] | **廃止（混在）** | 上記2つを分離出力 |
-| `nli_confidence` | get_materials evidence[] | NLI信頼度 | `nli_edge_confidence` |
+| 旧名称 | 新名称（実装済み） | 備考 |
+|-----------|-----------------|------|
+| `edges.confidence` | **削除** | legacy冗長カラム |
+| `edges.nli_confidence` | `nli_edge_confidence` | NLI モデル出力（校正済み） |
+| `claims.claim_confidence` | `llm_claim_confidence` | LLM抽出時の自己報告 |
+| `confidence` (nli.py 返却値) | `nli_raw_confidence` / `nli_edge_confidence` | 生スコアと校正済み |
+| `confidence` (calculate_claim_confidence) | `bayesian_claim_confidence` | Bayesian更新結果 |
+| `confidence` (get_materials claims[]) | `bayesian_claim_confidence` / `llm_claim_confidence` | 分離出力 |
+| `nli_confidence` (get_materials evidence[]) | `nli_edge_confidence` | NLI信頼度 |
 
 ##### B. Entity KB Confidence
 
