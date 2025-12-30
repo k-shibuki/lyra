@@ -256,7 +256,7 @@ class TestEvidenceGraphIntegration:
             RelationType.SUPPORTS,
             confidence=0.9,
             nli_label="entailment",
-            nli_confidence=0.92,
+            nli_edge_confidence=0.92,
         )
 
         evidence = graph.get_supporting_evidence("claim_1")

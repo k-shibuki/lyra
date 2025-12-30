@@ -1,18 +1,18 @@
 """
 Tests for / prerequisite A:
-Wire Step 7 (NLI) into the normal search path and persist edges.nli_confidence.
+Wire Step 7 (NLI) into the normal search path and persist edges.nli_edge_confidence.
 
 Goal:
 - Prove SearchExecutor._persist_claim() calls NLI and persists a claim-evidence edge
-  via add_claim_evidence() with (relation, nli_label, nli_confidence).
+  via add_claim_evidence() with (relation, nli_label, nli_edge_confidence).
 - Prove stance changes affect persisted edge relation (effect).
 - Include failure cases so we don't silently skip wiring.
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|----------------------|---------------------------------------|-----------------|-------|
-| TC-EX-NLI-N-01 | nli_judge returns supports(0.91) | Equivalence – normal | add_claim_evidence called with relation=supports, nli_confidence=0.91 | wiring + effect |
-| TC-EX-NLI-N-02 | nli_judge returns refutes(0.80) | Equivalence – normal | add_claim_evidence called with relation=refutes, nli_confidence=0.80 | effect |
+| TC-EX-NLI-N-01 | nli_judge returns supports(0.91) | Equivalence – normal | add_claim_evidence called with relation=supports, nli_edge_confidence=0.91 | wiring + effect |
+| TC-EX-NLI-N-02 | nli_judge returns refutes(0.80) | Equivalence – normal | add_claim_evidence called with relation=refutes, nli_edge_confidence=0.80 | effect |
 | TC-EX-NLI-A-01 | nli_judge returns invalid stance | Abnormal – invalid output | relation sanitized to neutral | no fabrication |
 | TC-EX-NLI-A-02 | nli_judge raises exception | Abnormal – dependency failure | add_claim_evidence still called with neutral/0.0 | robust path |
 | TC-EX-NLI-A-03 | fragment text missing in DB | Boundary – NULL | nli_judge called with fallback premise (claim_text) | avoids empty premise |
@@ -78,8 +78,8 @@ async def test_executor_persist_claim_wires_nli_supports() -> None:
         assert kwargs["task_id"] == "test_task"
         assert kwargs["relation"] == "supports"
         assert kwargs["nli_label"] == "supports"
-        assert kwargs["nli_confidence"] == pytest.approx(0.91)
-        # Legacy: confidence aligned to nli_confidence
+        assert kwargs["nli_edge_confidence"] == pytest.approx(0.91)
+        # Legacy: confidence aligned to nli_edge_confidence
         assert kwargs["confidence"] == pytest.approx(0.91)
 
 
@@ -115,7 +115,7 @@ async def test_executor_persist_claim_wires_nli_refutes() -> None:
         kwargs = edge_call.kwargs
         assert kwargs["relation"] == "refutes"
         assert kwargs["nli_label"] == "refutes"
-        assert kwargs["nli_confidence"] == pytest.approx(0.80)
+        assert kwargs["nli_edge_confidence"] == pytest.approx(0.80)
 
 
 @pytest.mark.asyncio
@@ -181,7 +181,7 @@ async def test_executor_persist_claim_nli_failure_does_not_skip_edge_persist() -
         kwargs = edge_call.kwargs
         assert kwargs["relation"] == "neutral"
         assert kwargs["nli_label"] == "neutral"
-        assert kwargs["nli_confidence"] == pytest.approx(0.0)
+        assert kwargs["nli_edge_confidence"] == pytest.approx(0.0)
 
 
 @pytest.mark.asyncio

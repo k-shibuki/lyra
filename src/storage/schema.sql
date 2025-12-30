@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS claims (
     claim_type TEXT,  -- fact, opinion, prediction, etc.
     granularity TEXT,  -- atomic, composite
     expected_polarity TEXT,  -- positive, negative, neutral
-    claim_confidence REAL, -- Renamed from confidence_score 
+    llm_claim_confidence REAL,  -- LLM's self-reported extraction quality (NOT truth confidence)
     source_fragment_ids TEXT,  -- JSON array
     claim_adoption_status TEXT DEFAULT 'adopted', -- Renamed, default changed from 'pending' 
     claim_rejection_reason TEXT,  -- NEW: rejection reason (audit)
@@ -161,9 +161,9 @@ CREATE TABLE IF NOT EXISTS edges (
     target_type TEXT NOT NULL,
     target_id TEXT NOT NULL,
     relation TEXT NOT NULL,  -- supports, refutes, cites, neutral
-    confidence REAL,
-    nli_label TEXT,  -- From NLI model
-    nli_confidence REAL,
+    -- NOTE: legacy "confidence" column removed; use nli_edge_confidence for NLI-derived edges
+    nli_label TEXT,  -- From NLI model (supports/refutes/neutral)
+    nli_edge_confidence REAL,  -- NLI model output (calibrated); used in Bayesian update
     -- Academic / citation metadata
     -- citation_source is for CITES edges only (traceability; not used for filtering):
     --   "semantic_scholar" | "openalex" | "extraction"
@@ -838,12 +838,12 @@ CREATE TABLE IF NOT EXISTS high_yield_queries (
     improved_pattern TEXT NOT NULL,
     improvement_ratio REAL,  -- (improved - original) / original
     sample_count INTEGER DEFAULT 1,
-    confidence REAL DEFAULT 0.5,
+    query_yield_confidence REAL DEFAULT 0.5,  -- Statistical confidence based on sample count
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_high_yield_pattern ON high_yield_queries(pattern_type);
-CREATE INDEX IF NOT EXISTS idx_high_yield_confidence ON high_yield_queries(confidence);
+CREATE INDEX IF NOT EXISTS idx_high_yield_confidence ON high_yield_queries(query_yield_confidence);
 
 -- ============================================================
 -- Metrics Views

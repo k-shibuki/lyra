@@ -4,14 +4,22 @@ Determines stance relationships between claims.
 
 When ml.use_remote=True, NLI inference is performed via HTTP calls
 to the lyra-ml container on internal network.
+
+Confidence terminology (see docs/confidence-calibration-design.md):
+- nli_raw_confidence: Raw model output (softmax score)
+- nli_edge_confidence: Calibrated confidence used in Bayesian update
 """
 
 from typing import Any
 
+from src.utils.calibration import get_calibrator
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Calibration source identifier for NLI model
+NLI_CALIBRATION_SOURCE = "nli_judge"
 
 
 class NLIModel:
@@ -75,7 +83,11 @@ class NLIModel:
             hypothesis: Hypothesis text.
 
         Returns:
-            Prediction result with label and confidence.
+            Prediction result with:
+            - label: Stance (supports/refutes/neutral)
+            - nli_raw_confidence: Raw model output
+            - nli_edge_confidence: Calibrated confidence for Bayesian update
+            - raw_label: Original model label
         """
         await self._ensure_model()
 
@@ -85,11 +97,20 @@ class NLIModel:
             result = self._model(input_text)[0]
 
             label = self._map_label(result["label"])
-            confidence = result["score"]
+            raw_confidence = result["score"]
+
+            # Apply calibration (returns raw score if no calibration params available)
+            calibrator = get_calibrator()
+            calibrated_confidence = calibrator.calibrate(
+                prob=raw_confidence,
+                source=NLI_CALIBRATION_SOURCE,
+                logit=None,  # Logit not available from pipeline
+            )
 
             return {
                 "label": label,
-                "confidence": confidence,
+                "nli_raw_confidence": raw_confidence,
+                "nli_edge_confidence": calibrated_confidence,
                 "raw_label": result["label"],
             }
 
@@ -97,7 +118,8 @@ class NLIModel:
             logger.error("NLI prediction error", error=str(e))
             return {
                 "label": "neutral",
-                "confidence": 0.0,
+                "nli_raw_confidence": 0.0,
+                "nli_edge_confidence": 0.0,
                 "error": str(e),
             }
 
@@ -111,7 +133,7 @@ class NLIModel:
             pairs: List of (premise, hypothesis) tuples.
 
         Returns:
-            List of prediction results.
+            List of prediction results with nli_raw_confidence and nli_edge_confidence.
         """
         await self._ensure_model()
 
@@ -120,12 +142,20 @@ class NLIModel:
         try:
             results = self._model(inputs)
 
+            calibrator = get_calibrator()
             predictions = []
             for result in results:
+                raw_confidence = result["score"]
+                calibrated_confidence = calibrator.calibrate(
+                    prob=raw_confidence,
+                    source=NLI_CALIBRATION_SOURCE,
+                    logit=None,
+                )
                 predictions.append(
                     {
                         "label": self._map_label(result["label"]),
-                        "confidence": result["score"],
+                        "nli_raw_confidence": raw_confidence,
+                        "nli_edge_confidence": calibrated_confidence,
                         "raw_label": result["label"],
                     }
                 )
@@ -134,7 +164,15 @@ class NLIModel:
 
         except Exception as e:
             logger.error("NLI batch prediction error", error=str(e))
-            return [{"label": "neutral", "confidence": 0.0, "error": str(e)} for _ in pairs]
+            return [
+                {
+                    "label": "neutral",
+                    "nli_raw_confidence": 0.0,
+                    "nli_edge_confidence": 0.0,
+                    "error": str(e),
+                }
+                for _ in pairs
+            ]
 
 
 # Global model instance
@@ -158,7 +196,7 @@ async def nli_judge(
         pairs: List of pair dicts with 'pair_id', 'premise', 'hypothesis'.
 
     Returns:
-        List of result dicts with 'pair_id', 'stance', 'confidence'.
+        List of result dicts with 'pair_id', 'stance', 'nli_edge_confidence'.
     """
     settings = get_settings()
 
@@ -172,7 +210,11 @@ async def nli_judge(
 async def _nli_judge_remote(
     pairs: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Judge via ML server."""
+    """Judge via ML server.
+
+    Note: Remote ML server should return calibrated confidence.
+    If not, we apply calibration here.
+    """
     from src.ml_client import get_ml_client
 
     if not pairs:
@@ -182,14 +224,22 @@ async def _nli_judge_remote(
 
     results = await client.nli(pairs)
 
-    # Map result format
+    # Map result format and apply calibration
+    calibrator = get_calibrator()
     final_results = []
     for idx, result in enumerate(results):
+        raw_confidence = result.get("confidence", 0.0)
+        # Apply calibration (ML server may return uncalibrated scores)
+        calibrated_confidence = calibrator.calibrate(
+            prob=raw_confidence,
+            source=NLI_CALIBRATION_SOURCE,
+            logit=None,
+        )
         final_results.append(
             {
                 "pair_id": result.get("pair_id", pairs[idx].get("pair_id", "unknown")),
                 "stance": result.get("label", "neutral"),
-                "confidence": result.get("confidence", 0.0),
+                "nli_edge_confidence": calibrated_confidence,
             }
         )
 
@@ -204,7 +254,10 @@ async def _nli_judge_remote(
 async def _nli_judge_local(
     pairs: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Judge using local model."""
+    """Judge using local model.
+
+    Calibration is applied in model.predict(), so nli_edge_confidence is already calibrated.
+    """
     model = _get_model()
 
     results = []
@@ -220,7 +273,7 @@ async def _nli_judge_local(
             {
                 "pair_id": pair_id,
                 "stance": prediction["label"],
-                "confidence": prediction["confidence"],
+                "nli_edge_confidence": prediction["nli_edge_confidence"],
             }
         )
 
@@ -255,14 +308,14 @@ async def detect_contradictions(
                 claim2["text"],
             )
 
-            if pred["label"] == "refutes" and pred["confidence"] > 0.7:
+            if pred["label"] == "refutes" and pred["nli_edge_confidence"] > 0.7:
                 contradictions.append(
                     {
                         "claim1_id": claim1["id"],
                         "claim2_id": claim2["id"],
                         "claim1_text": claim1["text"],
                         "claim2_text": claim2["text"],
-                        "confidence": pred["confidence"],
+                        "nli_edge_confidence": pred["nli_edge_confidence"],
                     }
                 )
 

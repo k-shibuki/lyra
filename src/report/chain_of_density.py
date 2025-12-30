@@ -123,7 +123,7 @@ class DenseClaim:
 
     claim_id: str
     text: str
-    confidence: float
+    llm_claim_confidence: float  # LLM's self-reported extraction quality
     citations: list[CitationInfo]
     claim_type: str = "fact"
     is_verified: bool = False
@@ -134,7 +134,7 @@ class DenseClaim:
         return {
             "claim_id": self.claim_id,
             "text": self.text,
-            "confidence": self.confidence,
+            "llm_claim_confidence": self.llm_claim_confidence,
             "citations": [c.to_dict() for c in self.citations],
             "claim_type": self.claim_type,
             "is_verified": self.is_verified,
@@ -406,7 +406,9 @@ class ChainOfDensityCompressor:
             dense_claim = DenseClaim(
                 claim_id=claim_id,
                 text=claim.get("claim_text", claim.get("text", "")),
-                confidence=claim.get("claim_confidence", claim.get("confidence", 0.5)),
+                llm_claim_confidence=claim.get(
+                    "llm_claim_confidence", claim.get("bayesian_claim_confidence", 0.5)
+                ),
                 citations=citations,
                 claim_type=claim.get("claim_type", "fact"),
                 is_verified=False,  # DB column removed

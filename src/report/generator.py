@@ -221,7 +221,7 @@ class ReportGenerator:
 
         # Get claims
         claims = await db.fetch_all(
-            "SELECT * FROM claims WHERE task_id = ? ORDER BY claim_confidence DESC",
+            "SELECT * FROM claims WHERE task_id = ? ORDER BY llm_claim_confidence DESC",
             (task_id,),
         )
 
@@ -333,13 +333,13 @@ class ReportGenerator:
 
         if claims:
             # Top claims
-            top_claims = [c for c in claims if c.get("claim_confidence", 0) >= 0.7][:5]
+            top_claims = [c for c in claims if c.get("llm_claim_confidence", 0) >= 0.7][:5]
             if top_claims:
                 lines.append("### Key Findings")
                 lines.append("")
                 for i, claim in enumerate(top_claims, 1):
-                    confidence = claim.get("claim_confidence", 0)
-                    lines.append(f"{i}. {claim['claim_text']} (Confidence: {confidence:.2f})")
+                    llm_conf = claim.get("llm_claim_confidence", 0)
+                    lines.append(f"{i}. {claim['claim_text']} (LLM Confidence: {llm_conf:.2f})")
                 lines.append("")
 
         # Methodology
@@ -367,12 +367,12 @@ class ReportGenerator:
                 lines.append("### Facts")
                 lines.append("")
                 for claim in fact_claims[:10]:
-                    confidence = claim.get("claim_confidence", 0)
+                    llm_conf = claim.get("llm_claim_confidence", 0)
                     supporting = claim.get("supporting_count", 0)
                     refuting = claim.get("refuting_count", 0)
 
                     lines.append(f"- {claim['claim_text']}")
-                    lines.append(f"  - Confidence: {confidence:.2f}")
+                    lines.append(f"  - LLM Confidence: {llm_conf:.2f}")
                     lines.append(
                         f"  - Supporting sources: {supporting}, Refuting sources: {refuting}"
                     )
@@ -611,7 +611,7 @@ class ReportGenerator:
         high_confidence_with_timeline = [
             (c, t)
             for c, t in claims_with_timeline
-            if (c.get("claim_confidence") or 0) >= 0.7 and not t.is_retracted
+            if (c.get("llm_claim_confidence") or 0) >= 0.7 and not t.is_retracted
         ][
             :10
         ]  # Limit to 10
@@ -793,14 +793,14 @@ async def get_report_materials(
              WHERE e.target_id = c.id AND e.relation = 'refutes') as refute_count
         FROM claims c
         WHERE c.task_id = ?
-        ORDER BY c.claim_confidence DESC
+        ORDER BY c.llm_claim_confidence DESC
         """,
         (task_id,),
     )
 
-    # Classify claims by confidence threshold (ADR-0005)
-    high_confidence = [c for c in claims if (c.get("claim_confidence") or 0) >= 0.7]
-    low_confidence = [c for c in claims if (c.get("claim_confidence") or 0) < 0.7]
+    # Classify claims by LLM confidence threshold (ADR-0005)
+    high_confidence = [c for c in claims if (c.get("llm_claim_confidence") or 0) >= 0.7]
+    low_confidence = [c for c in claims if (c.get("llm_claim_confidence") or 0) < 0.7]
 
     # Get fragments if requested
     fragments = []
@@ -1014,7 +1014,7 @@ async def get_evidence_graph(
                 "id": c["id"],
                 "type": "claim",
                 "text": c.get("claim_text"),
-                "confidence": c.get("claim_confidence"),
+                "llm_claim_confidence": c.get("llm_claim_confidence"),
                 "claim_type": c.get("claim_type"),
             }
             for c in claims

@@ -439,7 +439,7 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
     edge = await db.fetch_one(
         """
         SELECT e.id, e.source_type, e.source_id, e.target_type, e.target_id,
-               e.relation, e.nli_label, e.nli_confidence,
+               e.relation, e.nli_label, e.nli_edge_confidence,
                COALESCE(f.text_content, '') as premise,
                COALESCE(c.claim_text, '') as hypothesis
         FROM edges e
@@ -459,7 +459,7 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
 
     now = datetime.now(UTC).isoformat()
     previous_relation = edge.get("nli_label") or edge.get("relation") or "unknown"
-    predicted_confidence = edge.get("nli_confidence") or 0.0
+    predicted_confidence = edge.get("nli_edge_confidence") or 0.0
     is_correction = previous_relation != correct_relation
 
     # Get task_id from claim if available
@@ -504,7 +504,7 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
             UPDATE edges
             SET relation = ?,
                 nli_label = ?,
-                nli_confidence = 1.0,
+                nli_edge_confidence = 1.0,
                 edge_human_corrected = 1,
                 edge_correction_reason = ?,
                 edge_corrected_at = ?
