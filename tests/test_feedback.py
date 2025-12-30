@@ -366,7 +366,7 @@ class TestClaimReject:
         # Create test claim
         await db.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence, claim_adoption_status)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence, claim_adoption_status)
             VALUES (?, ?, 'Test claim text', 0.8, 'adopted')
             """,
             (claim_id, task_id),
@@ -451,7 +451,7 @@ class TestClaimReject:
         # Create already rejected claim
         await db.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence, claim_adoption_status)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence, claim_adoption_status)
             VALUES (?, ?, 'Already rejected', 0.5, 'not_adopted')
             """,
             (claim_id, task_id),
@@ -498,7 +498,7 @@ class TestClaimRestore:
         # Create rejected claim
         await db.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence, claim_adoption_status,
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence, claim_adoption_status,
                                claim_rejection_reason, claim_rejected_at)
             VALUES (?, ?, 'Rejected claim', 0.5, 'not_adopted', 'Some reason', datetime('now'))
             """,
@@ -546,7 +546,7 @@ class TestClaimRestore:
         # Create adopted claim
         await db.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence, claim_adoption_status)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence, claim_adoption_status)
             VALUES (?, ?, 'Adopted claim', 0.8, 'adopted')
             """,
             (claim_id, task_id),
@@ -610,7 +610,7 @@ class TestEdgeCorrect:
         # Create claim
         await db.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence)
             VALUES (?, 'test-task', 'Test claim', 0.8)
             """,
             (claim_id,),
@@ -632,7 +632,7 @@ class TestEdgeCorrect:
         await db.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, nli_label, nli_confidence)
+                             relation, nli_label, nli_edge_confidence)
             VALUES (?, 'fragment', ?, 'claim', ?, 'supports', 'supports', 0.7)
             """,
             (edge_id, frag_id, claim_id),
@@ -661,7 +661,7 @@ class TestEdgeCorrect:
         )
         assert edge["relation"] == "refutes"
         assert edge["nli_label"] == "refutes"
-        assert edge["nli_confidence"] == 1.0
+        assert edge["nli_edge_confidence"] == 1.0
         assert edge["edge_human_corrected"] == 1
 
         # Verify nli_corrections entry
@@ -691,7 +691,7 @@ class TestEdgeCorrect:
         )
         await db.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence)
             VALUES (?, 'test-task', 'Test claim', 0.8)
             """,
             (claim_id,),
@@ -699,7 +699,7 @@ class TestEdgeCorrect:
         await db.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, nli_label, nli_confidence)
+                             relation, nli_label, nli_edge_confidence)
             VALUES (?, 'fragment', 'frag-1', 'claim', ?, 'supports', 'supports', 0.9)
             """,
             (edge_id, claim_id),
@@ -790,7 +790,7 @@ class TestEdgeCorrect:
         )
         await db.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence)
             VALUES (?, 'test-task', 'Test claim', 0.8)
             """,
             (claim_id,),
@@ -798,7 +798,7 @@ class TestEdgeCorrect:
         await db.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, nli_label, nli_confidence)
+                             relation, nli_label, nli_edge_confidence)
             VALUES (?, 'fragment', 'frag-1', 'claim', ?, 'neutral', 'neutral', 0.5)
             """,
             (edge_id, claim_id),

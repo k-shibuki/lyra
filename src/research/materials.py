@@ -113,7 +113,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
     try:
         rows = await db.fetch_all(
             """
-            SELECT c.id, c.claim_text, c.claim_confidence, c.verification_notes,
+            SELECT c.id, c.claim_text, c.llm_claim_confidence, c.verification_notes,
                    c.source_fragment_ids,
                    c.claim_adoption_status, c.claim_rejection_reason,
                    COUNT(DISTINCT e.id) as evidence_count,
@@ -122,7 +122,7 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
             LEFT JOIN edges e ON e.target_id = c.id AND e.target_type = 'claim'
             WHERE c.task_id = ?
             GROUP BY c.id
-            ORDER BY c.claim_confidence DESC
+            ORDER BY c.llm_claim_confidence DESC
             """,
             (task_id,),
         )
@@ -214,15 +214,18 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
                 {
                     "id": row["id"],
                     "text": row.get("claim_text", ""),
-                    "confidence": confidence_info.get(
-                        "confidence", row.get("claim_confidence", 0.5)
+                    # Bayesian posterior (primary confidence for AI decision-making)
+                    "bayesian_claim_confidence": confidence_info.get(
+                        "bayesian_claim_confidence", row.get("llm_claim_confidence", 0.5)
                     ),
+                    # LLM's self-reported extraction quality (not truth confidence)
+                    "llm_claim_confidence": row.get("llm_claim_confidence", 0.5),
                     "uncertainty": confidence_info.get("uncertainty", 0.0),
                     "controversy": confidence_info.get("controversy", 0.0),
                     "evidence_count": row.get("evidence_count", 0),
                     "has_refutation": bool(row.get("has_refutation", 0)),
                     "sources": parsed_sources,
-                    # Evidence details with time metadata
+                    # Evidence details with time metadata (nli_edge_confidence in each item)
                     "evidence": confidence_info.get("evidence", []),
                     "evidence_years": confidence_info.get("evidence_years", {}),
                     # Adoption status for high-reasoning AI to filter
@@ -348,7 +351,8 @@ async def _build_evidence_graph(db: Any, task_id: str) -> dict[str, Any]:
             # Get edges linked to this task's claims
             edge_rows = await db.fetch_all(
                 """
-                SELECT e.id, e.source_type, e.source_id, e.target_type, e.target_id, e.relation, e.confidence
+                SELECT e.id, e.source_type, e.source_id, e.target_type, e.target_id,
+                       e.relation, e.nli_edge_confidence
                 FROM edges e
                 WHERE e.target_id IN (SELECT id FROM claims WHERE task_id = ?)
                    OR e.source_id IN (SELECT id FROM claims WHERE task_id = ?)
@@ -362,7 +366,7 @@ async def _build_evidence_graph(db: Any, task_id: str) -> dict[str, Any]:
                         "source": row["source_id"],
                         "target": row["target_id"],
                         "relation": row.get("relation", "supports"),
-                        "confidence": row.get("confidence", 0.5),
+                        "nli_edge_confidence": row.get("nli_edge_confidence", 0.5),
                     }
                 )
 

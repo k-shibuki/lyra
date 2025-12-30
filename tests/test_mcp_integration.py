@@ -219,7 +219,7 @@ class TestGetMaterialsIntegration:
             claim_ids.append(claim_id)
             await db.execute(
                 """INSERT INTO claims (id, task_id, claim_text, claim_type,
-                   claim_confidence, source_fragment_ids, verification_notes, created_at)
+                   llm_claim_confidence, source_fragment_ids, verification_notes, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
                 (
                     claim_id,
@@ -386,24 +386,24 @@ class TestGetMaterialsIntegration:
             graph = EvidenceGraph(task_id=task_id)
             await graph.load_from_db(task_id=task_id)
 
-            # Add supporting edge with nli_confidence (add_edge is synchronous)
+            # Add supporting edge with nli_edge_confidence (add_edge is synchronous)
             graph.add_edge(
                 source_type=NodeType.FRAGMENT,
                 source_id=data["frag_ids"][0],
                 target_type=NodeType.CLAIM,
                 target_id=claim_ids[0],
                 relation=RelationType.SUPPORTS,
-                nli_confidence=0.9,
+                nli_edge_confidence=0.9,
             )
 
-            # Add refuting edge with nli_confidence
+            # Add refuting edge with nli_edge_confidence
             graph.add_edge(
                 source_type=NodeType.FRAGMENT,
                 source_id=data["frag_ids"][1],
                 target_type=NodeType.CLAIM,
                 target_id=claim_ids[0],
                 relation=RelationType.REFUTES,
-                nli_confidence=0.8,
+                nli_edge_confidence=0.8,
             )
 
             # Save edges to DB
@@ -610,7 +610,7 @@ class TestGetMaterialsIntegration:
         # Create claim with not_adopted status and rejection reason
         await db.execute(
             """INSERT INTO claims (id, task_id, claim_text, claim_type,
-               claim_confidence, claim_adoption_status, claim_rejection_reason, created_at)
+               llm_claim_confidence, claim_adoption_status, claim_rejection_reason, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
             (
                 claim_id,
@@ -663,7 +663,7 @@ class TestGetMaterialsIntegration:
         # Create claim with adopted status and no rejection reason (NULL)
         await db.execute(
             """INSERT INTO claims (id, task_id, claim_text, claim_type,
-               claim_confidence, claim_adoption_status, created_at)
+               llm_claim_confidence, claim_adoption_status, created_at)
                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
             (
                 claim_id,
@@ -721,7 +721,7 @@ class TestGetMaterialsIntegration:
             claim_id = f"{claim_suffix}_{uuid.uuid4().hex[:8]}"
             await db.execute(
                 """INSERT INTO claims (id, task_id, claim_text, claim_type,
-                   claim_confidence, claim_adoption_status, claim_rejection_reason, created_at)
+                   llm_claim_confidence, claim_adoption_status, claim_rejection_reason, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
                 (
                     claim_id,
@@ -808,7 +808,7 @@ class TestMCPToolDataConsistency:
         claim_id = f"c_{uuid.uuid4().hex[:8]}"
         await db.execute(
             """INSERT INTO claims (id, task_id, claim_text, claim_type,
-               claim_confidence, source_fragment_ids, verification_notes, created_at)
+               llm_claim_confidence, source_fragment_ids, verification_notes, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
             (
                 claim_id,

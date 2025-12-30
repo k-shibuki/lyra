@@ -605,23 +605,23 @@ class ABTestExecutor:
             # Update with exponential moving average
             new_count = existing["sample_count"] + 1
             new_improvement = existing["improvement_ratio"] * 0.7 + improvement * 0.3
-            confidence = min(0.95, 0.5 + 0.1 * new_count)
+            query_yield_conf = min(0.95, 0.5 + 0.1 * new_count)
 
             await db.execute(
                 """
                 UPDATE high_yield_queries
-                SET sample_count = ?, improvement_ratio = ?, confidence = ?,
+                SET sample_count = ?, improvement_ratio = ?, query_yield_confidence = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
-                (new_count, new_improvement, confidence, pattern_id),
+                (new_count, new_improvement, query_yield_conf, pattern_id),
             )
         else:
             await db.execute(
                 """
                 INSERT INTO high_yield_queries
                 (id, pattern_type, original_pattern, improved_pattern,
-                 improvement_ratio, sample_count, confidence)
+                 improvement_ratio, sample_count, query_yield_confidence)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
@@ -675,9 +675,9 @@ class HighYieldQueryCache:
         patterns = await db.fetch_all(
             """
             SELECT pattern_type, original_pattern, improved_pattern,
-                   improvement_ratio, confidence
+                   improvement_ratio, query_yield_confidence
             FROM high_yield_queries
-            WHERE confidence >= ?
+            WHERE query_yield_confidence >= ?
             ORDER BY improvement_ratio DESC
             LIMIT 10
             """,
@@ -697,7 +697,7 @@ class HighYieldQueryCache:
                         original=query[:50],
                         improved=applied[:50],
                         pattern_type=pattern["pattern_type"],
-                        confidence=pattern["confidence"],
+                        query_yield_confidence=pattern["query_yield_confidence"],
                     )
                     return applied
 
@@ -735,7 +735,7 @@ class HighYieldQueryCache:
             SELECT
                 COUNT(*) as total_patterns,
                 AVG(improvement_ratio) as avg_improvement,
-                AVG(confidence) as avg_confidence,
+                AVG(query_yield_confidence) as avg_query_yield_confidence,
                 SUM(sample_count) as total_samples
             FROM high_yield_queries
             """
@@ -744,7 +744,7 @@ class HighYieldQueryCache:
         return {
             "total_patterns": stats["total_patterns"] if stats else 0,
             "avg_improvement": stats["avg_improvement"] if stats else 0,
-            "avg_confidence": stats["avg_confidence"] if stats else 0,
+            "avg_query_yield_confidence": stats["avg_query_yield_confidence"] if stats else 0,
             "total_samples": stats["total_samples"] if stats else 0,
         }
 

@@ -1143,7 +1143,7 @@ class TestRefutationExecutor:
 
         refutation = {
             "source_url": "https://example.com/refutation",
-            "nli_confidence": 0.85,
+            "nli_edge_confidence": 0.85,
         }
 
         # When: Recording refutation edge
@@ -1190,7 +1190,7 @@ class TestRefutationExecutor:
 
         refutation = {
             "source_url": "https://example.com/refutation",
-            "nli_confidence": 0.85,
+            "nli_edge_confidence": 0.85,
         }
 
         # When: Recording refutation edge
