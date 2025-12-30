@@ -1355,6 +1355,44 @@ async def save_evaluation_result(
 | **P3** | 評価永続化（Step 3） | P0完了後 | 校正履歴の追跡 |
 | **P4** | ファイル名変更（§10.2） | 全て完了後 | 可読性向上のみ |
 
+#### D.7.5.1 P0 精密影響範囲（2024-12-30 調査確定）
+
+**修正対象ファイル:** `src/filter/nli.py`（2箇所のみ）
+
+| 行番号 | メソッド | 現在のコード | 修正後 |
+|--------|----------|--------------|--------|
+| 88 | `NLIModel.predict()` | `confidence = result["score"]` | 校正適用 |
+| 128 | `NLIModel.predict_batch()` | `"confidence": result["score"]` | 校正適用 |
+
+**データフロー（コード追跡で確認）:**
+```
+src/filter/nli.py:88
+  └── NLIModel.predict() が生スコアを返却
+       ↓
+src/filter/nli.py:222-224
+  └── _nli_judge_local() が confidence をそのまま結果に含める
+       ↓
+src/research/executor.py:977
+  └── nli_conf = float(nli_results[0].get("confidence", 0.0))
+       ↓
+src/research/executor.py:994
+  └── add_claim_evidence(nli_confidence=nli_conf, ...)
+       ↓
+src/storage/schema.sql:166
+  └── edges.nli_confidence に永続化
+       ↓
+src/filter/evidence_graph.py:406
+  └── calculate_claim_confidence() で Bayesian更新に使用
+```
+
+**リモートモード補足:**
+`settings.ml.use_remote=True` の場合、`src/ml_server/main.py` でも同様の校正が必要。
+
+**Phase 1 実行可否: ✅ 可能**
+- 影響範囲が明確に限定されている
+- 既存テスト（`tests/test_executor_nli_edges.py`, `tests/test_evidence_graph.py`）でカバー済み
+- 校正モジュール（`src/utils/calibration.py`）は動作確認済み
+
 #### D.7.6 E2Eデバッグへの影響
 
 **現状（校正未適用）での注意点**:
