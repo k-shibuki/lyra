@@ -1583,3 +1583,241 @@ CREATE TABLE high_yield_queries (
 | **P1** | MCP スキーマ整合性 | P0 完了後 |
 
 **Phase 1 完了後に E2E デバッグを開始する。**
+
+### D.9 Confidence データフロー完全図
+
+#### D.9.1 全体フロー
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CONFIDENCE DATA FLOW                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ STAGE 1: GENERATION (入口)                                           │   │
+│  ├──────────────────────────────────────────────────────────────────────┤   │
+│  │                                                                       │   │
+│  │  [LLM Extraction]                    [NLI Model]                     │   │
+│  │       │                                   │                          │   │
+│  │       ▼                                   ▼                          │   │
+│  │  ┌─────────────────┐              ┌─────────────────┐                │   │
+│  │  │ confidence:     │              │ confidence:     │                │   │
+│  │  │ 0.0-1.0         │              │ 0.0-1.0         │                │   │
+│  │  │ (自己報告)      │              │ (softmax出力)   │                │   │
+│  │  └────────┬────────┘              └────────┬────────┘                │   │
+│  │           │                                │                          │   │
+│  │           │ llm.py:349                     │ nli.py:88                │   │
+│  │           │ "confidence": 0.0-1.0          │ "confidence": result["score"]│
+│  │           ▼                                ▼                          │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ STAGE 2: STORAGE (永続化)                                            │   │
+│  ├──────────────────────────────────────────────────────────────────────┤   │
+│  │                                                                       │   │
+│  │  executor.py:919                  executor.py:992-994                │   │
+│  │       │                                │                              │   │
+│  │       ▼                                ▼                              │   │
+│  │  ┌─────────────────┐         ┌──────────────────────┐                │   │
+│  │  │ claims.         │         │ edges.               │                │   │
+│  │  │ claim_confidence│         │ confidence  ←─┐      │                │   │
+│  │  │ (REAL)          │         │ nli_confidence ←─同値│                │   │
+│  │  └────────┬────────┘         └────────┬─────────────┘                │   │
+│  │           │                           │                               │   │
+│  │           │ 意味: LLM自己報告         │ 意味: NLI判定信頼度          │   │
+│  │           │ 用途: 並び替え/fallback   │ 用途: Bayesian更新入力       │   │
+│  │           ▼                           ▼                               │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ STAGE 3: AGGREGATION (集約計算)                                      │   │
+│  ├──────────────────────────────────────────────────────────────────────┤   │
+│  │                                                                       │   │
+│  │  evidence_graph.py:calculate_claim_confidence()                      │   │
+│  │                                                                       │   │
+│  │  ┌─────────────────────────────────────────────────────┐             │   │
+│  │  │ 入力: edges where target_id = claim_id              │             │   │
+│  │  │                                                      │             │   │
+│  │  │   for edge in edges:                                │             │   │
+│  │  │     nli_conf = edge.nli_confidence  ←─使用          │             │   │
+│  │  │     if relation == "supports":                      │             │   │
+│  │  │       alpha += nli_conf                             │             │   │
+│  │  │     elif relation == "refutes":                     │             │   │
+│  │  │       beta += nli_conf                              │             │   │
+│  │  │                                                      │             │   │
+│  │  │   confidence = alpha / (alpha + beta)  # Beta期待値 │             │   │
+│  │  └─────────────────────────────────────────────────────┘             │   │
+│  │                         │                                             │   │
+│  │                         ▼                                             │   │
+│  │              ┌─────────────────────┐                                  │   │
+│  │              │ 戻り値:             │                                  │   │
+│  │              │ {                   │                                  │   │
+│  │              │   "confidence": X,  │ ← Bayesian計算結果              │   │
+│  │              │   "uncertainty": Y, │                                  │   │
+│  │              │   "controversy": Z  │                                  │   │
+│  │              │ }                   │                                  │   │
+│  │              └──────────┬──────────┘                                  │   │
+│  │                         │                                             │   │
+│  └─────────────────────────┼────────────────────────────────────────────┘   │
+│                            │                                                 │
+│  ┌─────────────────────────┼────────────────────────────────────────────┐   │
+│  │ STAGE 4: OUTPUT (出口)  │                                            │   │
+│  ├─────────────────────────┼────────────────────────────────────────────┤   │
+│  │                         ▼                                             │   │
+│  │  ┌───────────────────────────────────────────────────────────────┐   │   │
+│  │  │ materials.py:217-219 (get_materials API)                      │   │   │
+│  │  │                                                                │   │   │
+│  │  │   "confidence": confidence_info.get(                          │   │   │
+│  │  │       "confidence",                    ← Bayesian (優先)      │   │   │
+│  │  │       row.get("claim_confidence", 0.5) ← LLM (fallback) ⚠️   │   │   │
+│  │  │   )                                                            │   │   │
+│  │  │                                                                │   │   │
+│  │  │   ※ 消費者はどちらを受け取ったか判別不能！                    │   │   │
+│  │  └───────────────────────────────────────────────────────────────┘   │   │
+│  │                                                                       │   │
+│  │  ┌───────────────────────────────────────────────────────────────┐   │   │
+│  │  │ chain_of_density.py:409                                       │   │   │
+│  │  │                                                                │   │   │
+│  │  │   confidence=claim.get("claim_confidence",  ← LLM (優先)      │   │   │
+│  │  │              claim.get("confidence", 0.5))  ← ?? (fallback)⚠️│   │   │
+│  │  │                                                                │   │   │
+│  │  │   ※ 逆順フォールバック！さらに混乱                           │   │   │
+│  │  └───────────────────────────────────────────────────────────────┘   │   │
+│  │                                                                       │   │
+│  │  ┌───────────────────────────────────────────────────────────────┐   │   │
+│  │  │ generator.py:1017, 1044                                       │   │   │
+│  │  │                                                                │   │   │
+│  │  │   claims:  "confidence": c.get("claim_confidence") ← LLM     │   │   │
+│  │  │   edges:   "confidence": e.get("confidence")       ← NLI     │   │   │
+│  │  │                                                                │   │   │
+│  │  │   ※ 同じキー名で異なる意味の値を出力！                        │   │   │
+│  │  └───────────────────────────────────────────────────────────────┘   │   │
+│  │                                                                       │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### D.9.2 問題点サマリ
+
+| Stage | 問題 | 影響 |
+|-------|------|------|
+| **Generation** | 同じ `confidence` キーで異なる意味（LLM自己報告 vs NLI出力） | 下流で混同 |
+| **Storage** | `edges.confidence` と `edges.nli_confidence` が重複 | 冗長 + 混乱 |
+| **Storage** | `claims.claim_confidence` の名前が意味と乖離（LLMの自己報告なのに「claim の confidence」） | 誤解 |
+| **Aggregation** | 問題なし（`nli_confidence` のみ使用） | - |
+| **Output** | フォールバックで Bayesian と LLM が混在 | 消費者が判別不能 |
+| **Output** | 同じ `confidence` キーで claims と edges に異なる意味 | API整合性なし |
+
+#### D.9.3 修正方針（確定版）
+
+##### A. Generation（生成時）
+
+| 現在 | 変更後 | 理由 |
+|-----|-------|-----|
+| LLM: `"confidence": X` | `"llm_extraction_confidence": X` | 出自を明示 |
+| NLI: `"confidence": X` | `"nli_raw_confidence": X, "nli_edge_confidence": calibrated` | 生スコアと校正済みを分離 |
+
+##### B. Storage（永続化）
+
+| テーブル.カラム | 現在 | 変更後 | 備考 |
+|---------------|-----|-------|------|
+| `claims.claim_confidence` | LLM自己報告 | `llm_extraction_confidence` | 意味を正確に |
+| `edges.confidence` | NLI (legacy) | **削除** | 冗長 |
+| `edges.nli_confidence` | NLI | `nli_edge_confidence` | 意味を正確に |
+
+##### C. Aggregation（集約計算）
+
+| 現在 | 変更後 |
+|-----|-------|
+| 戻り値: `"confidence"` | `"bayesian_claim_confidence"` |
+
+##### D. Output（API出力）
+
+**get_materials claims[]:**
+```json
+{
+  "llm_extraction_confidence": 0.7,     // 常にDB値（null不可）
+  "bayesian_claim_confidence": 0.85,    // 計算値（null可 = 証拠なし）
+  "uncertainty": 0.1,
+  "controversy": 0.05
+}
+```
+- **フォールバック廃止**: 両方を常に返す
+- 消費者が用途に応じて選択可能
+
+**get_materials evidence[]:**
+```json
+{
+  "nli_edge_confidence": 0.9   // NLI信頼度（校正済み）
+}
+```
+
+**generator.py グラフ出力:**
+```json
+{
+  "claims": [{"llm_extraction_confidence": 0.7, ...}],
+  "edges": [{"nli_edge_confidence": 0.9, ...}]
+}
+```
+- 異なるキー名で明確に区別
+
+#### D.9.4 Entity KB の confidence（別ドメイン）
+
+Entity KB の confidence はエビデンスシステムとは独立した概念。
+
+| クラス | 現在 | 変更後 | 理由 |
+|-------|-----|-------|------|
+| `EntityRecord.confidence` | `confidence` | `entity_extraction_confidence` | 統一ルール適用 |
+| `EntityAlias.confidence` | `confidence` | `alias_match_confidence` | 意味を正確に |
+| `EntityIdentifier.confidence` | `confidence` | `identifier_confidence` | 統一ルール適用 |
+
+#### D.9.5 その他ドメインの confidence
+
+| ファイル | 現在 | 変更後 | 備考 |
+|---------|-----|-------|------|
+| `temporal_consistency.py` | `confidence` | `temporal_confidence` | 時間整合性 |
+| `claim_decomposition.py` | `confidence` | `decomposed_claim_confidence` | 分解時継承 |
+| `claim_timeline.py` | `confidence` | `timeline_event_confidence` | イベント信頼度 |
+| `parser_diagnostics.py` | `confidence` | `parser_confidence` | パース信頼度 |
+| `page_classifier.py` | `confidence` | `classification_confidence` | 分類信頼度 |
+| `policy_engine.py` | `confidence` | `metrics_decay_confidence` | メトリクス減衰 |
+
+#### D.9.6 D.8.3 への修正反映
+
+D.8.3 の表を以下に置き換える：
+
+##### A. コア Confidence（エビデンスシステム）
+
+| 現在の名前 | 場所 | 意味 | **統一後の名前** |
+|-----------|------|------|-----------------|
+| `edges.confidence` | schema.sql:164 | NLI信頼度（legacy冗長） | **削除** |
+| `edges.nli_confidence` | schema.sql:166 | NLI モデル出力（校正済み） | `nli_edge_confidence` |
+| `claims.claim_confidence` | schema.sql:140 | LLM抽出時の自己報告 | `llm_extraction_confidence` |
+| `confidence` | nli.py:88 返却値 | NLI生スコア | `nli_raw_confidence` |
+| `confidence` | nli.py 校正後 | NLI校正済み | `nli_edge_confidence` |
+| `confidence` | calculate_claim_confidence() | Bayesian更新結果 | `bayesian_claim_confidence` |
+| `confidence` | get_materials claims[] | **廃止（混在）** | 上記2つを分離出力 |
+| `nli_confidence` | get_materials evidence[] | NLI信頼度 | `nli_edge_confidence` |
+
+##### B. Entity KB Confidence
+
+| 現在の名前 | 場所 | 意味 | **統一後の名前** |
+|-----------|------|------|-----------------|
+| `EntityRecord.confidence` | entity_kb.py | エンティティ抽出信頼度 | `entity_extraction_confidence` |
+| `EntityAlias.confidence` | entity_kb.py | エイリアス一致信頼度 | `alias_match_confidence` |
+| `EntityIdentifier.confidence` | entity_kb.py | 識別子信頼度 | `identifier_confidence` |
+
+##### C. その他 Confidence
+
+| 現在の名前 | 場所 | 意味 | **統一後の名前** |
+|-----------|------|------|-----------------|
+| `high_yield_queries.confidence` | schema.sql:841 | クエリ収穫率信頼度 | `query_yield_confidence` |
+| `feedback_events.predicted_confidence` | schema.sql:732 | 訂正前信頼度 | そのまま（文脈が明確） |
+| `confidence` | policy_engine.py | メトリクス時間減衰 | `metrics_decay_confidence` |
+| `confidence` | page_classifier.py | 分類信頼度 | `classification_confidence` |
+| `confidence` | temporal_consistency.py | 時間整合性信頼度 | `temporal_confidence` |
+| `confidence` | claim_decomposition.py | 分解claim信頼度 | `decomposed_claim_confidence` |
+| `confidence` | claim_timeline.py | タイムラインイベント信頼度 | `timeline_event_confidence` |
+| `confidence` | parser_diagnostics.py | パース信頼度 | `parser_confidence` |
+| `adjusted_confidence` | wayback_fallback.py | 時間減衰後信頼度 | そのまま（文脈が明確） |
