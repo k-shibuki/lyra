@@ -100,7 +100,7 @@ class RefutationExecutor:
         with LogContext(task_id=self.task_id, claim_id=claim_id):
             # Get claim text from database
             claim = await self._db.fetch_one(
-                "SELECT claim_text, claim_confidence FROM claims WHERE id = ?",
+                "SELECT claim_text, llm_claim_confidence FROM claims WHERE id = ?",
                 (claim_id,),
             )
 
@@ -109,7 +109,7 @@ class RefutationExecutor:
                 return result
 
             claim_text = claim.get("claim_text", "")
-            current_confidence = claim.get("claim_confidence", 1.0)
+            current_confidence = claim.get("llm_claim_confidence", 1.0)
 
             logger.info("Executing refutation for claim", claim_text=claim_text[:50])
 
@@ -131,7 +131,7 @@ class RefutationExecutor:
                 new_confidence = max(0, current_confidence + result.confidence_adjustment)
 
                 await self._db.execute(
-                    "UPDATE claims SET claim_confidence = ? WHERE id = ?",
+                    "UPDATE claims SET llm_claim_confidence = ? WHERE id = ?",
                     (new_confidence, claim_id),
                 )
 
@@ -331,15 +331,15 @@ class RefutationExecutor:
 
             if results and len(results) > 0:
                 stance = results[0].get("stance", "neutral")
-                confidence = results[0].get("confidence", 0)
+                nli_edge_conf = results[0].get("nli_edge_confidence", 0)
 
-                if stance == "refutes" and confidence > 0.6:
+                if stance == "refutes" and nli_edge_conf > 0.6:
                     return {
                         "claim_text": claim_text[:100],
                         "refuting_passage": passage[:200],
                         "source_url": source_url,
                         "source_title": source_title,
-                        "nli_confidence": confidence,
+                        "nli_edge_confidence": nli_edge_conf,
                     }
 
         except Exception as e:
@@ -396,16 +396,15 @@ class RefutationExecutor:
         await self._db.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, confidence, nli_label, nli_confidence,
+                             relation, nli_label, nli_edge_confidence,
                              source_domain_category, target_domain_category)
-            VALUES (?, 'fragment', ?, 'claim', ?, 'refutes', ?, 'refutes', ?, ?, ?)
+            VALUES (?, 'fragment', ?, 'claim', ?, 'refutes', 'refutes', ?, ?, ?)
             """,
             (
                 edge_id,
                 refutation.get("source_url", "unknown"),
                 claim_id,
-                refutation.get("nli_confidence", 0),
-                refutation.get("nli_confidence", 0),
+                refutation.get("nli_edge_confidence", 0),
                 source_domain_category,
                 target_domain_category,
             ),

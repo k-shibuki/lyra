@@ -720,7 +720,7 @@ class SearchExecutor:
                             await self._persist_claim(
                                 claim_id=claim_id,
                                 claim_text=claim.get("claim", ""),
-                                confidence=claim.get("confidence", 0.5),
+                                llm_claim_confidence=claim.get("confidence", 0.5),
                                 source_url=url,
                                 source_fragment_id=fragment_id,
                             )
@@ -742,7 +742,7 @@ class SearchExecutor:
                             await self._persist_claim(
                                 claim_id=claim_id,
                                 claim_text=snippet,
-                                confidence=0.3,  # Low confidence for non-LLM extracted
+                                llm_claim_confidence=0.3,  # Low quality for non-LLM extracted
                                 source_url=url,
                                 source_fragment_id=fragment_id,
                             )
@@ -881,7 +881,7 @@ class SearchExecutor:
         self,
         claim_id: str,
         claim_text: str,
-        confidence: float,
+        llm_claim_confidence: float,
         source_url: str,
         source_fragment_id: str,
     ) -> None:
@@ -894,7 +894,7 @@ class SearchExecutor:
         Args:
             claim_id: Unique claim identifier.
             claim_text: The claim text.
-            confidence: Confidence score (0-1).
+            llm_claim_confidence: LLM's self-reported extraction quality (0-1).
             source_url: Source URL.
             source_fragment_id: Associated fragment ID.
         """
@@ -907,7 +907,7 @@ class SearchExecutor:
             await db.execute(
                 """
                 INSERT OR IGNORE INTO claims
-                (id, task_id, claim_text, claim_type, claim_confidence,
+                (id, task_id, claim_text, claim_type, llm_claim_confidence,
                  source_fragment_ids, claim_adoption_status, verification_notes, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
@@ -916,17 +916,17 @@ class SearchExecutor:
                     self.task_id,
                     claim_text[:500],  # Truncate to reasonable length
                     "fact",
-                    confidence,
+                    llm_claim_confidence,
                     json.dumps([source_fragment_id]),  # JSON array
                     "adopted",  # Default changed from 'pending'
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
 
-            # Run NLI for (fragment -> claim) and persist edge with nli_confidence.
+            # Run NLI for (fragment -> claim) and persist edge with nli_edge_confidence.
             #
             # Note: We intentionally do NOT use LLM-extracted confidence as Bayesian input.
-            # The evidence edge should carry NLI confidence (edges.nli_confidence).
+            # The evidence edge should carry NLI confidence (edges.nli_edge_confidence).
             from urllib.parse import urlparse
 
             from src.filter.evidence_graph import add_claim_evidence
@@ -962,7 +962,7 @@ class SearchExecutor:
                 premise = (claim_text or "")[:800]
 
             stance = "neutral"
-            nli_conf = 0.0
+            nli_edge_conf = 0.0
             try:
                 pairs = [
                     {
@@ -974,11 +974,11 @@ class SearchExecutor:
                 nli_results = await nli_judge(pairs=pairs)
                 if nli_results:
                     stance = str(nli_results[0].get("stance", "neutral") or "neutral")
-                    nli_conf = float(nli_results[0].get("confidence", 0.0) or 0.0)
+                    nli_edge_conf = float(nli_results[0].get("nli_edge_confidence", 0.0) or 0.0)
             except Exception:
                 # Keep neutral/0.0 on failure (no fabrication)
                 stance = "neutral"
-                nli_conf = 0.0
+                nli_edge_conf = 0.0
 
             # Sanitize stance
             if stance not in ("supports", "refutes", "neutral"):
@@ -989,9 +989,8 @@ class SearchExecutor:
                 claim_id=claim_id,
                 fragment_id=source_fragment_id,
                 relation=stance,
-                confidence=nli_conf,  # Keep confidence aligned with nli_confidence for legacy consumers
                 nli_label=stance,
-                nli_confidence=nli_conf,
+                nli_edge_confidence=nli_edge_conf,
                 task_id=self.task_id,
                 source_domain_category=source_domain_category,
                 target_domain_category=target_domain_category,

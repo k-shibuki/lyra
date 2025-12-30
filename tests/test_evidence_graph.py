@@ -204,7 +204,7 @@ class TestEvidenceGraph:
             relation=RelationType.SUPPORTS,
             confidence=0.85,
             nli_label="entailment",
-            nli_confidence=0.92,
+            nli_edge_confidence=0.92,
         )
 
         # Then: Edge contains all NLI data
@@ -212,7 +212,7 @@ class TestEvidenceGraph:
         assert edge_data["relation"] == "supports"
         assert edge_data["confidence"] == 0.85
         assert edge_data["nli_label"] == "entailment"
-        assert edge_data["nli_confidence"] == 0.92
+        assert edge_data["nli_edge_confidence"] == 0.92
 
 
 class TestEvidenceRetrieval:
@@ -326,7 +326,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Returns Beta(1,1) prior statistics
-        assert result["confidence"] == 0.5  # Beta(1,1) expectation
+        assert result["bayesian_claim_confidence"] == 0.5  # Beta(1,1) expectation
         assert abs(result["uncertainty"] - 0.288675) < 0.01  # sqrt(1*1/(2^2*3)) ≈ 0.289
         assert result["controversy"] == 0.0
         assert result["supporting_count"] == 0
@@ -346,7 +346,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9,  # : nli_confidence required for Bayesian update
+                nli_edge_confidence=0.9,  # : nli_edge_confidence required for Bayesian update
             )
 
         # When: Calculating confidence for the claim
@@ -354,7 +354,7 @@ class TestClaimConfidence:
 
         # Then: High confidence, low uncertainty (Bayesian)
         assert result["supporting_count"] == 3
-        assert result["confidence"] > 0.75  # α=3.7, β=1 → confidence ≈ 0.79
+        assert result["bayesian_claim_confidence"] > 0.75  # α=3.7, β=1 → confidence ≈ 0.79
         assert result["uncertainty"] < 0.2  # More evidence → lower uncertainty
         assert result["controversy"] == 0.0  # No refuting evidence
         assert result["alpha"] > 3.0
@@ -373,7 +373,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9,  # : nli_confidence required
+                nli_edge_confidence=0.9,  # : nli_edge_confidence required
             )
 
         graph.add_edge(
@@ -383,7 +383,7 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.REFUTES,
             confidence=0.8,
-            nli_confidence=0.8,  # : nli_confidence required
+            nli_edge_confidence=0.8,  # : nli_edge_confidence required
         )
 
         # When: Calculating confidence for the contested claim
@@ -393,7 +393,7 @@ class TestClaimConfidence:
         assert result["supporting_count"] == 2
         assert result["refuting_count"] == 1
         assert result["controversy"] > 0.0  # Both alpha and beta > 1
-        assert result["confidence"] > 0.5  # α=2.8, β=1.8 → confidence ≈ 0.61
+        assert result["bayesian_claim_confidence"] > 0.5  # α=2.8, β=1.8 → confidence ≈ 0.61
 
     def test_calculate_confidence_single_support(self) -> None:
         """Test confidence with single supporting evidence."""
@@ -406,14 +406,14 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Calculating confidence
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Confidence increases but uncertainty is still high
-        assert result["confidence"] > 0.5  # α=1.9, β=1 → confidence ≈ 0.66
+        assert result["bayesian_claim_confidence"] > 0.5  # α=1.9, β=1 → confidence ≈ 0.66
         assert result["uncertainty"] < 0.29  # Lower than prior but still significant
         assert result["controversy"] == 0.0
         assert result["alpha"] == 1.9
@@ -432,7 +432,7 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9,
+                nli_edge_confidence=0.9,
             )
 
         for i in range(5):
@@ -443,14 +443,14 @@ class TestClaimConfidence:
                 target_id="claim-1",
                 relation=RelationType.REFUTES,
                 confidence=0.9,
-                nli_confidence=0.9,
+                nli_edge_confidence=0.9,
             )
 
         # When: Calculating confidence
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Confidence near 0.5, high controversy
-        assert abs(result["confidence"] - 0.5) < 0.1  # α≈5.5, β≈5.5 → confidence ≈ 0.5
+        assert abs(result["bayesian_claim_confidence"] - 0.5) < 0.1  # α≈5.5, β≈5.5 → confidence ≈ 0.5
         assert result["controversy"] > 0.4  # High controversy
         assert (
             result["uncertainty"] < 0.15
@@ -459,7 +459,7 @@ class TestClaimConfidence:
         assert result["refuting_count"] == 5
 
     def test_calculate_confidence_zero_nli_confidence(self) -> None:
-        """Test that edges with nli_confidence=0 do not update alpha/beta."""
+        """Test that edges with nli_edge_confidence=0 do not update alpha/beta."""
         # Given: Edges with zero nli_confidence
         graph = EvidenceGraph()
         graph.add_edge(
@@ -469,14 +469,14 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.0,  # Zero weight
+            nli_edge_confidence=0.0,  # Zero weight
         )
 
         # When: Calculating confidence
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: No update (prior distribution)
-        assert result["confidence"] == 0.5
+        assert result["bayesian_claim_confidence"] == 0.5
         assert result["alpha"] == 1.0
         assert result["beta"] == 1.0
 
@@ -491,21 +491,21 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.NEUTRAL,
             confidence=0.5,
-            nli_confidence=0.8,  # Even high confidence neutral doesn't update
+            nli_edge_confidence=0.8,  # Even high confidence neutral doesn't update
         )
 
         # When: Calculating confidence
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Prior distribution (neutral edges ignored)
-        assert result["confidence"] == 0.5
+        assert result["bayesian_claim_confidence"] == 0.5
         assert result["alpha"] == 1.0
         assert result["beta"] == 1.0
         assert result["neutral_count"] == 1
 
-    def test_calculate_confidence_none_nli_confidence(self) -> None:
-        """Test that edges with None nli_confidence are handled gracefully."""
-        # Given: Edge with None nli_confidence
+    def test_calculate_confidence_none_nli_edge_confidence(self) -> None:
+        """Test that edges with None nli_edge_confidence are handled gracefully."""
+        # Given: Edge with None nli_edge_confidence
         graph = EvidenceGraph()
         graph.add_edge(
             source_type=NodeType.FRAGMENT,
@@ -514,14 +514,14 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=None,  # Missing nli_confidence
+            nli_edge_confidence=None,  # Missing nli_edge_confidence
         )
 
         # When: Calculating confidence
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: No update (None is treated as 0)
-        assert result["confidence"] == 0.5
+        assert result["bayesian_claim_confidence"] == 0.5
         assert result["alpha"] == 1.0
         assert result["beta"] == 1.0
 
@@ -534,7 +534,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("unknown-claim")
 
         # Then: Returns prior distribution
-        assert result["confidence"] == 0.5
+        assert result["bayesian_claim_confidence"] == 0.5
         assert result["uncertainty"] > 0.0
         assert result["controversy"] == 0.0
         assert result["supporting_count"] == 0
@@ -558,7 +558,7 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Calculating confidence
@@ -570,7 +570,7 @@ class TestClaimConfidence:
         assert result["evidence"][0]["relation"] == "supports"
         assert result["evidence"][0]["year"] == 2023
         assert result["evidence"][0]["doi"] == "10.1234/test"
-        assert result["evidence"][0]["nli_confidence"] == 0.9
+        assert result["evidence"][0]["nli_edge_confidence"] == 0.9
 
     def test_calculate_confidence_returns_evidence_years_summary(self) -> None:
         """b: Test that evidence_years summary is returned."""
@@ -591,7 +591,7 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.8,
-            nli_confidence=0.8,
+            nli_edge_confidence=0.8,
         )
 
         graph.add_edge(
@@ -601,7 +601,7 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.REFUTES,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Calculating confidence
@@ -624,7 +624,7 @@ class TestClaimConfidence:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Calculating confidence
@@ -672,7 +672,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
         graph.add_edge(
             source_type=NodeType.FRAGMENT,
@@ -681,7 +681,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.85,
-            nli_confidence=0.85,
+            nli_edge_confidence=0.85,
         )
 
         # When: Calculating confidence
@@ -709,7 +709,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
         graph.add_edge(
             source_type=NodeType.FRAGMENT,
@@ -718,7 +718,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.85,
-            nli_confidence=0.85,
+            nli_edge_confidence=0.85,
         )
 
         # When: Calculating confidence
@@ -756,7 +756,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Calculating confidence
@@ -781,7 +781,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Calculating confidence
@@ -815,7 +815,7 @@ class TestIndependentSourcesFromFragments:
                 target_id="claim-1",
                 relation=RelationType.SUPPORTS,
                 confidence=0.9,
-                nli_confidence=0.9,
+                nli_edge_confidence=0.9,
             )
 
         # When: Calculating confidence
@@ -847,7 +847,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
         graph.add_edge(
             source_type=NodeType.FRAGMENT,
@@ -856,7 +856,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.85,
-            nli_confidence=0.85,
+            nli_edge_confidence=0.85,
         )
 
         # When: Calculating confidence
@@ -882,7 +882,7 @@ class TestIndependentSourcesFromFragments:
             target_id="claim-1",
             relation=RelationType.SUPPORTS,
             confidence=0.9,
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Calculating confidence
@@ -959,7 +959,7 @@ class TestContradictionDetection:
             target_type=NodeType.CLAIM,
             target_id="claim-2",
             relation=RelationType.REFUTES,
-            confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Finding contradictions
@@ -969,7 +969,7 @@ class TestContradictionDetection:
         assert len(contradictions) == 1
         assert contradictions[0]["claim_id"] == "claim-2"
         assert contradictions[0]["refuting_count"] == 1
-        assert contradictions[0]["max_confidence"] == pytest.approx(0.9)
+        assert contradictions[0]["max_nli_edge_confidence"] == pytest.approx(0.9)
 
     def test_find_contradictions_none(self) -> None:
         """Test finding no contradictions."""
@@ -1540,9 +1540,8 @@ class TestDatabaseIntegration:
                     claim_id="claim-1",
                     fragment_id="frag-1",
                     relation="supports",
-                    confidence=0.85,
                     nli_label="entailment",
-                    nli_confidence=0.9,
+                    nli_edge_confidence=0.9,
                     task_id="test",
                 )
 
@@ -1551,7 +1550,7 @@ class TestDatabaseIntegration:
 
         edges = await test_database.fetch_all("SELECT * FROM edges")
         assert len(edges) == 1
-        assert edges[0]["confidence"] == 0.85
+        assert edges[0]["nli_edge_confidence"] == 0.9
 
 
 class TestAcademicCitationAttributes:
@@ -1854,7 +1853,7 @@ class TestPhaseP2DomainCategoryOnEdges:
             relation=RelationType.REFUTES,
             confidence=0.85,
             nli_label="contradiction",
-            nli_confidence=0.9,
+            nli_edge_confidence=0.9,
             source_domain_category="academic",
             target_domain_category="unverified",
         )
@@ -1975,7 +1974,7 @@ class TestPhaseP2DomainCategoryOnEdges:
             relation=RelationType.SUPPORTS,
             confidence=0.92,
             nli_label="entailment",
-            nli_confidence=0.95,
+            nli_edge_confidence=0.95,
             source_domain_category="government",
             target_domain_category="primary",
         )
@@ -2042,7 +2041,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         # Then create a claim referencing the task
         await test_database.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence)
             VALUES ('claim-1', 'test-task', 'Test claim', 0.9)
             """
         )
@@ -2051,7 +2050,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         await test_database.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, confidence, source_domain_category, target_domain_category)
+                             relation, nli_edge_confidence, source_domain_category, target_domain_category)
             VALUES ('edge-1', 'fragment', 'frag-1', 'claim', 'claim-1',
                    'supports', 0.9, 'government', 'trusted')
             """

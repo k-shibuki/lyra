@@ -115,7 +115,7 @@ def sample_claims() -> list[dict[str, object]]:
         {
             "id": "claim_001",
             "claim_text": "日本の経済成長率は2024年に2.5%を記録した",
-            "claim_confidence": 0.85,
+            "llm_claim_confidence": 0.85,
             "claim_type": "fact",
             "source_url": "https://example.gov.jp/report/2024",
             "supporting_fragment_ids": ["frag_001", "frag_002"],
@@ -124,7 +124,7 @@ def sample_claims() -> list[dict[str, object]]:
         {
             "id": "claim_002",
             "claim_text": "輸出の増加が成長の主要因である",
-            "claim_confidence": 0.72,
+            "llm_claim_confidence": 0.72,
             "claim_type": "fact",
             "source_url": "https://example.gov.jp/report/2024",
             "supporting_fragment_ids": ["frag_001"],
@@ -299,7 +299,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_001",
             text="Test claim text",
-            confidence=0.85,
+            llm_claim_confidence=0.85,
             citations=[citation],
         )
 
@@ -319,7 +319,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_no_cit",
             text="Claim without citations",
-            confidence=0.5,
+            llm_claim_confidence=0.5,
             citations=[],
         )
 
@@ -344,7 +344,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_incomplete",
             text="Claim with incomplete citation",
-            confidence=0.5,
+            llm_claim_confidence=0.5,
             citations=[incomplete_citation],
         )
 
@@ -364,7 +364,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_001",
             text="Test claim",
-            confidence=0.85,
+            llm_claim_confidence=0.85,
             citations=[citation],
             claim_type="fact",
             is_verified=True,
@@ -377,7 +377,7 @@ class TestDenseClaim:
         # Then: All fields present with correct values
         assert data["claim_id"] == "claim_001"
         assert data["text"] == "Test claim"
-        assert data["confidence"] == 0.85
+        assert data["llm_claim_confidence"] == 0.85
         assert data["claim_type"] == "fact"
         assert data["is_verified"] is True
         assert data["refutation_status"] == "not_found"
@@ -426,7 +426,7 @@ class TestChainOfDensityCompressor:
         assert len(dense_claims) == 2
         claim_001 = next(c for c in dense_claims if c.claim_id == "claim_001")
         assert len(claim_001.citations) >= 1
-        assert claim_001.confidence == 0.85
+        assert claim_001.llm_claim_confidence == 0.85
         assert claim_001.text == "日本の経済成長率は2024年に2.5%を記録した"
 
     def test_validate_claims(
@@ -619,7 +619,7 @@ class TestChainOfDensityIntegration:
             {
                 "id": "claim_test",
                 "claim_text": "Test claim",
-                "claim_confidence": 0.8,
+                "llm_claim_confidence": 0.8,
                 "source_url": "https://example.com/source",
             }
         ]
@@ -659,7 +659,7 @@ class TestChainOfDensityIntegration:
             {
                 "id": "orphan_claim",
                 "claim_text": "Orphan claim with no source",
-                "claim_confidence": 0.5,
+                "llm_claim_confidence": 0.5,
             }
         ]
         fragments: list[dict[str, object]] = []  # No fragments
@@ -695,7 +695,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "single_claim",
                 "claim_text": "Single test claim",
-                "claim_confidence": 0.9,
+                "llm_claim_confidence": 0.9,
                 "source_url": "https://example.com",
             }
         ]
@@ -730,7 +730,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "unmatched_claim",
                 "claim_text": "This claim has no matching fragment",
-                "claim_confidence": 0.7,
+                "llm_claim_confidence": 0.7,
             }
         ]
         fragments = [
@@ -763,7 +763,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "unicode_claim",
                 "claim_text": "日本語、中文、한국어、emoji 🎉 test",
-                "claim_confidence": 0.8,
+                "llm_claim_confidence": 0.8,
                 "source_url": "https://example.com/unicode",
             }
         ]
@@ -801,7 +801,7 @@ class TestChainOfDensityEdgeCases:
             {
                 "id": "long_claim",
                 "claim_text": "Claim about long content",
-                "claim_confidence": 0.6,
+                "llm_claim_confidence": 0.6,
                 "source_url": "https://example.com/long",
             }
         ]
@@ -845,7 +845,7 @@ class TestDenseSummary:
         claim = DenseClaim(
             claim_id="test",
             text="Test",
-            confidence=0.8,
+            llm_claim_confidence=0.8,
             citations=[citation],
         )
         summary = DenseSummary(

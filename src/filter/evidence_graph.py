@@ -110,9 +110,8 @@ class EvidenceGraph:
         target_type: NodeType,
         target_id: str,
         relation: RelationType,
-        confidence: float | None = None,
         nli_label: str | None = None,
-        nli_confidence: float | None = None,
+        nli_edge_confidence: float | None = None,
         source_domain_category: str | None = None,
         target_domain_category: str | None = None,
         edge_id: str | None = None,
@@ -126,9 +125,8 @@ class EvidenceGraph:
             target_type: Type of target node.
             target_id: Target object ID.
             relation: Relationship type.
-            confidence: Overall confidence score.
-            nli_label: NLI model label.
-            nli_confidence: NLI model confidence.
+            nli_label: NLI model label (supports/refutes/neutral).
+            nli_edge_confidence: NLI model confidence (calibrated); used in Bayesian update.
             source_domain_category: Domain category of source (for ranking adjustment).
                 Values: primary/government/academic/trusted/low/unverified/blocked
             target_domain_category: Domain category of target (for ranking adjustment).
@@ -155,9 +153,8 @@ class EvidenceGraph:
             target_node,
             edge_id=edge_id,
             relation=relation.value,
-            confidence=confidence,
             nli_label=nli_label,
-            nli_confidence=nli_confidence,
+            nli_edge_confidence=nli_edge_confidence,
             source_domain_category=source_domain_category,
             target_domain_category=target_domain_category,
             **attributes,
@@ -197,8 +194,7 @@ class EvidenceGraph:
                         "node_type": node_type.value,
                         "obj_id": obj_id,
                         "relation": edge_data.get("relation"),
-                        "confidence": edge_data.get("confidence"),
-                        "nli_confidence": edge_data.get("nli_confidence"),
+                        "nli_edge_confidence": edge_data.get("nli_edge_confidence"),
                         **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
                     }
                 )
@@ -236,8 +232,7 @@ class EvidenceGraph:
                         "node_type": node_type.value,
                         "obj_id": obj_id,
                         "relation": edge_data.get("relation"),
-                        "confidence": edge_data.get("confidence"),
-                        "nli_confidence": edge_data.get("nli_confidence"),
+                        "nli_edge_confidence": edge_data.get("nli_edge_confidence"),
                         **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
                     }
                 )
@@ -279,8 +274,7 @@ class EvidenceGraph:
                 "node_type": node_type.value,
                 "obj_id": obj_id,
                 "relation": relation,
-                "confidence": edge_data.get("confidence"),
-                "nli_confidence": edge_data.get("nli_confidence"),
+                "nli_edge_confidence": edge_data.get("nli_edge_confidence"),
                 **{k: v for k, v in node_data.items() if k not in ("node_type", "obj_id")},
             }
 
@@ -362,8 +356,8 @@ class EvidenceGraph:
 
         Returns:
             Confidence assessment dict with:
-            - confidence, uncertainty, controversy (Bayesian)
-            - evidence: list of evidence items with time metadata
+            - bayesian_claim_confidence, uncertainty, controversy (Bayesian)
+            - evidence: list of evidence items with time metadata (nli_edge_confidence)
             - evidence_years: summary of years (oldest, newest)
         """
         import math
@@ -403,7 +397,7 @@ class EvidenceGraph:
 
         for relation, items in evidence.items():
             for e in items:
-                nli_conf = e.get("nli_confidence")
+                nli_conf = e.get("nli_edge_confidence")
 
                 # Update alpha/beta for supports/refutes
                 if relation == "supports" and nli_conf is not None and nli_conf > 0:
@@ -428,7 +422,7 @@ class EvidenceGraph:
                         "source_id": e.get("obj_id"),
                         "source_type": e.get("node_type"),
                         "year": year,
-                        "nli_confidence": round(nli_conf, 3) if nli_conf is not None else None,
+                        "nli_edge_confidence": round(nli_conf, 3) if nli_conf is not None else None,
                         "source_domain_category": e.get("source_domain_category"),
                         "doi": e.get("doi"),
                         "venue": e.get("venue"),
@@ -463,7 +457,7 @@ class EvidenceGraph:
         }
 
         return {
-            "confidence": round(confidence, 3),
+            "bayesian_claim_confidence": round(confidence, 3),
             "uncertainty": round(uncertainty, 3),
             "controversy": round(controversy, 3),
             "supporting_count": supporting_count,
@@ -508,12 +502,12 @@ class EvidenceGraph:
             if not refuting_edges:
                 continue
 
-            max_confidence = max((e.get("confidence") or 0.0) for e in refuting_edges)
+            max_nli_confidence = max((e.get("nli_edge_confidence") or 0.0) for e in refuting_edges)
             results.append(
                 {
                     "claim_id": claim_id,
                     "refuting_count": len(refuting_edges),
-                    "max_confidence": max_confidence,
+                    "max_nli_edge_confidence": max_nli_confidence,
                 }
             )
 
@@ -982,9 +976,8 @@ class EvidenceGraph:
                         "target_type": target_type.value,
                         "target_id": target_id,
                         "relation": data.get("relation"),
-                        "confidence": data.get("confidence"),
                         "nli_label": data.get("nli_label"),
-                        "nli_confidence": data.get("nli_confidence"),
+                        "nli_edge_confidence": data.get("nli_edge_confidence"),
                         "citation_source": data.get("citation_source"),
                         "citation_context": data.get("citation_context"),
                         "source_domain_category": data.get("source_domain_category"),
@@ -1039,9 +1032,8 @@ class EvidenceGraph:
                 target_type=target_type,
                 target_id=edge["target_id"],
                 relation=RelationType(edge["relation"]),
-                confidence=edge.get("confidence"),
                 nli_label=edge.get("nli_label"),
-                nli_confidence=edge.get("nli_confidence"),
+                nli_edge_confidence=edge.get("nli_edge_confidence"),
                 citation_source=edge.get("citation_source"),
                 citation_context=edge.get("citation_context"),
                 source_domain_category=edge.get("source_domain_category"),
@@ -1221,9 +1213,8 @@ async def add_claim_evidence(
     claim_id: str,
     fragment_id: str,
     relation: str,
-    confidence: float,
     nli_label: str | None = None,
-    nli_confidence: float | None = None,
+    nli_edge_confidence: float | None = None,
     task_id: str | None = None,
     source_domain_category: str | None = None,
     target_domain_category: str | None = None,
@@ -1234,9 +1225,8 @@ async def add_claim_evidence(
         claim_id: Claim ID.
         fragment_id: Fragment ID providing evidence.
         relation: Relationship type (supports/refutes/neutral).
-        confidence: Confidence score.
-        nli_label: NLI model label.
-        nli_confidence: NLI model confidence.
+        nli_label: NLI model label (supports/refutes/neutral).
+        nli_edge_confidence: NLI model confidence (calibrated); used in Bayesian update.
         task_id: Task ID.
         source_domain_category: Domain category of source (fragment's page domain).
         target_domain_category: Domain category of target (claim's origin domain).
@@ -1252,9 +1242,8 @@ async def add_claim_evidence(
         target_type=NodeType.CLAIM,
         target_id=claim_id,
         relation=RelationType(relation),
-        confidence=confidence,
         nli_label=nli_label,
-        nli_confidence=nli_confidence,
+        nli_edge_confidence=nli_edge_confidence,
         source_domain_category=source_domain_category,
         target_domain_category=target_domain_category,
     )
@@ -1270,9 +1259,8 @@ async def add_claim_evidence(
             "target_type": NodeType.CLAIM.value,
             "target_id": claim_id,
             "relation": relation,
-            "confidence": confidence,
             "nli_label": nli_label,
-            "nli_confidence": nli_confidence,
+            "nli_edge_confidence": nli_edge_confidence,
             "source_domain_category": source_domain_category,
             "target_domain_category": target_domain_category,
         },
