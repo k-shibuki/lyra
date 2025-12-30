@@ -959,7 +959,7 @@ class TestContradictionDetection:
             target_type=NodeType.CLAIM,
             target_id="claim-2",
             relation=RelationType.REFUTES,
-            confidence=0.9,
+            nli_edge_confidence=0.9,
         )
 
         # When: Finding contradictions
@@ -969,7 +969,7 @@ class TestContradictionDetection:
         assert len(contradictions) == 1
         assert contradictions[0]["claim_id"] == "claim-2"
         assert contradictions[0]["refuting_count"] == 1
-        assert contradictions[0]["max_confidence"] == pytest.approx(0.9)
+        assert contradictions[0]["max_nli_edge_confidence"] == pytest.approx(0.9)
 
     def test_find_contradictions_none(self) -> None:
         """Test finding no contradictions."""
@@ -1540,7 +1540,6 @@ class TestDatabaseIntegration:
                     claim_id="claim-1",
                     fragment_id="frag-1",
                     relation="supports",
-                    confidence=0.85,
                     nli_label="entailment",
                     nli_edge_confidence=0.9,
                     task_id="test",
@@ -1551,7 +1550,7 @@ class TestDatabaseIntegration:
 
         edges = await test_database.fetch_all("SELECT * FROM edges")
         assert len(edges) == 1
-        assert edges[0]["confidence"] == 0.85
+        assert edges[0]["nli_edge_confidence"] == 0.9
 
 
 class TestAcademicCitationAttributes:
@@ -2042,7 +2041,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         # Then create a claim referencing the task
         await test_database.execute(
             """
-            INSERT INTO claims (id, task_id, claim_text, claim_confidence)
+            INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence)
             VALUES ('claim-1', 'test-task', 'Test claim', 0.9)
             """
         )
@@ -2051,7 +2050,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         await test_database.execute(
             """
             INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, confidence, source_domain_category, target_domain_category)
+                             relation, nli_edge_confidence, source_domain_category, target_domain_category)
             VALUES ('edge-1', 'fragment', 'frag-1', 'claim', 'claim-1',
                    'supports', 0.9, 'government', 'trusted')
             """

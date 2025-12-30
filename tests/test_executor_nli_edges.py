@@ -46,7 +46,7 @@ async def test_executor_persist_claim_wires_nli_supports() -> None:
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
         patch(
             "src.filter.nli.nli_judge",
-            AsyncMock(return_value=[{"stance": "supports", "confidence": 0.91}]),
+            AsyncMock(return_value=[{"stance": "supports", "nli_edge_confidence": 0.91}]),
         ) as nli_judge,
         patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()) as add_claim_evidence,
     ):
@@ -54,7 +54,7 @@ async def test_executor_persist_claim_wires_nli_supports() -> None:
         await ex._persist_claim(
             claim_id="c1",
             claim_text="Hypothesis text",
-            confidence=0.70,  # LLM-extracted confidence (not Bayesian input)
+            llm_claim_confidence=0.70,  # LLM's self-reported extraction quality
             source_url="https://example.com/a",
             source_fragment_id="f1",
         )
@@ -79,8 +79,6 @@ async def test_executor_persist_claim_wires_nli_supports() -> None:
         assert kwargs["relation"] == "supports"
         assert kwargs["nli_label"] == "supports"
         assert kwargs["nli_edge_confidence"] == pytest.approx(0.91)
-        # Legacy: confidence aligned to nli_edge_confidence
-        assert kwargs["confidence"] == pytest.approx(0.91)
 
 
 @pytest.mark.asyncio
@@ -96,7 +94,7 @@ async def test_executor_persist_claim_wires_nli_refutes() -> None:
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
         patch(
             "src.filter.nli.nli_judge",
-            AsyncMock(return_value=[{"stance": "refutes", "confidence": 0.80}]),
+            AsyncMock(return_value=[{"stance": "refutes", "nli_edge_confidence": 0.80}]),
         ),
         patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()) as add_claim_evidence,
     ):
@@ -104,7 +102,7 @@ async def test_executor_persist_claim_wires_nli_refutes() -> None:
         await ex._persist_claim(
             claim_id="c1",
             claim_text="H",
-            confidence=0.50,
+            llm_claim_confidence=0.50,
             source_url="https://example.com/a",
             source_fragment_id="f1",
         )
@@ -131,7 +129,7 @@ async def test_executor_persist_claim_sanitizes_invalid_stance_to_neutral() -> N
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
         patch(
             "src.filter.nli.nli_judge",
-            AsyncMock(return_value=[{"stance": "entailment", "confidence": 0.99}]),
+            AsyncMock(return_value=[{"stance": "entailment", "nli_edge_confidence": 0.99}]),
         ),
         patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()) as add_claim_evidence,
     ):
@@ -139,7 +137,7 @@ async def test_executor_persist_claim_sanitizes_invalid_stance_to_neutral() -> N
         await ex._persist_claim(
             claim_id="c1",
             claim_text="H",
-            confidence=0.50,
+            llm_claim_confidence=0.50,
             source_url="https://example.com/a",
             source_fragment_id="f1",
         )
@@ -170,7 +168,7 @@ async def test_executor_persist_claim_nli_failure_does_not_skip_edge_persist() -
         await ex._persist_claim(
             claim_id="c1",
             claim_text="H",
-            confidence=0.50,
+            llm_claim_confidence=0.50,
             source_url="https://example.com/a",
             source_fragment_id="f1",
         )
@@ -197,7 +195,7 @@ async def test_executor_persist_claim_uses_fallback_premise_when_fragment_missin
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
         patch(
             "src.filter.nli.nli_judge",
-            AsyncMock(return_value=[{"stance": "supports", "confidence": 0.55}]),
+            AsyncMock(return_value=[{"stance": "supports", "nli_edge_confidence": 0.55}]),
         ) as nli_judge,
         patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()),
     ):
@@ -205,7 +203,7 @@ async def test_executor_persist_claim_uses_fallback_premise_when_fragment_missin
         await ex._persist_claim(
             claim_id="c1",
             claim_text="Hypothesis text",
-            confidence=0.70,
+            llm_claim_confidence=0.70,
             source_url="https://example.com/a",
             source_fragment_id="f1",
         )

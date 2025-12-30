@@ -299,7 +299,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_001",
             text="Test claim text",
-            confidence=0.85,
+            llm_claim_confidence=0.85,
             citations=[citation],
         )
 
@@ -319,7 +319,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_no_cit",
             text="Claim without citations",
-            confidence=0.5,
+            llm_claim_confidence=0.5,
             citations=[],
         )
 
@@ -344,7 +344,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_incomplete",
             text="Claim with incomplete citation",
-            confidence=0.5,
+            llm_claim_confidence=0.5,
             citations=[incomplete_citation],
         )
 
@@ -364,7 +364,7 @@ class TestDenseClaim:
         claim = DenseClaim(
             claim_id="claim_001",
             text="Test claim",
-            confidence=0.85,
+            llm_claim_confidence=0.85,
             citations=[citation],
             claim_type="fact",
             is_verified=True,
@@ -377,7 +377,7 @@ class TestDenseClaim:
         # Then: All fields present with correct values
         assert data["claim_id"] == "claim_001"
         assert data["text"] == "Test claim"
-        assert data["confidence"] == 0.85
+        assert data["llm_claim_confidence"] == 0.85
         assert data["claim_type"] == "fact"
         assert data["is_verified"] is True
         assert data["refutation_status"] == "not_found"
@@ -426,7 +426,7 @@ class TestChainOfDensityCompressor:
         assert len(dense_claims) == 2
         claim_001 = next(c for c in dense_claims if c.claim_id == "claim_001")
         assert len(claim_001.citations) >= 1
-        assert claim_001.confidence == 0.85
+        assert claim_001.llm_claim_confidence == 0.85
         assert claim_001.text == "日本の経済成長率は2024年に2.5%を記録した"
 
     def test_validate_claims(
@@ -845,7 +845,7 @@ class TestDenseSummary:
         claim = DenseClaim(
             claim_id="test",
             text="Test",
-            confidence=0.8,
+            llm_claim_confidence=0.8,
             citations=[citation],
         )
         summary = DenseSummary(
