@@ -166,6 +166,13 @@ exclude = '''
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+exclude = [
+    "*.json",
+    "data/",
+    "logs/",
+    "models/",
+    ".git/",
+]
 
 [tool.ruff.lint]
 select = [

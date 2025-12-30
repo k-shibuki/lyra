@@ -367,10 +367,12 @@ All operations are available via `make`. Run `make help` for the full list.
 
 | Command | Purpose |
 |---------|---------|
-| `make lint` | Run linters (ruff) |
+| `make lint` | Run linters (ruff, Python only) |
 | `make format` | Format code (black + ruff) |
 | `make typecheck` | Run type checker (mypy) |
-| `make quality` | Run all quality checks |
+| `make jsonschema` | Validate JSON Schema files |
+| `make shellcheck` | Run shellcheck on scripts |
+| `make quality` | Run all quality checks (lint + typecheck + jsonschema + shellcheck) |
 
 **JSON Output Mode (for AI agents):**
 

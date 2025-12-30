@@ -238,8 +238,8 @@ class AcademicSearchProvider(BaseSearchProvider):
 
             # Get references from appropriate APIs
             if direction in ("references", "both"):
-                s2_refs_raw: list[Paper] | Exception = []
-                oa_refs_raw: list[Paper] | Exception = []
+                s2_refs_raw: list[Paper] | BaseException = []
+                oa_refs_raw: list[Paper] | BaseException = []
 
                 tasks = []
                 task_names = []
@@ -320,8 +320,8 @@ class AcademicSearchProvider(BaseSearchProvider):
 
             # Get citations from appropriate APIs (based on ID format and DOI)
             if direction in ("citations", "both"):
-                s2_cits_raw: list[Paper] | Exception = []
-                oa_cits_raw: list[Paper] | Exception = []
+                s2_cits_raw: list[Paper] | BaseException = []
+                oa_cits_raw: list[Paper] | BaseException = []
 
                 tasks = []
                 task_names = []

@@ -75,6 +75,11 @@ Covers:
 | TC-MR-N-03 | get_history | Equivalence – normal | Version list | - |
 | TC-MR-N-04 | get_rollback_events | Equivalence – normal | Event list | - |
 | TC-MR-N-05 | get_stats | Equivalence – normal | Comprehensive | - |
+| TC-SER-N-01 | Valid CalibrationResult | Equivalence – normal | ok=True, id returned | - |
+| TC-SER-N-02 | Result with calibration_version | Equivalence – normal | version stored | - |
+| TC-SER-N-03 | Result with empty bins | Boundary – empty list | bins_json = "[]" | - |
+| TC-SER-A-01 | Database error | Equivalence – error | ok=False with error | - |
+| TC-SER-B-01 | Result with None brier_score_calibrated | Boundary – NULL | NULL in DB | - |
 
 Note: Batch evaluation/visualization tests were moved to scripts.
 CalibrationEvaluation, CalibrationEvaluator, save_calibration_evaluation,
@@ -106,6 +111,7 @@ from src.utils.calibration import (
     get_calibration_stats,
     get_rollback_events,
     rollback_calibration,
+    save_evaluation_result,
 )
 
 # NOTE: Batch evaluation/visualization are handled by scripts.
@@ -1054,6 +1060,179 @@ class TestMCPRollbackTools:
             assert "current_params" in result
             assert "history" in result
             assert "recalibration_threshold" in result
+
+
+# =============================================================================
+# save_evaluation_result Tests (Phase 3: Evaluation Persistence)
+# =============================================================================
+
+
+class TestSaveEvaluationResult:
+    """Tests for save_evaluation_result function.
+
+    Test perspectives:
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|----------------------|-------------|-----------------|-------|
+    | TC-SER-N-01 | Valid CalibrationResult | Normal | ok=True, id returned | - |
+    | TC-SER-N-02 | Result with calibration_version | Normal | version stored | - |
+    | TC-SER-N-03 | Result with empty bins | Boundary | bins_json = "[]" | - |
+    | TC-SER-A-01 | Database error | Error | ok=False with error | - |
+    | TC-SER-B-01 | Result with None brier_score_calibrated | Boundary | NULL in DB | - |
+    """
+
+    @pytest.mark.asyncio
+    async def test_save_valid_result(self, test_database: str) -> None:
+        """TC-SER-N-01: Should save valid result and return ok=True with evaluation_id."""
+        # Given: A valid CalibrationResult
+        result = CalibrationResult(
+            brier_score=0.15,
+            brier_score_calibrated=0.10,
+            improvement_ratio=0.33,
+            expected_calibration_error=0.05,
+            samples_evaluated=100,
+            bins=[
+                {
+                    "bin_lower": 0.0,
+                    "bin_upper": 0.5,
+                    "count": 50,
+                    "accuracy": 0.3,
+                    "confidence": 0.25,
+                    "gap": 0.05,
+                },
+                {
+                    "bin_lower": 0.5,
+                    "bin_upper": 1.0,
+                    "count": 50,
+                    "accuracy": 0.8,
+                    "confidence": 0.75,
+                    "gap": 0.05,
+                },
+            ],
+        )
+
+        # When: Saving the result
+        save_result = await save_evaluation_result("nli_judge", result)
+
+        # Then: Should succeed with evaluation_id
+        assert save_result["ok"] is True
+        assert "evaluation_id" in save_result
+        assert save_result["evaluation_id"].startswith("eval_")
+        assert save_result["source"] == "nli_judge"
+        assert save_result["brier_score"] == 0.15
+
+    @pytest.mark.asyncio
+    async def test_save_with_calibration_version(self, test_database: str) -> None:
+        """TC-SER-N-02: Should store calibration_version correctly."""
+        # Given: A result with calibration_version
+        result = CalibrationResult(
+            brier_score=0.20,
+            brier_score_calibrated=0.15,
+            improvement_ratio=0.25,
+            expected_calibration_error=0.08,
+            samples_evaluated=50,
+            bins=[],
+        )
+
+        # When: Saving with version
+        save_result = await save_evaluation_result("nli_judge", result, calibration_version=3)
+
+        # Then: Should succeed
+        assert save_result["ok"] is True
+
+        # Verify in database
+        from src.storage.database import get_database
+
+        db = await get_database()
+        row = await db.fetch_one(
+            "SELECT calibration_version FROM calibration_evaluations WHERE id = ?",
+            (save_result["evaluation_id"],),
+        )
+        assert row is not None
+        assert row["calibration_version"] == 3
+
+    @pytest.mark.asyncio
+    async def test_save_with_empty_bins(self, test_database: str) -> None:
+        """TC-SER-N-03: Should handle empty bins list correctly."""
+        # Given: A result with empty bins
+        result = CalibrationResult(
+            brier_score=0.18,
+            expected_calibration_error=0.0,
+            samples_evaluated=10,
+            bins=[],  # Empty bins
+        )
+
+        # When: Saving the result
+        save_result = await save_evaluation_result("test_source", result)
+
+        # Then: Should succeed with bins_json = "[]"
+        assert save_result["ok"] is True
+
+        # Verify in database
+        from src.storage.database import get_database
+
+        db = await get_database()
+        row = await db.fetch_one(
+            "SELECT bins_json FROM calibration_evaluations WHERE id = ?",
+            (save_result["evaluation_id"],),
+        )
+        assert row is not None
+        assert row["bins_json"] == "[]"
+
+    @pytest.mark.asyncio
+    async def test_save_with_none_calibrated_score(self, test_database: str) -> None:
+        """TC-SER-B-01: Should handle None brier_score_calibrated correctly."""
+        # Given: A result without calibration applied
+        result = CalibrationResult(
+            brier_score=0.25,
+            brier_score_calibrated=None,  # No calibration applied
+            improvement_ratio=0.0,
+            expected_calibration_error=0.10,
+            samples_evaluated=30,
+            bins=[],
+        )
+
+        # When: Saving the result
+        save_result = await save_evaluation_result("uncalibrated_source", result)
+
+        # Then: Should succeed with NULL in DB
+        assert save_result["ok"] is True
+        assert save_result["brier_score_calibrated"] is None
+
+        # Verify in database
+        from src.storage.database import get_database
+
+        db = await get_database()
+        row = await db.fetch_one(
+            "SELECT brier_score_calibrated FROM calibration_evaluations WHERE id = ?",
+            (save_result["evaluation_id"],),
+        )
+        assert row is not None
+        assert row["brier_score_calibrated"] is None
+
+    @pytest.mark.asyncio
+    async def test_save_database_error(self) -> None:
+        """TC-SER-A-01: Should return ok=False on database error."""
+        from unittest.mock import AsyncMock
+
+        # Given: A valid result but database will fail
+        result = CalibrationResult(
+            brier_score=0.15,
+            samples_evaluated=50,
+            bins=[],
+        )
+
+        # When: Database execute fails
+        with patch("src.storage.database.get_database") as mock_get_db:
+            mock_db = MagicMock()
+            mock_db.execute = AsyncMock(side_effect=Exception("Database connection failed"))
+            mock_get_db.return_value = mock_db
+
+            save_result = await save_evaluation_result("test", result)
+
+        # Then: Should return ok=False with error
+        assert save_result["ok"] is False
+        assert "error" in save_result
+        assert "Database connection failed" in save_result["error"]
 
 
 # =============================================================================

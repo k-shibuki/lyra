@@ -21,14 +21,21 @@
         "properties": {
           "id": {"type": "string"},
           "text": {"type": "string"},
-          "confidence": {"type": "number"},
+          "bayesian_claim_confidence": {
+            "type": "number",
+            "description": "Bayesian posterior confidence (0.0-1.0). Primary metric for truth assessment after evidence aggregation."
+          },
+          "llm_claim_confidence": {
+            "type": "number",
+            "description": "LLM's self-reported extraction quality (0.0-1.0). NOT truth confidence. Low values (<0.5) indicate extraction may be unreliable."
+          },
           "uncertainty": {
             "type": "number",
-            "description": "Bayesian uncertainty (stddev of Beta distribution)."
+            "description": "Bayesian uncertainty (stddev of Beta distribution, 0.0-0.5). High value (>0.2) indicates insufficient evidence - consider queue_searches for more sources."
           },
           "controversy": {
             "type": "number",
-            "description": "Bayesian controversy (degree of conflict between supports/refutes)."
+            "description": "Degree of conflict between supports/refutes evidence (0.0-0.5). High value (>0.3) indicates contested claim - investigate both sides before concluding."
           },
           "evidence_count": {"type": "integer"},
           "has_refutation": {"type": "boolean"},
@@ -60,7 +67,10 @@
                 "source_id": {"type": ["string", "null"]},
                 "source_type": {"type": ["string", "null"]},
                 "year": {"type": ["integer", "string", "null"]},
-                "nli_confidence": {"type": ["number", "null"]},
+                "nli_edge_confidence": {
+                  "type": ["number", "null"],
+                  "description": "NLI model's calibrated confidence for this evidence relation (0.0-1.0)."
+                },
                 "source_domain_category": {"type": ["string", "null"]},
                 "doi": {"type": ["string", "null"]},
                 "venue": {"type": ["string", "null"]}
@@ -89,7 +99,7 @@
         },
         "additionalProperties": false
       },
-      "description": "LLM-extracted claims (L4 sanitized)"
+      "description": "LLM-extracted claims with Bayesian confidence metrics. Use bayesian_claim_confidence for truth assessment, llm_claim_confidence for extraction quality."
     },
     "fragments": {
       "type": "array",

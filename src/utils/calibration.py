@@ -1584,6 +1584,85 @@ async def get_calibration_stats() -> dict[str, Any]:
     }
 
 
+async def save_evaluation_result(
+    source: str,
+    result: CalibrationResult,
+    calibration_version: int | None = None,
+) -> dict[str, Any]:
+    """Persist evaluation result to calibration_evaluations table.
+
+    This enables historical tracking of calibration quality over time.
+    Called after evaluate() to store the evaluation metrics.
+
+    Args:
+        source: Source model identifier (e.g., "nli_judge").
+        result: CalibrationResult from evaluate().
+        calibration_version: Version of calibration params used (optional).
+
+    Returns:
+        Dict with ok status and evaluation_id.
+    """
+    import uuid
+
+    from src.storage.database import get_database
+
+    evaluation_id = f"eval_{uuid.uuid4().hex[:12]}"
+    evaluated_at = datetime.now(UTC).isoformat()
+
+    try:
+        db = await get_database()
+
+        # Serialize bins to JSON
+        bins_json = json.dumps(result.bins) if result.bins else "[]"
+
+        await db.execute(
+            """
+            INSERT INTO calibration_evaluations (
+                id, source, brier_score, brier_score_calibrated,
+                improvement_ratio, expected_calibration_error,
+                samples_evaluated, bins_json, calibration_version, evaluated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                evaluation_id,
+                source,
+                result.brier_score,
+                result.brier_score_calibrated,
+                result.improvement_ratio,
+                result.expected_calibration_error,
+                result.samples_evaluated,
+                bins_json,
+                calibration_version,
+                evaluated_at,
+            ),
+        )
+        # Note: Database uses auto-commit mode (isolation_level=None), no explicit commit needed
+
+        logger.info(
+            "Saved calibration evaluation",
+            evaluation_id=evaluation_id,
+            source=source,
+            brier_score=f"{result.brier_score:.4f}",
+            samples=result.samples_evaluated,
+        )
+
+        return {
+            "ok": True,
+            "evaluation_id": evaluation_id,
+            "source": source,
+            "brier_score": result.brier_score,
+            "brier_score_calibrated": result.brier_score_calibrated,
+            "improvement_ratio": result.improvement_ratio,
+        }
+
+    except Exception as e:
+        logger.error("Failed to save evaluation result", source=source, error=str(e))
+        return {
+            "ok": False,
+            "error": str(e),
+        }
+
+
 # =============================================================================
 # Unified Calibration API
 # =============================================================================

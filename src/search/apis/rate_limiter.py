@@ -285,19 +285,6 @@ class AcademicAPIRateLimiter:
         Args:
             provider: API provider name.
         """
-        # #region agent log
-        import json
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-A",
-                "location": "src/search/apis/rate_limiter.py:report_429_entry",
-                "message": "report_429 called",
-                "data": {"provider": provider},
-                "timestamp": time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
-
         if provider not in self._backoff_states:
             return
 

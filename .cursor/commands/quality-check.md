@@ -20,7 +20,7 @@ Follow the quality policy here:
 Use `make` commands (run `make help` for all options):
 
 ```bash
-# Lint check
+# Lint check (Python files only; JSON is excluded via pyproject.toml)
 make lint
 
 # Lint with auto-fix
@@ -35,15 +35,14 @@ make format
 # Type check
 make typecheck
 
-# Run all quality checks (lint + typecheck)
+# JSON Schema validation
+make jsonschema
+
+# Shell script check
+make shellcheck
+
+# Run all quality checks (lint + typecheck + jsonschema + shellcheck)
 make quality
-```
-
-JSON Schema validation (if needed):
-
-```bash
-# Validate JSON Schema files against Draft 7 meta-schema
-uv run check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/*.json
 ```
 
 ## Output (response format)

@@ -300,6 +300,12 @@ class TestGetStatusWithoutExplorationState:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
 
+        # Mock cursor for _get_metrics_from_db and other helper functions
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchone.return_value = (0,)  # Zero count for each query
+        mock_cursor.fetchall.return_value = []  # Empty list for fetchall queries
+        mock_db.execute.return_value = mock_cursor
+
         # Simulate no exploration state
         with patch("src.mcp.server.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(

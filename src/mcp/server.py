@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp.types import TextContent, Tool, ToolAnnotations
 
 from mcp.server import Server
 from src.mcp.response_meta import attach_meta, create_minimal_meta
@@ -104,11 +104,11 @@ and refuting queries to ensure balanced evidence collection.""",
             },
             "required": ["ok", "task_id"],
         },
-        annotations={
-            "readOnlyHint": False,
-            "destructiveHint": False,
-            "idempotentHint": False,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+        ),
     ),
     Tool(
         name="get_status",
@@ -208,11 +208,11 @@ DECISION POINTS:
                 "warnings": {"type": "array", "items": {"type": "string"}},
             },
         },
-        annotations={
-            "readOnlyHint": True,
-            "destructiveHint": False,
-            "idempotentHint": True,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
     ),
     # ============================================================
     # 2. Research Execution (2 tools)
@@ -288,11 +288,11 @@ QUERY DESIGN TIPS:
                 "message": {"type": "string", "description": "Human-readable status message"},
             },
         },
-        annotations={
-            "readOnlyHint": False,
-            "destructiveHint": False,
-            "idempotentHint": True,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
     ),
     Tool(
         name="stop_task",
@@ -350,11 +350,11 @@ AFTER STOPPING: Use get_materials to retrieve collected evidence for report comp
                 },
             },
         },
-        annotations={
-            "readOnlyHint": False,
-            "destructiveHint": True,
-            "idempotentHint": False,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=False,
+        ),
     ),
     # ============================================================
     # 3. Materials (1 tool)
@@ -427,15 +427,16 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                 "query": {"type": "string", "description": "Original research query"},
                 "claims": {
                     "type": "array",
-                    "description": "Verified assertions extracted from sources. Use as report structure.",
+                    "description": "Claims with Bayesian confidence metrics. Use bayesian_claim_confidence for truth, llm_claim_confidence for extraction quality.",
                     "items": {
                         "type": "object",
                         "properties": {
                             "id": {"type": "string"},
                             "text": {"type": "string", "description": "The claim assertion"},
-                            "confidence": {"type": "number", "description": "0.0-1.0, Bayesian posterior mean"},
-                            "uncertainty": {"type": "number", "description": "0.0-1.0, posterior stddev"},
-                            "controversy": {"type": "number", "description": "0.0-1.0, support vs refute conflict"},
+                            "bayesian_claim_confidence": {"type": "number", "description": "0.0-1.0, Bayesian posterior mean (primary truth metric)"},
+                            "llm_claim_confidence": {"type": "number", "description": "0.0-1.0, LLM extraction quality (NOT truth)"},
+                            "uncertainty": {"type": "number", "description": "0.0-0.5, posterior stddev. >0.2 = need more evidence"},
+                            "controversy": {"type": "number", "description": "0.0-0.5, support vs refute conflict. >0.3 = contested"},
                             "evidence_count": {"type": "integer"},
                             "has_refutation": {"type": "boolean", "description": "True if refuting evidence exists"},
                             "sources": {
@@ -461,17 +462,21 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                     "type": "object",
                                     "properties": {
                                         "edge_id": {"type": "string", "description": "Edge ID for feedback(edge_correct)"},
-                                        "fragment_id": {"type": "string"},
+                                        "source_id": {"type": "string"},
+                                        "source_type": {"type": "string"},
                                         "relation": {"type": "string", "enum": ["supports", "refutes", "neutral"]},
-                                        "confidence": {"type": "number", "description": "0.0-1.0, NLI model confidence"},
-                                        "source_year": {"type": "integer", "description": "Publication year for timeline analysis"},
+                                        "nli_edge_confidence": {"type": "number", "description": "0.0-1.0, NLI model calibrated confidence"},
+                                        "year": {"type": "integer", "description": "Publication year for timeline analysis"},
                                     },
                                 },
                             },
                             "evidence_years": {
                                 "type": "object",
-                                "description": "Year distribution: {2020: 3, 2021: 5, ...} for temporal analysis",
-                                "additionalProperties": {"type": "integer"},
+                                "description": "Year summary: {oldest: 2020, newest: 2024} for temporal analysis",
+                                "properties": {
+                                    "oldest": {"type": "integer"},
+                                    "newest": {"type": "integer"},
+                                },
                             },
                         },
                     },
@@ -530,11 +535,11 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                 },
             },
         },
-        annotations={
-            "readOnlyHint": True,
-            "destructiveHint": False,
-            "idempotentHint": True,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
     ),
     # ============================================================
     # 4. Calibration (2 tools)
@@ -585,11 +590,11 @@ For rolling back to previous calibration, use calibration_rollback (separate too
                 },
             },
         },
-        annotations={
-            "readOnlyHint": True,
-            "destructiveHint": False,
-            "idempotentHint": True,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
     ),
     Tool(
         name="calibration_rollback",
@@ -632,11 +637,11 @@ Always provide a reason for audit trail.""",
                 "method": {"type": "string", "enum": ["platt", "temperature"]},
             },
         },
-        annotations={
-            "readOnlyHint": False,
-            "destructiveHint": True,
-            "idempotentHint": False,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=False,
+        ),
     ),
     # ============================================================
     # 5. Authentication Queue (2 tools)
@@ -700,11 +705,11 @@ Research continues on other domains while CAPTCHAs are pending.""",
                 },
             },
         },
-        annotations={
-            "readOnlyHint": True,
-            "destructiveHint": False,
-            "idempotentHint": True,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
     ),
     Tool(
         name="resolve_auth",
@@ -762,11 +767,11 @@ Session cookies are captured and reused for future requests to that domain.""",
                 "requeued_count": {"type": "integer", "description": "Searches requeued for retry"},
             },
         },
-        annotations={
-            "readOnlyHint": False,
-            "destructiveHint": False,
-            "idempotentHint": True,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
     ),
     # ============================================================
     # 6. Feedback (1 tool)
@@ -849,11 +854,11 @@ When you find an edge with wrong NLI classification (e.g., marked 'neutral' but 
                 "rule_id": {"type": "string", "description": "For domain_*: created rule ID"},
             },
         },
-        annotations={
-            "readOnlyHint": False,
-            "destructiveHint": False,
-            "idempotentHint": False,
-        },
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+        ),
     ),
 ]
 
@@ -969,7 +974,6 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
 # Cache of exploration states per task
 _exploration_states: dict[str, Any] = {}
 # Lock to prevent race condition in _get_exploration_state (H-F fix)
-import asyncio
 _exploration_state_locks: dict[str, asyncio.Lock] = {}
 _exploration_state_global_lock = asyncio.Lock()
 
@@ -989,38 +993,12 @@ async def _get_exploration_state(task_id: str) -> Any:
             _exploration_state_locks[task_id] = asyncio.Lock()
         lock = _exploration_state_locks[task_id]
 
-    # #region agent log
-    import json, time as _time
-    cache_hit = task_id in _exploration_states
-    existing_id = id(_exploration_states.get(task_id)) if cache_hit else None
-    with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-        _f.write(json.dumps({
-            "hypothesisId": "H-H",
-            "location": "src/mcp/server.py:_get_exploration_state_entry",
-            "message": "_get_exploration_state called",
-            "data": {"task_id": task_id, "cache_hit": cache_hit, "existing_state_id": existing_id},
-            "timestamp": _time.time() * 1000,
-            "sessionId": "debug-session"
-        }) + "\n")
-    # #endregion
-
     # Use per-task lock to prevent race condition
     async with lock:
         if task_id not in _exploration_states:
             state = ExplorationState(task_id)
             await state.load_state()
             _exploration_states[task_id] = state
-            # #region agent log
-            with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-                _f.write(json.dumps({
-                    "hypothesisId": "H-H",
-                    "location": "src/mcp/server.py:_get_exploration_state_new",
-                    "message": "Created new ExplorationState",
-                    "data": {"task_id": task_id, "new_state_id": id(state)},
-                    "timestamp": _time.time() * 1000,
-                    "sessionId": "debug-session"
-                }) + "\n")
-            # #endregion
 
         return _exploration_states[task_id]
 
@@ -1052,19 +1030,6 @@ async def _get_metrics_from_db(db: Any, task_id: str) -> dict[str, Any]:
     Returns:
         Metrics dict with counts from DB.
     """
-    # #region agent log
-    import json, time as _time
-    with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-        _f.write(json.dumps({
-            "hypothesisId": "H-D",
-            "location": "src/mcp/server.py:_get_metrics_from_db_entry",
-            "message": "Fetching metrics from DB (fallback)",
-            "data": {"task_id": task_id},
-            "timestamp": _time.time() * 1000,
-            "sessionId": "debug-session"
-        }) + "\n")
-    # #endregion
-
     try:
         # Count queries/searches
         cursor = await db.execute(
@@ -1119,14 +1084,14 @@ async def _get_metrics_from_db(db: Any, task_id: str) -> dict[str, Any]:
         row = await cursor.fetchone()
         elapsed_seconds = 0
         if row and row[0]:
-            from datetime import datetime, timezone
+            from datetime import UTC, datetime
             try:
                 created_at = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
-                elapsed_seconds = int((datetime.now(timezone.utc) - created_at).total_seconds())
+                elapsed_seconds = int((datetime.now(UTC) - created_at).total_seconds())
             except (ValueError, TypeError):
                 pass
 
-        result = {
+        return {
             "total_searches": total_searches,
             "satisfied_count": 0,  # Can't determine from DB alone
             "total_pages": total_pages,
@@ -1134,37 +1099,8 @@ async def _get_metrics_from_db(db: Any, task_id: str) -> dict[str, Any]:
             "total_claims": total_claims,
             "elapsed_seconds": elapsed_seconds,
         }
-
-        # #region agent log
-        import json, time as _time
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-D",
-                "location": "src/mcp/server.py:_get_metrics_from_db_result",
-                "message": "DB metrics fetched successfully",
-                "data": {"task_id": task_id, "metrics": result},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
-
-        return result
     except Exception as e:
         logger.warning("Failed to get metrics from DB", task_id=task_id, error=str(e))
-
-        # #region agent log
-        import json, time as _time
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-D",
-                "location": "src/mcp/server.py:_get_metrics_from_db_error",
-                "message": "DB metrics fetch failed",
-                "data": {"task_id": task_id, "error": str(e)},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
-
         return {
             "total_searches": 0,
             "satisfied_count": 0,
@@ -1450,12 +1386,12 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             expected="non-empty string",
         )
 
-    # Validate wait parameter
-    if wait < 0 or wait > 60:
+    # Validate wait parameter (per schema: 0-180s)
+    if wait < 0 or wait > 180:
         raise InvalidParamsError(
-            "wait must be between 0 and 60",
+            "wait must be between 0 and 180",
             param_name="wait",
-            expected="integer 0-60",
+            expected="integer 0-180",
         )
 
     with LogContext(task_id=task_id):
@@ -1504,19 +1440,6 @@ async def _handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 )
 
         # Build unified response per ADR-0003
-        # #region agent log
-        import json, time as _time
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-D",
-                "location": "src/mcp/server.py:_handle_get_status_branch",
-                "message": "get_status exploration_status check",
-                "data": {"task_id": task_id, "has_exploration_status": exploration_status is not None},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
-
         if exploration_status:
             # Convert searches to ADR-0003 format (text -> query field name mapping)
             searches = []

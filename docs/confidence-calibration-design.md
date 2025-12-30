@@ -887,15 +887,20 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | **P1** | テスト更新 | `tests/test_*.py` | 約30ファイル（D.8.6） | ✅ |
 | **P1** | DB 再作成 & 動作確認 | - | Phase 1 完了条件 | ✅ |
 
-### Phase 2: MCPクライアント支援
+### Phase 2: MCPクライアント支援 ✅ **完了**
 
 **優先度 P2-P3**: クライアントの意思決定を支援する改善
 
 | 優先度 | タスク | ファイル | 詳細 | ステータス |
 |:------:|--------|----------|------|:----------:|
-| **P2** | llm-confidence のMCP露出 | `src/research/materials.py` | §3.4.2 の分離実装 | ❌ |
-| **P2** | uncertainty/controversy ガイド追加 | `config/mcp/get_materials.json` | D.5 参照 | ❌ |
-| **P3** | 評価結果の永続化 | `src/utils/calibration.py` | `save_evaluation_result()` 追加 | ❌ |
+| **P2** | llm-confidence のMCP露出 | `src/research/materials.py` | §3.4.2 の分離実装 | ✅ (PR #50 で実装済み) |
+| **P2** | uncertainty/controversy ガイド追加 | `src/mcp/schemas/get_materials.json` | D.5 参照 | ✅ |
+| **P3** | 評価結果の永続化 | `src/utils/calibration.py` | `save_evaluation_result()` 追加 | ✅ |
+
+**Phase 2 実装詳細**:
+- `get_materials.json` スキーマに `bayesian_claim_confidence` / `llm_claim_confidence` / `uncertainty` / `controversy` / `nli_edge_confidence` の説明とガイダンスを追加
+- `server.py` の outputSchema を実装に合わせて更新
+- `save_evaluation_result()` 関数を追加し、`calibration_evaluations` テーブルへの永続化を実装
 
 ### Phase 3: コード品質
 

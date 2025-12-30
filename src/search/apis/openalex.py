@@ -8,6 +8,8 @@ import asyncio
 import time
 from typing import Any, cast
 
+import httpx
+
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
 from src.utils.logging import get_logger
@@ -79,33 +81,8 @@ class OpenAlexClient(BaseAcademicClient):
 
     async def get_paper(self, paper_id: str) -> Paper | None:
         """Get paper metadata."""
-        # #region agent log
-        import json
-        import time as _time
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-B",
-                "location": "src/search/apis/openalex.py:get_paper_entry",
-                "message": "OpenAlex get_paper called",
-                "data": {"paper_id": paper_id, "has_s2_prefix": paper_id.startswith("s2:")},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
-
         # H-B: Skip S2 paper IDs - OpenAlex cannot resolve Semantic Scholar IDs
         if paper_id.strip().startswith("s2:"):
-            # #region agent log
-            with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-                _f.write(json.dumps({
-                    "hypothesisId": "H-B",
-                    "location": "src/search/apis/openalex.py:get_paper_s2_skip",
-                    "message": "Skipping S2 paper ID (not queryable on OpenAlex)",
-                    "data": {"paper_id": paper_id},
-                    "timestamp": _time.time() * 1000,
-                    "sessionId": "debug-session"
-                }) + "\n")
-            # #endregion
             logger.debug("Skipping S2 paper ID (not queryable on OpenAlex)", paper_id=paper_id)
             return None
 
@@ -113,17 +90,6 @@ class OpenAlexClient(BaseAcademicClient):
         if paper_id in _404_cache:
             cache_time = _404_cache[paper_id]
             if time.time() - cache_time < _404_CACHE_TTL:
-                # #region agent log
-                with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-                    _f.write(json.dumps({
-                        "hypothesisId": "H-C",
-                        "location": "src/search/apis/openalex.py:get_paper_404_cache_hit",
-                        "message": "Skipping paper due to cached 404",
-                        "data": {"paper_id": paper_id, "cache_age_seconds": time.time() - cache_time},
-                        "timestamp": _time.time() * 1000,
-                        "sessionId": "debug-session"
-                    }) + "\n")
-                # #endregion
                 logger.debug("Skipping paper (cached 404)", paper_id=paper_id)
                 return None
             else:
@@ -155,21 +121,8 @@ class OpenAlexClient(BaseAcademicClient):
                 data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name)
                 return self._parse_paper(data)
             except Exception as e:
-                # #region agent log
-                import httpx as _httpx
-                is_404 = isinstance(e, _httpx.HTTPStatusError) and e.response.status_code == 404
-                with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-                    _f.write(json.dumps({
-                        "hypothesisId": "H-C",
-                        "location": "src/search/apis/openalex.py:get_paper_error",
-                        "message": "OpenAlex get_paper failed",
-                        "data": {"paper_id": paper_id, "error_type": type(e).__name__, "is_404": is_404},
-                        "timestamp": _time.time() * 1000,
-                        "sessionId": "debug-session"
-                    }) + "\n")
-                # #endregion
-
                 # H-C: Cache 404 responses to avoid repeated lookups
+                is_404 = isinstance(e, httpx.HTTPStatusError) and e.response.status_code == 404
                 if is_404:
                     _404_cache[paper_id] = time.time()
                     logger.debug("Cached 404 for paper", paper_id=paper_id)

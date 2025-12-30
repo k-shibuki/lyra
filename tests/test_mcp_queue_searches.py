@@ -430,7 +430,7 @@ class TestGetStatusWithWait:
             await _handle_get_status(
                 {
                     "task_id": "task_qs05",
-                    "wait": 61,
+                    "wait": 181,  # Exceeds maximum of 180
                 }
             )
 
@@ -585,5 +585,5 @@ class TestQueueSearchesToolDefinition:
 
         get_status_tool = next(t for t in TOOLS if t.name == "get_status")
         assert "wait" in get_status_tool.inputSchema["properties"]
-        assert get_status_tool.inputSchema["properties"]["wait"]["maximum"] == 60
+        assert get_status_tool.inputSchema["properties"]["wait"]["maximum"] == 180
         assert get_status_tool.inputSchema["properties"]["wait"]["minimum"] == 0

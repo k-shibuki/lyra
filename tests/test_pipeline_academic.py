@@ -714,6 +714,7 @@ class TestSemanticScholarIDNormalization:
             # retry_api_call consumes these kwargs; the inner function doesn't accept them
             kwargs.pop("policy", None)
             kwargs.pop("operation_name", None)
+            kwargs.pop("rate_limiter_provider", None)
             return await func(*args, **kwargs)
 
         with (
@@ -766,6 +767,7 @@ class TestSemanticScholarIDNormalization:
             # retry_api_call consumes these kwargs; the inner function doesn't accept them
             kwargs.pop("policy", None)
             kwargs.pop("operation_name", None)
+            kwargs.pop("rate_limiter_provider", None)
             return await func(*args, **kwargs)
 
         with (
@@ -967,13 +969,35 @@ class TestExecuteComplementarySearchE2E:
         Then: API is called with CorpusId: format (not s2:)
         """
         from src.search.academic_provider import AcademicSearchProvider
+        from src.utils.schemas import Paper
 
         provider = AcademicSearchProvider()
+
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:12345",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
 
         with patch.object(provider, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
 
+            # Mock get_paper for DOI extraction
+            mock_client.get_paper = AsyncMock(return_value=initial_paper)
             # Mock get_references and get_citations to verify ID format
             mock_client.get_references = AsyncMock(return_value=[])
             mock_client.get_citations = AsyncMock(return_value=[])
@@ -1049,12 +1073,33 @@ class TestExecuteComplementarySearchE2E:
         Then: Exception is caught, logged, processing continues
         """
         from src.search.academic_provider import AcademicSearchProvider
+        from src.utils.schemas import Paper
 
         provider = AcademicSearchProvider()
+
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
 
         with patch.object(provider, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
+            mock_client.get_paper = AsyncMock(return_value=initial_paper)
             mock_client.get_references = AsyncMock(side_effect=Exception("API error"))
             mock_client.get_citations = AsyncMock(return_value=[])
 
@@ -1084,8 +1129,28 @@ class TestExecuteComplementarySearchE2E:
         import asyncio
 
         from src.search.academic_provider import AcademicSearchProvider
+        from src.utils.schemas import Paper
 
         provider = AcademicSearchProvider()
+
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
 
         async def slow_api_call() -> list[object]:
             await asyncio.sleep(10)  # Simulate timeout
@@ -1094,6 +1159,7 @@ class TestExecuteComplementarySearchE2E:
         with patch.object(provider, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_get_client.return_value = mock_client
+            mock_client.get_paper = AsyncMock(return_value=initial_paper)
             mock_client.get_references = AsyncMock(side_effect=TimeoutError("API timeout"))
             mock_client.get_citations = AsyncMock(return_value=[])
 

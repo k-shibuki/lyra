@@ -197,10 +197,13 @@ else
 	uv run mypy src/
 endif
 
+jsonschema: ## Validate JSON Schema files
+	uv run check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/*.json
+
 shellcheck: ## Run shellcheck on scripts
 	find scripts -name "*.sh" -type f | xargs shellcheck -x -e SC1091
 
-quality: lint typecheck shellcheck ## Run all quality checks
+quality: lint typecheck jsonschema shellcheck ## Run all quality checks
 
 # =============================================================================
 # CLEANUP

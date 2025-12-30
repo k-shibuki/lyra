@@ -575,18 +575,6 @@ class ExplorationState:
         is_novel: bool,
     ) -> None:
         """Record a fragment extraction."""
-        # #region agent log
-        import json, time as _time
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-F",
-                "location": "src/research/state.py:record_fragment",
-                "message": "record_fragment called",
-                "data": {"task_id": self.task_id, "search_id": search_id, "state_id": id(self), "total_fragments_before": self._total_fragments},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
         search = self._searches.get(search_id)
         if search:
             search.add_fragment(fragment_hash, is_useful, is_novel)
@@ -606,18 +594,6 @@ class ExplorationState:
             is_verified: Whether the claim is verified (supported by evidence).
             is_refuted: Whether the claim is refuted by counter-evidence.
         """
-        # #region agent log
-        import json, time as _time
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-F",
-                "location": "src/research/state.py:record_claim",
-                "message": "record_claim called",
-                "data": {"task_id": self.task_id, "search_id": search_id, "state_id": id(self), "total_claims_before": self._total_claims},
-                "timestamp": _time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
         self._total_claims += 1
         if is_verified:
             self._verified_claims += 1
@@ -851,24 +827,6 @@ class ExplorationState:
                 },
             }
 
-        # #region agent log
-        import json
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(json.dumps({
-                "hypothesisId": "H-F",
-                "location": "src/research/state.py:get_status",
-                "message": "get_status returning metrics",
-                "data": {
-                    "task_id": self.task_id,
-                    "state_id": id(self),
-                    "total_fragments": self._total_fragments,
-                    "total_claims": self._total_claims,
-                    "budget_pages_used": self._budget_pages_used
-                },
-                "timestamp": time.time() * 1000,
-                "sessionId": "debug-session"
-            }) + "\n")
-        # #endregion
         return {
             "ok": True,
             "task_id": self.task_id,

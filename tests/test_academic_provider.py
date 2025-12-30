@@ -118,12 +118,33 @@ class TestCitationGraphIntegration:
         # Given
         provider = AcademicSearchProvider()
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/test.s2",  # DOI for cross-API queries
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         # Mock clients
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         s2_client.get_references = AsyncMock(return_value=[sample_paper_s2])
         s2_client.get_citations = AsyncMock(return_value=[])
 
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
         oa_client.get_references = AsyncMock(return_value=[sample_paper_openalex])
         oa_client.get_citations = AsyncMock(return_value=[])
 
@@ -187,11 +208,32 @@ class TestCitationGraphIntegration:
 
         provider = AcademicSearchProvider()
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         s2_client.get_references = AsyncMock(return_value=[paper_s2_dup])
         s2_client.get_citations = AsyncMock(return_value=[])
 
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
         oa_client.get_references = AsyncMock(return_value=[sample_reference_paper])
         oa_client.get_citations = AsyncMock(return_value=[])
 
@@ -213,9 +255,12 @@ class TestCitationGraphIntegration:
                 direction="references",
             )
 
-            # Then: Should deduplicate papers by DOI (only 1 unique paper)
-            assert len(papers) == 1  # Deduplicated
-            assert papers[0].doi == "10.1234/reference"
+            # Then: Should deduplicate papers by DOI
+            # Initial paper (doi:10.1234/initial) + deduplicated reference (doi:10.1234/reference)
+            assert len(papers) == 2
+            dois = {p.doi for p in papers}
+            assert "10.1234/initial" in dois
+            assert "10.1234/reference" in dois
             # Citations are tracked by paper_id pairs, so both citations exist
             # (even though they refer to the same paper via DOI)
             # This is expected behavior: paper deduplication happens, but citation
@@ -234,11 +279,32 @@ class TestCitationGraphIntegration:
         # Given
         provider = AcademicSearchProvider()
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         s2_client.get_references = AsyncMock(return_value=[sample_paper_s2])
         s2_client.get_citations = AsyncMock(return_value=[])
 
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
         oa_client.get_references = AsyncMock(side_effect=Exception("OpenAlex API error"))
         oa_client.get_citations = AsyncMock(return_value=[])
 
@@ -260,9 +326,11 @@ class TestCitationGraphIntegration:
                 direction="references",
             )
 
-            # Then: Should still return S2 results
-            assert len(papers) == 1
-            assert papers[0].id == sample_paper_s2.id
+            # Then: Should still return S2 results (initial + referenced paper)
+            assert len(papers) == 2
+            paper_ids = {p.id for p in papers}
+            assert "s2:test123" in paper_ids  # initial paper
+            assert sample_paper_s2.id in paper_ids  # referenced paper from S2
 
     @pytest.mark.asyncio
     async def test_get_citation_graph_direction_citations_only(
@@ -278,11 +346,32 @@ class TestCitationGraphIntegration:
         # Given
         provider = AcademicSearchProvider()
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         s2_client.get_references = AsyncMock(return_value=[])
         s2_client.get_citations = AsyncMock(return_value=[sample_paper_s2])
 
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
         oa_client.get_references = AsyncMock(return_value=[])
         oa_client.get_citations = AsyncMock(return_value=[sample_paper_openalex])
 
@@ -304,8 +393,8 @@ class TestCitationGraphIntegration:
                 direction="citations",
             )
 
-            # Then
-            assert len(papers) == 2
+            # Then: Initial paper + papers from citations (S2 and OpenAlex)
+            assert len(papers) == 3
             s2_client.get_references.assert_not_called()
             oa_client.get_references.assert_not_called()
             s2_client.get_citations.assert_called_once()
@@ -314,17 +403,38 @@ class TestCitationGraphIntegration:
     @pytest.mark.asyncio
     async def test_get_citation_graph_depth_zero(self) -> None:
         """
-        Test: get_citation_graph() with depth=0 returns empty.
+        Test: get_citation_graph() with depth=0 returns only initial paper.
 
         Given: depth=0
         When: get_citation_graph() is called
-        Then: Empty results (no exploration)
+        Then: Only initial paper (no exploration for references/citations)
         """
         # Given
         provider = AcademicSearchProvider()
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
 
         with patch.object(provider, "_get_client") as mock_get_client:
 
@@ -344,8 +454,8 @@ class TestCitationGraphIntegration:
                 direction="both",
             )
 
-            # Then: No exploration, empty results
-            assert len(papers) == 0
+            # Then: Only initial paper registered, no exploration
+            assert len(papers) == 1  # Initial paper only
             assert len(citations) == 0
             s2_client.get_references.assert_not_called()
             s2_client.get_citations.assert_not_called()
@@ -362,11 +472,32 @@ class TestCitationGraphIntegration:
         # Given
         provider = AcademicSearchProvider()
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         s2_client.get_references = AsyncMock(return_value=[])
         s2_client.get_citations = AsyncMock(return_value=[])
 
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
         oa_client.get_references = AsyncMock(return_value=[])
         oa_client.get_citations = AsyncMock(return_value=[])
 
@@ -388,8 +519,8 @@ class TestCitationGraphIntegration:
                 direction="both",
             )
 
-            # Then
-            assert len(papers) == 0
+            # Then: Initial paper is registered but no references/citations found
+            assert len(papers) == 1  # Only initial paper
             assert len(citations) == 0
 
     @pytest.mark.asyncio
@@ -404,11 +535,32 @@ class TestCitationGraphIntegration:
         # Given
         provider = AcademicSearchProvider()
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         s2_client.get_references = AsyncMock(side_effect=Exception("S2 API error"))
         s2_client.get_citations = AsyncMock(side_effect=Exception("S2 API error"))
 
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
         oa_client.get_references = AsyncMock(side_effect=Exception("OpenAlex API error"))
         oa_client.get_citations = AsyncMock(side_effect=Exception("OpenAlex API error"))
 
@@ -431,7 +583,8 @@ class TestCitationGraphIntegration:
             )
 
             # Then: Should handle gracefully, return empty results
-            assert len(papers) == 0
+            # Initial paper is registered before exploration starts
+            assert len(papers) == 1  # Only initial paper
             assert len(citations) == 0
 
     @pytest.mark.asyncio
@@ -484,7 +637,27 @@ class TestCitationGraphIntegration:
             source_api="semantic_scholar",
         )
 
+        # Create initial paper for get_paper (DOI extraction)
+        initial_paper = Paper(
+            id="s2:test123",
+            title="Initial Paper",
+            abstract="Abstract",
+            authors=[],
+            year=2024,
+            published_date=None,
+            doi="10.1234/initial",
+            arxiv_id=None,
+            venue="Nature",
+            citation_count=0,
+            reference_count=0,
+            is_open_access=False,
+            oa_url=None,
+            pdf_url=None,
+            source_api="semantic_scholar",
+        )
+
         s2_client = AsyncMock()
+        s2_client.get_paper = AsyncMock(return_value=initial_paper)
         # First call (depth 0 -> 1)
         s2_client.get_references = AsyncMock(
             side_effect=[
@@ -495,6 +668,7 @@ class TestCitationGraphIntegration:
         s2_client.get_citations = AsyncMock(return_value=[])
 
         oa_client = AsyncMock()
+        oa_client.get_paper = AsyncMock(return_value=None)
         oa_client.get_references = AsyncMock(return_value=[])
         oa_client.get_citations = AsyncMock(return_value=[])
 

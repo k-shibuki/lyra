@@ -258,37 +258,12 @@ async def retry_api_call[T](
             last_error = e
             last_status = status_code
 
-            # #region agent log
-            import json, time as _time
-            with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-                _f.write(json.dumps({
-                    "hypothesisId": "H-A",
-                    "location": "src/utils/api_retry.py:httpx_status_error",
-                    "message": "Caught httpx.HTTPStatusError",
-                    "data": {"operation": op_name, "status_code": status_code, "is_429": status_code == 429, "rate_limiter_provider": rate_limiter_provider},
-                    "timestamp": _time.time() * 1000,
-                    "sessionId": "debug-session"
-                }) + "\n")
-            # #endregion
-
             # H-A fix: Report 429 to rate limiter for adaptive backoff (ADR-0015)
             if status_code == 429 and rate_limiter_provider:
                 try:
                     from src.search.apis.rate_limiter import get_academic_rate_limiter
                     limiter = get_academic_rate_limiter()
-                    # Use asyncio.create_task to avoid blocking, but we need to await it
                     await limiter.report_429(rate_limiter_provider)
-                    # #region agent log
-                    with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-                        _f.write(json.dumps({
-                            "hypothesisId": "H-A",
-                            "location": "src/utils/api_retry.py:report_429_called",
-                            "message": "Called report_429 on rate limiter",
-                            "data": {"provider": rate_limiter_provider},
-                            "timestamp": _time.time() * 1000,
-                            "sessionId": "debug-session"
-                        }) + "\n")
-                    # #endregion
                 except Exception as report_err:
                     logger.debug("Failed to report 429 to rate limiter", error=str(report_err))
 
