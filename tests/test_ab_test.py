@@ -441,7 +441,7 @@ class TestHighYieldQueryCache:
                 "original_pattern": "AI技術",
                 "improved_pattern": "人工知能技術",
                 "improvement_ratio": 0.15,
-                "confidence": 0.8,
+                "query_yield_confidence": 0.8,
             }
         ]
 
@@ -462,7 +462,7 @@ class TestHighYieldQueryCache:
         mock_db.fetch_one.return_value = {
             "total_patterns": 0,
             "avg_improvement": None,
-            "avg_confidence": None,
+            "avg_query_yield_confidence": None,
             "total_samples": 0,
         }
 

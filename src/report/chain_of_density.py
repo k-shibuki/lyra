@@ -472,7 +472,7 @@ class ChainOfDensityCompressor:
             item = {
                 "index": i,
                 "text": claim.text,
-                "confidence": claim.confidence,
+                "llm_claim_confidence": claim.llm_claim_confidence,
                 "sources": [c.title for c in claim.citations],
             }
             content_items.append(item)
@@ -710,7 +710,7 @@ class ChainOfDensityCompressor:
         # Sort claims by confidence
         sorted_claims = sorted(
             claims,
-            key=lambda c: c.confidence,
+            key=lambda c: c.llm_claim_confidence,
             reverse=True,
         )
 
@@ -720,7 +720,7 @@ class ChainOfDensityCompressor:
         # Build summary text
         summary_parts = []
         for claim in top_claims:
-            if claim.confidence >= 0.7:
+            if claim.llm_claim_confidence >= 0.7:
                 summary_parts.append(claim.text)
 
         summary_text = " ".join(summary_parts)
