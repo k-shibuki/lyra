@@ -1,7 +1,7 @@
 # Confidence & Calibration Design
 
-**Date:** 2025-12-29
-**Status:** Proposal (v3 - MCP Schema Alignment Review integrated)
+**Date:** 2025-12-30
+**Status:** Proposal (v4 - Implementation Gaps Analysis integrated)
 **Related:**
 - ADR-0005: Evidence Graph Structure
 - ADR-0011: LoRA Fine-tuning Strategy
@@ -408,6 +408,20 @@ class ClaimConfidenceAssessment(BaseModel):
 ---
 
 ## 5. NLI 校正システム
+
+### 5.0 実装ステータス概要
+
+| コンポーネント | ステータス | 詳細 |
+|---------------|:----------:|------|
+| **校正アルゴリズム** | ✅ 実装済み | Platt Scaling, Temperature Scaling |
+| **評価指標** | ✅ 実装済み | Brier Score, ECE |
+| **劣化検知・ロールバック** | ✅ 実装済み | CalibrationHistory クラス |
+| **NLI推論への適用** | ⚠️ **未配線** | `nli.py` で `calibrate()` が呼ばれていない |
+| **評価結果の永続化** | ⚠️ **未整備** | `calibration_evaluations` テーブルへの INSERT なし |
+| **MCPツール** | ✅ 実装済み | `calibration_metrics` (get_stats/get_evaluations) |
+
+**Critical Issue**: 校正モジュールは完成しているが、NLI推論経路（`src/filter/nli.py`）への適用が**配線されていない**。
+詳細は **Appendix D.7** を参照。
 
 ### 5.1 アーキテクチャ
 
@@ -861,19 +875,49 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 
 ## 11. 実装ロードマップ
 
-### Phase 1: 用語明確化（ドキュメント）
+### Phase 0: E2Eデバッグ（現在進行中）
+
+**前提**: 以下の Phase 1 以降は、E2Eデバッグ完了後に着手する。
+
+| タスク | ステータス | 備考 |
+|--------|:----------:|------|
+| E2Eデバッグ完了 | 🔄 進行中 | 校正未適用の影響を考慮（D.7.6参照） |
+
+### Phase 1: クリティカル修正（E2Eデバッグ後）
+
+**優先度 P0-P1**: システムの正確性に直接影響する修正
+
+| 優先度 | タスク | ファイル | 詳細 | ステータス |
+|:------:|--------|----------|------|:----------:|
+| **P0** | NLI推論への校正適用 | `src/filter/nli.py` | `calibrate()` を `predict()` に配線 | ❌ |
+| **P0** | batch_predict への校正適用 | `src/filter/nli.py` | 同上（バッチ処理用） | ❌ |
+| **P1** | MCPスキーマ不整合修正 | `src/mcp/server.py` | outputSchema を実装に合わせる（D.2.2） | ❌ |
+
+### Phase 2: MCPクライアント支援（P0完了後）
+
+**優先度 P2-P3**: クライアントの意思決定を支援する改善
+
+| 優先度 | タスク | ファイル | 詳細 | ステータス |
+|:------:|--------|----------|------|:----------:|
+| **P2** | llm-confidence のMCP露出 | `src/research/materials.py` | §3.4.2 の分離実装 | ❌ |
+| **P2** | uncertainty/controversy ガイド追加 | `config/mcp/get_materials.json` | D.5 参照 | ❌ |
+| **P3** | 評価結果の永続化 | `src/utils/calibration.py` | `save_evaluation_result()` 追加 | ❌ |
+
+### Phase 3: コード品質（全て完了後）
+
+**優先度 P4**: 可読性・保守性の向上
+
+| 優先度 | タスク | 変更前 | 変更後 | ステータス |
+|:------:|--------|--------|--------|:----------:|
+| **P4** | ファイルリネーム | `calibration.py` | `nli_calibration.py` | 📝 |
+| **P4** | import 更新 | 全参照箇所 | - | 📝 |
+
+### Phase D: ドキュメント（並行作業可）
 
 | タスク | ファイル | ステータス |
 |--------|----------|:----------:|
 | 本設計文書の確定 | `docs/confidence-calibration-design.md` | ✅ |
 | ADR-0011 への参照追加 | `docs/adr/0011-lora-fine-tuning.md` | 📝 |
-
-### Phase 2: リネーム（コード）
-
-| タスク | 変更前 | 変更後 | ステータス |
-|--------|--------|--------|:----------:|
-| ファイルリネーム | `calibration.py` | `nli_calibration.py` | 📝 |
-| import 更新 | 全参照箇所 | - | 📝 |
 
 ### Phase T: LoRA 実装（将来）
 
@@ -1191,3 +1235,137 @@ BAYESIAN CONFIDENCE MODEL:
 | P1 | server.py outputSchema を実装に合わせる | §13.5 |
 | P2 | get_materials.json に uncertainty/controversy ガイド追加 | D.5 |
 | P3 | §3.4.2 の `llm_confidence` / `bayesian_confidence` 分離実装 | §3.4.2, §8.5 |
+
+### D.7 校正の配線不足（Critical）
+
+#### D.7.1 問題の概要
+
+校正モジュール（`src/utils/calibration.py`）は **完全に実装済み** だが、NLI推論経路への適用が **配線されていない**。
+
+**現状のデータフロー（Broken）**:
+```
+NLI Model (DeBERTa)
+    ↓ predict()
+result["score"] (生の softmax 出力)
+    ↓ そのまま使用（校正なし）❌
+edges.nli_confidence (未校正の生スコア)
+    ↓
+calculate_claim_confidence() (ベイズ更新)
+```
+
+**あるべきデータフロー**:
+```
+NLI Model (DeBERTa)
+    ↓ predict()
+result["score"] (生の softmax 出力)
+    ↓ calibrator.calibrate(prob, "nli_judge")
+calibrated_confidence (校正済み) ✅
+    ↓
+edges.nli_confidence (校正済みスコア)
+    ↓
+calculate_claim_confidence() (ベイズ更新)
+```
+
+#### D.7.2 影響範囲
+
+| 影響 | 詳細 |
+|------|------|
+| **E2Eデバッグ** | 未校正の NLI スコアがベイズ更新に入るため、claim confidence が過信/過小評価される可能性 |
+| **Feedback効果** | `edge_correct` で訂正しても、新規エッジは未校正のまま作成される |
+| **校正パラメータ** | `data/calibration_params.json` が存在しても適用されない |
+
+#### D.7.3 関連コード箇所
+
+| ファイル | 行 | 現状 |
+|----------|-----|------|
+| `src/filter/nli.py:88-91` | `predict()` | `result["score"]` をそのまま返す |
+| `src/filter/nli.py:149-152` | `batch_predict()` | 同上 |
+| `src/utils/calibration.py:85-120` | `calibrate()` | 実装済みだが呼び出し元なし |
+| `src/mcp/server.py:1050-1070` | `calibration_metrics` | get_stats/get_evaluations のみ |
+
+#### D.7.4 修正案
+
+**Step 1: NLI推論に校正を適用**
+
+```python
+# src/filter/nli.py の predict() を修正
+
+async def predict(self, premise: str, hypothesis: str) -> dict[str, Any]:
+    # ... existing code ...
+
+    # 校正を適用（新規追加）
+    from src.utils.calibration import get_calibrator
+    calibrator = get_calibrator()
+
+    raw_confidence = result["score"]
+    calibrated_confidence = calibrator.calibrate(
+        raw_confidence,
+        source="nli_judge",
+        logit=None,  # logit が取得可能なら使用
+    )
+
+    return {
+        "label": label,
+        "confidence": calibrated_confidence,      # 校正済み（ベイズ更新用）
+        "confidence_raw": raw_confidence,         # 生スコア（デバッグ/評価用）
+    }
+```
+
+**Step 2: edges.nli_confidence に校正済みスコアを保存**
+
+`src/filter/evidence_graph.py:add_claim_evidence()` は既に `nli_confidence` を受け取る設計なので、Step 1 の修正で自動的に校正済みスコアが保存される。
+
+**Step 3: 評価結果の永続化**
+
+```python
+# src/utils/calibration.py に追加
+
+async def save_evaluation_result(
+    source: str,
+    result: CalibrationResult,
+    calibration_version: int | None = None,
+) -> str:
+    """評価結果を calibration_evaluations テーブルに永続化"""
+    from src.storage.database import get_database
+    import uuid
+
+    db = await get_database()
+    eval_id = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO calibration_evaluations
+           (id, source, brier_score, brier_score_calibrated,
+            improvement_ratio, expected_calibration_error,
+            samples_evaluated, bins_json, calibration_version, evaluated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+        (eval_id, source, result.brier_score, result.brier_score_calibrated,
+         result.improvement_ratio, result.ece,
+         result.samples_evaluated, json.dumps(result.bins),
+         calibration_version)
+    )
+    return eval_id
+```
+
+#### D.7.5 実装優先順位
+
+| 優先度 | タスク | 前提条件 | 影響 |
+|:------:|--------|----------|------|
+| **P0** | NLI推論への校正適用（Step 1-2） | E2Eデバッグ完了 | 全 claim confidence に影響 |
+| **P1** | MCPスキーマ不整合の修正（D.2.2） | P0と同時可 | MCPクライアントの期待値調整 |
+| **P2** | llm-confidence のMCP露出（§3.4.2） | P1完了後 | クライアントの意思決定支援 |
+| **P3** | 評価永続化（Step 3） | P0完了後 | 校正履歴の追跡 |
+| **P4** | ファイル名変更（§10.2） | 全て完了後 | 可読性向上のみ |
+
+#### D.7.6 E2Eデバッグへの影響
+
+**現状（校正未適用）での注意点**:
+
+1. **NLI スコアの解釈**: `edges.nli_confidence` は未校正の生スコア。DeBERTa系モデルは一般的に過信傾向があるため、0.9 のスコアが実際には 0.7-0.8 相当の可能性がある。
+
+2. **claim confidence のデバッグ**: `calculate_claim_confidence()` の出力が期待と異なる場合、校正未適用が原因の可能性を考慮。
+
+3. **Feedback ワークフロー**: `edge_correct` は正常動作するが、新規エッジは未校正のまま。訂正後の claim confidence 改善が限定的な可能性あり。
+
+**推奨**: E2Eデバッグ中は以下を確認：
+- `edges.nli_confidence` の分布（0.8-1.0 に偏っていないか）
+- `calculate_claim_confidence()` の uncertainty 値（極端に低くないか）
+- 校正適用後に改善が見込める箇所の特定
