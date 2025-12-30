@@ -115,6 +115,7 @@ class EvidenceGraph:
         nli_confidence: float | None = None,
         source_domain_category: str | None = None,
         target_domain_category: str | None = None,
+        edge_id: str | None = None,
         **attributes: Any,
     ) -> str:
         """Add an edge (relationship) to the graph.
@@ -131,6 +132,7 @@ class EvidenceGraph:
             source_domain_category: Domain category of source (for ranking adjustment).
                 Values: primary/government/academic/trusted/low/unverified/blocked
             target_domain_category: Domain category of target (for ranking adjustment).
+            edge_id: Optional edge ID. If None, a new UUID is generated.
             **attributes: Additional edge attributes.
 
         Returns:
@@ -145,7 +147,8 @@ class EvidenceGraph:
         if target_node not in self._graph:
             self.add_node(target_type, target_id)
 
-        edge_id = str(uuid.uuid4())
+        if edge_id is None:
+            edge_id = str(uuid.uuid4())
 
         self._graph.add_edge(
             source_node,
@@ -272,6 +275,7 @@ class EvidenceGraph:
             node_data = self._graph.nodes[predecessor]
 
             evidence = {
+                "edge_id": edge_data.get("edge_id"),  # For feedback(edge_correct)
                 "node_type": node_type.value,
                 "obj_id": obj_id,
                 "relation": relation,
@@ -419,6 +423,7 @@ class EvidenceGraph:
 
                 evidence_list.append(
                     {
+                        "edge_id": e.get("edge_id"),  # For feedback(edge_correct)
                         "relation": relation,
                         "source_id": e.get("obj_id"),
                         "source_type": e.get("node_type"),
@@ -1041,6 +1046,7 @@ class EvidenceGraph:
                 citation_context=edge.get("citation_context"),
                 source_domain_category=edge.get("source_domain_category"),
                 target_domain_category=edge.get("target_domain_category"),
+                edge_id=edge.get("id"),  # Preserve DB edge ID for feedback(edge_correct)
             )
 
         # Enrich node metadata from DB for correct integration behavior:
