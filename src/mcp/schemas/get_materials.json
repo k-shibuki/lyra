@@ -48,11 +48,15 @@
           },
           "evidence": {
             "type": "array",
-            "description": "Evidence items with temporal metadata (ADR-0003).",
+            "description": "Evidence items with NLI labels and temporal metadata. Use edge_id with feedback(edge_correct) to fix NLI errors.",
             "items": {
               "type": "object",
               "properties": {
-                "relation": {"type": "string"},
+                "edge_id": {
+                  "type": ["string", "null"],
+                  "description": "Edge ID for feedback(edge_correct). Use this to correct NLI classification errors."
+                },
+                "relation": {"type": "string", "enum": ["supports", "refutes", "neutral"]},
                 "source_id": {"type": ["string", "null"]},
                 "source_type": {"type": ["string", "null"]},
                 "year": {"type": ["integer", "string", "null"]},
