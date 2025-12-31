@@ -27,9 +27,10 @@ async def main() -> None:
         print(f"Using isolated DB: {db_path}")
 
         # Import after path setup (DB path is set by context manager)
-        from src.research.state import ExplorationState, TaskStatus
-        from src.research.pipeline import SearchPipeline, SearchOptions
         import uuid
+
+        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.state import ExplorationState
 
         # Create task
         task_id = f"test_{uuid.uuid4().hex[:8]}"
@@ -48,7 +49,7 @@ async def main() -> None:
             },
             auto_id=False,
         )
-        print(f"    Task record created in DB")
+        print("    Task record created in DB")
 
         # Initialize ExplorationState
         state = ExplorationState(task_id=task_id)
@@ -57,10 +58,10 @@ async def main() -> None:
         # Define search query
         search_query = "DPP-4 inhibitors meta-analysis HbA1c"
         print(f"\n[2] Will execute search: {search_query}")
-        print(f"    (Pipeline will auto-register the search in ExplorationState)")
+        print("    (Pipeline will auto-register the search in ExplorationState)")
 
         # Create pipeline and execute
-        print(f"\n[3] Executing search pipeline...")
+        print("\n[3] Executing search pipeline...")
         pipeline = SearchPipeline(task_id=task_id, state=state)
 
         options = SearchOptions(
@@ -73,7 +74,7 @@ async def main() -> None:
 
         try:
             result = await pipeline.execute(query=search_query, options=options)
-            print(f"\n[4] Pipeline execution completed:")
+            print("\n[4] Pipeline execution completed:")
             print(f"    Status: {result.status}")
             print(f"    Pages fetched: {result.pages_fetched}")
             print(f"    Useful fragments: {result.useful_fragments}")
@@ -86,19 +87,19 @@ async def main() -> None:
             traceback.print_exc()
 
         # Get status from ExplorationState
-        print(f"\n[5] Getting ExplorationState status...")
+        print("\n[5] Getting ExplorationState status...")
         try:
             status = await state.get_status()
             metrics = status.get("metrics", {})
             searches = status.get("searches", [])
 
-            print(f"\n    Task-level metrics:")
+            print("\n    Task-level metrics:")
             print(f"      total_pages: {metrics.get('total_pages', 0)}")
             print(f"      total_fragments: {metrics.get('total_fragments', 0)}")
             print(f"      total_claims: {metrics.get('total_claims', 0)}")
             print(f"      satisfied_count: {metrics.get('satisfied_count', 0)}")
 
-            print(f"\n    Search-level metrics:")
+            print("\n    Search-level metrics:")
             for s in searches:
                 print(f"      Search {s.get('id', 'unknown')[:20]}:")
                 print(f"        pages_fetched: {s.get('pages_fetched', 0)}")
@@ -113,7 +114,7 @@ async def main() -> None:
             traceback.print_exc()
 
         # Check DB for persisted data
-        print(f"\n[6] Checking persisted data in DB...")
+        print("\n[6] Checking persisted data in DB...")
         try:
             from src.storage.database import get_database
             db = await get_database()
@@ -139,7 +140,7 @@ async def main() -> None:
                 sample_frags = await db.fetch_all(
                     "SELECT id, fragment_type, LENGTH(text_content) as text_len FROM fragments LIMIT 3"
                 )
-                print(f"\n    Sample fragments:")
+                print("\n    Sample fragments:")
                 for frag in sample_frags:
                     print(f"      {frag['id']}: type={frag['fragment_type']}, len={frag['text_len']}")
 

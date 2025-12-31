@@ -128,6 +128,7 @@
     },
     "evidence_graph": {
       "type": ["object", "null"],
+      "description": "Evidence graph with claim-evidence relationships and citation network",
       "properties": {
         "nodes": {
           "type": "array",
@@ -135,7 +136,85 @@
         },
         "edges": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {"type": "string"},
+              "target": {"type": "string"},
+              "relation": {
+                "type": "string",
+                "enum": ["supports", "refutes", "neutral", "cites", "evidence_source"],
+                "description": "Edge relation type. cites = page->page citation, evidence_source = claim->page (Phase 2)"
+              },
+              "edge_id": {"type": ["string", "null"]},
+              "nli_label": {"type": ["string", "null"]},
+              "nli_edge_confidence": {"type": ["number", "null"]},
+              "citation_source": {"type": ["string", "null"]},
+              "citation_context": {"type": ["string", "null"]},
+              "source_domain_category": {"type": ["string", "null"]},
+              "target_domain_category": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "total_nodes": {"type": "integer"},
+            "total_edges": {"type": "integer"},
+            "node_counts": {"type": "object"},
+            "edge_counts": {"type": "object"},
+            "citation_integrity_score": {"type": "number"},
+            "citation_loop_count": {"type": "integer"},
+            "round_trip_count": {"type": "integer"}
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "citation_network": {
+      "type": ["object", "null"],
+      "description": "Citation network reachable from task's claims. Only included when include_citations=true.",
+      "properties": {
+        "source_pages": {
+          "type": "array",
+          "description": "Pages that are evidence sources for this task's claims",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "title": {"type": ["string", "null"]},
+              "url": {"type": "string"},
+              "domain": {"type": ["string", "null"]},
+              "citation_count": {"type": ["integer", "null"]},
+              "year": {"type": ["integer", "null"]}
+            }
+          }
+        },
+        "citations": {
+          "type": "array",
+          "description": "Citation edges from source pages",
+          "items": {
+            "type": "object",
+            "properties": {
+              "edge_id": {"type": "string"},
+              "citing_page_id": {"type": "string"},
+              "cited_page_id": {"type": "string"},
+              "cited_title": {"type": ["string", "null"]},
+              "citation_source": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "hub_pages": {
+          "type": "array",
+          "description": "Highly-cited pages within this task's citation network (top 10)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "page_id": {"type": "string"},
+              "title": {"type": ["string", "null"]},
+              "cited_by_count": {"type": "integer"}
+            }
+          }
         }
       },
       "additionalProperties": false

@@ -11,6 +11,7 @@ from typing import Any
 import networkx as nx
 
 from src.storage.database import get_database
+from src.utils.db_helpers import chunked
 from src.utils.logging import CausalTrace, get_logger
 
 logger = get_logger(__name__)
@@ -31,6 +32,7 @@ class RelationType(str, Enum):
     REFUTES = "refutes"
     CITES = "cites"
     NEUTRAL = "neutral"
+    EVIDENCE_SOURCE = "evidence_source"  # Claim→Page derived edge (Phase 2)
 
 
 class EvidenceGraph:
@@ -938,6 +940,7 @@ class EvidenceGraph:
             RelationType.REFUTES.value: 0,
             RelationType.CITES.value: 0,
             RelationType.NEUTRAL.value: 0,
+            RelationType.EVIDENCE_SOURCE.value: 0,
         }
 
         for _, _, data in self._graph.edges(data=True):
@@ -958,12 +961,203 @@ class EvidenceGraph:
             "round_trip_count": integrity["round_trip_count"],
         }
 
+    def calculate_pagerank(
+        self,
+        node_type_filter: NodeType | None = None,
+        alpha: float = 0.85,
+        citation_only: bool = True,
+    ) -> dict[str, float]:
+        """Calculate PageRank scores for nodes in the graph.
+
+        PageRank measures the importance of nodes based on the link structure.
+        Higher scores indicate more influential nodes (e.g., highly-cited pages).
+
+        Args:
+            node_type_filter: If provided, only return scores for nodes of this type.
+            alpha: Damping parameter for PageRank (default 0.85).
+            citation_only: If True (default), calculate on PAGE nodes + CITES edges only.
+                This prevents Claim/Fragment structure from affecting citation analysis.
+
+        Returns:
+            Dict mapping node_id to PageRank score (sum of all scores = 1.0).
+        """
+        if self._graph.number_of_nodes() == 0:
+            return {}
+
+        # Select target graph based on citation_only flag
+        if citation_only:
+            # Extract citation subgraph: PAGE nodes + CITES edges only
+            page_nodes = [
+                n
+                for n in self._graph.nodes()
+                if self._graph.nodes[n].get("node_type") == NodeType.PAGE.value
+            ]
+            if not page_nodes:
+                return {}
+            subgraph = self._graph.subgraph(page_nodes).copy()
+            # Remove non-CITES edges
+            edges_to_remove = [
+                (u, v)
+                for u, v, d in subgraph.edges(data=True)
+                if d.get("relation") != RelationType.CITES.value
+            ]
+            subgraph.remove_edges_from(edges_to_remove)
+            target_graph = subgraph
+        else:
+            target_graph = self._graph
+
+        if target_graph.number_of_nodes() == 0:
+            return {}
+
+        try:
+            scores = nx.pagerank(target_graph, alpha=alpha)
+        except nx.PowerIterationFailedConvergence:
+            # Fallback: return uniform distribution
+            n = target_graph.number_of_nodes()
+            uniform_score = 1.0 / n
+            scores = dict.fromkeys(target_graph.nodes(), uniform_score)
+
+        # Filter by node type if requested
+        if node_type_filter is not None:
+            scores = {
+                node_id: score
+                for node_id, score in scores.items()
+                if target_graph.nodes[node_id].get("node_type") == node_type_filter.value
+            }
+
+        # Cast to ensure correct return type (networkx returns dict[Any, float])
+        return {str(k): float(v) for k, v in scores.items()}
+
+    def calculate_betweenness_centrality(
+        self,
+        node_type_filter: NodeType | None = None,
+        citation_only: bool = True,
+    ) -> dict[str, float]:
+        """Calculate betweenness centrality for nodes in the graph.
+
+        Betweenness centrality measures how often a node lies on shortest paths
+        between other nodes. High centrality nodes are important connectors
+        (e.g., papers that bridge different research areas).
+
+        Args:
+            node_type_filter: If provided, only return scores for nodes of this type.
+            citation_only: If True (default), calculate on PAGE nodes + CITES edges only.
+                This prevents Claim/Fragment structure from affecting citation analysis.
+
+        Returns:
+            Dict mapping node_id to betweenness centrality score (0.0-1.0).
+        """
+        if self._graph.number_of_nodes() == 0:
+            return {}
+
+        # Select target graph based on citation_only flag
+        if citation_only:
+            # Extract citation subgraph: PAGE nodes + CITES edges only
+            page_nodes = [
+                n
+                for n in self._graph.nodes()
+                if self._graph.nodes[n].get("node_type") == NodeType.PAGE.value
+            ]
+            if not page_nodes:
+                return {}
+            subgraph = self._graph.subgraph(page_nodes).copy()
+            # Remove non-CITES edges
+            edges_to_remove = [
+                (u, v)
+                for u, v, d in subgraph.edges(data=True)
+                if d.get("relation") != RelationType.CITES.value
+            ]
+            subgraph.remove_edges_from(edges_to_remove)
+            target_graph = subgraph
+        else:
+            target_graph = self._graph
+
+        if target_graph.number_of_nodes() == 0:
+            return {}
+
+        # Calculate betweenness centrality
+        scores = nx.betweenness_centrality(target_graph)
+
+        # Filter by node type if requested
+        if node_type_filter is not None:
+            scores = {
+                node_id: score
+                for node_id, score in scores.items()
+                if target_graph.nodes[node_id].get("node_type") == node_type_filter.value
+            }
+
+        # Cast to ensure correct return type (networkx returns dict[Any, float])
+        return {str(k): float(v) for k, v in scores.items()}
+
+    def get_citation_hub_pages(
+        self,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Get most-cited pages within the graph.
+
+        Returns pages sorted by in-degree (number of incoming citation edges).
+        This identifies "hub" pages that are cited by many other pages.
+
+        Args:
+            limit: Maximum number of pages to return.
+
+        Returns:
+            List of page info dicts with page_id, title, url, cited_by_count,
+            sorted by cited_by_count DESC.
+        """
+        hub_pages: list[dict[str, Any]] = []
+
+        # Get all PAGE nodes
+        page_nodes = [
+            node_id
+            for node_id in self._graph.nodes()
+            if self._graph.nodes[node_id].get("node_type") == NodeType.PAGE.value
+        ]
+
+        for node_id in page_nodes:
+            # Count incoming cites edges only
+            cited_by_count = 0
+            for predecessor in self._graph.predecessors(node_id):
+                edge_data = self._graph.edges[predecessor, node_id]
+                if edge_data.get("relation") == RelationType.CITES.value:
+                    cited_by_count += 1
+
+            # Only include pages with at least one citation
+            if cited_by_count > 0:
+                node_data = self._graph.nodes[node_id]
+                _, page_id = self._parse_node_id(node_id)
+                hub_pages.append(
+                    {
+                        "page_id": page_id,
+                        "title": node_data.get("title"),
+                        "url": node_data.get("url"),
+                        "cited_by_count": cited_by_count,
+                    }
+                )
+
+        # Sort by cited_by_count DESC and limit
+        hub_pages.sort(key=lambda x: x["cited_by_count"], reverse=True)
+        return hub_pages[:limit]
+
     async def save_to_db(self) -> None:
-        """Persist graph edges to database."""
+        """Persist graph edges to database.
+
+        Note: Derived edges (EVIDENCE_SOURCE) are skipped per ADR-0005.
+        These edges are computed in-memory by load_from_db() and should
+        not be persisted to avoid data duplication and inconsistency.
+        """
         db = await get_database()
+
+        saved_count = 0
+        skipped_count = 0
 
         with CausalTrace() as trace:
             for source, target, data in self._graph.edges(data=True):
+                # Skip derived edges (not persisted per ADR-0005)
+                if data.get("relation") == RelationType.EVIDENCE_SOURCE.value:
+                    skipped_count += 1
+                    continue
+
                 source_type, source_id = self._parse_node_id(source)
                 target_type, target_id = self._parse_node_id(target)
 
@@ -986,10 +1180,13 @@ class EvidenceGraph:
                     },
                     or_replace=True,
                 )
+                saved_count += 1
 
         logger.info(
             "Evidence graph saved",
-            edge_count=self._graph.number_of_edges(),
+            saved_count=saved_count,
+            skipped_derived_count=skipped_count,
+            total_edges=self._graph.number_of_edges(),
             task_id=self.task_id,
         )
 
@@ -1003,19 +1200,52 @@ class EvidenceGraph:
 
         # Load edges
         if task_id:
-            # Filter by task via claims
-            edges = await db.fetch_all(
+            # A) Claim-related edges (existing logic)
+            # NOTE: OR must be wrapped in parentheses to prevent unintended scope expansion
+            claim_edges = await db.fetch_all(
                 """
                 SELECT e.* FROM edges e
-                WHERE e.source_type = 'claim' AND e.source_id IN (
-                    SELECT id FROM claims WHERE task_id = ?
-                )
-                OR e.target_type = 'claim' AND e.target_id IN (
-                    SELECT id FROM claims WHERE task_id = ?
+                WHERE (
+                    e.source_type = 'claim' AND e.source_id IN (
+                        SELECT id FROM claims WHERE task_id = ?
+                    )
+                ) OR (
+                    e.target_type = 'claim' AND e.target_id IN (
+                        SELECT id FROM claims WHERE task_id = ?
+                    )
                 )
                 """,
                 (task_id, task_id),
             )
+            edges = list(claim_edges)
+
+            # B) source_page_ids: pages linked to task's claims via fragments
+            source_page_rows = await db.fetch_all(
+                """
+                SELECT DISTINCT f.page_id
+                FROM fragments f
+                JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+                JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+                WHERE c.task_id = ?
+                  AND f.page_id IS NOT NULL
+                """,
+                (task_id,),
+            )
+            source_page_ids = [str(row["page_id"]) for row in source_page_rows]
+
+            # C) Load page->page cites edges from source pages (chunked for scale)
+            for chunk in chunked(source_page_ids):
+                placeholders = ",".join(["?"] * len(chunk))
+                cites_edges = await db.fetch_all(
+                    f"""
+                    SELECT e.* FROM edges e
+                    WHERE e.relation = 'cites'
+                      AND e.source_type = 'page' AND e.target_type = 'page'
+                      AND e.source_id IN ({placeholders})
+                    """,
+                    tuple(chunk),
+                )
+                edges = edges + list(cites_edges)
         else:
             edges = await db.fetch_all("SELECT * FROM edges")
 
@@ -1144,6 +1374,48 @@ class EvidenceGraph:
                 self._graph.nodes[node_id].update(
                     _extract_academic_fields(meta.get("paper_metadata"))
                 )
+
+            # D) Derive EVIDENCE_SOURCE edges (Claim→Page) from fragment→claim edges
+            #    - For each fragment→claim edge, look up fragment's page_id
+            #    - Create claim→page EVIDENCE_SOURCE edge (deduplicated, in-memory only)
+            derived_pairs: set[tuple[str, str]] = set()  # (claim_id, page_id)
+
+            for source, target, data in list(self._graph.edges(data=True)):
+                # Only process fragment→claim edges (supports/refutes/neutral)
+                relation = data.get("relation")
+                if relation not in (
+                    RelationType.SUPPORTS.value,
+                    RelationType.REFUTES.value,
+                    RelationType.NEUTRAL.value,
+                ):
+                    continue
+                source_node_type = self._graph.nodes[source].get("node_type")
+                target_node_type = self._graph.nodes[target].get("node_type")
+                if (
+                    source_node_type != NodeType.FRAGMENT.value
+                    or target_node_type != NodeType.CLAIM.value
+                ):
+                    continue
+
+                # Get fragment's page_id from the mapping
+                _, fragment_id = self._parse_node_id(source)
+                _, claim_id = self._parse_node_id(target)
+                page_id = frag_to_page.get(str(fragment_id))
+                if not page_id:
+                    continue
+
+                # Deduplicate: only add one edge per (claim_id, page_id) pair
+                pair = (claim_id, page_id)
+                if pair not in derived_pairs:
+                    derived_pairs.add(pair)
+                    self.add_edge(
+                        source_type=NodeType.CLAIM,
+                        source_id=claim_id,
+                        target_type=NodeType.PAGE,
+                        target_id=page_id,
+                        relation=RelationType.EVIDENCE_SOURCE,
+                    )
+
         except Exception as e:
             logger.debug(
                 "Failed to enrich evidence graph node metadata from DB",

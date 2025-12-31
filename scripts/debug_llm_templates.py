@@ -14,11 +14,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.filter.llm_output import extract_json, validate_list_with_schema, validate_with_schema
 from src.filter.llm_schemas import (
     DecomposedClaim,
-    DenseSummaryOutput,
     ExtractedClaim,
     ExtractedFact,
     InitialSummaryOutput,
-    QualityAssessmentOutput,
 )
 from src.filter.ollama_provider import create_ollama_provider
 from src.filter.provider import LLMOptions
@@ -54,11 +52,11 @@ async def test_template(
     try:
         options = LLMOptions(response_format="json")
         response = await provider.generate(prompt, options)
-        
+
         if not response.ok:
             print(f"[2] ERROR: LLM call failed: {response.error}")
             return {"template": template_name, "error": f"llm_call: {response.error}"}
-        
+
         raw_text = response.text
         print(f"\n[2] Raw LLM output ({len(raw_text)} chars):")
         print("-" * 40)

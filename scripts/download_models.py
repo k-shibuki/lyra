@@ -48,17 +48,18 @@ def download_model(repo_id: str, model_type: str) -> str:
     Returns:
         Local path to the downloaded model
     """
-    from huggingface_hub import snapshot_download
     import os
+
+    from huggingface_hub import snapshot_download
 
     print(f"  Downloading {model_type}: {repo_id}")
 
     # Check if offline mode is enabled
     offline_mode = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
-    
+
     if offline_mode:
         # In offline mode, try to get path from existing cache
-        print(f"  Offline mode detected, checking local cache...")
+        print("  Offline mode detected, checking local cache...")
         try:
             local_path = snapshot_download(
                 repo_id=repo_id,
@@ -91,7 +92,7 @@ def verify_model_loads(model_paths: dict) -> None:
         model_paths: Dictionary of model type to local path
     """
     import os
-    
+
     print("\n" + "=" * 60)
     print("Verifying models load correctly from local paths")
     print("=" * 60)
@@ -135,17 +136,17 @@ def main():
     model_paths = {}
 
     # Download embedding model
-    print(f"\n[1/3] Embedding model")
+    print("\n[1/3] Embedding model")
     model_paths["embedding"] = download_model(MODEL_EMBEDDING, "embedding")
     model_paths["embedding_name"] = MODEL_EMBEDDING
 
     # Download reranker model
-    print(f"\n[2/3] Reranker model")
+    print("\n[2/3] Reranker model")
     model_paths["reranker"] = download_model(MODEL_RERANKER, "reranker")
     model_paths["reranker_name"] = MODEL_RERANKER
 
     # Download NLI model
-    print(f"\n[3/3] NLI model")
+    print("\n[3/3] NLI model")
     model_paths["nli"] = download_model(MODEL_NLI, "NLI")
     model_paths["nli_name"] = MODEL_NLI
 

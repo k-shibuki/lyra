@@ -80,7 +80,7 @@ def extract_json(
                             wrapper_key=key,
                         )
                         return result[key]
-                
+
                 if strict_array:
                     # Strict mode: reject single object, allow caller to retry
                     logger.debug(

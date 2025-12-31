@@ -3,6 +3,13 @@
 ## Date
 2025-11-15
 
+## Status
+Accepted
+
+**Updates**:
+- 2025-12-27: Updated to reflect current implementation in `src/filter/evidence_graph.py`
+- 2024-12-31: Citation Network Integration completed (Phases 1-4) - see [Sb_CITATION_NETWORK](../Sb_CITATION_NETWORK.md)
+
 ## Context
 
 Academic research requires integrating evidence from multiple sources to evaluate hypothesis confidence.
@@ -140,11 +147,13 @@ Fragment  Fragment  Fragment
 | REFUTES | Fragment | Claim | Fragment contradicts claim |
 | NEUTRAL | Fragment | Claim | Relationship unclear |
 | CITES | Page | Page | Citation relationship between sources |
+| EVIDENCE_SOURCE | Claim | Page | Claim is based on evidence from this page |
 
 **Implementation note**:
 - `EXTRACTED_FROM (Fragment → Page)` is represented implicitly by the relational link `fragments.page_id → pages.id`,
   not as an explicit `edges` record.
 - `CITES` is persisted as `edges` rows with `source_type='page'` and `target_type='page'`.
+- `EVIDENCE_SOURCE` is derived in-memory by `load_from_db()` from `fragment→claim` + `fragment.page_id` (not persisted to DB). See [Sb_CITATION_NETWORK](../Sb_CITATION_NETWORK.md).
 
 ### Confidence Calculation (Bayesian Approach)
 
@@ -205,7 +214,23 @@ Reasons:
 | Vector DB Only | Fast similarity search | Weak relationships | Supplementary adoption |
 | Score Only | Lightweight | Opaque rationale | Rejected |
 
+## Implementation Notes
+
+### Citation Network Integration (2024-12-31)
+
+Full citation network support was added in [Sb_CITATION_NETWORK](../Sb_CITATION_NETWORK.md):
+
+| Feature | Implementation |
+|---------|---------------|
+| `EVIDENCE_SOURCE` edge | Derived in-memory from `fragment→claim` + `fragment.page_id` |
+| `CITES` edge loading | `load_from_db(task_id)` includes page→page edges reachable from task's claims |
+| MCP API | `get_materials(options.include_citations=true)` returns `citation_network` |
+| Graph analysis | `calculate_pagerank()`, `calculate_betweenness_centrality()`, `get_citation_hub_pages()` |
+
+This enables full graph traversal from Claim → Page → Cited Pages via NetworkX.
+
 ## References
 - `src/storage/schema.sql` - Graph schema (edges, claims, fragments tables)
 - `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)
 - `docs/archive/Rc_CONFIDENCE_CALIBRATION_DESIGN.md` - Confidence/Calibration design (completed)
+- `docs/Sb_CITATION_NETWORK.md` - Citation network integration proposal (Phase Sb)

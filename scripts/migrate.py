@@ -53,13 +53,13 @@ def get_pending_migrations(conn: sqlite3.Connection) -> list[tuple[int, str, Pat
     """Get list of pending migrations as (version, name, path) tuples."""
     applied = get_applied_migrations(conn)
     pending = []
-    
+
     if not MIGRATIONS_DIR.exists():
         return pending
-    
+
     # Pattern: 001_name.sql
     pattern = re.compile(r"^(\d{3})_(.+)\.sql$")
-    
+
     for sql_file in sorted(MIGRATIONS_DIR.glob("*.sql")):
         match = pattern.match(sql_file.name)
         if match:
@@ -67,33 +67,33 @@ def get_pending_migrations(conn: sqlite3.Connection) -> list[tuple[int, str, Pat
             name = match.group(2)
             if version not in applied:
                 pending.append((version, name, sql_file))
-    
+
     return pending
 
 
 def apply_migration(conn: sqlite3.Connection, version: int, name: str, path: Path) -> None:
     """Apply a single migration file."""
     sql_content = path.read_text(encoding="utf-8")
-    
+
     # Split by semicolons and execute each statement
     # (SQLite executescript doesn't work well with ALTER TABLE in all cases)
     statements = [s.strip() for s in sql_content.split(";") if s.strip()]
-    
+
     for statement in statements:
         # Skip comments-only statements
         if statement.startswith("--") and "\n" not in statement:
             continue
-        
+
         # Handle "column already exists" gracefully for idempotency
         try:
             conn.execute(statement)
         except sqlite3.OperationalError as e:
             error_msg = str(e).lower()
             if "duplicate column" in error_msg or "already exists" in error_msg:
-                print(f"  [SKIP] Column already exists, continuing...")
+                print("  [SKIP] Column already exists, continuing...")
             else:
                 raise
-    
+
     # Record migration as applied
     conn.execute(
         "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
@@ -106,15 +106,15 @@ def cmd_up(db_path: Path) -> int:
     """Apply all pending migrations."""
     conn = get_connection(db_path)
     ensure_migrations_table(conn)
-    
+
     pending = get_pending_migrations(conn)
-    
+
     if not pending:
         print("No pending migrations.")
         return 0
-    
+
     print(f"Applying {len(pending)} migration(s)...")
-    
+
     for version, name, path in pending:
         print(f"  [{version:03d}] {name}...")
         try:
@@ -125,7 +125,7 @@ def cmd_up(db_path: Path) -> int:
             print(f"  Error: {e}")
             conn.close()
             return 1
-    
+
     conn.close()
     print(f"Applied {len(pending)} migration(s) successfully.")
     return 0
@@ -135,14 +135,14 @@ def cmd_status(db_path: Path) -> int:
     """Show migration status."""
     conn = get_connection(db_path)
     ensure_migrations_table(conn)
-    
+
     applied = get_applied_migrations(conn)
     pending = get_pending_migrations(conn)
-    
+
     print(f"Database: {db_path}")
     print(f"Applied: {len(applied)} migration(s)")
     print(f"Pending: {len(pending)} migration(s)")
-    
+
     if applied:
         print("\nApplied migrations:")
         cursor = conn.execute(
@@ -150,12 +150,12 @@ def cmd_status(db_path: Path) -> int:
         )
         for row in cursor.fetchall():
             print(f"  [{row['version']:03d}] {row['name']} (applied: {row['applied_at']})")
-    
+
     if pending:
         print("\nPending migrations:")
         for version, name, _ in pending:
             print(f"  [{version:03d}] {name}")
-    
+
     conn.close()
     return 0
 
@@ -163,24 +163,24 @@ def cmd_status(db_path: Path) -> int:
 def cmd_create(name: str) -> int:
     """Create a new migration file."""
     MIGRATIONS_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     # Find next version number
     pattern = re.compile(r"^(\d{3})_.+\.sql$")
     max_version = 0
-    
+
     for sql_file in MIGRATIONS_DIR.glob("*.sql"):
         match = pattern.match(sql_file.name)
         if match:
             version = int(match.group(1))
             max_version = max(max_version, version)
-    
+
     next_version = max_version + 1
-    
+
     # Sanitize name
     safe_name = re.sub(r"[^a-z0-9_]", "_", name.lower())
     filename = f"{next_version:03d}_{safe_name}.sql"
     filepath = MIGRATIONS_DIR / filename
-    
+
     # Create migration file with template
     template = f"""-- Migration: {name}
 -- Created: {datetime.now().isoformat()}
@@ -189,7 +189,7 @@ def cmd_create(name: str) -> int:
 -- Each statement should be terminated with a semicolon
 
 """
-    
+
     filepath.write_text(template, encoding="utf-8")
     print(f"Created migration: {filepath}")
     return 0
@@ -206,28 +206,28 @@ def main() -> int:
         default=DEFAULT_DB_PATH,
         help=f"Database path (default: {DEFAULT_DB_PATH})"
     )
-    
+
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
+
     # up command
     subparsers.add_parser("up", help="Apply all pending migrations")
-    
+
     # status command
     subparsers.add_parser("status", help="Show migration status")
-    
+
     # create command
     create_parser = subparsers.add_parser("create", help="Create a new migration file")
     create_parser.add_argument("name", help="Migration name")
-    
+
     args = parser.parse_args()
-    
+
     if args.command == "up":
         return cmd_up(args.db)
     elif args.command == "status":
         return cmd_status(args.db)
     elif args.command == "create":
         return cmd_create(args.name)
-    
+
     return 1
 
 

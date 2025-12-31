@@ -110,7 +110,7 @@ async def test_full_pipeline_with_db():
                     "claim_text": claim_text,
                     "claim_type": claim.get("type", "fact"),
                     "llm_claim_confidence": llm_confidence,
-                    "verification_notes": f"source_url=https://example.com/coral-study",
+                    "verification_notes": "source_url=https://example.com/coral-study",
                 },
                 auto_id=False,
                 or_ignore=True,

@@ -10,6 +10,7 @@ See ADR-0003.
 from typing import Any
 
 from src.storage.database import get_database
+from src.utils.db_helpers import chunked
 from src.utils.logging import LogContext, get_logger
 
 logger = get_logger(__name__)
@@ -18,26 +19,33 @@ logger = get_logger(__name__)
 async def get_materials_action(
     task_id: str,
     include_graph: bool = False,
+    include_citations: bool = False,
     format: str = "structured",
 ) -> dict[str, Any]:
     """
     Unified API for get_materials action.
 
     Collects report materials including claims, fragments, and optionally
-    the evidence graph. MCP handler delegates to this function (see ADR-0003).
+    the evidence graph and citation network. MCP handler delegates to this
+    function (see ADR-0003).
 
     Args:
         task_id: The task ID.
         include_graph: Whether to include evidence graph (default: False).
+        include_citations: Whether to include citation network (default: False).
         format: Output format - "structured" or "narrative" (default: "structured").
 
     Returns:
-        Materials dict (claims, fragments, optional graph).
+        Materials dict (claims, fragments, optional graph, optional citation_network).
     """
     db = await get_database()
 
     with LogContext(task_id=task_id):
-        logger.info("Collecting report materials", include_graph=include_graph)
+        logger.info(
+            "Collecting report materials",
+            include_graph=include_graph,
+            include_citations=include_citations,
+        )
 
         # Get task info
         task = await db.fetch_one(
@@ -64,6 +72,11 @@ async def get_materials_action(
         if include_graph:
             evidence_graph = await _build_evidence_graph(db, task_id)
 
+        # Build citation network if requested
+        citation_network = None
+        if include_citations:
+            citation_network = await _collect_citation_network(db, task_id)
+
         # Calculate summary
         verified_count = sum(1 for c in claims if c.get("evidence_count", 0) >= 2)
         refuted_count = sum(1 for c in claims if c.get("has_refutation", False))
@@ -85,6 +98,9 @@ async def get_materials_action(
 
         if evidence_graph:
             result["evidence_graph"] = evidence_graph
+
+        if citation_network:
+            result["citation_network"] = citation_network
 
         return result
 
@@ -374,4 +390,97 @@ async def _build_evidence_graph(db: Any, task_id: str) -> dict[str, Any]:
 
     return {"nodes": nodes, "edges": edges}
 
-    return {"nodes": nodes, "edges": edges}
+
+async def _collect_citation_network(db: Any, task_id: str) -> dict[str, Any]:
+    """Collect citation network reachable from task's claims.
+
+    Returns:
+        Dict with source_pages, citations, and hub_pages.
+    """
+    # Get source pages linked to task's claims via fragments
+    # Use json_valid to handle malformed paper_metadata gracefully
+    source_pages = await db.fetch_all(
+        """
+        SELECT DISTINCT p.id, p.title, p.url, p.domain,
+               CASE
+                 WHEN p.paper_metadata IS NOT NULL AND json_valid(p.paper_metadata)
+                 THEN json_extract(p.paper_metadata, '$.citation_count')
+                 ELSE NULL
+               END as citation_count,
+               CASE
+                 WHEN p.paper_metadata IS NOT NULL AND json_valid(p.paper_metadata)
+                 THEN json_extract(p.paper_metadata, '$.year')
+                 ELSE NULL
+               END as year
+        FROM pages p
+        JOIN fragments f ON f.page_id = p.id
+        JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+        JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+        WHERE c.task_id = ?
+        """,
+        (task_id,),
+    )
+
+    page_ids = [p["id"] for p in source_pages]
+
+    # Get citation edges from source pages (chunked for scale)
+    citations: list[dict[str, Any]] = []
+    for chunk in chunked(page_ids):
+        placeholders = ",".join(["?"] * len(chunk))
+        citation_rows = await db.fetch_all(
+            f"""
+            SELECT
+                e.id as edge_id,
+                e.source_id as citing_page_id,
+                e.target_id as cited_page_id,
+                e.citation_source,
+                p.title as cited_title
+            FROM edges e
+            JOIN pages p ON e.target_id = p.id
+            WHERE e.relation = 'cites'
+              AND e.source_type = 'page' AND e.target_type = 'page'
+              AND e.source_id IN ({placeholders})
+            """,
+            tuple(chunk),
+        )
+        citations.extend(dict(row) for row in citation_rows)
+
+    # Calculate hub pages (most cited within task scope, chunked for scale)
+    # Aggregate counts across chunks, then take top 10
+    hub_counts: dict[str, dict[str, Any]] = {}
+    for chunk in chunked(page_ids):
+        placeholders = ",".join(["?"] * len(chunk))
+        hub_rows = await db.fetch_all(
+            f"""
+            SELECT
+                e.target_id as page_id,
+                p.title,
+                COUNT(*) as cited_by_count
+            FROM edges e
+            JOIN pages p ON e.target_id = p.id
+            WHERE e.relation = 'cites'
+              AND e.source_type = 'page' AND e.target_type = 'page'
+              AND e.source_id IN ({placeholders})
+            GROUP BY e.target_id
+            """,
+            tuple(chunk),
+        )
+        for row in hub_rows:
+            page_id = row["page_id"]
+            if page_id in hub_counts:
+                hub_counts[page_id]["cited_by_count"] += row["cited_by_count"]
+            else:
+                hub_counts[page_id] = {
+                    "page_id": page_id,
+                    "title": row["title"],
+                    "cited_by_count": row["cited_by_count"],
+                }
+
+    # Sort by cited_by_count and take top 10
+    hub_pages = sorted(hub_counts.values(), key=lambda x: x["cited_by_count"], reverse=True)[:10]
+
+    return {
+        "source_pages": [dict(p) for p in source_pages],
+        "citations": citations,
+        "hub_pages": hub_pages,
+    }

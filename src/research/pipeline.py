@@ -1217,7 +1217,7 @@ class SearchPipeline:
                             auto_id=False,
                             or_ignore=True,
                         )
-                    except Exception as e:
+                    except Exception:
                         raise
 
                     # Create edge from fragment to claim (NLI evaluation)
@@ -1240,11 +1240,11 @@ class SearchPipeline:
                             stance = nli_item.get("stance", "neutral")
                             nli_confidence = nli_item.get("nli_edge_confidence", 0.5)
 
-                            # Map stance to relation
-                            relation = {
-                                "entailment": "supports",
-                                "contradiction": "refutes",
-                            }.get(stance, "neutral")
+                            # Sanitize stance (nli_judge returns "supports"/"refutes"/"neutral")
+                            if stance not in ("supports", "refutes", "neutral"):
+                                relation = "neutral"
+                            else:
+                                relation = stance
 
                             edge_id = f"e_{uuid.uuid4().hex[:8]}"
                             await db.insert(

@@ -45,7 +45,7 @@ async def main():
     import hashlib
     def _normalize_query(q: str) -> str:
         return " ".join(q.lower().split())
-    
+
     def _get_cache_key(query: str, engines: list[str] | None, time_range: str, serp_max_pages: int = 1) -> str:
         key_parts = [
             _normalize_query(query),
@@ -55,10 +55,10 @@ async def main():
         ]
         key_str = "|".join(key_parts)
         return hashlib.sha256(key_str.encode()).hexdigest()[:32]
-    
+
     expected_cache_key = _get_cache_key(test_query, ["mojeek"], "all", 1)
     print(f"Expected cache key: {expected_cache_key}")
-    
+
     # Check if cache exists for this query
     cached = await db.fetch_one(
         """
@@ -70,14 +70,14 @@ async def main():
     )
 
     if cached:
-        print(f"\n✓ Found existing cache entry:")
+        print("\n✓ Found existing cache entry:")
         print(f"   cache_key: {cached['cache_key'][:50]}...")
         print(f"   hit_count: {cached['hit_count']}")
         print(f"   expires_at: {cached['expires_at']}")
     else:
         print(f"\n⚠️ No cache entry found for query pattern: {cache_key_pattern}")
         print("   Creating a cache entry manually...")
-        
+
         # Get any existing serp results to use as cache
         existing_serp = await db.fetch_all(
             """
@@ -88,7 +88,7 @@ async def main():
             """,
             (f"%{test_query[:30]}%",),
         )
-        
+
         if existing_serp:
             fake_results = [
                 {
@@ -114,7 +114,7 @@ async def main():
                     "page_number": 1,
                 }
             ]
-        
+
         # Use same cache key algorithm
         await db.execute(
             """
@@ -194,15 +194,15 @@ async def main():
     print("\n" + "=" * 60)
     print("VERIFICATION RESULT")
     print("=" * 60)
-    
+
     if queries_after > queries_before:
-        print(f"✅ SUCCESS: Query record inserted!")
+        print("✅ SUCCESS: Query record inserted!")
         print(f"   Queries: {queries_before} → {queries_after}")
         print(f"   SERP items: {serp_items_count}")
     else:
-        print(f"❌ FAILED: No query record inserted on cache hit")
+        print("❌ FAILED: No query record inserted on cache hit")
         print(f"   Queries: {queries_before} → {queries_after}")
-        
+
         # Check if cache was actually hit
         row = await db.fetch_one(
             "SELECT hit_count FROM cache_serp WHERE cache_key = ?",
