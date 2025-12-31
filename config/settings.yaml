@@ -37,6 +37,12 @@ search:
   novelty_threshold: 0.10  # 10%未満で2サイクル継続→停止
   novelty_cycles_to_stop: 2
 
+  # Claims extraction scope - controls LLM usage for claim extraction
+  # "authoritative": Only gov/edu/academic sources (minimal LLM, fastest)
+  # "reputable": + research orgs, major news, .org domains (balanced)
+  # "all": All sources including blogs/forums (max LLM usage, slowest)
+  claims_extraction_scope: "reputable"
+
   # Citation graph integration
   citation_graph_top_n_papers: 5
   citation_graph_depth: 1
@@ -202,7 +208,8 @@ browser:
 llm:
   ollama_host: "http://localhost:11434"
   
-  # Single 3B model for all LLM tasks (per §K.1: 3B single model)
+  # LLM model for extraction tasks
+  # 3B: lighter, 7B: better instruction following for complex prompts
   model: "qwen2.5:3b"
   model_context: 4096
   

@@ -36,6 +36,54 @@ audit_logger = get_audit_logger()
 
 
 # ============================================================================
+# JSON Schema definitions for structured output
+# ============================================================================
+
+# Schema for extract_claims task - forces array output
+EXTRACT_CLAIMS_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "claim": {"type": "string"},
+            "type": {"type": "string", "enum": ["fact", "opinion", "prediction"]},
+            "relevance_to_query": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        },
+        "required": ["claim"],
+    },
+}
+
+# Schema for extract_facts task - forces array output
+EXTRACT_FACTS_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "fact": {"type": "string"},
+            "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "evidence_type": {"type": "string", "enum": ["statistic", "citation", "observation"]},
+        },
+        "required": ["fact"],
+    },
+}
+
+
+def _get_response_format_for_task(task: str) -> str | dict | None:
+    """Get appropriate response format for task.
+    
+    Uses JSON Schema for array-output tasks to enforce correct structure.
+    """
+    if task == "extract_claims":
+        return EXTRACT_CLAIMS_SCHEMA
+    elif task == "extract_facts":
+        return EXTRACT_FACTS_SCHEMA
+    elif task in ("decompose",):
+        return "json"  # Use simple json format for complex schemas
+    return None
+
+
+# ============================================================================
 # OllamaClient Facade
 # ============================================================================
 
@@ -441,7 +489,7 @@ async def llm_extract(
                 raise ValueError(f"Unknown task: {task}")
 
             try:
-                response_format = "json" if task in ("extract_facts", "extract_claims") else None
+                response_format = _get_response_format_for_task(task)
                 options = LLMOptions(model=model, response_format=response_format)
                 response = await default_provider.generate(prompt, options)
 
@@ -584,7 +632,7 @@ async def llm_extract(
                 raise ValueError(f"Unknown task: {task}")
 
             try:
-                response_format = "json" if task in ("extract_facts", "extract_claims") else None
+                response_format = _get_response_format_for_task(task)
                 response_text = await client.generate(
                     prompt,
                     model=model,

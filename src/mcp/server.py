@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool, ToolAnnotations
+from mcp.types import Tool, ToolAnnotations
 
 from mcp.server import Server
 from src.mcp.response_meta import attach_meta, create_minimal_meta
@@ -31,6 +31,43 @@ app = Server("lyra")
 # ============================================================
 # Tool Definitions (10 tools per ADR-0010 async architecture)
 # ============================================================
+
+# Common _lyra_meta schema for all outputSchema definitions
+_LYRA_META_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Lyra response metadata (ADR-0005 L5)",
+    "properties": {
+        "timestamp": {"type": "string", "description": "ISO timestamp of response generation"},
+        "data_quality": {
+            "type": "string",
+            "enum": ["normal", "degraded", "limited"],
+            "description": "Overall data quality indicator",
+        },
+        "security_warnings": {
+            "type": "array",
+            "description": "Security warnings from L2/L4 detection",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string"},
+                    "message": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["info", "warning", "critical"]},
+                },
+            },
+        },
+        "blocked_domains": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Domains blocked during this operation",
+        },
+        "unverified_domains": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Unverified domains used",
+        },
+    },
+    "required": ["timestamp", "data_quality"],
+}
 
 TOOLS = [
     # ============================================================
@@ -104,6 +141,7 @@ and refuting queries to ensure balanced evidence collection.""",
                         "max_seconds": {"type": "integer"},
                     },
                 },
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
             "required": ["ok", "task_id"],
         },
@@ -169,7 +207,7 @@ DECISION POINTS:
                             "query": {"type": "string"},
                             "status": {
                                 "type": "string",
-                                "enum": ["queued", "running", "completed", "failed", "cancelled"],
+                                "enum": ["pending", "queued", "running", "completed", "failed", "cancelled"],
                             },
                             "pages_fetched": {"type": "integer"},
                             "useful_fragments": {"type": "integer"},
@@ -233,6 +271,7 @@ DECISION POINTS:
                 },
                 "idle_seconds": {"type": "integer", "description": "Seconds since last activity"},
                 "warnings": {"type": "array", "items": {"type": "string"}},
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -319,6 +358,7 @@ QUERY DESIGN TIPS:
                     "description": "IDs of queued searches for tracking",
                 },
                 "message": {"type": "string", "description": "Human-readable status message"},
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -381,6 +421,7 @@ AFTER STOPPING: Use get_materials to retrieve collected evidence for report comp
                         "total_claims": {"type": "integer"},
                     },
                 },
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -482,7 +523,7 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                 "type": "number",
                                 "description": "0.0-0.5, support vs refute conflict. >0.3 = contested",
                             },
-                            "evidence_count": {"type": "integer"},
+                            "evidence_count": {"type": ["integer", "null"]},
                             "has_refutation": {
                                 "type": "boolean",
                                 "description": "True if refuting evidence exists",
@@ -496,16 +537,18 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                         "title": {"type": "string"},
                                         "domain": {"type": "string"},
                                         "domain_category": {
-                                            "type": "string",
+                                            "type": ["string", "null"],
                                             "enum": [
-                                                "academic",
-                                                "news",
+                                                "primary",
                                                 "government",
-                                                "organization",
-                                                "commercial",
-                                                "social",
-                                                "unknown",
+                                                "academic",
+                                                "trusted",
+                                                "low",
+                                                "unverified",
+                                                "blocked",
+                                                None,
                                             ],
+                                            "description": "Domain trust tier from DomainCategory enum",
                                         },
                                         "is_primary": {
                                             "type": "boolean",
@@ -535,7 +578,7 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                             "description": "0.0-1.0, NLI model calibrated confidence",
                                         },
                                         "year": {
-                                            "type": "integer",
+                                            "type": ["integer", "null"],
                                             "description": "Publication year for timeline analysis",
                                         },
                                     },
@@ -545,8 +588,8 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                                 "type": "object",
                                 "description": "Year summary: {oldest: 2020, newest: 2024} for temporal analysis",
                                 "properties": {
-                                    "oldest": {"type": "integer"},
-                                    "newest": {"type": "integer"},
+                                    "oldest": {"type": ["integer", "null"]},
+                                    "newest": {"type": ["integer", "null"]},
                                 },
                             },
                         },
@@ -614,21 +657,22 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                 "summary": {
                     "type": "object",
                     "properties": {
-                        "total_claims": {"type": "integer"},
+                        "total_claims": {"type": ["integer", "null"]},
                         "verified_claims": {
-                            "type": "integer",
+                            "type": ["integer", "null"],
                             "description": "Claims with 2+ evidence sources",
                         },
                         "refuted_claims": {
-                            "type": "integer",
+                            "type": ["integer", "null"],
                             "description": "Claims with refuting evidence",
                         },
                         "primary_source_ratio": {
-                            "type": "number",
+                            "type": ["number", "null"],
                             "description": "Ratio of academic/primary sources",
                         },
                     },
                 },
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -687,6 +731,7 @@ For rolling back to previous calibration, use calibration_rollback (separate too
                     "type": "array",
                     "description": "For get_evaluations: historical records",
                 },
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -734,6 +779,7 @@ Always provide a reason for audit trail.""",
                 "previous_version": {"type": "integer", "description": "Version that was replaced"},
                 "brier_after": {"type": "number", "description": "Brier score of restored version"},
                 "method": {"type": "string", "enum": ["platt", "temperature"]},
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -802,6 +848,7 @@ Research continues on other domains while CAPTCHAs are pending.""",
                     "type": "object",
                     "description": "When group_by=domain or type",
                 },
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -864,6 +911,7 @@ Session cookies are captured and reused for future requests to that domain.""",
                 "action": {"type": "string"},
                 "resolved_count": {"type": "integer", "description": "Items resolved"},
                 "requeued_count": {"type": "integer", "description": "Searches requeued for retry"},
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -957,6 +1005,7 @@ When you find an edge with wrong NLI classification (e.g., marked 'neutral' but 
                     "description": "For edge_correct: training sample ID if label changed",
                 },
                 "rule_id": {"type": "string", "description": "For domain_*: created rule ID"},
+                "_lyra_meta": _LYRA_META_SCHEMA,
             },
         },
         annotations=ToolAnnotations(
@@ -975,7 +1024,7 @@ async def list_tools() -> list[Tool]:
 
 
 @app.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle tool calls.
 
     Args:
@@ -983,7 +1032,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         arguments: Tool arguments.
 
     Returns:
-        List of text content responses.
+        Structured response dict. MCP SDK automatically creates both:
+        - structuredContent (for outputSchema validation)
+        - content[].text (for display in Cursor AI)
 
     Note:
         All responses pass through L7 sanitization (ADR-0005)
@@ -998,13 +1049,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = await _dispatch_tool(name, arguments)
 
         # L7: Sanitize response before returning to Cursor AI
-        sanitized_result = sanitize_response(result, name)
+        # Return dict directly - SDK creates both structuredContent and TextContent
+        return sanitize_response(result, name)
 
-        return [
-            TextContent(
-                type="text", text=json.dumps(sanitized_result, ensure_ascii=False, indent=2)
-            )
-        ]
     except MCPError as e:
         # Structured MCP error with error code
         logger.warning(
@@ -1015,10 +1062,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         )
         # L7: Error responses also go through sanitization
         error_dict = e.to_dict()
-        sanitized_error = sanitize_response(error_dict, "error")
-        return [
-            TextContent(type="text", text=json.dumps(sanitized_error, ensure_ascii=False, indent=2))
-        ]
+        return sanitize_response(error_dict, "error")
+
     except Exception as e:
         # Unexpected error - wrap in INTERNAL_ERROR with L7 sanitization
         error_id = generate_error_id()
@@ -1030,10 +1075,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             exc_info=True,
         )
         # L7: Use sanitize_error for unexpected exceptions
-        error_result = sanitize_error(e, error_id)
-        return [
-            TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))
-        ]
+        return sanitize_error(e, error_id)
 
 
 async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1814,7 +1856,6 @@ async def _handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
         if skipped_count > 0:
             message += f" ({skipped_count} duplicates skipped)"
         message += ". Use get_status(wait=N) to monitor progress."
-
         return {
             "ok": True,
             "queued_count": len(search_ids),
@@ -2082,7 +2123,6 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
             include_graph=options.get("include_graph", False),
             format=options.get("format", "structured"),
         )
-
         return result
 
 

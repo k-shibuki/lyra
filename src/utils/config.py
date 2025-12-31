@@ -74,6 +74,12 @@ class SearchConfig(BaseModel):
     novelty_threshold: float = 0.10
     novelty_cycles_to_stop: int = 2
 
+    # Claims extraction scope - controls LLM usage for claim extraction
+    # "authoritative": Only gov/edu/academic sources (minimal LLM, fastest)
+    # "reputable": + research orgs, major news, .org domains (balanced)
+    # "all": All sources including blogs/forums (max LLM usage, slowest)
+    claims_extraction_scope: str = "reputable"
+
     # Academic citation graph integration
     citation_graph_top_n_papers: int = 5
     citation_graph_depth: int = 1
@@ -211,7 +217,8 @@ class LLMConfig(BaseModel):
     gpu_layers: int = -1
     unload_on_task_complete: bool = True  # Release model context after task
     session_tags_enabled: bool = (
-        True  # Default ON: in-band session tags to reduce prompt injection risk
+        False  # Default OFF: small LLMs struggle with long prompts containing tags
+        # Enable for larger models (7B+) that handle complex prompts better
     )
 
 

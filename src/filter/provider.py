@@ -54,7 +54,9 @@ class LLMOptions:
         stop: Stop sequences.
         system: System prompt.
         response_format: Optional response format hint (provider-specific).
-            For Ollama: "json" sets payload {"format":"json"} to force valid JSON output.
+            For Ollama:
+            - "json": sets payload {"format":"json"} to force valid JSON output
+            - dict: JSON Schema to constrain output structure (e.g., {"type": "array", ...})
         timeout: Request timeout in seconds.
     """
 
@@ -65,7 +67,7 @@ class LLMOptions:
     top_k: int | None = None
     stop: list[str] | None = None
     system: str | None = None
-    response_format: str | None = None
+    response_format: str | dict | None = None
     timeout: float | None = None
 
     def to_dict(self) -> dict[str, Any]:

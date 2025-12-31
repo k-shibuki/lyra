@@ -198,26 +198,6 @@ class OpenAlexClient(BaseAcademicClient):
         Note: The cites filter requires an OpenAlex work ID (Wxxx).
         If a DOI URL is provided, we first resolve it to a work ID.
         """
-        # #region agent log
-        import json
-        import time as _time
-
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(
-                json.dumps(
-                    {
-                        "hypothesisId": "H-J",
-                        "location": "src/search/apis/openalex.py:get_citations_entry",
-                        "message": "OpenAlex get_citations called",
-                        "data": {"paper_id": paper_id},
-                        "timestamp": _time.time() * 1000,
-                        "sessionId": "debug-session",
-                    }
-                )
-                + "\n"
-            )
-        # #endregion
-
         # DOI URL needs to be resolved to work ID first
         # because filter=cites:xxx requires OpenAlex work ID (Wxxx), not DOI
         if paper_id.startswith("https://doi.org/") or paper_id.startswith("doi:"):
@@ -279,31 +259,6 @@ class OpenAlexClient(BaseAcademicClient):
             pass  # Keep DOI URL as-is
         elif pid.startswith("https://openalex.org/"):
             pid = pid.split("/")[-1]  # Extract work ID
-
-        # #region agent log
-        import json
-        import time as _time
-
-        with open("/home/statuser/lyra/.cursor/debug.log", "a") as _f:
-            _f.write(
-                json.dumps(
-                    {
-                        "hypothesisId": "H-B",
-                        "location": "src/search/apis/openalex.py:_normalize_work_id_exit",
-                        "message": "OpenAlex _normalize_work_id result",
-                        "data": {
-                            "input": paper_id,
-                            "output": pid,
-                            "still_has_s2": pid.startswith("s2:"),
-                        },
-                        "timestamp": _time.time() * 1000,
-                        "sessionId": "debug-session",
-                    }
-                )
-                + "\n"
-            )
-        # #endregion
-
         return pid
 
     def _parse_paper(self, data: dict) -> Paper:

@@ -54,7 +54,35 @@ Additionally, as specified in ADR-0002, **strategic decisions (query design, exp
 
 ### Prompt Design
 
-NLI judgment example:
+**Critical guidelines for 3B models (2025-12-31 update)**:
+
+| Guideline | Reason |
+|-----------|--------|
+| Keep prompts under 300 characters | 3B models struggle with long prompts (>500 chars often produce empty output) |
+| Use `<placeholder>` format for values | Concrete values like `0.8` get copied verbatim |
+| Specify quantity limits explicitly | "Extract 1-5 claims" prevents under/over-extraction |
+| Prioritize instructions for quality | "Prioritize claims with numbers, dates, proper nouns" |
+| Disable security tags by default | Session tags add ~400 chars; enable only for 7B+ models |
+| Use JSON Schema via `format` param | Ollama's schema enforcement is more reliable than prompt instructions |
+
+**Example prompt (extract_claims.j2)**:
+
+```jinja2
+Extract 1-5 verifiable claims from the text. Prioritize claims with numbers, dates, or proper nouns.
+
+Research context: {{ context }}
+
+Text: {{ text }}
+
+Output JSON array. Each item: {"claim": "<claim text>", "type": "<fact|opinion|prediction>", "relevance_to_query": <0.0-1.0>, "confidence": <0.0-1.0>}
+```
+
+**Anti-pattern** (causes value copying):
+```
+Return JSON array: [{"claim": "...", "type": "fact", "relevance_to_query": 0.8, "confidence": 0.9}]
+```
+
+NLI judgment example (legacy, now handled by DeBERTa):
 
 ```
 System: You are an NLI (Natural Language Inference) expert.

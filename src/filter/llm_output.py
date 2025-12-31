@@ -25,17 +25,22 @@ logger = get_logger(__name__)
 LLMCallFn = Callable[[str], Awaitable[str]]
 
 
-def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
+def extract_json(
+    text: str, expect_array: bool = False, strict_array: bool = False
+) -> dict | list | None:
     """Extract JSON from LLM response text.
 
     Handles common LLM output patterns:
     1. Direct JSON (try first)
     2. Markdown code blocks (```json ... ```)
     3. Raw JSON with surrounding text (greedy match)
+    4. Single object when array expected (wrap in array, unless strict_array=True)
 
     Args:
         text: LLM response text
         expect_array: If True, expect JSON array; if False, expect object
+        strict_array: If True and expect_array=True, do NOT wrap single objects.
+                      This allows the caller to trigger a retry for format correction.
 
     Returns:
         Parsed JSON dict/list, or None if extraction fails
@@ -45,19 +50,60 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
         {'key': 'value'}
         >>> extract_json('```json\\n[{"a": 1}]\\n```', expect_array=True)
         [{'a': 1}]
+        >>> extract_json('{"claim": "test"}', expect_array=True)
+        [{'claim': 'test'}]  # Single object wrapped in array (lenient)
+        >>> extract_json('{"claim": "test"}', expect_array=True, strict_array=True)
+        None  # Strict mode: single object is rejected
     """
     if not text:
         return None
 
     text = text.strip()
 
+    def _maybe_wrap_in_array(result: Any) -> list | dict | None:
+        """Wrap single object in array if expect_array is True (and not strict).
+        
+        Also handles "array wrapper" pattern where LLM returns {"objects": [...]}
+        or similar structures instead of a plain array.
+        """
+        if expect_array:
+            if isinstance(result, list):
+                return result
+            if isinstance(result, dict):
+                # Check for "array wrapper" pattern: {"objects": [...]} or {"items": [...]}
+                # Common LLM mistake when asked for an array
+                array_wrapper_keys = {"objects", "items", "results", "claims", "facts", "data"}
+                for key in array_wrapper_keys:
+                    if key in result and isinstance(result[key], list):
+                        logger.warning(
+                            "LLM returned array wrapped in object; extracting inner array",
+                            wrapper_key=key,
+                        )
+                        return result[key]
+                
+                if strict_array:
+                    # Strict mode: reject single object, allow caller to retry
+                    logger.debug(
+                        "Rejecting single object in strict_array mode (expect_array=True)"
+                    )
+                    return None
+                # Lenient mode: LLM returned single object instead of array - wrap it
+                logger.warning(
+                    "LLM returned single object instead of array; wrapping. "
+                    "Consider improving prompt or model."
+                )
+                return [result]
+        else:
+            if isinstance(result, dict):
+                return result
+        return None
+
     # 1. Try direct parse first
     try:
         result = json.loads(text)
-        if expect_array and isinstance(result, list):
-            return result
-        if not expect_array and isinstance(result, dict):
-            return result
+        wrapped = _maybe_wrap_in_array(result)
+        if wrapped is not None:
+            return wrapped
         # Type mismatch, continue to other strategies
     except json.JSONDecodeError:
         pass
@@ -68,25 +114,25 @@ def extract_json(text: str, expect_array: bool = False) -> dict | list | None:
     if match:
         try:
             result = json.loads(match.group(1))
-            if expect_array and isinstance(result, list):
-                return result
-            if not expect_array and isinstance(result, dict):
-                return result
+            wrapped = _maybe_wrap_in_array(result)
+            if wrapped is not None:
+                return wrapped
         except json.JSONDecodeError:
             pass
 
-    # 3. Greedy match for raw JSON
-    pattern = r"\[.*\]" if expect_array else r"\{.*\}"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
-        try:
-            result = json.loads(match.group())
-            if expect_array and isinstance(result, list):
-                return result
-            if not expect_array and isinstance(result, dict):
-                return result
-        except json.JSONDecodeError:
-            pass
+    # 3. Greedy match for raw JSON (try both array and object patterns)
+    # If expect_array, first try array pattern, then object pattern (to wrap)
+    patterns = [r"\[.*\]", r"\{.*\}"] if expect_array else [r"\{.*\}", r"\[.*\]"]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            try:
+                result = json.loads(match.group())
+                wrapped = _maybe_wrap_in_array(result)
+                if wrapped is not None:
+                    return wrapped
+            except json.JSONDecodeError:
+                pass
 
     return None
 
@@ -332,7 +378,11 @@ async def parse_and_validate[T: BaseModel](
 
     Retry policy:
     - Retry up to `max_retries` times (default: 1)
-    - Retries are triggered on JSON parse failure OR schema validation failure
+    - Retries are triggered on:
+      - JSON parse failure
+      - Schema validation failure
+      - Single object when array expected (first attempt only, to give LLM a chance)
+    - After all retries, single objects are wrapped in arrays to ensure processing
     - Final failure is recorded to DB and returns None (caller must continue)
     """
     current_response = response
@@ -342,9 +392,16 @@ async def parse_and_validate[T: BaseModel](
     retries_attempted = 0
 
     for attempt in range(max_retries + 1):
-        parsed = extract_json(current_response, expect_array=expect_array)
+        # First attempt: strict mode (reject single object to trigger retry)
+        # Subsequent attempts: lenient mode (wrap single object in array)
+        is_final_attempt = attempt >= max_retries or llm_call is None
+        strict_array = expect_array and not is_final_attempt
+
+        parsed = extract_json(
+            current_response, expect_array=expect_array, strict_array=strict_array
+        )
         if parsed is None:
-            last_error_type = "json_parse"
+            last_error_type = "json_parse" if not strict_array else "format_mismatch"
         else:
             if expect_array:
                 if not isinstance(parsed, list):

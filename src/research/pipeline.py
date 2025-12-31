@@ -1120,6 +1120,14 @@ class SearchPipeline:
                 page_id=page_id,
             )
 
+            # Extract claims from abstract using LLM (if in scope)
+            await self._extract_claims_from_abstract(
+                paper=paper,
+                task_id=task_id,
+                fragment_id=fragment_id,
+                reference_url=reference_url,
+            )
+
             logger.info(
                 "Persisted abstract as fragment",
                 page_id=page_id,
@@ -1138,6 +1146,152 @@ class SearchPipeline:
                 error_message=str(e),
             )
             raise
+
+    async def _extract_claims_from_abstract(
+        self,
+        paper: "Paper",
+        task_id: str,
+        fragment_id: str,
+        reference_url: str,
+    ) -> list[dict[str, Any]]:
+        """Extract claims from academic paper abstract using LLM.
+
+        Academic papers are always considered authoritative (tier 1), so
+        LLM extraction is performed regardless of claims_extraction_scope setting.
+
+        Args:
+            paper: Paper object with abstract
+            task_id: Task ID
+            fragment_id: Fragment ID for the abstract
+            reference_url: URL of the paper
+
+        Returns:
+            List of extracted claims
+        """
+        if not paper.abstract:
+            return []
+
+        db = await get_database()
+
+        try:
+            from src.filter.llm import llm_extract
+
+            # Prepare passage for LLM extraction
+            passage = {
+                "id": fragment_id,
+                "text": paper.abstract[:4000],  # Limit for LLM
+                "source_url": reference_url,
+            }
+
+            # Extract claims using LLM
+            result = await llm_extract(
+                passages=[passage],
+                task="extract_claims",
+                context=f"Academic paper: {paper.title}",
+            )
+            if not result.get("ok") or not result.get("claims"):
+                logger.debug(
+                    "No claims extracted from abstract",
+                    paper_title=paper.title[:60],
+                )
+                return []
+            extracted_claims = []
+            for claim in result["claims"]:
+                if isinstance(claim, dict) and claim.get("claim"):
+                    claim_id = f"c_{uuid.uuid4().hex[:8]}"
+                    claim_text = claim.get("claim", "")[:500]
+                    llm_confidence = claim.get("confidence", 0.5)
+
+                    # Persist claim to DB
+                    try:
+                        insert_result = await db.insert(
+                            "claims",
+                            {
+                                "id": claim_id,
+                                "task_id": task_id,
+                                "claim_text": claim_text,
+                                "claim_type": claim.get("type", "fact"),
+                                "llm_claim_confidence": llm_confidence,
+                                "verification_notes": f"source_url={reference_url}",
+                            },
+                            auto_id=False,
+                            or_ignore=True,
+                        )
+                    except Exception as e:
+                        raise
+
+                    # Create edge from fragment to claim (NLI evaluation)
+                    try:
+                        from src.filter.nli import nli_judge
+
+                        # nli_judge returns list[dict] directly (not wrapped in {"ok": ..., "results": ...})
+                        nli_results = await nli_judge(
+                            pairs=[
+                                {
+                                    "pair_id": f"{fragment_id}_{claim_id}",
+                                    "premise": paper.abstract[:1000],
+                                    "hypothesis": claim_text,
+                                }
+                            ]
+                        )
+
+                        if nli_results and len(nli_results) > 0:
+                            nli_item = nli_results[0]
+                            stance = nli_item.get("stance", "neutral")
+                            nli_confidence = nli_item.get("nli_edge_confidence", 0.5)
+
+                            # Map stance to relation
+                            relation = {
+                                "entailment": "supports",
+                                "contradiction": "refutes",
+                            }.get(stance, "neutral")
+
+                            edge_id = f"e_{uuid.uuid4().hex[:8]}"
+                            await db.insert(
+                                "edges",
+                                {
+                                    "id": edge_id,
+                                    "source_type": "fragment",
+                                    "source_id": fragment_id,
+                                    "target_type": "claim",
+                                    "target_id": claim_id,
+                                    "relation": relation,
+                                    "nli_label": stance,
+                                    "nli_edge_confidence": nli_confidence,
+                                },
+                                auto_id=False,
+                                or_ignore=True,
+                            )
+                    except Exception as e:
+                        logger.debug(
+                            "NLI evaluation failed for abstract claim",
+                            claim_id=claim_id,
+                            error=str(e),
+                        )
+
+                    extracted_claims.append(
+                        {
+                            "id": claim_id,
+                            "claim": claim_text,
+                            "confidence": llm_confidence,
+                            "source_url": reference_url,
+                        }
+                    )
+
+            logger.info(
+                "Extracted claims from abstract",
+                paper_title=paper.title[:60],
+                claim_count=len(extracted_claims),
+            )
+            return extracted_claims
+
+        except Exception as e:
+            logger.debug(
+                "Failed to extract claims from abstract",
+                paper_title=paper.title[:60],
+                error=str(e),
+            )
+            return []
 
     def _extract_domain(self, url: str) -> str:
         """Extract domain from URL.

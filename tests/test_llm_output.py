@@ -182,15 +182,53 @@ That's the output."""
         assert result is None
 
     def test_type_mismatch_expect_array_get_object(self) -> None:
-        """TC-A-03: Test type mismatch - expect array, get object."""
+        """TC-A-03: Test type mismatch - expect array, get object wraps in array.
+
+        Changed behavior: When expect_array=True and LLM returns a single object,
+        the object is wrapped in an array. This handles common LLM output patterns
+        where the model returns a single item instead of an array.
+        """
         # Given: JSON object
         text = '{"key": "value"}'
 
         # When: Extracting with expect_array=True
         result = extract_json(text, expect_array=True)
 
-        # Then: Returns None (type mismatch)
-        assert result is None
+        # Then: Object is wrapped in array (new behavior)
+        assert result == [{"key": "value"}]
+
+    def test_array_wrapper_pattern_objects(self) -> None:
+        """TC-A-03c: Test array wrapper pattern - {objects: [...]} extracts inner array."""
+        # Given: JSON with array wrapped in object (common LLM mistake)
+        text = '{"objects": [{"claim": "test", "type": "fact"}]}'
+
+        # When: Extracting with expect_array=True
+        result = extract_json(text, expect_array=True)
+
+        # Then: Inner array is extracted
+        assert result == [{"claim": "test", "type": "fact"}]
+
+    def test_array_wrapper_pattern_claims(self) -> None:
+        """TC-A-03d: Test array wrapper pattern - {claims: [...]} extracts inner array."""
+        # Given: JSON with array wrapped in "claims" key
+        text = '{"claims": [{"claim": "c1"}, {"claim": "c2"}]}'
+
+        # When: Extracting with expect_array=True
+        result = extract_json(text, expect_array=True)
+
+        # Then: Inner array is extracted
+        assert result == [{"claim": "c1"}, {"claim": "c2"}]
+
+    def test_array_wrapper_pattern_facts(self) -> None:
+        """TC-A-03e: Test array wrapper pattern - {facts: [...]} extracts inner array."""
+        # Given: JSON with array wrapped in "facts" key
+        text = '{"facts": [{"fact": "f1", "confidence": 0.9}]}'
+
+        # When: Extracting with expect_array=True
+        result = extract_json(text, expect_array=True)
+
+        # Then: Inner array is extracted
+        assert result == [{"fact": "f1", "confidence": 0.9}]
 
     def test_type_mismatch_expect_object_get_array(self) -> None:
         """TC-A-03b: Test type mismatch - expect object, get array."""
@@ -594,18 +632,26 @@ class TestParseAndValidate:
         assert rows[-1]["retry_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_parse_and_validate_type_mismatch_after_retry(self, test_database) -> None:
-        """TC-P-08: parse_and_validate returns None when type mismatch persists after retry."""
-        # Given: Response with wrong type (expect array, get object) and retry returns same type
+    async def test_parse_and_validate_type_mismatch_triggers_retry(self, test_database) -> None:
+        """TC-P-08: parse_and_validate triggers retry when single object received.
+
+        Behavior: When expect_array=True and LLM returns a single object:
+        1. First attempt uses strict_array=True → triggers retry
+        2. Retry attempt uses strict_array=False → wraps in array → succeeds
+
+        This gives LLM a chance to correct its output format while ensuring
+        processing continues even if the format is not fixed.
+        """
+        # Given: Response with single object, retry also returns single object
         calls: list[str] = []
 
         async def llm_call(prompt: str) -> str:
             calls.append(prompt)
-            return '{"fact":"wrong type"}'
+            return '{"fact":"retry fact text"}'
 
         # When: Parsing and validating with expect_array=True
         validated = await parse_and_validate(
-            response='{"fact":"wrong type"}',
+            response='{"fact":"initial fact text"}',
             schema=ExtractedFact,
             template_name="extract_facts",
             expect_array=True,
@@ -614,15 +660,13 @@ class TestParseAndValidate:
             context={"case": "tc-p-08"},
         )
 
-        # Then: Retries once but still returns None due to type mismatch
-        assert len(calls) == 1
-        assert validated is None
-        rows = await test_database.fetch_all(
-            "SELECT error_type, retry_count FROM llm_extraction_errors WHERE template_name = ?",
-            ("extract_facts",),
-        )
-        assert len(rows) >= 1
-        assert rows[-1]["retry_count"] == 1
+        # Then: Retry is triggered (strict mode rejects single object initially)
+        # After retry, lenient mode wraps single object in array and validates
+        assert len(calls) == 1  # One retry was attempted
+        assert validated is not None
+        assert len(validated) == 1
+        # The retry response is used (wrapped in array)
+        assert validated[0].fact == "retry fact text"
 
     @pytest.mark.asyncio
     async def test_parse_and_validate_task_id_context_propagation(self, test_database) -> None:

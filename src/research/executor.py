@@ -25,8 +25,9 @@ from src.utils.logging import LogContext, get_logger
 
 logger = get_logger(__name__)
 
-# Primary source domain patterns
-PRIMARY_SOURCE_DOMAINS = {
+# Domain tiers for claims extraction scope
+# Tier 1 (authoritative): Government, academic, standards bodies
+TIER_AUTHORITATIVE_DOMAINS = {
     # Government
     "go.jp",
     "gov.uk",
@@ -52,6 +53,63 @@ PRIMARY_SOURCE_DOMAINS = {
     "jstage.jst.go.jp",
     "doi.org",
 }
+
+# Tier 2 (reputable): Research orgs, major news, professional associations
+TIER_REPUTABLE_DOMAINS = {
+    # Research organizations
+    "org",  # General .org domains (non-profits, research orgs)
+    "noaa.gov",  # Already in tier 1, but explicit
+    "nasa.gov",
+    "nih.gov",
+    # News/Media (major outlets)
+    "reuters.com",
+    "apnews.com",
+    "bbc.com",
+    "bbc.co.uk",
+    "nytimes.com",
+    "theguardian.com",
+    "nature.com",
+    "sciencemag.org",
+    "scientificamerican.com",
+    # Professional associations
+    "ieee.org",
+    "acm.org",
+    # Fact-checking
+    "snopes.com",
+    "factcheck.org",
+    "politifact.com",
+}
+
+# Legacy alias for backward compatibility
+PRIMARY_SOURCE_DOMAINS = TIER_AUTHORITATIVE_DOMAINS
+
+
+def get_extraction_tier(domain: str, scope: str) -> int:
+    """Determine if a domain qualifies for LLM claims extraction.
+
+    Args:
+        domain: The domain to check (e.g., "example.gov", "news.org")
+        scope: Extraction scope from settings ("authoritative", "reputable", "all")
+
+    Returns:
+        Tier number (1=authoritative, 2=reputable, 3=general) or 0 if not in scope
+    """
+    domain_lower = domain.lower()
+
+    # Check tier 1 (authoritative)
+    if any(pattern in domain_lower for pattern in TIER_AUTHORITATIVE_DOMAINS):
+        return 1
+
+    # Check tier 2 (reputable) - only if scope allows
+    if scope in ("reputable", "all"):
+        if any(pattern in domain_lower for pattern in TIER_REPUTABLE_DOMAINS):
+            return 2
+
+    # Tier 3 (general) - only if scope is "all"
+    if scope == "all":
+        return 3
+
+    return 0  # Not in scope
 
 # Mechanical refutation suffixes (ADR-0010)
 REFUTATION_SUFFIXES = [
@@ -500,8 +558,12 @@ class SearchExecutor:
             domain = url
             domain_short = url
 
-        # Check if this is a primary source
-        is_primary = any(primary in domain.lower() for primary in PRIMARY_SOURCE_DOMAINS)
+        # Determine extraction tier based on domain and scope setting
+        settings = get_settings()
+        extraction_scope = settings.search.claims_extraction_scope
+        extraction_tier = get_extraction_tier(domain, extraction_scope)
+        # For backward compatibility, is_primary = tier 1 (authoritative sources)
+        is_primary = extraction_tier == 1
 
         # Check if this is an independent source (new domain)
         is_independent = domain_short not in self._seen_domains
@@ -701,14 +763,14 @@ class SearchExecutor:
                         is_primary=is_primary,
                     )
 
-                    # Extract claims using llm_extract for primary sources (ADR-0002, ADR-0005)
-                    # LLM extraction is only applied to primary sources to control LLM time ratio
+                    # Extract claims using LLM based on extraction scope setting
+                    # Scope is controlled by LYRA_SEARCH__CLAIMS_EXTRACTION_SCOPE
                     if is_useful:
                         extracted_claims = await self._extract_claims_from_text(
                             text=extract_result.get("text", ""),
                             source_url=url,
                             title=serp_item.get("title", ""),
-                            is_primary=is_primary,
+                            extraction_tier=extraction_tier,
                         )
 
                         for claim in extracted_claims:
@@ -755,25 +817,27 @@ class SearchExecutor:
         text: str,
         source_url: str,
         title: str,
-        is_primary: bool,
+        extraction_tier: int,
     ) -> list[dict[str, Any]]:
         """
-        Extract claims from text using LLM (ADR-0002, ADR-0005).
+        Extract claims from text using LLM.
 
-        LLM extraction is only applied to primary sources to control
-        LLM processing time ratio (≤30% per ADR-0010).
+        LLM extraction is controlled by claims_extraction_scope setting:
+        - "authoritative": tier 1 only (gov/edu/academic)
+        - "reputable": tier 1-2 (+ research orgs, major news)
+        - "all": all sources
 
         Args:
             text: The text to extract claims from.
             source_url: URL of the source.
             title: Title of the source.
-            is_primary: Whether this is a primary source.
+            extraction_tier: Domain tier (1=authoritative, 2=reputable, 3=general, 0=skip)
 
         Returns:
             List of extracted claims.
         """
-        # Only use LLM for primary sources to control processing time
-        if not is_primary:
+        # Skip LLM extraction if domain is not in scope
+        if extraction_tier == 0:
             return []
 
         get_settings()

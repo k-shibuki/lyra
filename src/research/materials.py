@@ -126,7 +126,6 @@ async def _collect_claims(db: Any, task_id: str) -> list[dict[str, Any]]:
             """,
             (task_id,),
         )
-
         for row in rows:
             # Extract source_url from verification_notes (format: "source_url=...")
             verification_notes = row.get("verification_notes", "") or ""
