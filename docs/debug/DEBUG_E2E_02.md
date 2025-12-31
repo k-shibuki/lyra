@@ -28,7 +28,7 @@ DEBUG_E2E_01で修正したクレーム抽出パイプラインの動作確認�
 | MCPサーバーログ | ✅ | エラー0件 |
 | Evidence Graph | ✅ | 構造正常 |
 | タスクライフサイクル | ✅ | 正常完了 |
-| 自動テスト | ⚠️ | 7件失敗（別問題） |
+| 自動テスト | ✅ | 3645 passed（7件修正済み） |
 
 ---
 
@@ -121,24 +121,31 @@ make test  # L1 + L2 テスト
 
 | 結果 | 件数 |
 |------|------|
-| Passed | 3638 |
-| Failed | 7 |
+| Passed | 3645 |
+| Failed | 0 |
 | Skipped | 22 |
-| 所要時間 | 3分32秒 |
+| 所要時間 | 3分29秒 |
 
-#### 失敗したテスト（別問題、今回のスコープ外）
+#### 修正したテスト（7件）
 
-| テストファイル | 失敗数 | 概要 |
-|---------------|--------|------|
-| test_calibration_rollback.py | 2 | MCPエラーハンドリング |
-| test_mcp_integration.py | 1 | get_materials Bayesianフィールド |
-| test_prompt_manager.py | 4 | プロンプトテンプレート検証 |
+| テストファイル | 修正数 | 根本原因 |
+|---------------|--------|----------|
+| test_prompt_manager.py | 4 | プロンプト簡略化（DEBUG_E2E_01）で期待値不一致 |
+| test_calibration_rollback.py | 2 | `call_tool` 戻り値形式変更（dict直接返却） |
+| test_mcp_integration.py | 1 | 同上 |
 
-**これらはDEBUG_E2E_01/02の修正とは無関係。クレーム抽出とNLI評価のコア機能は正常。**
+**修正内容**:
+- `test_empty_string_input`: "INPUT DATA" → "Extract", "Text:"
+- `test_json_format_decompose`: "  {" → '{"text":'
+- `test_densify_renders_correctly`: "densify" → "information-dense"
+- `test_initial_summary_with_query_context`: "Research question" → "Research context:"
+- `test_mcp_error_returns_structured_response`: list[Content] → dict
+- `test_unexpected_error_wrapped_as_internal`: list[Content] → dict
+- `test_get_materials_call_tool_preserves_bayesian_fields`: list[Content] → dict
 
 ---
 
-## 4. 既知の問題（対応不要）
+## 4. 既知の問題（次セッションで分析）
 
 ### 4.1 Orphan Claims（2件）
 
@@ -147,7 +154,9 @@ make test  # L1 + L2 テスト
 | c_3072a88d | task_d879d41a | DEBUG_E2E_01以前のNLI失敗 |
 | c_e8201bb8 | task_d879d41a | 同上 |
 
-**対応**: ADR-0005のHard cleanup（orphans_only）で削除可能。現時点では影響なし。
+**次セッション課題**: 
+- ADR-0005のHard cleanup（orphans_only）による削除手順の確立
+- Orphan発生原因の根本分析（E2Eデバッグ開始前の事象ではあるが、分析する）
 
 ### 4.2 Stuck Job（1件）
 
@@ -155,7 +164,10 @@ make test  # L1 + L2 テスト
 |--------|---------|------|----------|
 | s_06389bf7cd4b | task_1dbcd8ea | running | 2025-12-30 15:32:32 |
 
-**対応**: 古いセッションの残骸。手動で `state='failed'` に更新するか、無視可能。
+**次セッション課題**:
+- キャンセル/中断されたジョブの扱いに関するワークフロー検討
+- `running` 状態で放置されたジョブの自動検出・クリーンアップ機構
+- タイムアウトによる自動 `failed` 遷移の実装検討
 
 ---
 
@@ -193,8 +205,9 @@ make test  # L1 + L2 テスト
 | 追加の修正 | 不要 |
 
 **セッション完了。次のステップとして推奨:**
-1. 失敗したテスト7件の調査（別セッション）
-2. S_FULL_E2E.mdに基づく本格的なケーススタディ実行
+1. Orphan Claims / Stuck Job の根本原因分析と対応ワークフロー策定
+2. キャンセル/中断されたジョブの扱いに関するワークフロー検討
+3. S_FULL_E2E.mdに基づく本格的なケーススタディ実行
 
 ---
 
@@ -222,3 +235,5 @@ make test  # L1 + L2 テスト
 | 2025-12-31 11:40 | DB整合性チェック、Evidence Graph構造確認 |
 | 2025-12-31 11:50 | タスクライフサイクル確認、自動テスト実行 |
 | 2025-12-31 12:00 | セッション完了、ドキュメント最終化 |
+| 2025-12-31 12:15 | テスト7件修正、全テスト Pass |
+| 2025-12-31 12:20 | 次セッション課題を明確化 |

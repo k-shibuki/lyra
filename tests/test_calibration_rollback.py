@@ -298,15 +298,11 @@ class TestCallToolErrorHandling:
         // When: Calling via call_tool
         // Then: Returns structured error response with INVALID_PARAMS
         """
-        import json
-
         from src.mcp.server import call_tool
 
         # This should raise InvalidParamsError (source is required)
-        result = await call_tool("calibration_rollback", {})
-
-        assert len(result) == 1
-        response = json.loads(result[0].text)
+        # call_tool returns dict directly (not list[Content])
+        response = await call_tool("calibration_rollback", {})
 
         assert response["ok"] is False
         assert response["error_code"] == "INVALID_PARAMS"
@@ -320,15 +316,11 @@ class TestCallToolErrorHandling:
         // When: Calling via call_tool
         // Then: Returns INTERNAL_ERROR with error_id
         """
-        import json
-
         from src.mcp.server import call_tool
 
         with patch("src.mcp.server._dispatch_tool", side_effect=RuntimeError("Unexpected")):
-            result = await call_tool("some_tool", {})
-
-        assert len(result) == 1
-        response = json.loads(result[0].text)
+            # call_tool returns dict directly (not list[Content])
+            response = await call_tool("some_tool", {})
 
         assert response["ok"] is False
         assert response["error_code"] == "INTERNAL_ERROR"

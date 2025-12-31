@@ -453,8 +453,9 @@ class TestTemplateValidation:
         result = real_manager.render("extract_facts", text=text)
 
         # Then: Template renders correctly (empty input is valid)
-        # Template should contain INPUT DATA section
-        assert "INPUT DATA" in result
+        # Template should contain core instruction text
+        assert "Extract" in result
+        assert "Text:" in result
 
     def test_very_long_text_input(self, real_manager: PromptManager) -> None:
         """TC-B-02: Test template renders with very long text (4000+ chars)."""
@@ -548,11 +549,10 @@ class TestTemplateValidation:
 
         # When: Checking the JSON example format
         # Then: Should use single braces {, not double {{
-        # The decompose template has JSON in a multi-line example
-        assert "  {" in result, "JSON example should use single braces"
-        assert "  {{" not in result, "JSON example should NOT use double braces"
+        # JSON example is inline (not multi-line), so check for {"text":
+        assert '{"text":' in result, "JSON example should use single braces"
+        assert '{{"text":' not in result, "JSON example should NOT use double braces"
         # Verify specific JSON structure
-        assert '"text":' in result
         assert '"polarity":' in result
 
     # -------------------------------------------------------------------------
@@ -578,7 +578,8 @@ class TestTemplateValidation:
         assert current_summary in result
         assert original_content in result
         assert missing_entities in result
-        assert "densify" in result.lower()
+        # Template uses "information-dense" phrasing
+        assert "information-dense" in result.lower()
 
     def test_initial_summary_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-07: Test initial_summary template renders with valid input."""
@@ -606,7 +607,8 @@ class TestTemplateValidation:
         # Then: Query context is included
         assert content in result
         assert query_context in result
-        assert "Research question" in result
+        # Template uses "Research context:" label
+        assert "Research context:" in result
 
     def test_quality_assessment_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-09: Test quality_assessment template renders with valid input."""

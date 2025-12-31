@@ -471,13 +471,11 @@ class TestGetMaterialsIntegration:
                 new=AsyncMock(return_value=memory_database),
             ),
         ):
-            content_list = await call_tool(
+            # call_tool returns dict directly (not list[Content])
+            payload = await call_tool(
                 "get_materials",
                 {"task_id": task_id, "options": {"include_graph": False}},
             )
-
-        assert len(content_list) == 1
-        payload = json.loads(content_list[0].text)
 
         assert payload["ok"] is True
         assert payload["task_id"] == task_id
