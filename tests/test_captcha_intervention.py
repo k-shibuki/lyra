@@ -37,13 +37,13 @@ class TestInterventionQueueEnqueue:
         Then: DB insert includes search_job_id
         """
         # Given
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         queue = InterventionQueue()
         queue._db = mock_db
 
         # When
-        with patch("src.utils.notification._get_batch_notification_manager") as mock_batch:
+        with patch("src.utils.batch_notification._get_batch_notification_manager") as mock_batch:
             mock_batch.return_value.on_captcha_queued = AsyncMock()
             queue_id = await queue.enqueue(
                 task_id="task_123",
@@ -71,13 +71,13 @@ class TestInterventionQueueEnqueue:
         Then: DB insert has None for search_job_id
         """
         # Given
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         queue = InterventionQueue()
         queue._db = mock_db
 
         # When
-        with patch("src.utils.notification._get_batch_notification_manager") as mock_batch:
+        with patch("src.utils.batch_notification._get_batch_notification_manager") as mock_batch:
             mock_batch.return_value.on_captcha_queued = AsyncMock()
             queue_id = await queue.enqueue(
                 task_id="task_123",
@@ -102,13 +102,13 @@ class TestInterventionQueueEnqueue:
         Then: BatchNotificationManager.on_captcha_queued() is called
         """
         # Given
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         queue = InterventionQueue()
         queue._db = mock_db
 
         # When
-        with patch("src.utils.notification._get_batch_notification_manager") as mock_batch:
+        with patch("src.utils.batch_notification._get_batch_notification_manager") as mock_batch:
             mock_on_captcha = AsyncMock()
             mock_batch.return_value.on_captcha_queued = mock_on_captcha
             await queue.enqueue(
@@ -136,7 +136,7 @@ class TestBatchNotificationManager:
         Then: Timer is started (first_pending_time is set)
         """
         # Given
-        from src.utils.notification import BatchNotificationManager
+        from src.utils.batch_notification import BatchNotificationManager
 
         manager = BatchNotificationManager()
         assert manager._first_pending_time is None
@@ -158,7 +158,7 @@ class TestBatchNotificationManager:
         Then: Notification is sent (send_toast is called)
         """
         # Given
-        from src.utils.notification import BatchNotificationManager
+        from src.utils.batch_notification import BatchNotificationManager
 
         manager = BatchNotificationManager()
         manager._first_pending_time = datetime.now(UTC)
@@ -166,9 +166,9 @@ class TestBatchNotificationManager:
 
         # When: Mock get_pending to return items so notification is sent
         mock_item = {"domain": "duckduckgo", "auth_type": "captcha"}
-        with patch("src.utils.notification.get_intervention_queue") as mock_queue:
+        with patch("src.utils.intervention_queue.get_intervention_queue") as mock_queue:
             mock_queue.return_value.get_pending = AsyncMock(return_value=[mock_item])
-            with patch("src.utils.notification._get_manager") as mock_mgr:
+            with patch("src.utils.intervention_manager._get_manager") as mock_mgr:
                 mock_send_toast = AsyncMock()
                 mock_mgr.return_value.send_toast = mock_send_toast
                 await manager.on_search_queue_empty()
@@ -186,14 +186,14 @@ class TestBatchNotificationManager:
         Then: No additional notification is sent
         """
         # Given
-        from src.utils.notification import BatchNotificationManager
+        from src.utils.batch_notification import BatchNotificationManager
 
         manager = BatchNotificationManager()
         manager._first_pending_time = datetime.now(UTC)
         manager._notified = True  # Already notified
 
         # When
-        with patch("src.utils.notification._get_manager") as mock_mgr:
+        with patch("src.utils.intervention_manager._get_manager") as mock_mgr:
             mock_send = AsyncMock()
             mock_mgr.return_value.send_toast = mock_send
             await manager.on_search_queue_empty()

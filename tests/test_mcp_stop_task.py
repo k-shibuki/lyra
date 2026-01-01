@@ -758,7 +758,7 @@ class TestStopTaskAuthQueueCancellation:
         // Then: Auth queue items are marked as cancelled
         """
         from src.mcp.tools.task import handle_stop_task as _handle_stop_task
-        from src.utils.notification import get_intervention_queue
+        from src.utils.intervention_queue import get_intervention_queue
 
         db = test_database
 
@@ -857,7 +857,7 @@ class TestStopTaskAuthQueueCancellation:
         // Then: In-progress items are also cancelled
         """
         from src.mcp.tools.task import handle_stop_task as _handle_stop_task
-        from src.utils.notification import get_intervention_queue
+        from src.utils.intervention_queue import get_intervention_queue
 
         db = test_database
 

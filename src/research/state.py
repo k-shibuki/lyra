@@ -863,7 +863,7 @@ class ExplorationState:
             Authentication queue summary or None if no pending items.
         """
         try:
-            from src.utils.notification import get_intervention_queue
+            from src.utils.intervention_queue import get_intervention_queue
 
             queue = get_intervention_queue()
             summary = await queue.get_authentication_queue_summary(self.task_id)

@@ -1208,7 +1208,7 @@ class TestBrowserFetcherHumanBehavior:
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(
-                                                "src.utils.notification.get_intervention_queue",
+                                                "src.utils.intervention_queue.get_intervention_queue",
                                                 return_value=MagicMock(
                                                     get_session_for_domain=AsyncMock(
                                                         return_value=None
@@ -1295,7 +1295,7 @@ class TestBrowserFetcherHumanBehavior:
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(
-                                                "src.utils.notification.get_intervention_queue",
+                                                "src.utils.intervention_queue.get_intervention_queue",
                                                 return_value=MagicMock(
                                                     get_session_for_domain=AsyncMock(
                                                         return_value=None
@@ -1383,7 +1383,7 @@ class TestBrowserFetcherHumanBehavior:
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(
-                                                "src.utils.notification.get_intervention_queue",
+                                                "src.utils.intervention_queue.get_intervention_queue",
                                                 return_value=MagicMock(
                                                     get_session_for_domain=AsyncMock(
                                                         return_value=None
@@ -1471,7 +1471,7 @@ class TestBrowserFetcherHumanBehavior:
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(
-                                                "src.utils.notification.get_intervention_queue",
+                                                "src.utils.intervention_queue.get_intervention_queue",
                                                 return_value=MagicMock(
                                                     get_session_for_domain=AsyncMock(
                                                         return_value=None

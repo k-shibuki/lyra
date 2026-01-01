@@ -118,8 +118,8 @@ class TestGetStatusIntegration:
 
         mock_db = memory_database
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.helpers.get_exploration_state", side_effect=KeyError("No state")):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch("src.mcp.tools.task.get_exploration_state", side_effect=KeyError("No state")):
                 result = await _handle_get_status({"task_id": task_id})
 
         # Verify response structure
@@ -153,8 +153,8 @@ class TestGetStatusIntegration:
             (task_id, "minimal query", "pending", datetime.now(UTC).isoformat()),
         )
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
-            with patch("src.mcp.helpers.get_exploration_state", side_effect=KeyError("No state")):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=db)):
+            with patch("src.mcp.tools.task.get_exploration_state", side_effect=KeyError("No state")):
                 result = await _handle_get_status({"task_id": task_id})
 
         assert result["ok"] is True
@@ -463,6 +463,9 @@ class TestGetMaterialsIntegration:
 
         with (
             patch("src.storage.database.get_database", new=AsyncMock(return_value=memory_database)),
+            patch(
+                "src.mcp.tools.materials.get_database", new=AsyncMock(return_value=memory_database)
+            ),
             patch(
                 "src.research.materials.get_database", new=AsyncMock(return_value=memory_database)
             ),
@@ -854,8 +857,8 @@ class TestMCPToolDataConsistency:
         task_id = data["task_id"]
 
         # Get status
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=memory_database)):
-            with patch("src.mcp.helpers.get_exploration_state", side_effect=KeyError("No state")):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=memory_database)):
+            with patch("src.mcp.tools.task.get_exploration_state", side_effect=KeyError("No state")):
                 status_result = await _handle_get_status({"task_id": task_id})
 
         # Get materials

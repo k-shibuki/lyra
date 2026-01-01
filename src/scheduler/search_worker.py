@@ -87,7 +87,7 @@ async def _search_queue_worker(worker_id: int) -> None:
             if row is None:
                 # Queue is empty - notify batch notification manager (ADR-0007)
                 try:
-                    from src.utils.notification import notify_search_queue_empty
+                    from src.utils.batch_notification import notify_search_queue_empty
 
                     await notify_search_queue_empty()
                 except Exception as e:

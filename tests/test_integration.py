@@ -599,7 +599,7 @@ class TestNotificationIntegration:
     @pytest.mark.asyncio
     async def test_intervention_manager_initialization(self) -> None:
         """Verify intervention manager can be initialized."""
-        from src.utils.notification import InterventionManager
+        from src.utils.intervention_manager import InterventionManager
 
         # Given/When: Instantiate InterventionManager
         manager = InterventionManager()
@@ -612,7 +612,7 @@ class TestNotificationIntegration:
     @pytest.mark.asyncio
     async def test_intervention_types(self) -> None:
         """Verify intervention types are defined correctly."""
-        from src.utils.notification import InterventionStatus, InterventionType
+        from src.utils.intervention_types import InterventionStatus, InterventionType
 
         # Given/When: Import enums
         # Then: Enum values are correct

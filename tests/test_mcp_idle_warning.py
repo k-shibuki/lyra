@@ -91,8 +91,8 @@ class TestMCPIdleWarning:
             return mock_state
 
         with (
-            patch("src.storage.database.get_database", return_value=mock_db),
-            patch("src.mcp.helpers.get_exploration_state", side_effect=get_state),
+            patch("src.mcp.tools.task.get_database", return_value=mock_db),
+            patch("src.mcp.tools.task.get_exploration_state", side_effect=get_state),
         ):
             from src.mcp.tools.task import handle_get_status as _handle_get_status
 
@@ -132,10 +132,10 @@ class TestMCPIdleWarning:
             return mock_state
 
         with (
-            patch("src.storage.database.get_database", return_value=mock_db),
-            patch("src.mcp.helpers.get_exploration_state", side_effect=get_state),
+            patch("src.mcp.tools.task.get_database", return_value=mock_db),
+            patch("src.mcp.tools.task.get_exploration_state", side_effect=get_state),
             patch(
-                "src.research.pipeline.stop_task_action",
+                "src.mcp.tools.task.stop_task_action",
                 new_callable=AsyncMock,
                 return_value=mock_stop_result,
             ),
@@ -194,8 +194,8 @@ class TestMCPIdleWarning:
             return mock_state
 
         with (
-            patch("src.storage.database.get_database", return_value=mock_db),
-            patch("src.mcp.helpers.get_exploration_state", side_effect=get_state),
+            patch("src.mcp.tools.task.get_database", return_value=mock_db),
+            patch("src.mcp.tools.task.get_exploration_state", side_effect=get_state),
         ):
             from src.mcp.tools.task import handle_get_status as _handle_get_status
 
@@ -217,7 +217,7 @@ class TestMCPIdleWarning:
         """
         from src.mcp.errors import InvalidParamsError
 
-        with patch("src.storage.database.get_database", return_value=mock_db):
+        with patch("src.mcp.tools.task.get_database", return_value=mock_db):
             from src.mcp.tools.task import handle_get_status as _handle_get_status
 
             with pytest.raises(InvalidParamsError) as exc_info:
@@ -236,7 +236,7 @@ class TestMCPIdleWarning:
         """
         from src.mcp.errors import InvalidParamsError
 
-        with patch("src.storage.database.get_database", return_value=mock_db):
+        with patch("src.mcp.tools.task.get_database", return_value=mock_db):
             from src.mcp.tools.task import handle_get_status as _handle_get_status
 
             with pytest.raises(InvalidParamsError) as exc_info:

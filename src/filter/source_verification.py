@@ -620,7 +620,7 @@ class SourceVerifier:
         Returns:
             List of notification results.
         """
-        from src.utils.notification import notify_domain_blocked
+        from src.utils.intervention_manager import notify_domain_blocked
 
         if not self._pending_blocked_notifications:
             return []

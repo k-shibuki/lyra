@@ -77,7 +77,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import pytest_asyncio
 
-from src.utils.notification import InterventionQueue, get_intervention_queue
+from src.utils.intervention_queue import InterventionQueue, get_intervention_queue
 
 if TYPE_CHECKING:
     from src.storage.database import Database
@@ -144,7 +144,7 @@ class TestInterventionQueueInit:
         queue = InterventionQueue()
 
         with patch(
-            "src.utils.notification.get_database",
+            "src.utils.intervention_queue.get_database",
             new_callable=AsyncMock,
             return_value=test_database,
         ):
@@ -323,7 +323,7 @@ class TestEnqueue:
 
         # When: enqueue is called without expires_at
         with patch(
-            "src.utils.notification.get_settings",
+            "src.utils.intervention_queue.get_settings",
             return_value=type(
                 "Settings",
                 (),
@@ -1505,9 +1505,9 @@ class TestGetInterventionQueue:
     def test_returns_intervention_queue_instance(self) -> None:
         """Test get_intervention_queue returns InterventionQueue instance."""
         # Reset global state
-        import src.utils.notification as notif_module
+        import src.utils.intervention_queue as iq_module
 
-        notif_module._queue = None
+        iq_module._queue = None
 
         # When
         queue = get_intervention_queue()
@@ -1520,9 +1520,9 @@ class TestGetInterventionQueue:
     def test_returns_same_instance_on_multiple_calls(self) -> None:
         """Test get_intervention_queue returns same instance (singleton)."""
         # Reset global state
-        import src.utils.notification as notif_module
+        import src.utils.intervention_queue as iq_module
 
-        notif_module._queue = None
+        iq_module._queue = None
 
         # When
         queue1 = get_intervention_queue()

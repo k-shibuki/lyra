@@ -9,8 +9,8 @@ from typing import Any
 from src.mcp.errors import InvalidParamsError
 from src.search.circuit_breaker import get_circuit_breaker_manager
 from src.storage.database import get_database
+from src.utils.intervention_queue import get_intervention_queue
 from src.utils.logging import ensure_logging_configured, get_logger
-from src.utils.notification import get_intervention_queue
 
 ensure_logging_configured()
 logger = get_logger(__name__)

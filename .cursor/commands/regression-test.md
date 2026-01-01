@@ -24,6 +24,8 @@ Use `make` commands (run `make help` for all options).
 
 > **CRITICAL:** Always capture `run_id` from `make test` output and pass it to `make test-check RUN_ID=xxx`.
 > Do NOT omit `RUN_ID` — state file fallback is unreliable and causes confusion.
+>
+> **IMPORTANT:** Do NOT use `sleep` to wait for test completion. Use `make test-check` directly — it handles completion detection internally. Simply call `make test-check RUN_ID=xxx` when you need to check status.
 
 ### Stage 1: session-scoped tests (recommended)
 
@@ -86,6 +88,7 @@ Pass this `run_id` to `make test-check RUN_ID=xxx`.
 
 - `test-check` returns `DONE` when pytest summary line exists AND pytest process has exited
 - Each `run` generates a unique `run_id`; **always specify it** with `check`/`kill`
+- **Do NOT use `sleep` or polling loops** — `make test-check` handles completion detection internally. Call it directly when you need to check status.
 
 ## Output (response format)
 

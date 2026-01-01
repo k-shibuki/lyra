@@ -85,7 +85,7 @@ class TestGetAuthQueueExecution:
         mock_queue.get_pending.return_value = mock_pending_items
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_get_auth_queue(
@@ -116,7 +116,7 @@ class TestGetAuthQueueExecution:
         mock_queue.get_pending.return_value = mock_pending_items
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_get_auth_queue(
@@ -151,7 +151,7 @@ class TestGetAuthQueueExecution:
         mock_queue.get_pending.return_value = mock_pending_items
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_get_auth_queue(
@@ -185,7 +185,7 @@ class TestGetAuthQueueExecution:
         mock_queue.get_pending.return_value = mock_pending_items
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             await _handle_get_auth_queue(
@@ -215,7 +215,7 @@ class TestGetAuthQueueExecution:
         mock_queue.get_pending.return_value = [mock_pending_items[0]]  # Only high priority
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_get_auth_queue(
@@ -248,7 +248,7 @@ class TestGetAuthQueueBoundaryValues:
         mock_queue.get_pending.return_value = []
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_get_auth_queue({})
@@ -281,7 +281,7 @@ class TestGetAuthQueueBoundaryValues:
         ]
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_get_auth_queue({})
@@ -305,7 +305,7 @@ class TestGetAuthQueueBoundaryValues:
         mock_queue.get_pending.return_value = []
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_get_auth_queue(
@@ -479,7 +479,7 @@ class TestResolveAuthExecution:
 
         with (
             patch(
-                "src.utils.notification.get_intervention_queue",
+                "src.mcp.tools.auth.get_intervention_queue",
                 return_value=mock_queue,
             ),
             patch(
@@ -523,7 +523,7 @@ class TestResolveAuthExecution:
         mock_queue.skip.return_value = {"ok": True, "skipped": 1}
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_resolve_auth(
@@ -559,7 +559,7 @@ class TestResolveAuthExecution:
 
         with (
             patch(
-                "src.utils.notification.get_intervention_queue",
+                "src.mcp.tools.auth.get_intervention_queue",
                 return_value=mock_queue,
             ),
             patch(
@@ -604,7 +604,7 @@ class TestResolveAuthExecution:
         }
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_resolve_auth(
@@ -657,7 +657,7 @@ class TestResolveAuthExecution:
 
         with (
             patch(
-                "src.utils.notification.get_intervention_queue",
+                "src.mcp.tools.auth.get_intervention_queue",
                 return_value=mock_queue,
             ),
             patch(
@@ -718,7 +718,7 @@ class TestResolveAuthExecution:
         }
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_resolve_auth(
@@ -752,7 +752,7 @@ class TestResolveAuthExecution:
         mock_queue.get_pending.return_value = []
 
         with patch(
-            "src.utils.notification.get_intervention_queue",
+            "src.mcp.tools.auth.get_intervention_queue",
             return_value=mock_queue,
         ):
             result = await _handle_resolve_auth(
@@ -1059,7 +1059,7 @@ class TestResolveAuthCookieCapture:
 
         with (
             patch(
-                "src.utils.notification.get_intervention_queue",
+                "src.mcp.tools.auth.get_intervention_queue",
                 return_value=mock_queue,
             ),
             patch(
@@ -1102,7 +1102,7 @@ class TestResolveAuthCookieCapture:
 
         with (
             patch(
-                "src.utils.notification.get_intervention_queue",
+                "src.mcp.tools.auth.get_intervention_queue",
                 return_value=mock_queue,
             ),
             patch(
@@ -1147,7 +1147,7 @@ class TestResolveAuthCookieCapture:
 
         with (
             patch(
-                "src.utils.notification.get_intervention_queue",
+                "src.mcp.tools.auth.get_intervention_queue",
                 return_value=mock_queue,
             ),
             patch(

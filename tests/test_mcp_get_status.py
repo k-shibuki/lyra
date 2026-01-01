@@ -61,7 +61,7 @@ class TestGetStatusValidation:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = None
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with pytest.raises(TaskNotFoundError) as exc_info:
                 await _handle_get_status({"task_id": "nonexistent_task"})
 
@@ -150,8 +150,8 @@ class TestGetStatusWithExplorationState:
         mock_state = MagicMock()
         mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.helpers.get_exploration_state", return_value=mock_state):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
 
         assert result["ok"] is True
@@ -182,8 +182,8 @@ class TestGetStatusWithExplorationState:
         mock_state = MagicMock()
         mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.helpers.get_exploration_state", return_value=mock_state):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
 
         # Verify search structure per ADR-0003
@@ -231,8 +231,8 @@ class TestGetStatusWithExplorationState:
         mock_state = MagicMock()
         mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.helpers.get_exploration_state", return_value=mock_state):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
 
         assert result["auth_queue"] is not None
@@ -264,8 +264,8 @@ class TestGetStatusWithExplorationState:
         mock_state = MagicMock()
         mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.helpers.get_exploration_state", return_value=mock_state):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
 
         assert len(result["warnings"]) == 2
@@ -307,9 +307,9 @@ class TestGetStatusWithoutExplorationState:
         mock_db.execute.return_value = mock_cursor
 
         # Simulate no exploration state
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 result = await _handle_get_status({"task_id": "task_xyz789"})
@@ -386,8 +386,8 @@ class TestGetStatusStatusMapping:
         mock_state = MagicMock()
         mock_state.get_status = AsyncMock(return_value=mock_exploration)
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
-            with patch("src.mcp.helpers.get_exploration_state", return_value=mock_state):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_test"})
 
         assert result["status"] == expected_status
@@ -454,9 +454,9 @@ class TestGetStatusBlockedDomains:
             }
         ]
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 with patch(
@@ -488,9 +488,9 @@ class TestGetStatusBlockedDomains:
         mock_verifier = MagicMock()
         mock_verifier.get_blocked_domains_info.return_value = []
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 with patch(
@@ -530,9 +530,9 @@ class TestGetStatusBlockedDomains:
             }
         ]
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 with patch(
@@ -577,9 +577,9 @@ class TestGetStatusBlockedDomains:
             }
         ]
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 with patch(
@@ -621,9 +621,9 @@ class TestGetStatusBlockedDomains:
             }
         ]
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 with patch(
@@ -665,9 +665,9 @@ class TestGetStatusBlockedDomains:
             }
         ]
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 with patch(
@@ -710,9 +710,9 @@ class TestGetStatusBlockedDomains:
             }
         ]
 
-        with patch("src.storage.database.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch(
-                "src.mcp.helpers.get_exploration_state",
+                "src.mcp.tools.task.get_exploration_state",
                 side_effect=KeyError("No state"),
             ):
                 with patch(

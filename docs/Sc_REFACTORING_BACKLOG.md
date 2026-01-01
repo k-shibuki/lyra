@@ -283,7 +283,31 @@ make mcp-dev
 
 ### 2.4 utils/notification.py（1636行）分割計画
 
-#### 現状構造確認コマンド
+**状態**: ✅ 完了（2025-01-01、テストモジュールインポート対応済み）
+
+#### 完了した変更
+
+| 新ファイル | 移動対象 | 実際の行数 |
+|-----------|---------|-----------|
+| `utils/intervention_types.py` | `InterventionStatus`, `InterventionType`, `InterventionResult` | ~80 |
+| `utils/intervention_manager.py` | `InterventionManager`, `notify_user`, `notify_domain_blocked`, `check_intervention_status`, `complete_intervention`, `get_intervention_manager` | ~580 |
+| `utils/batch_notification.py` | `BatchNotificationManager`, `_get_batch_notification_manager`, `notify_search_queue_empty` | ~147 |
+| `utils/intervention_queue.py` | `InterventionQueue`, `get_intervention_queue` | ~864 |
+| `utils/notification.py`（更新） | ドキュメントのみ（re-export なし） | ~18 |
+
+#### 更新されたファイル
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `tests/test_notification.py` | パッチ対象を `intervention_manager`, `intervention_queue`, `batch_notification` に更新 |
+| `tests/test_captcha_intervention.py` | パッチ対象を `batch_notification`, `intervention_queue`, `intervention_manager` に更新 |
+| `tests/test_intervention_queue.py` | パッチ対象を `intervention_queue` に更新、グローバル変数参照を修正 |
+| `tests/test_mcp_auth.py` | パッチ対象を `mcp.tools.auth` に更新 |
+| `tests/test_fetcher.py` | パッチ対象を `intervention_queue` に更新 |
+| `tests/test_mcp_get_status.py` | パッチ対象を `mcp.tools.task` に更新 |
+| `tests/test_source_verification.py` | パッチ対象を `intervention_manager` に更新 |
+
+#### 現状構造確認コマンド（参考）
 
 ```bash
 grep -n '^class\|^def\|^async def' src/utils/notification.py
@@ -475,8 +499,9 @@ grep -rn '^class Domain' src/
 | ID | タスク | 見積もり | 前提 | 検証 |
 |----|--------|---------|------|------|
 | R-01 | `fetcher.py` を6ファイルに分割 | 4h | なし | ✅ 完了 |
-| R-02 | `mcp/server.py` を `mcp/tools/` に分割 | 3h | なし | ✅ 完了 |
-| R-03 | `notification.py` を4ファイルに分割 | 30min | なし | ✅ 完了 |
+| R-02 | `mcp/server.py` を `mcp/tools/` に分割 | 3h | なし | ✅ 完了（テストモジュールインポート対応済み） |
+| R-03 | `notification.py` を4ファイルに分割 | 2h | なし | ✅ 完了（テストモジュールインポート対応済み） |
+| R-04 | max_pages バリデーションの重複削除 | 30min | なし | ✅ 完了 |
 
 ### MEDIUM（今後1-2ヶ月）
 
@@ -540,3 +565,4 @@ make test-unit
 | 2025-12-31 | Claude | 初版作成 |
 | 2025-01-01 | Claude | 着手手順・検証コマンド追加、行番号更新 |
 | 2025-01-01 | Claude | R-04 完了: max_pages レガシーバリデーション削除 + スキーマ厳密化 |
+| 2025-01-01 | Claude | R-02/R-03 完了: モジュール分割完了、テストモジュールインポート対応完了 |

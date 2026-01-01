@@ -1148,7 +1148,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         captcha_queued = False
                         if options.task_id:
                             try:
-                                from src.utils.notification import get_intervention_queue
+                                from src.utils.intervention_queue import get_intervention_queue
 
                                 queue = get_intervention_queue()
                                 queue_id = await queue.enqueue(
@@ -1421,11 +1421,8 @@ class BrowserSearchProvider(BaseSearchProvider):
         Returns True if intervention succeeded.
         """
         try:
-            from src.utils.notification import (
-                InterventionStatus,
-                InterventionType,
-                get_intervention_manager,
-            )
+            from src.utils.intervention_manager import get_intervention_manager
+            from src.utils.intervention_types import InterventionStatus, InterventionType
 
             intervention_manager = get_intervention_manager()
 

@@ -56,12 +56,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.utils.notification import (
-    InterventionManager,
+from src.utils.intervention_manager import InterventionManager, notify_user
+from src.utils.intervention_types import (
     InterventionResult,
     InterventionStatus,
     InterventionType,
-    notify_user,
 )
 
 # =============================================================================
@@ -100,8 +99,8 @@ def intervention_manager(
 
     Per .1.7: External services should be mocked in unit tests.
     """
-    with patch("src.utils.notification.get_settings", return_value=mock_settings):
-        with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+    with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+        with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
             manager = InterventionManager()
             yield manager
 
@@ -440,7 +439,7 @@ class TestToastNotification:
         # Mock the registry send method
         mock_result = NotificationResult.success(provider="test", message_id="test_123")
 
-        with patch("src.utils.notification.get_notification_registry") as mock_get_registry:
+        with patch("src.utils.intervention_manager.get_notification_registry") as mock_get_registry:
             mock_registry = AsyncMock()
             mock_registry.send = AsyncMock(return_value=mock_result)
             mock_get_registry.return_value = mock_registry
@@ -572,8 +571,8 @@ class TestInterventionFlow:
 
         Per ADR-0007: No waiting/polling. Returns PENDING for user to complete.
         """
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 # Given
                 manager = InterventionManager()
 
@@ -600,7 +599,7 @@ class TestInterventionFlow:
         self, intervention_manager: InterventionManager, mock_db: AsyncMock, mock_page: AsyncMock
     ) -> None:
         """Test intervention request logs to database."""
-        with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
             with patch.object(
                 intervention_manager,
                 "send_toast",
@@ -640,8 +639,8 @@ class TestNotifyUserFunction:
         self, mock_settings: MagicMock, mock_db: AsyncMock
     ) -> None:
         """Test notify_user with simple event (no intervention)."""
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 # Reset global manager
                 import src.utils.notification as notif_module
 
@@ -675,8 +674,8 @@ class TestNotifyUserFunction:
 
         Per ADR-0007: Intervention returns PENDING immediately for user to complete.
         """
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 # Reset global manager
                 import src.utils.notification as notif_module
 
@@ -729,8 +728,8 @@ class TestInterventionIntegration:
         self, mock_settings: MagicMock, mock_db: AsyncMock, mock_page: AsyncMock
     ) -> None:
         """Test full intervention lifecycle returns PENDING per ADR-0007."""
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 # Given
                 manager = InterventionManager()
                 domain = "example.com"
@@ -758,8 +757,8 @@ class TestInterventionIntegration:
 
         Per ADR-0007: User calls complete_authentication when done.
         """
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 # Given
                 manager = InterventionManager()
                 domain = "example.com"
@@ -796,8 +795,8 @@ class TestInterventionIntegration:
 
         Per ADR-0007: No timeout enforcement - user-driven completion only.
         """
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 # Given
                 manager = InterventionManager()
                 intervention_id = "test_domain_123"
@@ -859,10 +858,10 @@ class TestDomainBlockedNotification:
         // When: Calling notify_user
         // Then: Item queued, toast sent, queue_id returned
         """
-        from src.utils.notification import notify_user
+        from src.utils.intervention_manager import notify_user
 
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 # Mock the queue
                 mock_queue = AsyncMock()
                 mock_queue.enqueue = AsyncMock(return_value="iq_test123")
@@ -871,9 +870,9 @@ class TestDomainBlockedNotification:
                 mock_manager = MagicMock()
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
-                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                with patch("src.utils.intervention_manager._get_manager", return_value=mock_manager):
                     with patch(
-                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                        "src.utils.intervention_queue.get_intervention_queue", return_value=mock_queue
                     ):
                         # When
                         result = await notify_user(
@@ -914,19 +913,19 @@ class TestDomainBlockedNotification:
         // When: Calling notify_domain_blocked
         // Then: Correct result returned
         """
-        from src.utils.notification import notify_domain_blocked
+        from src.utils.intervention_manager import notify_domain_blocked
 
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 mock_queue = AsyncMock()
                 mock_queue.enqueue = AsyncMock(return_value="iq_conv123")
 
                 mock_manager = MagicMock()
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
-                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                with patch("src.utils.intervention_manager._get_manager", return_value=mock_manager):
                     with patch(
-                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                        "src.utils.intervention_queue.get_intervention_queue", return_value=mock_queue
                     ):
                         # When
                         result = await notify_domain_blocked(
@@ -951,19 +950,19 @@ class TestDomainBlockedNotification:
         // When: Calling notify_user
         // Then: Uses "unknown" as domain
         """
-        from src.utils.notification import notify_user
+        from src.utils.intervention_manager import notify_user
 
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 mock_queue = AsyncMock()
                 mock_queue.enqueue = AsyncMock(return_value="iq_unknown")
 
                 mock_manager = MagicMock()
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
-                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                with patch("src.utils.intervention_manager._get_manager", return_value=mock_manager):
                     with patch(
-                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                        "src.utils.intervention_queue.get_intervention_queue", return_value=mock_queue
                     ):
                         # When: No domain provided
                         result = await notify_user(
@@ -987,19 +986,19 @@ class TestDomainBlockedNotification:
         // When: Calling notify_user
         // Then: Uses default reason "Verification failure"
         """
-        from src.utils.notification import notify_user
+        from src.utils.intervention_manager import notify_user
 
-        with patch("src.utils.notification.get_settings", return_value=mock_settings):
-            with patch("src.utils.notification.get_database", new=AsyncMock(return_value=mock_db)):
+        with patch("src.utils.intervention_manager.get_settings", return_value=mock_settings):
+            with patch("src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)):
                 mock_queue = AsyncMock()
                 mock_queue.enqueue = AsyncMock(return_value="iq_noreason")
 
                 mock_manager = MagicMock()
                 mock_manager.send_toast = AsyncMock(return_value=True)
 
-                with patch("src.utils.notification._get_manager", return_value=mock_manager):
+                with patch("src.utils.intervention_manager._get_manager", return_value=mock_manager):
                     with patch(
-                        "src.utils.notification.get_intervention_queue", return_value=mock_queue
+                        "src.utils.intervention_queue.get_intervention_queue", return_value=mock_queue
                     ):
                         # When: No reason provided
                         result = await notify_user(

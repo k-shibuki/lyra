@@ -421,7 +421,7 @@ class TestAuthenticationQueueFlow:
 
         Verifies queue item creation with priority and domain tracking.
         """
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: An intervention queue and a task requiring authentication
         queue = InterventionQueue()
@@ -472,7 +472,7 @@ class TestAuthenticationQueueFlow:
         - Results are grouped by domain
         - Each domain shows affected_tasks, pending_count, high_priority_count
         """
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: Multiple tasks needing auth for overlapping domains
         queue = InterventionQueue()
@@ -532,7 +532,7 @@ class TestAuthenticationQueueFlow:
 
         Verifies single-item complete (legacy API).
         """
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: A pending authentication item in the queue
         queue = InterventionQueue()
@@ -577,7 +577,7 @@ class TestAuthenticationQueueFlow:
         - One auth resolves all pending URLs for that domain
         - Returns affected_tasks list
         """
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: Multiple tasks needing auth for the same domain
         queue = InterventionQueue()
@@ -640,7 +640,7 @@ class TestAuthenticationQueueFlow:
         Per RFC_AUTH_QUEUE_DOMAIN_BASED:
         - skip(queue_ids=[...]) skips only those items
         """
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: Multiple pending authentication items
         queue = InterventionQueue()
@@ -687,7 +687,7 @@ class TestAuthenticationQueueFlow:
         Per RFC_AUTH_QUEUE_DOMAIN_BASED:
         - skip(domain=...) skips all pending for that domain
         """
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: Multiple tasks with items across different domains
         queue = InterventionQueue()
@@ -738,7 +738,7 @@ class TestAuthenticationQueueFlow:
         - Pending count by priority
         - High priority count for alerts
         """
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: A queue with items of different priorities
         queue = InterventionQueue()
@@ -803,7 +803,7 @@ class TestAuthenticationQueueFlow:
         """
         from datetime import timedelta
 
-        from src.utils.notification import InterventionQueue
+        from src.utils.intervention_queue import InterventionQueue
 
         # Given: A queue item that has already expired
         queue = InterventionQueue()

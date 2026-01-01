@@ -1348,7 +1348,7 @@ class TestBlockedDomainNotification:
         mock_notify = AsyncMock(return_value={"shown": True, "queue_id": "iq_test"})
 
         with patch(
-            "src.utils.notification.notify_domain_blocked",
+            "src.utils.intervention_manager.notify_domain_blocked",
             mock_notify,
         ):
             results = await verifier.send_pending_notifications()
@@ -1413,7 +1413,7 @@ class TestBlockedDomainNotification:
             return {"shown": True, "queue_id": "iq_success"}
 
         with patch(
-            "src.utils.notification.notify_domain_blocked",
+            "src.utils.intervention_manager.notify_domain_blocked",
             side_effect=mock_notify,
         ):
             results = await verifier.send_pending_notifications()

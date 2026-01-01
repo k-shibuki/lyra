@@ -23,13 +23,10 @@ from src.crawler.http3_policy import (
 from src.crawler.http_fetcher import RateLimiter
 from src.crawler.human_behavior import get_human_behavior_simulator
 from src.utils.config import get_settings
+from src.utils.intervention_manager import get_intervention_manager
+from src.utils.intervention_types import InterventionStatus, InterventionType
 from src.utils.lifecycle import ResourceType, get_lifecycle_manager
 from src.utils.logging import get_logger
-from src.utils.notification import (
-    InterventionStatus,
-    InterventionType,
-    get_intervention_manager,
-)
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Page, Playwright, Route
@@ -618,7 +615,7 @@ class BrowserFetcher:
         # Check for existing authenticated session for reuse
         # Domain-based authentication: one authentication applies to multiple tasks/URLs for the same domain
         existing_session = None
-        from src.utils.notification import get_intervention_queue
+        from src.utils.intervention_queue import get_intervention_queue
 
         queue = get_intervention_queue()
         # task_id is optional (domain-based lookup)
@@ -734,7 +731,7 @@ class BrowserFetcher:
 
                     if allow_intervention and queue_auth and task_id:
                         # Queue authentication for batch processing (semi-auto mode)
-                        from src.utils.notification import get_intervention_queue
+                        from src.utils.intervention_queue import get_intervention_queue
 
                         queue = get_intervention_queue()
                         queue_id = await queue.enqueue(
