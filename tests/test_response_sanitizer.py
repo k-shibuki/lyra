@@ -239,7 +239,6 @@ class TestNormalCases:
                 },
             },
             "history": {},
-            "recalibration_threshold": 10,
             "degradation_threshold": 0.05,
         }
 

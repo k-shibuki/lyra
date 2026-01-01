@@ -169,75 +169,43 @@ wc -l src/**/*.py | sort -rn | head -25
 
 ### 2.2 fetcher.py（2826行）分割計画
 
-#### 現状構造確認コマンド
+**状態**: ✅ 完了（2025-01-01）
 
-```bash
-# クラス・関数の一覧
-grep -n '^class\|^def\|^async def' src/crawler/fetcher.py
-```
+**概要**: `fetcher.py`（2826行）を6ファイルにクリーン分割。後方互換性は維持せず、全 import パスを新モジュールに更新。
 
-#### 現状構造
+#### 完了した変更
 
-| クラス/関数 | 行番号 | 責務 |
-|------------|--------|------|
-| `HumanBehavior` | 90 | 人間らしい振る舞いシミュレーション |
-| `TorController` | 196 | Tor接続制御 |
-| `get_tor_controller()` | 326 | Torコントローラー取得 |
-| `_can_use_tor()` | 338 | Tor使用可否判定 |
-| `FetchResult` | 409 | フェッチ結果データクラス |
-| `RateLimiter` | 520 | レート制限 |
-| `HTTPFetcher` | 573 | HTTP通信（curl-cffi） |
-| `BrowserFetcher` | 807 | ブラウザ自動化（Playwright） |
-| `_is_challenge_page()` | 1723 | チャレンジページ検出 |
-| `_detect_challenge_type()` | 1797 | チャレンジ種類判定 |
-| `_estimate_auth_effort()` | 1853 | 認証労力推定 |
-| `_save_content()` | 1881 | コンテンツ保存 |
-| `_save_warc()` | 1915 | WARC保存 |
-| `_get_http_status_text()` | 1998 | HTTPステータステキスト |
-| `_save_screenshot()` | 2032 | スクリーンショット保存 |
-| `fetch_url()` | 2063 | メインエントリポイント |
-| `_fetch_url_impl()` | 2132 | フェッチ実装 |
-| `_update_domain_headful_ratio()` | 2726 | ドメイン統計更新 |
-| `_update_domain_wayback_success()` | 2771 | Wayback統計更新 |
+| 新ファイル | 移動対象 | 実際の行数 |
+|-----------|---------|-----------|
+| `crawler/fetch_result.py` | `FetchResult` | 116 |
+| `crawler/tor_controller.py` | `TorController`, `get_tor_controller`, `_can_use_tor` | 228 |
+| `crawler/challenge_detector.py` | `_is_challenge_page`, `_detect_challenge_type`, `_estimate_auth_effort` | 156 |
+| `crawler/http_fetcher.py` | `HTTPFetcher`, `RateLimiter` | 321 |
+| `crawler/browser_fetcher.py` | `BrowserFetcher`, `HumanBehavior` | 1062 |
+| `crawler/fetcher.py`（更新） | `fetch_url`, `_fetch_url_impl`, utilities | 1006 |
 
-#### 分割案
+#### 更新されたファイル
 
-| 新ファイル | 移動対象 | 行数（推定） |
-|-----------|---------|-------------|
-| `crawler/http_fetcher.py` | `HTTPFetcher`, `RateLimiter` | ~500 |
-| `crawler/browser_fetcher.py` | `BrowserFetcher` | ~900 |
-| `crawler/tor_controller.py` | `TorController`, `get_tor_controller`, `_can_use_tor` | ~150 |
-| `crawler/challenge_detector.py` | `_is_challenge_page`, `_detect_challenge_type`, `_estimate_auth_effort` | ~150 |
-| `crawler/fetch_result.py` | `FetchResult` | ~100 |
-| `crawler/fetcher.py` | `fetch_url`, `_fetch_url_impl`, ユーティリティ | ~1000 |
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/crawler/__init__.py` | 新モジュールから直接 import |
+| `src/search/browser_search_provider.py` | `HumanBehavior` import 更新 |
+| `src/utils/notification.py` | `BrowserFetcher` import 更新 |
+| `tests/test_fetcher.py` | 全 import パス更新 |
+| `tests/test_tor_daily_limit.py` | `_can_use_tor` import 更新 |
+| `tests/test_wayback_fallback.py` | `FetchResult` import 更新 |
+| `tests/test_browser_search_provider.py` | パッチ対象更新 |
 
-#### R-01 着手手順
-
-```bash
-# 1. 依存関係の確認
-grep -rn 'from src.crawler.fetcher import\|from src.crawler import' src/ tests/
-
-# 2. 分割順序（依存が少ない順）:
-#    a. fetch_result.py（FetchResult dataclass）
-#    b. tor_controller.py
-#    c. challenge_detector.py
-#    d. http_fetcher.py
-#    e. browser_fetcher.py
-#    f. fetcher.py（ファサード）
-
-# 3. 各ステップ後にテスト実行
-make test-unit PYTEST_ARGS="-k fetcher or crawler"
-
-# 4. import の更新（fetcher.py で re-export して後方互換維持）
-```
-
-#### 検証コマンド
+#### 検証結果
 
 ```bash
 # 分割後の確認
-wc -l src/crawler/*.py
-make lint
-make test-unit PYTEST_ARGS="-k fetcher"
+wc -l src/crawler/fetch_result.py src/crawler/tor_controller.py src/crawler/challenge_detector.py src/crawler/http_fetcher.py src/crawler/browser_fetcher.py src/crawler/fetcher.py
+# 116 + 228 + 156 + 321 + 1062 + 1006 = 2889行
+
+# テスト結果
+make test-unit
+# === 3731 passed, 22 skipped, 21 deselected ===
 ```
 
 ---

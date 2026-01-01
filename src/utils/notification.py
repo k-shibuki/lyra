@@ -1156,7 +1156,7 @@ class InterventionQueue:
         if items:
             try:
                 logger.debug("Opening browser for authentication URL", item_count=len(items))
-                from src.crawler.fetcher import BrowserFetcher
+                from src.crawler.browser_fetcher import BrowserFetcher
 
                 browser_fetcher = BrowserFetcher()
                 logger.debug("Calling BrowserFetcher._ensure_browser(headful=True)")

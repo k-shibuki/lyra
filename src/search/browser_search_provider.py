@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Playwright
 
-from src.crawler.fetcher import HumanBehavior
+from src.crawler.browser_fetcher import HumanBehavior
 from src.search.circuit_breaker import check_engine_available, record_engine_result
 from src.search.engine_config import get_engine_config_manager
 from src.search.provider import (

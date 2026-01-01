@@ -151,7 +151,7 @@ def mock_human_behavior_simulator() -> Generator[Any]:
     mock_simulator._mouse = MagicMock()
 
     with patch(
-        "src.crawler.fetcher.get_human_behavior_simulator",
+        "src.crawler.human_behavior.get_human_behavior_simulator",
         return_value=mock_simulator,
     ):
         yield mock_simulator

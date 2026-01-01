@@ -207,7 +207,7 @@ class TestFetchResult:
 
     def test_fetch_result_to_dict_includes_warc_path(self) -> None:
         """Test FetchResult.to_dict() includes warc_path."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=True,
@@ -231,7 +231,7 @@ class TestIsChallengePageFunction:
 
     def test_detect_cloudflare_challenge(self) -> None:
         """Test detection of Cloudflare challenge pages."""
-        from src.crawler.fetcher import _is_challenge_page
+        from src.crawler.challenge_detector import _is_challenge_page
 
         cf_content = """
         <html>
@@ -246,7 +246,7 @@ class TestIsChallengePageFunction:
 
     def test_detect_recaptcha(self) -> None:
         """Test detection of reCAPTCHA."""
-        from src.crawler.fetcher import _is_challenge_page
+        from src.crawler.challenge_detector import _is_challenge_page
 
         captcha_content = """
         <html>
@@ -260,7 +260,7 @@ class TestIsChallengePageFunction:
 
     def test_normal_page_not_detected(self) -> None:
         """Test normal page is not detected as challenge."""
-        from src.crawler.fetcher import _is_challenge_page
+        from src.crawler.challenge_detector import _is_challenge_page
 
         normal_content = """
         <html>
@@ -281,7 +281,7 @@ class TestFetchResultCacheFields:
 
     def test_fetch_result_default_cache_fields(self) -> None:
         """Test FetchResult has correct defaults for cache fields."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(ok=True, url="https://example.com/page")
 
@@ -291,7 +291,7 @@ class TestFetchResultCacheFields:
 
     def test_fetch_result_with_cache_fields(self) -> None:
         """Test FetchResult with cache fields populated."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=True,
@@ -308,7 +308,7 @@ class TestFetchResultCacheFields:
 
     def test_fetch_result_to_dict_includes_cache_fields(self) -> None:
         """Test FetchResult.to_dict() includes cache-related fields."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=True,
@@ -331,7 +331,7 @@ class TestFetchResultCacheFields:
 
         Per ADR-0006: 304 utilization rate ≥70% requires proper 304 handling.
         """
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         # Simulate 304 response - ok should be True, status 304
         result = FetchResult(
@@ -354,7 +354,7 @@ class TestFetchResultAuthFields:
 
     def test_fetch_result_default_auth_fields(self) -> None:
         """Test FetchResult has correct defaults for auth fields."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=False,
@@ -372,7 +372,7 @@ class TestFetchResultAuthFields:
 
         Per ADR-0007: auth_type and estimated_effort should be included.
         """
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=False,
@@ -396,7 +396,7 @@ class TestFetchResultAuthFields:
 
         Per ADR-0007: Include auth details only when relevant.
         """
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=False,
@@ -417,7 +417,7 @@ class TestFetchResultAuthFields:
 
         Per ADR-0007: Include auth details only when relevant.
         """
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=True,
@@ -438,56 +438,56 @@ class TestEstimateAuthEffort:
 
     def test_cloudflare_is_low_effort(self) -> None:
         """Test Cloudflare challenge is estimated as low effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("cloudflare")
         assert effort == "low", f"cloudflare should be 'low' effort, got '{effort}'"
 
     def test_js_challenge_is_low_effort(self) -> None:
         """Test JS challenge is estimated as low effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("js_challenge")
         assert effort == "low", f"js_challenge should be 'low' effort, got '{effort}'"
 
     def test_turnstile_is_medium_effort(self) -> None:
         """Test Turnstile is estimated as medium effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("turnstile")
         assert effort == "medium", f"turnstile should be 'medium' effort, got '{effort}'"
 
     def test_captcha_is_high_effort(self) -> None:
         """Test generic CAPTCHA is estimated as high effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("captcha")
         assert effort == "high", f"captcha should be 'high' effort, got '{effort}'"
 
     def test_recaptcha_is_high_effort(self) -> None:
         """Test reCAPTCHA is estimated as high effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("recaptcha")
         assert effort == "high", f"recaptcha should be 'high' effort, got '{effort}'"
 
     def test_hcaptcha_is_high_effort(self) -> None:
         """Test hCaptcha is estimated as high effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("hcaptcha")
         assert effort == "high", f"hcaptcha should be 'high' effort, got '{effort}'"
 
     def test_login_is_high_effort(self) -> None:
         """Test login requirement is estimated as high effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("login")
         assert effort == "high", f"login should be 'high' effort, got '{effort}'"
 
     def test_unknown_type_defaults_to_medium(self) -> None:
         """Test unknown challenge type defaults to medium effort."""
-        from src.crawler.fetcher import _estimate_auth_effort
+        from src.crawler.challenge_detector import _estimate_auth_effort
 
         effort = _estimate_auth_effort("unknown_challenge")
         assert effort == "medium", f"unknown type should default to 'medium' effort, got '{effort}'"
@@ -553,7 +553,7 @@ class TestHumanBehavior:
 
     def test_random_delay_within_bounds(self) -> None:
         """Test random delay stays within specified bounds."""
-        from src.crawler.fetcher import HumanBehavior
+        from src.crawler.browser_fetcher import HumanBehavior
 
         for _ in range(100):
             delay = HumanBehavior.random_delay(0.5, 3.0)
@@ -561,7 +561,7 @@ class TestHumanBehavior:
 
     def test_random_delay_default_bounds(self) -> None:
         """Test random delay with default bounds."""
-        from src.crawler.fetcher import HumanBehavior
+        from src.crawler.browser_fetcher import HumanBehavior
 
         for _ in range(50):
             delay = HumanBehavior.random_delay()
@@ -578,7 +578,7 @@ class TestHumanBehavior:
         """
         import random
 
-        from src.crawler.fetcher import HumanBehavior
+        from src.crawler.browser_fetcher import HumanBehavior
 
         # Fix seed for determinism per .1.3.3
         random.seed(42)
@@ -602,7 +602,7 @@ class TestHumanBehavior:
 
     def test_scroll_pattern_short_page(self) -> None:
         """Test scroll pattern for page shorter than viewport."""
-        from src.crawler.fetcher import HumanBehavior
+        from src.crawler.browser_fetcher import HumanBehavior
 
         positions = HumanBehavior.scroll_pattern(
             page_height=500,
@@ -621,7 +621,7 @@ class TestHumanBehavior:
         Note: The path length is now determined dynamically based on distance,
         not the `steps` parameter (which is ignored by the new implementation).
         """
-        from src.crawler.fetcher import HumanBehavior
+        from src.crawler.browser_fetcher import HumanBehavior
 
         start_x, start_y = 100, 100
         end_x, end_y = 500, 400
@@ -658,7 +658,7 @@ class TestHumanBehavior:
 
     def test_mouse_path_has_jitter(self) -> None:
         """Test mouse paths are not identical (random jitter)."""
-        from src.crawler.fetcher import HumanBehavior
+        from src.crawler.browser_fetcher import HumanBehavior
 
         # Note: steps parameter is ignored by new implementation
         path1 = HumanBehavior.mouse_path(0, 0, 100, 100, steps=5)
@@ -675,7 +675,7 @@ class TestTorController:
 
     def test_tor_controller_initialization(self) -> None:
         """Test TorController initializes correctly."""
-        from src.crawler.fetcher import TorController
+        from src.crawler.tor_controller import TorController
 
         controller = TorController()
 
@@ -688,7 +688,7 @@ class TestTorController:
         mock_settings.tor.enabled = False
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
-            from src.crawler.fetcher import TorController
+            from src.crawler.tor_controller import TorController
 
             controller = TorController()
             result = await controller.connect()
@@ -900,7 +900,7 @@ class TestHTTPFetcherConditionalHeaders:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import HTTPFetcher
+        from src.crawler.http_fetcher import HTTPFetcher
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
             # Mock curl_cffi requests (sync function, use MagicMock)
@@ -975,7 +975,7 @@ class TestHTTPFetcherConditionalHeaders:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import HTTPFetcher
+        from src.crawler.http_fetcher import HTTPFetcher
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
             mock_response = MagicMock()
@@ -1040,7 +1040,7 @@ class TestHTTPFetcherConditionalHeaders:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import HTTPFetcher
+        from src.crawler.http_fetcher import HTTPFetcher
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
             mock_response = MagicMock()
@@ -1099,7 +1099,7 @@ class TestHTTPFetcherConditionalHeaders:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import HTTPFetcher
+        from src.crawler.http_fetcher import HTTPFetcher
 
         with patch("src.crawler.fetcher.get_settings", return_value=mock_settings):
             mock_response = MagicMock()
@@ -1149,7 +1149,7 @@ class TestBrowserFetcherHumanBehavior:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import BrowserFetcher
+        from src.crawler.browser_fetcher import BrowserFetcher
 
         fetcher = BrowserFetcher()
 
@@ -1190,12 +1190,12 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
-                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        "src.crawler.http3_policy.detect_protocol_from_playwright_response",
                                         AsyncMock(return_value=ProtocolVersion.HTTP_2),
                                     ):
                                         mock_http3_manager = MagicMock()
@@ -1204,7 +1204,7 @@ class TestBrowserFetcherHumanBehavior:
                                         )
                                         mock_http3_manager.record_request = AsyncMock()
                                         with patch(
-                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            "src.crawler.http3_policy.get_http3_policy_manager",
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(
@@ -1242,7 +1242,7 @@ class TestBrowserFetcherHumanBehavior:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import BrowserFetcher
+        from src.crawler.browser_fetcher import BrowserFetcher
 
         fetcher = BrowserFetcher()
 
@@ -1277,12 +1277,12 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
-                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        "src.crawler.http3_policy.detect_protocol_from_playwright_response",
                                         AsyncMock(return_value=ProtocolVersion.HTTP_2),
                                     ):
                                         mock_http3_manager = MagicMock()
@@ -1291,7 +1291,7 @@ class TestBrowserFetcherHumanBehavior:
                                         )
                                         mock_http3_manager.record_request = AsyncMock()
                                         with patch(
-                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            "src.crawler.http3_policy.get_http3_policy_manager",
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(
@@ -1329,7 +1329,7 @@ class TestBrowserFetcherHumanBehavior:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import BrowserFetcher
+        from src.crawler.browser_fetcher import BrowserFetcher
 
         fetcher = BrowserFetcher()
 
@@ -1365,12 +1365,12 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
-                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        "src.crawler.http3_policy.detect_protocol_from_playwright_response",
                                         AsyncMock(return_value=ProtocolVersion.HTTP_2),
                                     ):
                                         mock_http3_manager = MagicMock()
@@ -1379,7 +1379,7 @@ class TestBrowserFetcherHumanBehavior:
                                         )
                                         mock_http3_manager.record_request = AsyncMock()
                                         with patch(
-                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            "src.crawler.http3_policy.get_http3_policy_manager",
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(
@@ -1417,7 +1417,7 @@ class TestBrowserFetcherHumanBehavior:
         """
         from unittest.mock import patch
 
-        from src.crawler.fetcher import BrowserFetcher
+        from src.crawler.browser_fetcher import BrowserFetcher
 
         fetcher = BrowserFetcher()
 
@@ -1453,12 +1453,12 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.fetcher._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 
                                     with patch(
-                                        "src.crawler.fetcher.detect_protocol_from_playwright_response",
+                                        "src.crawler.http3_policy.detect_protocol_from_playwright_response",
                                         AsyncMock(return_value=ProtocolVersion.HTTP_2),
                                     ):
                                         mock_http3_manager = MagicMock()
@@ -1467,7 +1467,7 @@ class TestBrowserFetcherHumanBehavior:
                                         )
                                         mock_http3_manager.record_request = AsyncMock()
                                         with patch(
-                                            "src.crawler.fetcher.get_http3_policy_manager",
+                                            "src.crawler.http3_policy.get_http3_policy_manager",
                                             return_value=mock_http3_manager,
                                         ):
                                             with patch(

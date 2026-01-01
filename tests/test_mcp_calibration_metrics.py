@@ -58,7 +58,6 @@ def mock_calibration_stats() -> dict[str, Any]:
             "total_rollbacks": 1,
             "max_history_per_source": 10,
         },
-        "recalibration_threshold": 10,
         "degradation_threshold": 0.05,
     }
 

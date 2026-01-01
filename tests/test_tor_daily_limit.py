@@ -258,7 +258,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor()
         // Then: Returns True
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         mock_collector = MetricsCollector()
@@ -277,7 +277,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor()
         // Then: Returns True
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         mock_collector = MetricsCollector()
@@ -298,7 +298,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor()
         // Then: Returns False (limit reached)
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         mock_collector = MetricsCollector()
@@ -319,7 +319,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor()
         // Then: Returns False
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         mock_collector = MetricsCollector()
@@ -340,7 +340,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor(domain)
         // Then: Returns False due to domain policy
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         mock_collector = MetricsCollector()
@@ -368,7 +368,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor(domain)
         // Then: Returns False due to domain usage limit
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         mock_collector = MetricsCollector()
@@ -398,7 +398,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor()
         // Then: Returns True (fail-open behavior)
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
 
         with patch("src.utils.metrics.get_metrics_collector", side_effect=Exception("test error")):
             result = await _can_use_tor()
@@ -414,7 +414,7 @@ class TestCanUseTor:
         // When: Calling _can_use_tor()
         // Then: Returns True
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         mock_collector = MetricsCollector()
@@ -443,7 +443,7 @@ class TestTorLimitIntegration:
         // When: Checking Tor availability
         // Then: Correct result based on usage ratio
         """
-        from src.crawler.fetcher import _can_use_tor
+        from src.crawler.tor_controller import _can_use_tor
         from src.utils.metrics import MetricsCollector
 
         # Use a fresh collector for isolation

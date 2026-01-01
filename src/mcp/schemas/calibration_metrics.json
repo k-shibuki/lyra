@@ -21,6 +21,10 @@
     },
     "total_count": { "type": "integer" },
     "returned_count": { "type": "integer" },
+    "degradation_threshold": {
+      "type": "number",
+      "description": "Threshold for detecting calibration degradation (get_stats only)"
+    },
     "_lyra_meta": { "type": "object" }
   },
   "required": ["ok", "action"]

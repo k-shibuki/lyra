@@ -493,7 +493,7 @@ class TestFetchResultArchiveFields:
 
     def test_fetch_result_default_not_archived(self) -> None:
         """Test FetchResult defaults to not archived."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(ok=True, url="https://example.com")
 
@@ -504,7 +504,7 @@ class TestFetchResultArchiveFields:
 
     def test_fetch_result_archived_fields(self) -> None:
         """Test FetchResult with archive fields set."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         archive_date = datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
 
@@ -526,7 +526,7 @@ class TestFetchResultArchiveFields:
 
     def test_fetch_result_to_dict_includes_archive(self) -> None:
         """Test to_dict includes archive fields when archived."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         archive_date = datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
 
@@ -548,7 +548,7 @@ class TestFetchResultArchiveFields:
 
     def test_fetch_result_to_dict_excludes_archive_when_not_archived(self) -> None:
         """Test to_dict excludes archive fields when not archived."""
-        from src.crawler.fetcher import FetchResult
+        from src.crawler.fetch_result import FetchResult
 
         result = FetchResult(
             ok=True,

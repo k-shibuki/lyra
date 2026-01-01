@@ -68,9 +68,11 @@ make test-check RUN_ID=<run_id_from_output>
 make test-kill RUN_ID=<run_id>   # only if you need to abort
 ```
 
-### run_id の取得方法
+> **IMPORTANT:** If any test fails in Stage 2, you must fix it before proceeding. Do not ignore failures even if they appear unrelated to your changes. See "Failure handling policy" below.
 
-`make test` の出力に以下が含まれます:
+### How to get run_id
+
+The `make test` output includes:
 
 ```
 Artifacts:
@@ -78,7 +80,7 @@ Artifacts:
   result_file: /tmp/lyra_test/result_20251225_123456_12345.txt
 ```
 
-この `run_id` を `make test-check RUN_ID=xxx` に渡してください。
+Pass this `run_id` to `make test-check RUN_ID=xxx`.
 
 ### Completion logic
 
@@ -89,6 +91,24 @@ Artifacts:
 
 - **Summary**: passed / failed / skipped
 - **Failures** (if any): list + first actionable traceback snippets
+
+## Failure handling policy
+
+**CRITICAL: Do NOT ignore test failures, even if they appear unrelated to your changes.**
+
+- All test failures must be addressed before merging/pushing
+- If a test failure is pre-existing (not introduced by your changes):
+  - Fix it as part of this commit, or
+  - Document why it cannot be fixed now and create a follow-up task
+- Do NOT report failures as "unrelated" or "pre-existing" without fixing them
+- The test suite must pass completely (zero failures) before proceeding to commit/push
+
+### When you encounter failures
+
+1. **Identify the root cause**: Check if your changes introduced the failure
+2. **Fix immediately**: If your changes caused it, fix the regression
+3. **Fix pre-existing issues**: If the failure existed before your changes, fix it now
+4. **Document exceptions**: Only skip fixing if there's a documented technical blocker (e.g., external dependency issue), and create a follow-up task
 
 ## Related rules
 

@@ -25,6 +25,7 @@ from src.crawler.browser_archive import (
     get_browser_archiver,
     url_to_surt,
 )
+from src.crawler.browser_fetcher import BrowserFetcher, HumanBehavior
 from src.crawler.dns_policy import (
     DNSCacheEntry,
     DNSLeakType,
@@ -35,16 +36,9 @@ from src.crawler.dns_policy import (
     get_dns_policy_manager,
     get_socks_proxy_for_request,
 )
-from src.crawler.fetcher import (
-    BrowserFetcher,
-    FetchResult,
-    HTTPFetcher,
-    HumanBehavior,
-    RateLimiter,
-    TorController,
-    fetch_url,
-    get_tor_controller,
-)
+from src.crawler.fetch_result import FetchResult
+from src.crawler.fetcher import fetch_url
+from src.crawler.http_fetcher import HTTPFetcher, RateLimiter
 from src.crawler.robots import (
     RobotsChecker,
     RobotsManager,
@@ -88,6 +82,7 @@ from src.crawler.site_search import (
     list_allowlisted_domains,
     site_search,
 )
+from src.crawler.tor_controller import TorController, get_tor_controller
 from src.crawler.wayback import (
     ContentAnalyzer,
     ContentDiff,

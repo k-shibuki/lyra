@@ -5,11 +5,15 @@ Implements probability calibration for NLI model outputs:
 - Platt scaling (logistic regression on logits)
 - Temperature scaling (single parameter scaling)
 - Brier score evaluation
-- Incremental recalibration (triggered after N samples accumulate)
+- Parameter history and rollback support
+
+Note: Per ADR-0011, calibration training (fit) is performed by offline scripts,
+not MCP tools. MCP tools only provide state inspection (get_stats, get_evaluations)
+and rollback functionality.
 
 References:
-- : Confidence Calibration
-- : Acceptance Criteria (Brier score improvement ≥20%)
+- ADR-0011: LoRA Fine-tuning Strategy (MCP tooling rejected for training)
+- Acceptance Criteria (Brier score improvement ≥20%)
 """
 
 import json
