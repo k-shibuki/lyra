@@ -274,20 +274,20 @@ class TestSearchResponseCaptchaFields:
         assert "captcha_queued" not in result_dict
 
 
-class TestSearchOptionsJobIdFields:
-    """Tests for SearchOptions task_id and search_job_id fields."""
+class TestSearchProviderOptionsJobIdFields:
+    """Tests for SearchProviderOptions task_id and search_job_id fields."""
 
     def test_search_options_with_job_ids(self) -> None:
-        """Test SearchOptions accepts task_id and search_job_id.
+        """Test SearchProviderOptions accepts task_id and search_job_id.
 
-        Given: SearchOptions with task_id and search_job_id
+        Given: SearchProviderOptions with task_id and search_job_id
         When: Created
         Then: Fields are set correctly
         """
         # Given/When
-        from src.search.provider import SearchOptions
+        from src.search.provider import SearchProviderOptions
 
-        options = SearchOptions(
+        options = SearchProviderOptions(
             task_id="task_123",
             search_job_id="job_456",
         )
@@ -297,16 +297,16 @@ class TestSearchOptionsJobIdFields:
         assert options.search_job_id == "job_456"
 
     def test_search_options_defaults_to_none(self) -> None:
-        """Test SearchOptions defaults job IDs to None.
+        """Test SearchProviderOptions defaults job IDs to None.
 
-        Given: SearchOptions without job IDs
+        Given: SearchProviderOptions without job IDs
         When: Created
         Then: task_id and search_job_id are None
         """
         # Given/When
-        from src.search.provider import SearchOptions
+        from src.search.provider import SearchProviderOptions
 
-        options = SearchOptions()
+        options = SearchProviderOptions()
 
         # Then
         assert options.task_id is None

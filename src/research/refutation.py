@@ -2,7 +2,7 @@
 Refutation executor for Lyra.
 
 Executes refutation searches using mechanical patterns only.
-Cursor AI designs which claims/subqueries to refute;
+Cursor AI designs which claims/searches to refute;
 Lyra applies mechanical suffix patterns.
 
 See ADR-0002 and ADR-0010.
@@ -29,8 +29,8 @@ NO_REFUTATION_CONFIDENCE_DECAY = 0.05
 class RefutationResult:
     """Result of refutation search."""
 
-    target: str  # claim_id or subquery_id
-    target_type: str  # "claim" or "subquery"
+    target: str  # claim_id or search_id
+    target_type: str  # "claim" or "search"
     reverse_queries_executed: int = 0
     refutations_found: int = 0
     refutation_details: list[dict[str, Any]] = field(default_factory=list)
@@ -53,7 +53,7 @@ class RefutationResult:
 
 class RefutationExecutor:
     """
-    Executes refutation searches for claims/subqueries.
+    Executes refutation searches for claims/searches.
 
     Responsibilities (ADR-0002, ADR-0010):
     - Apply mechanical suffix patterns to generate reverse queries
@@ -147,12 +147,12 @@ class RefutationExecutor:
 
             return result
 
-    async def execute_for_subquery(self, subquery_id: str) -> RefutationResult:
+    async def execute_for_search(self, search_id: str) -> RefutationResult:
         """
-        Execute refutation search for all claims from a subquery.
+        Execute refutation search for all claims from a search.
 
         Args:
-            subquery_id: The subquery ID.
+            search_id: The search ID.
 
         Returns:
             RefutationResult with search results.
@@ -160,34 +160,34 @@ class RefutationExecutor:
         await self._ensure_db()
         assert self._db is not None  # Guaranteed by _ensure_db
 
-        result = RefutationResult(target=subquery_id, target_type="subquery")
+        result = RefutationResult(target=search_id, target_type="search")
 
-        with LogContext(task_id=self.task_id, subquery_id=subquery_id):
-            # Get subquery state
-            sq_state = self.state.get_subquery(subquery_id)
-            if not sq_state:
-                result.errors.append(f"Subquery not found: {subquery_id}")
+        with LogContext(task_id=self.task_id, search_id=search_id):
+            # Get search state
+            search_state = self.state.get_search(search_id)
+            if not search_state:
+                result.errors.append(f"Search not found: {search_id}")
                 return result
 
-            logger.info("Executing refutation for subquery", subquery_text=sq_state.text[:50])
+            logger.info("Executing refutation for search", search_text=search_state.text[:50])
 
-            # Use the subquery text as basis for refutation
-            # (In production, would also get claims from this subquery)
-            reverse_queries = self._generate_reverse_queries(sq_state.text)
+            # Use the search text as basis for refutation
+            # (In production, would also get claims from this search)
+            reverse_queries = self._generate_reverse_queries(search_state.text)
             result.reverse_queries_executed = len(reverse_queries)
 
             for rq in reverse_queries:
-                refutations = await self._search_and_detect_refutation(rq, sq_state.text)
+                refutations = await self._search_and_detect_refutation(rq, search_state.text)
                 result.refutation_details.extend(refutations)
 
             result.refutations_found = len(result.refutation_details)
 
-            # Update subquery refutation status
+            # Update search refutation status
             if result.refutations_found > 0:
-                sq_state.refutation_status = "found"
-                sq_state.refutation_count = result.refutations_found
+                search_state.refutation_status = "found"
+                search_state.refutation_count = result.refutations_found
             else:
-                sq_state.refutation_status = "not_found"
+                search_state.refutation_status = "not_found"
                 result.confidence_adjustment = -NO_REFUTATION_CONFIDENCE_DECAY
 
             return result
@@ -200,7 +200,7 @@ class RefutationExecutor:
         Does NOT use LLM to generate hypotheses (ADR-0002).
 
         Args:
-            text: The claim or subquery text.
+            text: The claim or search text.
 
         Returns:
             List of reverse queries.
@@ -225,7 +225,7 @@ class RefutationExecutor:
 
         Args:
             query: The reverse query.
-            original_text: The original claim/subquery text.
+            original_text: The original claim/search text.
 
         Returns:
             List of detected refutations.

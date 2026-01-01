@@ -35,7 +35,7 @@ class SourceTag(str, Enum):
     UNKNOWN = "unknown"
 
 
-class SearchResult(BaseModel):
+class SERPResult(BaseModel):
     """
     Normalized search result from any provider.
 
@@ -81,7 +81,7 @@ class SearchResult(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SearchResult":
+    def from_dict(cls, data: dict[str, Any]) -> "SERPResult":
         """Create from dictionary."""
         return cls(
             title=data.get("title", ""),
@@ -102,7 +102,7 @@ class SearchResponse(BaseModel):
 
     model_config = ConfigDict(frozen=False)
 
-    results: list[SearchResult] = Field(..., description="List of search results")
+    results: list[SERPResult] = Field(..., description="List of search results")
     query: str = Field(..., description="Original query")
     provider: str = Field(..., description="Provider name that returned this response")
     total_count: int = Field(default=0, ge=0, description="Total number of results")
@@ -143,7 +143,7 @@ class SearchResponse(BaseModel):
         return result
 
 
-class SearchOptions(BaseModel):
+class SearchProviderOptions(BaseModel):
     """
     Options for search requests.
 
@@ -277,7 +277,7 @@ class SearchProvider(Protocol):
             def name(self) -> str:
                 return "my_provider"
 
-            async def search(self, query: str, options: SearchOptions | None = None) -> SearchResponse:
+            async def search(self, query: str, options: SearchProviderOptions | None = None) -> SearchResponse:
                 # Implementation
                 ...
 
@@ -297,7 +297,7 @@ class SearchProvider(Protocol):
     async def search(
         self,
         query: str,
-        options: SearchOptions | None = None,
+        options: SearchProviderOptions | None = None,
     ) -> SearchResponse:
         """
         Execute a search query.
@@ -361,7 +361,7 @@ class BaseSearchProvider(ABC):
     async def search(
         self,
         query: str,
-        options: SearchOptions | None = None,
+        options: SearchProviderOptions | None = None,
     ) -> SearchResponse:
         """Execute a search query."""
         pass
@@ -532,7 +532,7 @@ class SearchProviderRegistry:
     async def search_with_fallback(
         self,
         query: str,
-        options: SearchOptions | None = None,
+        options: SearchProviderOptions | None = None,
         provider_order: list[str] | None = None,
     ) -> SearchResponse:
         """

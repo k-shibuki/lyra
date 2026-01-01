@@ -330,17 +330,17 @@ class TestPaginationWiringEffect:
         assert config.strategy == "auto"
 
     def test_search_options_serp_params_propagation(self) -> None:
-        """TC-E-03b: Effect test - SearchOptions propagates serp parameters.
+        """TC-E-03b: Effect test - SearchProviderOptions propagates serp parameters.
 
-        // Given: SearchOptions with custom serp_page and serp_max_pages
+        // Given: SearchProviderOptions with custom serp_page and serp_max_pages
         // When: Accessing options
         // Then: Values are accessible
         """
-        # Given: Import SearchOptions
-        from src.search.provider import SearchOptions
+        # Given: Import SearchProviderOptions
+        from src.search.provider import SearchProviderOptions
 
         # When: Create options with pagination params
-        options = SearchOptions(serp_page=2, serp_max_pages=5)
+        options = SearchProviderOptions(serp_page=2, serp_max_pages=5)
 
         # Then: Values are stored and accessible
         assert options.serp_page == 2

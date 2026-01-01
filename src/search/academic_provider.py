@@ -13,7 +13,7 @@ from src.search.apis.base import BaseAcademicClient
 from src.search.apis.openalex import OpenAlexClient
 from src.search.apis.semantic_scholar import SemanticScholarClient
 from src.search.canonical_index import CanonicalPaperIndex
-from src.search.provider import BaseSearchProvider, SearchOptions, SearchResponse
+from src.search.provider import BaseSearchProvider, SearchProviderOptions, SearchResponse
 from src.utils.logging import get_logger
 from src.utils.schemas import Paper
 
@@ -65,7 +65,7 @@ class AcademicSearchProvider(BaseSearchProvider):
     async def search(
         self,
         query: str,
-        options: SearchOptions | None = None,
+        options: SearchProviderOptions | None = None,
     ) -> SearchResponse:
         """Search for academic papers.
 
@@ -79,7 +79,7 @@ class AcademicSearchProvider(BaseSearchProvider):
             SearchResponse with deduplicated results
         """
         if options is None:
-            options = SearchOptions()
+            options = SearchProviderOptions()
 
         apis_to_use = options.engines if options.engines else self._default_apis
 
@@ -149,7 +149,7 @@ class AcademicSearchProvider(BaseSearchProvider):
         search_results = []
         for entry in unique_entries:
             if entry.paper:
-                search_result = entry.paper.to_search_result()
+                search_result = entry.paper.to_serp_result()
                 search_results.append(search_result)
 
         return SearchResponse(

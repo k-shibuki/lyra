@@ -6,7 +6,7 @@ Handles mechanical expansions (synonyms, mirror queries, operators) only.
 
 See ADR-0002 and ADR-0010.
 
-Note: This module uses "search" terminology (not "subquery").
+Note: This module uses "search" terminology.
 """
 
 import hashlib
@@ -127,7 +127,7 @@ REFUTATION_SUFFIXES = [
 
 
 @dataclass
-class SearchResult:
+class SearchExecutionResult:
     """Result of search execution.
 
     Per ADR-0007: Includes authentication queue information.
@@ -185,10 +185,6 @@ class SearchResult:
             result["auth_blocked_urls"] = self.auth_blocked_urls
             result["auth_queued_count"] = self.auth_queued_count
         return result
-
-
-# Terminology alias ("subquery" -> "search") kept for internal consistency.
-SubqueryResult = SearchResult
 
 
 class SearchExecutor:
@@ -263,7 +259,7 @@ class SearchExecutor:
         engines: list[str] | None = None,
         serp_max_pages: int = 1,
         search_job_id: str | None = None,
-    ) -> SearchResult:
+    ) -> SearchExecutionResult:
         """
         Execute a search query designed by Cursor AI.
 
@@ -276,7 +272,7 @@ class SearchExecutor:
             search_job_id: Search job ID for CAPTCHA queue auto-requeue (ADR-0007).
 
         Returns:
-            SearchResult with execution results.
+            SearchExecutionResult with execution results.
         """
         # Store engines and job ID for use in _execute_search
         self._engines = engines
@@ -301,7 +297,7 @@ class SearchExecutor:
             )
             self.state.start_search(search_id)
 
-            result = SearchResult(search_id=search_id, status="running")
+            result = SearchExecutionResult(search_id=search_id, status="running")
 
             try:
                 # Step 1: Expand query mechanically
@@ -530,7 +526,7 @@ class SearchExecutor:
         self,
         search_id: str,
         serp_item: dict[str, Any],
-        result: SearchResult,
+        result: SearchExecutionResult,
     ) -> None:
         """Fetch URL and extract content.
 
@@ -1086,7 +1082,3 @@ class SearchExecutor:
             refutation_queries.append(f"{base_query} {suffix}")
 
         return refutation_queries
-
-
-# Terminology alias ("subquery" -> "search") kept for internal consistency.
-SubqueryExecutor = SearchExecutor

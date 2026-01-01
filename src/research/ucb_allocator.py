@@ -8,7 +8,7 @@ See ADR-0010:
 - Dynamic budget reallocation based on harvest rate (useful fragments / fetched pages) per search (UCB1-style)
 - Exploration tree control optimization
 
-Note: This module uses "search" terminology (not "subquery").
+Note: This module uses "search" terminology.
 """
 
 import math
@@ -79,10 +79,6 @@ class SearchArm:
         }
 
 
-# Terminology alias ("subquery" -> "search")
-SubqueryArm = SearchArm
-
-
 class UCBAllocator:
     """
     UCB1-based dynamic budget allocator for searches.
@@ -127,8 +123,6 @@ class UCBAllocator:
         min_budget_per_search: int = 5,
         max_budget_ratio: float = 0.4,
         reallocation_interval: int = 10,
-        # Deprecated parameter name (old terminology)
-        min_budget_per_subquery: int | None = None,
     ):
         """
         Initialize the UCB allocator.
@@ -144,12 +138,7 @@ class UCBAllocator:
         self.exploration_constant = (
             exploration_constant if exploration_constant is not None else math.sqrt(2)
         )
-        # Support deprecated parameter name (old terminology)
-        self.min_budget_per_search = (
-            min_budget_per_subquery
-            if min_budget_per_subquery is not None
-            else min_budget_per_search
-        )
+        self.min_budget_per_search = min_budget_per_search
         self.max_budget_ratio = max_budget_ratio
         self.reallocation_interval = reallocation_interval
 
@@ -165,12 +154,6 @@ class UCBAllocator:
             min_budget=self.min_budget_per_search,
             max_ratio=max_budget_ratio,
         )
-
-    # Deprecated property name (old terminology)
-    @property
-    def min_budget_per_subquery(self) -> int:
-        """Deprecated: Use min_budget_per_search instead."""
-        return self.min_budget_per_search
 
     def register_search(
         self,
@@ -216,20 +199,6 @@ class UCBAllocator:
         )
 
         return arm
-
-    # Terminology alias ("subquery" -> "search")
-    def register_subquery(
-        self,
-        subquery_id: str,
-        priority: str = "medium",
-        initial_budget: int | None = None,
-    ) -> SearchArm:
-        """Deprecated: Use register_search instead."""
-        return self.register_search(
-            search_id=subquery_id,
-            priority=priority,
-            initial_budget=initial_budget,
-        )
 
     def record_observation(
         self,
@@ -488,11 +457,6 @@ class UCBAllocator:
 
         return max(available, key=lambda x: x[1])[0]
 
-    # Terminology alias ("subquery" -> "search")
-    def get_recommended_subquery(self) -> str | None:
-        """Deprecated: Use get_recommended_search instead."""
-        return self.get_recommended_search()
-
     def get_status(self) -> dict[str, Any]:
         """
         Get current allocator status.
@@ -534,13 +498,10 @@ class UCBAllocator:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "UCBAllocator":
         """Restore from dictionary."""
-        # Support both old and new key names
-        min_budget = data.get("min_budget_per_search") or data.get("min_budget_per_subquery", 5)
-
         allocator = cls(
             total_budget=data.get("total_budget", 120),
             exploration_constant=data.get("exploration_constant"),
-            min_budget_per_search=min_budget,
+            min_budget_per_search=data.get("min_budget_per_search", 5),
             max_budget_ratio=data.get("max_budget_ratio", 0.4),
             reallocation_interval=data.get("reallocation_interval", 10),
         )
@@ -549,8 +510,7 @@ class UCBAllocator:
         allocator._pulls_since_reallocation = data.get("pulls_since_reallocation", 0)
 
         for sid, arm_data in data.get("arms", {}).items():
-            # Support both old and new key names
-            search_id = arm_data.get("search_id") or arm_data.get("subquery_id") or sid
+            search_id = arm_data.get("search_id", sid)
             arm = SearchArm(
                 search_id=search_id,
                 pulls=arm_data.get("pulls", 0),

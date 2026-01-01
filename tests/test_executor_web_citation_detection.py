@@ -22,7 +22,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.research.executor import SearchExecutor, SearchResult
+from src.research.executor import SearchExecutionResult, SearchExecutor
 from src.research.state import ExplorationState
 from src.utils.config import Settings
 
@@ -113,7 +113,7 @@ async def test_executor_web_citation_detection_happy_path() -> None:
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
         # When
-        result = SearchResult(search_id="s1", status="running")
+        result = SearchExecutionResult(search_id="s1", status="running")
         await ex._fetch_and_extract(search_id="s1", serp_item=serp_item, result=result)
 
         # Then: detector max_candidates is wired from settings
@@ -165,7 +165,7 @@ async def test_executor_web_citation_detection_no_placeholder_skips_missing_targ
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
         # When
-        result = SearchResult(search_id="s1", status="running")
+        result = SearchExecutionResult(search_id="s1", status="running")
         await ex._fetch_and_extract(search_id="s1", serp_item=serp_item, result=result)
 
         # Then: no placeholder -> no edges if target pages are missing
@@ -219,7 +219,7 @@ async def test_executor_web_citation_detection_max_candidates_zero_is_unlimited(
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
         # When
-        result = SearchResult(search_id="s1", status="running")
+        result = SearchExecutionResult(search_id="s1", status="running")
         await ex._fetch_and_extract(search_id="s1", serp_item=serp_item, result=result)
 
         # Then
@@ -269,7 +269,7 @@ async def test_executor_web_citation_detection_caps_edges_per_page() -> None:
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
         # When
-        result = SearchResult(search_id="s1", status="running")
+        result = SearchExecutionResult(search_id="s1", status="running")
         await ex._fetch_and_extract(search_id="s1", serp_item=serp_item, result=result)
 
         # Then
@@ -307,7 +307,7 @@ async def test_executor_web_citation_detection_disabled() -> None:
         patch("src.filter.llm.llm_extract", AsyncMock(return_value={"ok": False})),
     ):
         # When
-        result = SearchResult(search_id="s1", status="running")
+        result = SearchExecutionResult(search_id="s1", status="running")
         await ex._fetch_and_extract(search_id="s1", serp_item=serp_item, result=result)
 
         # Then

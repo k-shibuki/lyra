@@ -164,11 +164,11 @@ class TestGetStatusWithExplorationState:
         assert result["budget"]["budget_pages_used"] == 25
 
     @pytest.mark.asyncio
-    async def test_subquery_to_search_field_mapping(
+    async def test_search_field_mapping(
         self, mock_task: dict[str, Any], mock_exploration_status: dict[str, Any]
     ) -> None:
         """
-        TC-N-05: Subquery to search field mapping.
+        TC-N-05: Search field mapping.
 
         // Given: Exploration status with subqueries
         // When: Calling get_status

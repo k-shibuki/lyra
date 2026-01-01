@@ -396,7 +396,7 @@ class SearchPipeline:
         from src.search.canonical_index import CanonicalPaperIndex
         from src.search.id_resolver import IDResolver
         from src.search.identifier_extractor import IdentifierExtractor
-        from src.search.provider import SearchResult as ProviderSearchResult
+        from src.search.provider import SERPResult
 
         index = CanonicalPaperIndex()
         extractor = IdentifierExtractor()
@@ -431,7 +431,7 @@ class SearchPipeline:
                         logger.debug("DOI resolution failed", url=url, error=str(e))
 
                 # Convert dict to SearchResult
-                serp_result = ProviderSearchResult(
+                serp_result = SERPResult(
                     title=item.get("title", ""),
                     url=url,
                     snippet=item.get("snippet", ""),
@@ -798,7 +798,7 @@ class SearchPipeline:
         from src.search.canonical_index import CanonicalPaperIndex
         from src.search.id_resolver import IDResolver
         from src.search.identifier_extractor import IdentifierExtractor
-        from src.search.provider import SearchResult as ProviderSearchResult
+        from src.search.provider import SERPResult
         from src.search.search_api import search_serp
 
         logger.info("Executing unified dual-source search", query=query[:100])
@@ -888,7 +888,7 @@ class SearchPipeline:
                         logger.debug("DOI resolution failed", url=url, error=str(e))
 
                 # Convert dict to SearchResult
-                serp_result = ProviderSearchResult(
+                serp_result = SERPResult(
                     title=item.get("title", ""),
                     url=url,
                     snippet=item.get("snippet", ""),

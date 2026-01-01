@@ -269,7 +269,7 @@ class TestSearchToReportPipeline:
         Verifies ADR-0010 exploration control and ADR-0005 filtering.
         """
         from src.research.context import ResearchContext
-        from src.research.state import ExplorationState, SubqueryStatus
+        from src.research.state import ExplorationState, SearchStatus
         from src.search import search_serp
 
         # Given: A research query to investigate
@@ -291,8 +291,8 @@ class TestSearchToReportPipeline:
         state = ExplorationState(task_id)
         state._db = e2e_database
 
-        state.register_subquery(
-            subquery_id="sq_python_history",
+        state.register_search(
+            search_id="sq_python_history",
             text="Python programming language history site:wikipedia.org",
             priority="high",
         )
@@ -305,15 +305,15 @@ class TestSearchToReportPipeline:
             use_cache=False,
         )
 
-        # Then: Subquery status is updated based on results
-        sq = state.get_subquery("sq_python_history")
+        # Then: Search status is updated based on results
+        sq = state.get_search("sq_python_history")
         assert sq is not None
 
         if len(results) >= 1:
-            sq.status = SubqueryStatus.PARTIAL
+            sq.status = SearchStatus.PARTIAL
             sq.independent_sources = len(results)
         else:
-            sq.status = SubqueryStatus.EXHAUSTED
+            sq.status = SearchStatus.EXHAUSTED
 
         # When: Get exploration status
         status = await state.get_status()
@@ -325,7 +325,7 @@ class TestSearchToReportPipeline:
         print("\n[E2E] Pipeline simulation completed")
         print(f"[E2E] Task ID: {task_id}")
         print(f"[E2E] Search results: {len(results)}")
-        print(f"[E2E] Subquery status: {status['subqueries'][0]['status']}")
+        print(f"[E2E] Search status: {status['searches'][0]['status']}")
 
     @pytest.mark.asyncio
     async def test_report_materials_generation(
@@ -867,7 +867,7 @@ class TestCompleteResearchFlow:
         """
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
         from src.research.context import ResearchContext
-        from src.research.state import ExplorationState, SubqueryStatus
+        from src.research.state import ExplorationState, SearchStatus
         from src.search import search_serp
 
         # Given: A research query to investigate
@@ -899,7 +899,7 @@ class TestCompleteResearchFlow:
         ]
 
         for sq_id, sq_text in subqueries:
-            state.register_subquery(sq_id, sq_text, priority="medium")
+            state.register_search(sq_id, sq_text, priority="medium")
 
         print(f"[E2E] Step 3: Registered {len(subqueries)} subqueries")
 
@@ -911,9 +911,9 @@ class TestCompleteResearchFlow:
             use_cache=False,
         )
 
-        sq = state.get_subquery("sq_1")
+        sq = state.get_search("sq_1")
         if len(results) >= 2 and sq is not None:
-            sq.status = SubqueryStatus.PARTIAL
+            sq.status = SearchStatus.PARTIAL
             sq.independent_sources = len(results)
 
         print(f"[E2E] Step 4: Executed search, got {len(results)} results")

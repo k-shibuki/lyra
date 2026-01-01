@@ -1,8 +1,8 @@
 """
 Research context provider for Lyra.
 
-Provides design support information to Cursor AI for subquery design.
-Does NOT generate subquery candidates - that is Cursor AI's responsibility.
+Provides design support information to Cursor AI for search query design.
+Does NOT generate search query candidates - that is Cursor AI's responsibility.
 
 See ADR-0002 and ADR-0010.
 
@@ -143,7 +143,7 @@ class ResearchContext:
 
     This class extracts entities, suggests applicable templates,
     and retrieves past query success rates. It does NOT generate
-    subquery candidates - that responsibility belongs to Cursor AI.
+    search query candidates - that responsibility belongs to Cursor AI.
 
     Registry integration (ADR-0006, ADR-0008):
     - RDAP/WHOIS lookups for domain entities
@@ -196,7 +196,7 @@ class ResearchContext:
             - notes: Additional hints for Cursor AI
 
         Note:
-            This does NOT include subquery candidates.
+            This does NOT include search query candidates.
             Cursor AI designs subqueries using this information.
         """
         await self._load_task()

@@ -2,9 +2,9 @@
 Tests for Exploration Control Engine.
 
 These tests verify the exploration control functionality per ADR-0002 and ADR-0010:
-- ResearchContext provides design support information (not subquery candidates)
-- SubqueryExecutor executes Cursor AI-designed queries
-- ExplorationState manages task/subquery states and metrics
+- ResearchContext provides design support information (not search query candidates)
+- SearchExecutor executes Cursor AI-designed queries
+- ExplorationState manages task/search states and metrics
 - RefutationExecutor applies mechanical patterns only
 
 Test Quality Standards (.1):
@@ -20,7 +20,7 @@ Test Quality Standards (.1):
 |---------|---------------------|---------------------------------------|-----------------|-------|
 | TC-RES-N-01 | Query with organization entity | Equivalence – normal | Context with entities | Entity extraction |
 | TC-RES-N-02 | Query with research keyword | Equivalence – normal | Academic template suggested | Template matching |
-| TC-RES-N-03 | Any query | Equivalence – normal | No subquery_candidates | ADR-0002 boundary |
+| TC-RES-N-03 | Any query | Equivalence – normal | No search_candidates | ADR-0002 boundary |
 | TC-RES-N-04 | Any query | Equivalence – normal | Recommended engines list | Engine recommendation |
 | TC-RES-A-01 | Nonexistent task_id | Equivalence – error | ok=False with error | Task not found |
 | TC-RES-N-05 | 3 sources, no primary | Equivalence – normal | Score = 0.7 | ADR-0010 formula |
@@ -29,9 +29,9 @@ Test Quality Standards (.1):
 | TC-RES-N-08 | 7/10 novel fragments | Equivalence – normal | Novelty = 0.7 | ADR-0010 formula |
 | TC-RES-N-09 | 3 sources + primary | Equivalence – transition | Status=SATISFIED | Status transition |
 | TC-RES-N-10 | 1 source | Equivalence – partial | Status=PARTIAL | Partial status |
-| TC-RES-N-11 | Register + start subquery | Equivalence – normal | Status=RUNNING | State management |
+| TC-RES-N-11 | Register + start search | Equivalence – normal | Status=RUNNING | State management |
 | TC-RES-N-12 | 10 page fetches | Boundary – limit | Budget warning | Budget tracking |
-| TC-RES-N-13 | 2 subqueries | Equivalence – normal | All required fields | get_status structure |
+| TC-RES-N-13 | 2 searches | Equivalence – normal | All required fields | get_status structure |
 | TC-RES-N-14 | 2 pending auth items | Equivalence – normal | auth_queue in status | ADR-0007 |
 | TC-RES-N-15 | 3 pending items | Boundary – warning | Warning alert | ADR-0007 threshold |
 | TC-RES-N-16 | 5 pending items | Boundary – critical | Critical alert | Count threshold |
@@ -73,12 +73,12 @@ if TYPE_CHECKING:
 from src.research.context import (
     ResearchContext,
 )
-from src.research.executor import PRIMARY_SOURCE_DOMAINS, SubqueryExecutor
+from src.research.executor import PRIMARY_SOURCE_DOMAINS, SearchExecutor
 from src.research.refutation import REFUTATION_SUFFIXES, RefutationExecutor, RefutationResult
 from src.research.state import (
     ExplorationState,
-    SubqueryState,
-    SubqueryStatus,
+    SearchState,
+    SearchStatus,
 )
 
 # =============================================================================
@@ -91,7 +91,7 @@ class TestResearchContext:
     Tests for ResearchContext design support information provider.
 
     Per ADR-0002: ResearchContext provides support information but does NOT
-    generate subquery candidates. That is Cursor AI's responsibility.
+    generate search query candidates. That is Cursor AI's responsibility.
     """
 
     @pytest.mark.asyncio
@@ -147,10 +147,10 @@ class TestResearchContext:
         self, test_database: Database
     ) -> None:
         """
-        Verify that get_context does NOT return subquery candidates.
+        Verify that get_context does NOT return search query candidates.
 
-        ADR-0002: Subquery design is Cursor AI's exclusive responsibility.
-        ADR-0002: Lyra must NOT generate subquery candidates.
+        ADR-0002: Search query design is Cursor AI's exclusive responsibility.
+        ADR-0002: Lyra must NOT generate search query candidates.
         """
         # Given: A task with any query
         task_id = await test_database.create_task(
@@ -162,7 +162,7 @@ class TestResearchContext:
         # When: Get research context
         result = await context.get_context()
 
-        # Then: Result does NOT contain subquery candidates
+        # Then: Result does NOT contain search query candidates
         assert result["ok"] is True
         assert "subquery_candidates" not in result
         assert "suggested_subqueries" not in result
@@ -207,13 +207,13 @@ class TestResearchContext:
 
 
 # =============================================================================
-# SubqueryState Tests (ADR-0010)
+# SearchState Tests (ADR-0010)
 # =============================================================================
 
 
-class TestSubqueryState:
+class TestSearchState:
     """
-    Tests for SubqueryState satisfaction and novelty calculations.
+    Tests for SearchState satisfaction and novelty calculations.
 
     ADR-0010: Satisfaction score = min(1.0, (sources/3)*0.7 + (primary?0.3:0))
     ADR-0010: Novelty score = novel fragments / recent fragments
@@ -225,8 +225,8 @@ class TestSubqueryState:
 
         ADR-0010: Score = (3/3)*0.7 + 0 = 0.7
         """
-        # Given: A subquery with 3 independent sources, no primary
-        sq = SubqueryState(id="sq_001", text="test query")
+        # Given: A search with 3 independent sources, no primary
+        sq = SearchState(id="sq_001", text="test query")
         sq.independent_sources = 3
         sq.has_primary_source = False
 
@@ -242,8 +242,8 @@ class TestSubqueryState:
 
         ADR-0010: Score = (2/3)*0.7 + 0.3 ≈ 0.767
         """
-        # Given: A subquery with 2 sources and primary source
-        sq = SubqueryState(id="sq_002", text="test query")
+        # Given: A search with 2 sources and primary source
+        sq = SearchState(id="sq_002", text="test query")
         sq.independent_sources = 2
         sq.has_primary_source = True
 
@@ -261,11 +261,11 @@ class TestSubqueryState:
         ADR-0010: Satisfied when score >= 0.8.
         """
         # Given: Two subqueries with different satisfaction levels
-        sq_satisfied = SubqueryState(id="sq_003", text="test")
+        sq_satisfied = SearchState(id="sq_003", text="test")
         sq_satisfied.independent_sources = 3
         sq_satisfied.has_primary_source = True
 
-        sq_not_satisfied = SubqueryState(id="sq_004", text="test")
+        sq_not_satisfied = SearchState(id="sq_004", text="test")
         sq_not_satisfied.independent_sources = 2
         sq_not_satisfied.has_primary_source = False
 
@@ -279,8 +279,8 @@ class TestSubqueryState:
 
         ADR-0010: Novelty = novel fragments / total recent fragments.
         """
-        # Given: A subquery with 10 fragments, 7 novel
-        sq = SubqueryState(id="sq_005", text="test")
+        # Given: A search with 10 fragments, 7 novel
+        sq = SearchState(id="sq_005", text="test")
 
         for i in range(10):
             is_novel = i < 7
@@ -296,9 +296,9 @@ class TestSubqueryState:
         """
         Verify status transitions from PENDING to SATISFIED.
         """
-        # Given: A subquery in PENDING status
-        sq = SubqueryState(id="sq_006", text="test")
-        assert sq.status == SubqueryStatus.PENDING
+        # Given: A search in PENDING status
+        sq = SearchState(id="sq_006", text="test")
+        assert sq.status == SearchStatus.PENDING
 
         # When: Add enough sources to satisfy
         sq.independent_sources = 3
@@ -306,21 +306,21 @@ class TestSubqueryState:
         sq.update_status()
 
         # Then: Status becomes SATISFIED
-        assert sq.status == SubqueryStatus.SATISFIED
+        assert sq.status == SearchStatus.SATISFIED
 
     def test_status_partial_with_some_sources(self) -> None:
         """
         Verify status is PARTIAL when 1-2 sources found.
         """
-        # Given: A subquery with only 1 source
-        sq = SubqueryState(id="sq_007", text="test")
+        # Given: A search with only 1 source
+        sq = SearchState(id="sq_007", text="test")
         sq.independent_sources = 1
 
         # When: Update status
         sq.update_status()
 
         # Then: Status is PARTIAL
-        assert sq.status == SubqueryStatus.PARTIAL
+        assert sq.status == SearchStatus.PARTIAL
 
 
 # =============================================================================
@@ -345,12 +345,12 @@ class TestSearchStatePydanticValidation:
         """
         # Given: Only required fields
         # When: Creating SearchState
-        sq = SubqueryState(id="sq_001", text="test query")
+        sq = SearchState(id="sq_001", text="test query")
 
         # Then: Instance created with defaults
         assert sq.id == "sq_001"
         assert sq.text == "test query"
-        assert sq.status == SubqueryStatus.PENDING
+        assert sq.status == SearchStatus.PENDING
         assert sq.priority == "medium"
         assert sq.independent_sources == 0
         assert sq.pages_fetched == 0
@@ -369,7 +369,7 @@ class TestSearchStatePydanticValidation:
         # Given: Invalid priority value
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError) as exc_info:
-            SubqueryState(id="sq_001", text="test", priority="critical")
+            SearchState(id="sq_001", text="test", priority="critical")
 
         # Then: Error message mentions 'priority'
         error_str = str(exc_info.value)
@@ -387,7 +387,7 @@ class TestSearchStatePydanticValidation:
         # Given: Negative pages_fetched
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError) as exc_info:
-            SubqueryState(id="sq_001", text="test", pages_fetched=-1)
+            SearchState(id="sq_001", text="test", pages_fetched=-1)
 
         # Then: Error message mentions constraint
         error_str = str(exc_info.value)
@@ -405,7 +405,7 @@ class TestSearchStatePydanticValidation:
         # Given: Invalid refutation_status
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError) as exc_info:
-            SubqueryState(id="sq_001", text="test", refutation_status="invalid")
+            SearchState(id="sq_001", text="test", refutation_status="invalid")
 
         # Then: Error message mentions 'refutation_status'
         error_str = str(exc_info.value)
@@ -423,7 +423,7 @@ class TestSearchStatePydanticValidation:
         # Given: Negative independent_sources
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SubqueryState(id="sq_001", text="test", independent_sources=-1)
+            SearchState(id="sq_001", text="test", independent_sources=-1)
 
     def test_harvest_rate_negative_raises_validation_error(self) -> None:
         """TC-SS-A-05: Negative harvest_rate raises ValidationError.
@@ -440,7 +440,7 @@ class TestSearchStatePydanticValidation:
         # Given: harvest_rate negative
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SubqueryState(id="sq_001", text="test", harvest_rate=-0.5)
+            SearchState(id="sq_001", text="test", harvest_rate=-0.5)
 
     def test_harvest_rate_above_one_is_valid(self) -> None:
         """TC-SS-N-06: harvest_rate > 1.0 is valid.
@@ -451,7 +451,7 @@ class TestSearchStatePydanticValidation:
         """
         # Given: harvest_rate > 1.0
         # When: Creating SearchState
-        state = SubqueryState(id="sq_001", text="test", harvest_rate=2.5)
+        state = SearchState(id="sq_001", text="test", harvest_rate=2.5)
 
         # Then: Valid state with harvest_rate > 1.0
         assert state.harvest_rate == 2.5
@@ -477,7 +477,7 @@ class TestSearchStateBoundaryValues:
         // Then: Score = 0.0
         """
         # Given: Zero sources
-        sq = SubqueryState(id="sq_001", text="test")
+        sq = SearchState(id="sq_001", text="test")
         sq.independent_sources = 0
         sq.has_primary_source = False
 
@@ -495,7 +495,7 @@ class TestSearchStateBoundaryValues:
         // Then: Score = 1.0 (capped)
         """
         # Given: Many sources
-        sq = SubqueryState(id="sq_001", text="test")
+        sq = SearchState(id="sq_001", text="test")
         sq.independent_sources = 10
         sq.has_primary_source = True
 
@@ -513,7 +513,7 @@ class TestSearchStateBoundaryValues:
         // Then: Valid state with novelty_score = 0.0
         """
         # Given: Zero novelty
-        sq = SubqueryState(id="sq_001", text="test", novelty_score=0.0)
+        sq = SearchState(id="sq_001", text="test", novelty_score=0.0)
 
         # Then: Valid state
         assert sq.novelty_score == 0.0
@@ -526,7 +526,7 @@ class TestSearchStateBoundaryValues:
         // Then: Valid state with novelty_score = 1.0
         """
         # Given: Max novelty
-        sq = SubqueryState(id="sq_001", text="test", novelty_score=1.0)
+        sq = SearchState(id="sq_001", text="test", novelty_score=1.0)
 
         # Then: Valid state
         assert sq.novelty_score == 1.0
@@ -539,7 +539,7 @@ class TestSearchStateBoundaryValues:
         // Then: Returns True
         """
         # Given: 3 sources + primary = (3/3)*0.7 + 0.3 = 1.0 >= 0.8
-        sq = SubqueryState(id="sq_001", text="test")
+        sq = SearchState(id="sq_001", text="test")
         sq.independent_sources = 3
         sq.has_primary_source = True
 
@@ -558,7 +558,7 @@ class TestSearchStateBoundaryValues:
         // Then: Returns False
         """
         # Given: 3 sources, no primary = (3/3)*0.7 + 0 = 0.7 < 0.8
-        sq = SubqueryState(id="sq_001", text="test")
+        sq = SearchState(id="sq_001", text="test")
         sq.independent_sources = 3
         sq.has_primary_source = False
 
@@ -577,7 +577,7 @@ class TestSearchStateBoundaryValues:
         // Then: source_domains is empty list
         """
         # Given: Default creation
-        sq = SubqueryState(id="sq_001", text="test")
+        sq = SearchState(id="sq_001", text="test")
 
         # Then: Empty list
         assert sq.source_domains == []
@@ -591,7 +591,7 @@ class TestSearchStateBoundaryValues:
         // Then: budget_pages is None
         """
         # Given: Default creation
-        sq = SubqueryState(id="sq_001", text="test")
+        sq = SearchState(id="sq_001", text="test")
 
         # Then: None is valid
         assert sq.budget_pages is None
@@ -604,7 +604,7 @@ class TestSearchStateBoundaryValues:
         // Then: Valid state with budget_pages = 0
         """
         # Given: Zero budget
-        sq = SubqueryState(id="sq_001", text="test", budget_pages=0)
+        sq = SearchState(id="sq_001", text="test", budget_pages=0)
 
         # Then: Valid
         assert sq.budget_pages == 0
@@ -621,28 +621,28 @@ class TestExplorationState:
     """
 
     @pytest.mark.asyncio
-    async def test_register_and_start_subquery(self, test_database: Database) -> None:
+    async def test_register_and_start_search(self, test_database: Database) -> None:
         """
-        Verify subquery registration and starting.
+        Verify search registration and starting.
         """
         # Given: An exploration state for a task
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
-        # When: Register and start a subquery
-        sq = state.register_subquery(
-            subquery_id="sq_001",
-            text="test subquery",
+        # When: Register and start a search
+        sq = state.register_search(
+            search_id="sq_001",
+            text="test search",
             priority="high",
         )
-        state.start_subquery("sq_001")
+        state.start_search("sq_001")
 
-        # Then: Subquery is running with correct attributes
+        # Then: Search is running with correct attributes
         assert sq.id == "sq_001"
-        assert sq.text == "test subquery"
+        assert sq.text == "test search"
         assert sq.priority == "high"
-        assert sq.status == SubqueryStatus.RUNNING
+        assert sq.status == SearchStatus.RUNNING
 
     @pytest.mark.asyncio
     async def test_budget_tracking(self, test_database: Database) -> None:
@@ -655,7 +655,7 @@ class TestExplorationState:
         state._db = test_database
         state._budget_pages_limit = 10
 
-        state.register_subquery("sq_001", "test")
+        state.register_search("sq_001", "test")
 
         # When: Fetch pages up to limit
         for i in range(10):
@@ -678,8 +678,8 @@ class TestExplorationState:
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
-        state.register_subquery("sq_001", "subquery 1", priority="high")
-        state.register_subquery("sq_002", "subquery 2", priority="medium")
+        state.register_search("sq_001", "search 1", priority="high")
+        state.register_search("sq_002", "search 2", priority="medium")
 
         # When: Get status
         status = await state.get_status()
@@ -869,17 +869,17 @@ class TestExplorationState:
         """
         Verify finalize returns proper summary with unsatisfied subqueries.
         """
-        # Given: 1 satisfied and 1 unsatisfied subquery
+        # Given: 1 satisfied and 1 unsatisfied search
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
-        sq1 = state.register_subquery("sq_001", "satisfied query")
+        sq1 = state.register_search("sq_001", "satisfied query")
         sq1.independent_sources = 3
         sq1.has_primary_source = True
         sq1.update_status()
 
-        state.register_subquery("sq_002", "unsatisfied query")
+        state.register_search("sq_002", "unsatisfied query")
 
         # When: Finalize exploration
         result = await state.finalize()
@@ -996,13 +996,13 @@ class TestExplorationStateBoundaryValues:
 
 
 # =============================================================================
-# SubqueryExecutor Tests (ADR-0002)
+# SearchExecutor Tests (ADR-0002)
 # =============================================================================
 
 
-class TestSubqueryExecutor:
+class TestSearchExecutor:
     """
-    Tests for SubqueryExecutor mechanical operations.
+    Tests for SearchExecutor mechanical operations.
 
     ADR-0002: Lyra only performs mechanical expansions, not query design.
     """
@@ -1024,10 +1024,10 @@ class TestSubqueryExecutor:
 
         ADR-0002: Lyra only adds operators, does not design new queries.
         """
-        # Given: A SubqueryExecutor and original query
+        # Given: A SearchExecutor and original query
         task_id = await test_database.create_task(query="test")
         state = ExplorationState(task_id)
-        executor = SubqueryExecutor(task_id, state)
+        executor = SearchExecutor(task_id, state)
 
         original_query = "機械学習の研究論文"
 
@@ -1045,9 +1045,9 @@ class TestSubqueryExecutor:
 
         ADR-0002: No LLM-based query generation for refutations.
         """
-        # Given: A SubqueryExecutor and base query
+        # Given: A SearchExecutor and base query
         state = MagicMock()
-        executor = SubqueryExecutor("task_001", state)
+        executor = SearchExecutor("task_001", state)
         base_query = "AIは安全である"
 
         # When: Generate refutation queries
@@ -1384,16 +1384,16 @@ class TestExplorationIntegration:
         assert ctx_result["ok"] is True
         assert "subquery_candidates" not in ctx_result
 
-        # Given: Exploration state with a subquery
+        # Given: Exploration state with a search
         state = ExplorationState(task_id)
         state._db = test_database
 
-        state.register_subquery(
-            subquery_id="sq_001",
+        state.register_search(
+            search_id="sq_001",
             text="量子コンピュータ 基礎原理",
             priority="high",
         )
-        state.start_subquery("sq_001")
+        state.start_search("sq_001")
 
         # When: Simulate page fetches
         state.record_page_fetch("sq_001", "university.ac.jp", True, True)
@@ -1439,9 +1439,9 @@ class TestResponsibilityBoundary:
         assert not hasattr(ResearchContext, "generate_subqueries")
         assert not hasattr(ResearchContext, "suggest_queries")
 
-        # Given/When/Then: SubqueryExecutor has no design methods
-        assert not hasattr(SubqueryExecutor, "design_query")
-        assert not hasattr(SubqueryExecutor, "generate_query")
+        # Given/When/Then: SearchExecutor has no design methods
+        assert not hasattr(SearchExecutor, "design_query")
+        assert not hasattr(SearchExecutor, "generate_query")
 
     def test_refutation_uses_only_mechanical_patterns(self) -> None:
         """
