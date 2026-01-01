@@ -12,7 +12,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from src.search.provider import SearchResult
+    from src.search.provider import SERPResult
 
 from pydantic import BaseModel, Field
 
@@ -437,15 +437,15 @@ class Paper(BaseModel):
     pdf_url: str | None = Field(None, description="PDF URL")
     source_api: str = Field(..., description="Source API name")
 
-    def to_search_result(self) -> SearchResult:  # noqa: F821
-        """Convert to SearchResult format."""
-        # F821: SearchResult is imported inside the method to avoid circular imports
-        from src.search.provider import SearchResult, SourceTag
+    def to_serp_result(self) -> SERPResult:  # noqa: F821
+        """Convert to SERPResult format."""
+        # F821: SERPResult is imported inside the method to avoid circular imports
+        from src.search.provider import SERPResult, SourceTag
 
         url = self.oa_url or (f"https://doi.org/{self.doi}" if self.doi else "")
         snippet = self.abstract[:500] if self.abstract else ""
 
-        return SearchResult(
+        return SERPResult(
             title=self.title,
             url=url,
             snippet=snippet,
@@ -525,10 +525,10 @@ class CanonicalEntry(BaseModel):
         if self.paper and self.paper.doi:
             return f"https://doi.org/{self.paper.doi}"
         if self.serp_results:
-            from src.search.provider import SearchResult
+            from src.search.provider import SERPResult
 
             first_serp = self.serp_results[0]
-            if isinstance(first_serp, SearchResult):
+            if isinstance(first_serp, SERPResult):
                 return first_serp.url
             if isinstance(first_serp, dict):
                 return cast(str, first_serp.get("url", ""))

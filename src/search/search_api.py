@@ -618,13 +618,13 @@ async def _search_with_provider(
             )
 
     from src.search.browser_search_provider import get_browser_search_provider
-    from src.search.provider import SearchOptions
+    from src.search.provider import SearchProviderOptions
 
     # Get worker-specific provider (ADR-0014 Phase 3: context isolation)
     provider = get_browser_search_provider(worker_id=worker_id)
 
     # Build options (ADR-0007: include job identifiers for CAPTCHA queue)
-    options = SearchOptions(
+    options = SearchProviderOptions(
         engines=engines,
         time_range=time_range,
         limit=limit,

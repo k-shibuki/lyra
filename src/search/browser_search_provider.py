@@ -34,9 +34,9 @@ from src.search.provider import (
     BaseSearchProvider,
     HealthState,
     HealthStatus,
-    SearchOptions,
+    SearchProviderOptions,
     SearchResponse,
-    SearchResult,
+    SERPResult,
 )
 from src.search.search_api import transform_query_for_engine
 from src.search.search_parsers import (
@@ -164,7 +164,7 @@ class BrowserSearchProvider(BaseSearchProvider):
 
     Example:
         provider = BrowserSearchProvider()
-        response = await provider.search("AI regulations", SearchOptions(language="ja"))
+        response = await provider.search("AI regulations", SearchProviderOptions(language="ja"))
         if response.ok:
             for result in response.results:
                 print(result.title, result.url)
@@ -854,7 +854,7 @@ class BrowserSearchProvider(BaseSearchProvider):
     async def search(
         self,
         query: str,
-        options: SearchOptions | None = None,
+        options: SearchProviderOptions | None = None,
         harvest_rate: float | None = None,
     ) -> SearchResponse:
         """
@@ -872,7 +872,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         self._check_closed()
 
         if options is None:
-            options = SearchOptions()
+            options = SearchProviderOptions()
 
         start_time = time.time()
 
@@ -1036,7 +1036,7 @@ class BrowserSearchProvider(BaseSearchProvider):
             pagination_strategy = PaginationStrategy(pagination_config)
 
             # Pagination state
-            all_results: list[SearchResult] = []
+            all_results: list[SERPResult] = []
             seen_urls: set[str] = set()
             current_page = options.serp_page
             max_page = options.serp_page + options.serp_max_pages - 1
@@ -1249,7 +1249,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         break
 
                     # Merge results: deduplicate by URL.
-                    # current_page is recorded into SearchResult.page_number (and persisted to DB) for audit/reproducibility.
+                    # current_page is recorded into SERPResult.page_number (and persisted to DB) for audit/reproducibility.
                     page_results = [
                         r.to_search_result(engine, serp_page=current_page)
                         for r in parse_result.results

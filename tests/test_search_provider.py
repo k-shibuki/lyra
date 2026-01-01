@@ -4,7 +4,7 @@ Unit tests for the search provider abstraction layer.
 Tests for SearchProvider abstraction.
 Validates:
 - SearchProvider protocol and BaseSearchProvider
-- SearchResult and SearchResponse data classes
+- SERPResult and SearchResponse data classes
 - SearchProviderRegistry registration and fallback
 
 Follows .1 test code quality standards:
@@ -19,10 +19,10 @@ BrowserSearchProvider tests are in test_browser_search_provider.py.
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
-| TC-SR-N-01 | Valid SearchResult with required fields | Equivalence – normal | Result created successfully | - |
-| TC-SR-N-02 | SearchResult with all fields | Equivalence – normal | All fields stored correctly | - |
-| TC-SR-N-03 | SearchResult.to_dict() | Equivalence – normal | Dictionary with all fields | - |
-| TC-SR-N-04 | SearchResult.from_dict() with complete data | Equivalence – normal | SearchResult object created | - |
+| TC-SR-N-01 | Valid SERPResult with required fields | Equivalence – normal | Result created successfully | - |
+| TC-SR-N-02 | SERPResult with all fields | Equivalence – normal | All fields stored correctly | - |
+| TC-SR-N-03 | SERPResult.to_dict() | Equivalence – normal | Dictionary with all fields | - |
+| TC-SR-N-04 | SERPResult.from_dict() with complete data | Equivalence – normal | SERPResult object created | - |
 | TC-SR-B-01 | Empty title string | Boundary – empty | Validation error or empty string | - |
 | TC-SR-B-02 | Empty URL string | Boundary – empty | Validation error or empty string | - |
 | TC-SR-B-03 | rank = 0 | Boundary – zero | Valid (minimum rank) | - |
@@ -30,7 +30,7 @@ BrowserSearchProvider tests are in test_browser_search_provider.py.
 | TC-SR-A-01 | Missing required field in from_dict() | Abnormal – missing field | Default values used | - |
 | TC-SR-A-02 | Invalid source_tag value | Abnormal – invalid enum | Validation error | - |
 | TC-SR-W-01 | page_number in to_dict() | Wiring – propagation | Dict contains page_number | Issue 1 |
-| TC-SR-W-02 | page_number in from_dict() | Wiring – propagation | SearchResult has page_number | Issue 1 |
+| TC-SR-W-02 | page_number in from_dict() | Wiring – propagation | SERPResult has page_number | Issue 1 |
 | TC-SR-E-01 | Different page_number values | Effect – value change | Different to_dict() outputs | Issue 1 |
 | TC-SR-B-05 | page_number = 1 (minimum) | Boundary – minimum | Valid result | Issue 1 |
 | TC-SR-B-06 | page_number = 10 (max expected) | Boundary – maximum | Valid result | Issue 1 |
@@ -39,8 +39,8 @@ BrowserSearchProvider tests are in test_browser_search_provider.py.
 | TC-SP-A-01 | SearchResponse with error | Abnormal – error | ok=False, error set | - |
 | TC-SP-B-01 | Empty results list | Boundary – empty | Valid response | - |
 | TC-SP-B-02 | total_count = 0 | Boundary – zero | Valid | - |
-| TC-SO-N-01 | Default SearchOptions | Equivalence – normal | Default values set | - |
-| TC-SO-N-02 | Custom SearchOptions | Equivalence – normal | Custom values stored | - |
+| TC-SO-N-01 | Default SearchProviderOptions | Equivalence – normal | Default values set | - |
+| TC-SO-N-02 | Custom SearchProviderOptions | Equivalence – normal | Custom values stored | - |
 | TC-SO-B-01 | limit = 0 | Boundary – zero | Validation error | - |
 | TC-SO-B-02 | limit = -1 | Boundary – negative | Validation error | - |
 | TC-SO-B-03 | serp_page = 0 | Boundary – zero | Validation error | - |
@@ -77,10 +77,10 @@ from src.search.provider import (
     BaseSearchProvider,
     HealthState,
     HealthStatus,
-    SearchOptions,
+    SearchProviderOptions,
     SearchProviderRegistry,
     SearchResponse,
-    SearchResult,
+    SERPResult,
     SourceTag,
     get_registry,
     reset_registry,
@@ -97,7 +97,7 @@ class MockSearchProvider(BaseSearchProvider):
     def __init__(
         self,
         name: str = "mock",
-        results: list[SearchResult] | None = None,
+        results: list[SERPResult] | None = None,
         error: str | None = None,
         health: HealthStatus | None = None,
     ):
@@ -105,12 +105,12 @@ class MockSearchProvider(BaseSearchProvider):
         self._results = results or []
         self._error = error
         self._health = health or HealthStatus.healthy()
-        self.search_calls: list[tuple[str, SearchOptions | None]] = []
+        self.search_calls: list[tuple[str, SearchProviderOptions | None]] = []
 
     async def search(
         self,
         query: str,
-        options: SearchOptions | None = None,
+        options: SearchProviderOptions | None = None,
     ) -> SearchResponse:
         self.search_calls.append((query, options))
 
@@ -134,10 +134,10 @@ class MockSearchProvider(BaseSearchProvider):
 
 
 @pytest.fixture
-def sample_results() -> list[SearchResult]:
+def sample_results() -> list[SERPResult]:
     """Create sample search results for testing."""
     return [
-        SearchResult(
+        SERPResult(
             title="Test Result 1",
             url="https://example.com/page1",
             snippet="This is a test snippet for the first result.",
@@ -145,7 +145,7 @@ def sample_results() -> list[SearchResult]:
             rank=1,
             source_tag=SourceTag.UNKNOWN,
         ),
-        SearchResult(
+        SERPResult(
             title="Academic Paper on AI",
             url="https://arxiv.org/abs/1234.5678",
             snippet="Machine learning research paper.",
@@ -154,7 +154,7 @@ def sample_results() -> list[SearchResult]:
             date="2024-01-15",
             source_tag=SourceTag.ACADEMIC,
         ),
-        SearchResult(
+        SERPResult(
             title="Government Report",
             url="https://www.go.jp/report/2024",
             snippet="Official government publication.",
@@ -166,7 +166,7 @@ def sample_results() -> list[SearchResult]:
 
 
 @pytest.fixture
-def mock_provider(sample_results: list[SearchResult]) -> MockSearchProvider:
+def mock_provider(sample_results: list[SERPResult]) -> MockSearchProvider:
     """Create a mock provider with sample results."""
     return MockSearchProvider(results=sample_results)
 
@@ -180,23 +180,23 @@ def cleanup() -> Generator[None]:
 
 
 # ============================================================================
-# SearchResult Tests
+# SERPResult Tests
 # ============================================================================
 
 
-class TestSearchResult:
-    """Tests for SearchResult data class."""
+class TestSERPResult:
+    """Tests for SERPResult data class."""
 
     def test_create_minimal_result(self) -> None:
         """TC-SR-N-01: Test creating a result with required fields only.
 
         // Given: Required fields only (title, url, snippet, engine, rank)
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: Result created with defaults for optional fields
         """
         # Given: Required fields only
-        # When: Creating SearchResult
-        result = SearchResult(
+        # When: Creating SERPResult
+        result = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet text",
@@ -217,12 +217,12 @@ class TestSearchResult:
         """TC-SR-N-02: Test creating a result with all fields.
 
         // Given: All fields provided
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: All fields stored correctly
         """
         # Given: All fields provided
-        # When: Creating SearchResult
-        result = SearchResult(
+        # When: Creating SERPResult
+        result = SERPResult(
             title="Academic Paper",
             url="https://arxiv.org/abs/1234",
             snippet="Research findings",
@@ -242,12 +242,12 @@ class TestSearchResult:
     def test_to_dict_serialization(self) -> None:
         """TC-SR-N-03: Test serialization to dictionary.
 
-        // Given: SearchResult with all fields
+        // Given: SERPResult with all fields
         // When: Calling to_dict()
         // Then: Dictionary with all fields returned
         """
-        # Given: SearchResult with all fields
-        result = SearchResult(
+        # Given: SERPResult with all fields
+        result = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -274,7 +274,7 @@ class TestSearchResult:
 
         // Given: Complete dictionary data
         // When: Calling from_dict()
-        // Then: SearchResult object created
+        // Then: SERPResult object created
         """
         # Given: Complete dictionary data
         data = {
@@ -288,9 +288,9 @@ class TestSearchResult:
         }
 
         # When: Calling from_dict()
-        result = SearchResult.from_dict(data)
+        result = SERPResult.from_dict(data)
 
-        # Then: SearchResult object created
+        # Then: SERPResult object created
         assert result.title == "Test Title"
         assert result.url == "https://test.com"
         assert result.engine == "bing"
@@ -311,7 +311,7 @@ class TestSearchResult:
         }
 
         # When: Calling from_dict()
-        result = SearchResult.from_dict(data)
+        result = SERPResult.from_dict(data)
 
         # Then: Default values used
         assert result.title == "Minimal"
@@ -325,12 +325,12 @@ class TestSearchResult:
         """TC-SR-B-01: Test empty title string.
 
         // Given: Empty title string
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: Empty string accepted (or validation error)
         """
         # Given: Empty title string
-        # When: Creating SearchResult
-        result = SearchResult(
+        # When: Creating SERPResult
+        result = SERPResult(
             title="",
             url="https://example.com",
             snippet="Snippet",
@@ -345,12 +345,12 @@ class TestSearchResult:
         """TC-SR-B-02: Test empty URL string.
 
         // Given: Empty URL string
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: Empty string accepted (or validation error)
         """
         # Given: Empty URL string
-        # When: Creating SearchResult
-        result = SearchResult(
+        # When: Creating SERPResult
+        result = SERPResult(
             title="Test",
             url="",
             snippet="Snippet",
@@ -365,12 +365,12 @@ class TestSearchResult:
         """TC-SR-B-03: Test rank = 0 (minimum valid value).
 
         // Given: rank = 0
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: Valid result created
         """
         # Given: rank = 0
-        # When: Creating SearchResult
-        result = SearchResult(
+        # When: Creating SERPResult
+        result = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -385,7 +385,7 @@ class TestSearchResult:
         """TC-SR-B-04: Test rank = -1 raises validation error.
 
         // Given: rank = -1 (negative)
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
@@ -393,7 +393,7 @@ class TestSearchResult:
         # Given: rank = -1
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError) as exc_info:
-            SearchResult(
+            SERPResult(
                 title="Test",
                 url="https://example.com",
                 snippet="Snippet",
@@ -409,7 +409,7 @@ class TestSearchResult:
         """TC-SR-A-02: Test invalid source_tag value raises error.
 
         // Given: Invalid source_tag value
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
@@ -417,7 +417,7 @@ class TestSearchResult:
         # Given: Invalid source_tag
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SearchResult(
+            SERPResult(
                 title="Test",
                 url="https://example.com",
                 snippet="Snippet",
@@ -430,11 +430,11 @@ class TestSearchResult:
         """TC-SR-B-07: Test page_number default value is 1.
 
         // Given: No page_number specified
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: page_number defaults to 1
         """
-        # Given/When: Create SearchResult without page_number
-        result = SearchResult(
+        # Given/When: Create SERPResult without page_number
+        result = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -449,11 +449,11 @@ class TestSearchResult:
         """TC-SR-B-05: Test page_number = 1 (minimum valid value).
 
         // Given: page_number = 1
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: Valid result created
         """
-        # Given/When: Create SearchResult with page_number=1
-        result = SearchResult(
+        # Given/When: Create SERPResult with page_number=1
+        result = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -469,11 +469,11 @@ class TestSearchResult:
         """TC-SR-B-06: Test page_number = 10 (max expected value).
 
         // Given: page_number = 10
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: Valid result created
         """
-        # Given/When: Create SearchResult with page_number=10
-        result = SearchResult(
+        # Given/When: Create SERPResult with page_number=10
+        result = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -489,7 +489,7 @@ class TestSearchResult:
         """TC-SR-A-03: Test page_number = 0 raises validation error.
 
         // Given: page_number = 0 (below minimum)
-        // When: Creating SearchResult
+        // When: Creating SERPResult
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
@@ -497,7 +497,7 @@ class TestSearchResult:
         # Given: page_number = 0
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SearchResult(
+            SERPResult(
                 title="Test",
                 url="https://example.com",
                 snippet="Snippet",
@@ -509,12 +509,12 @@ class TestSearchResult:
     def test_page_number_in_to_dict(self) -> None:
         """TC-SR-W-01: Test page_number is included in to_dict().
 
-        // Given: SearchResult with page_number=3
+        // Given: SERPResult with page_number=3
         // When: Calling to_dict()
         // Then: Dictionary includes page_number=3
         """
-        # Given: SearchResult with page_number=3
-        result = SearchResult(
+        # Given: SERPResult with page_number=3
+        result = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -535,7 +535,7 @@ class TestSearchResult:
 
         // Given: Dictionary with page_number=5
         // When: Calling from_dict()
-        // Then: SearchResult has page_number=5
+        // Then: SERPResult has page_number=5
         """
         # Given: Dictionary with page_number=5
         data = {
@@ -549,9 +549,9 @@ class TestSearchResult:
         }
 
         # When: Calling from_dict()
-        result = SearchResult.from_dict(data)
+        result = SERPResult.from_dict(data)
 
-        # Then: SearchResult has page_number=5
+        # Then: SERPResult has page_number=5
         assert result.page_number == 5
 
     def test_page_number_from_dict_missing_defaults_to_one(self) -> None:
@@ -559,7 +559,7 @@ class TestSearchResult:
 
         // Given: Dictionary without page_number
         // When: Calling from_dict()
-        // Then: SearchResult has page_number=1
+        // Then: SERPResult has page_number=1
         """
         # Given: Dictionary without page_number
         data = {
@@ -572,20 +572,20 @@ class TestSearchResult:
         }
 
         # When: Calling from_dict()
-        result = SearchResult.from_dict(data)
+        result = SERPResult.from_dict(data)
 
-        # Then: SearchResult has page_number=1
+        # Then: SERPResult has page_number=1
         assert result.page_number == 1
 
     def test_page_number_effect_different_values(self) -> None:
         """TC-SR-E-01: Test different page_number values produce different outputs.
 
-        // Given: Two SearchResults with different page_number
+        // Given: Two SERPResults with different page_number
         // When: Calling to_dict() on each
         // Then: Outputs differ in page_number
         """
-        # Given: Two SearchResults with different page_number
-        result1 = SearchResult(
+        # Given: Two SERPResults with different page_number
+        result1 = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -593,7 +593,7 @@ class TestSearchResult:
             rank=1,
             page_number=1,
         )
-        result2 = SearchResult(
+        result2 = SERPResult(
             title="Test",
             url="https://example.com",
             snippet="Snippet",
@@ -620,7 +620,7 @@ class TestSearchResult:
 class TestSearchResponse:
     """Tests for SearchResponse data class."""
 
-    def test_successful_response(self, sample_results: list[SearchResult]) -> None:
+    def test_successful_response(self, sample_results: list[SERPResult]) -> None:
         """TC-SP-N-01: Test creating a successful response.
 
         // Given: Valid results and query
@@ -707,7 +707,7 @@ class TestSearchResponse:
         # Then: Valid response
         assert response.total_count == 0
 
-    def test_to_dict_includes_ok(self, sample_results: list[SearchResult]) -> None:
+    def test_to_dict_includes_ok(self, sample_results: list[SERPResult]) -> None:
         """TC-SP-N-02: Test that to_dict includes the ok property.
 
         // Given: SearchResponse with results
@@ -732,23 +732,23 @@ class TestSearchResponse:
 
 
 # ============================================================================
-# SearchOptions Tests
+# SearchProviderOptions Tests
 # ============================================================================
 
 
-class TestSearchOptions:
-    """Tests for SearchOptions data class."""
+class TestSearchProviderOptions:
+    """Tests for SearchProviderOptions data class."""
 
     def test_default_options(self) -> None:
         """TC-SO-N-01: Test default option values.
 
         // Given: No parameters provided
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: Default values set
         """
         # Given: No parameters provided
-        # When: Creating SearchOptions
-        options = SearchOptions()
+        # When: Creating SearchProviderOptions
+        options = SearchProviderOptions()
 
         # Then: Default values set
         assert options.engines is None
@@ -762,12 +762,12 @@ class TestSearchOptions:
         """TC-SO-N-02: Test custom option values.
 
         // Given: Custom values provided
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: Custom values stored
         """
         # Given: Custom values provided
-        # When: Creating SearchOptions
-        options = SearchOptions(
+        # When: Creating SearchProviderOptions
+        options = SearchProviderOptions(
             engines=["google", "duckduckgo"],
             categories=["general", "news"],
             language="en",
@@ -788,7 +788,7 @@ class TestSearchOptions:
         """TC-SO-B-01: Test limit = 0 raises validation error.
 
         // Given: limit = 0
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
@@ -796,7 +796,7 @@ class TestSearchOptions:
         # Given: limit = 0
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError) as exc_info:
-            SearchOptions(limit=0)
+            SearchProviderOptions(limit=0)
 
         # Then: Error mentions limit constraint
         error_str = str(exc_info.value)
@@ -806,7 +806,7 @@ class TestSearchOptions:
         """TC-SO-B-02: Test limit = -1 raises validation error.
 
         // Given: limit = -1
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
@@ -814,13 +814,13 @@ class TestSearchOptions:
         # Given: limit = -1
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SearchOptions(limit=-1)
+            SearchProviderOptions(limit=-1)
 
     def test_serp_page_zero_raises_error(self) -> None:
         """TC-SO-B-03: Test serp_page = 0 raises validation error.
 
         // Given: serp_page = 0
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
@@ -828,17 +828,17 @@ class TestSearchOptions:
         # Given: serp_page = 0
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SearchOptions(serp_page=0)
+            SearchProviderOptions(serp_page=0)
 
     def test_serp_max_pages_default(self) -> None:
         """TC-W-04a: Wiring test - serp_max_pages default value.
 
-        // Given: Default SearchOptions
+        // Given: Default SearchProviderOptions
         // When: Creating options
         // Then: serp_max_pages is 1 (default)
         """
-        # Given/When: Default SearchOptions
-        options = SearchOptions()
+        # Given/When: Default SearchProviderOptions
+        options = SearchProviderOptions()
 
         # Then: serp_max_pages is 1
         assert options.serp_max_pages == 1
@@ -847,11 +847,11 @@ class TestSearchOptions:
         """TC-W-04b: Wiring test - serp_max_pages custom value.
 
         // Given: Custom serp_max_pages=5
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: serp_max_pages is 5
         """
-        # Given/When: Custom SearchOptions
-        options = SearchOptions(serp_max_pages=5)
+        # Given/When: Custom SearchProviderOptions
+        options = SearchProviderOptions(serp_max_pages=5)
 
         # Then: serp_max_pages is 5
         assert options.serp_max_pages == 5
@@ -860,11 +860,11 @@ class TestSearchOptions:
         """TC-W-04c: Boundary test - serp_max_pages max value (10).
 
         // Given: serp_max_pages=10 (max allowed)
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: serp_max_pages is 10
         """
         # Given/When: Max serp_max_pages
-        options = SearchOptions(serp_max_pages=10)
+        options = SearchProviderOptions(serp_max_pages=10)
 
         # Then: serp_max_pages is 10
         assert options.serp_max_pages == 10
@@ -873,7 +873,7 @@ class TestSearchOptions:
         """TC-A-04: Abnormal test - serp_max_pages exceeds max (11).
 
         // Given: serp_max_pages=11 (exceeds max)
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: ValidationError raised
         """
         from pydantic import ValidationError
@@ -881,17 +881,17 @@ class TestSearchOptions:
         # Given: serp_max_pages = 11 (exceeds max)
         # When/Then: ValidationError raised
         with pytest.raises(ValidationError):
-            SearchOptions(serp_max_pages=11)
+            SearchProviderOptions(serp_max_pages=11)
 
     def test_serp_page_and_max_pages_combined(self) -> None:
         """TC-E-03: Effect test - serp_page and serp_max_pages propagation.
 
         // Given: Custom serp_page=2, serp_max_pages=3
-        // When: Creating SearchOptions
+        // When: Creating SearchProviderOptions
         // Then: Both values are stored correctly
         """
         # Given/When: Custom pagination options
-        options = SearchOptions(serp_page=2, serp_max_pages=3)
+        options = SearchProviderOptions(serp_page=2, serp_max_pages=3)
 
         # Then: Both values stored correctly
         assert options.serp_page == 2
@@ -1178,7 +1178,7 @@ class TestSearchProviderRegistry:
 
     @pytest.mark.asyncio
     async def test_search_with_fallback_uses_fallback(
-        self, sample_results: list[SearchResult]
+        self, sample_results: list[SERPResult]
     ) -> None:
         """TC-RG-N-06: Test that fallback is used when primary fails.
 
@@ -1205,7 +1205,7 @@ class TestSearchProviderRegistry:
 
     @pytest.mark.asyncio
     async def test_search_with_fallback_skips_unhealthy(
-        self, sample_results: list[SearchResult]
+        self, sample_results: list[SERPResult]
     ) -> None:
         """TC-RG-N-07: Test that unhealthy providers are skipped.
 

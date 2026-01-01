@@ -4,7 +4,7 @@ Tests for UCB1-based budget allocation.
 Tests the UCBAllocator class and its integration with ExplorationState.
 See ADR-0010.
 
-Note: This module uses "search" terminology (not "subquery").
+Note: This module uses "search" terminology.
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |

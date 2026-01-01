@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 
-from src.search.provider import SearchResult
+from src.search.provider import SERPResult
 from src.utils.logging import get_logger
 from src.utils.schemas import CanonicalEntry, Paper, PaperIdentifier
 
@@ -208,13 +208,13 @@ class CanonicalPaperIndex:
 
     def register_serp_result(
         self,
-        serp_result: SearchResult,
+        serp_result: SERPResult,
         identifier: PaperIdentifier | None = None,
     ) -> str:
         """Register a SERP result.
 
         Args:
-            serp_result: SearchResult object
+            serp_result: SERPResult object
             identifier: Extracted PaperIdentifier (optional)
 
         Returns:

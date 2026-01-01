@@ -59,60 +59,27 @@ pytest tests/test_serp_max_pages_propagation.py -v
 
 ### 1.3 Subquery → Search 用語統一
 
-**状態**: 移行中（エイリアスで互換性維持）
+**状態**: ✅ 完了（R-07として完了）
 
-**概要**: 内部用語が `subquery` から `search` に統一された。現在はエイリアスで後方互換性を維持しているが、完全移行が未完了。後方互換性は完全に排除すべき。
+**概要**: 内部用語が `subquery` から `search` に統一された。エイリアスと後方互換性は完全に排除され、クリーンな移行が完了した。
 
-#### 現状確認コマンド
+#### 完了した変更
+
+- ✅ すべての `Subquery*` エイリアスを削除（`SubqueryState`, `SubqueryStatus`, `SubqueryExecutor`, `SubqueryResult`, `SubqueryArm`）
+- ✅ `min_budget_per_subquery` パラメータを削除（`min_budget_per_search` に統一）
+- ✅ `refutation.py` の `subquery_id` → `search_id`、`execute_for_subquery()` → `execute_for_search()` に改名
+- ✅ `target_type="subquery"` → `target_type="search"` に更新
+- ✅ すべての docstring/コメントを更新
+- ✅ テストファイルを全面更新
+
+#### 確認コマンド（参考）
 
 ```bash
-# エイリアス定義箇所
+# エイリアスが存在しないことを確認（結果が空であるべき）
 grep -rn 'SubqueryState\|SubqueryStatus\|SubqueryExecutor\|SubqueryResult\|SubqueryArm' src/research/
 
-# 旧用語の使用箇所
-grep -rn 'subquery_id\|min_budget_per_subquery' src/
-```
-
-#### エイリアス定義箇所（参考）
-
-| ファイル | エイリアス |
-|---------|-----------|
-| `src/research/__init__.py` | 全エイリアスのエクスポート |
-| `src/research/state.py:42,220` | `SubqueryStatus`, `SubqueryState` |
-| `src/research/executor.py:190,1091` | `SubqueryResult`, `SubqueryExecutor` |
-| `src/research/ucb_allocator.py:83` | `SubqueryArm` |
-
-#### 旧用語使用箇所（要移行）
-
-| ファイル | 内容 |
-|---------|------|
-| `src/research/ucb_allocator.py` | `min_budget_per_subquery` パラメータ（互換性のため残存） |
-| `src/research/refutation.py` | `subquery_id`, `target_type="subquery"` |
-| `src/research/state.py` | `add_subquery()`, `start_subquery()`, `get_subquery()` メソッドエイリアス |
-
-#### 残タスク
-
-- [ ] **R-07a**: `min_budget_per_subquery` → `min_budget_per_search` に改名（互換プロパティは残す）
-- [ ] **R-07b**: `refutation.py` の `subquery_id` → `search_id` に改名
-- [ ] **R-07c**: docstring/コメントの更新
-- [ ] 外部利用者がいないことを確認後、エイリアスを deprecated 警告付きに変更
-
-#### R-07b 着手手順
-
-```bash
-# 1. refutation.py の subquery 関連を確認
-grep -n 'subquery' src/research/refutation.py
-
-# 2. 変更対象:
-#    - RefutationResult.target の docstring
-#    - execute_for_subquery() → execute_for_search() に改名（エイリアス残す）
-#    - target_type="subquery" → target_type="search"
-
-# 3. 影響範囲の確認
-grep -rn 'execute_for_subquery\|target_type.*subquery' src/ tests/
-
-# 4. テスト実行
-make test-unit PYTEST_ARGS="-k refutation"
+# 旧用語が存在しないことを確認（結果が空であるべき）
+grep -rn 'subquery_id\|min_budget_per_subquery\|execute_for_subquery' src/
 ```
 
 ---
@@ -366,7 +333,9 @@ make test-unit PYTEST_ARGS="-k notification or intervention"
 
 ### 3.1 SearchResult クラスの重複定義
 
-**問題**: 同名のクラスが3箇所で定義されている
+**状態**: ✅ 完了（R-05として完了）
+
+**問題**: 同名のクラスが3箇所で定義されていた（解決済み）
 
 #### 現状確認コマンド
 
@@ -411,7 +380,9 @@ make test-unit
 
 ### 3.2 SearchOptions クラスの重複定義
 
-**問題**: 同名のクラスが2箇所で定義されている
+**状態**: ✅ 完了（R-06として完了）
+
+**問題**: 同名のクラスが2箇所で定義されていた（解決済み）
 
 #### 現状確認コマンド
 
@@ -498,7 +469,7 @@ grep -rn '^class Domain' src/
 
 | ID | タスク | 見積もり | 前提 | 検証 |
 |----|--------|---------|------|------|
-| R-01 | `fetcher.py` を6ファイルに分割 | 4h | なし | ✅ 完了 |
+| R-01 | `fetcher.py` を6ファイルに分割 | 4h | なし | ✅ 完了 （テストモジュールインポート対応済み）|
 | R-02 | `mcp/server.py` を `mcp/tools/` に分割 | 3h | なし | ✅ 完了（テストモジュールインポート対応済み） |
 | R-03 | `notification.py` を4ファイルに分割 | 2h | なし | ✅ 完了（テストモジュールインポート対応済み） |
 | R-04 | max_pages バリデーションの重複削除 | 30min | なし | ✅ 完了 |
@@ -507,9 +478,9 @@ grep -rn '^class Domain' src/
 
 | ID | タスク | 見積もり | 前提 | 検証 |
 |----|--------|---------|------|------|
-| R-05 | `SearchResult` クラス改名 | 2h | なし | `make test-unit` |
-| R-06 | `SearchOptions` クラス改名 | 1h | なし | `make test-unit` |
-| R-07 | `Subquery` → `Search` 完全移行 | 3h | なし | `make test-unit PYTEST_ARGS="-k refutation or ucb"` |
+| R-05 | `SearchResult` クラス改名 | 2h | なし | ✅ 完了 |
+| R-06 | `SearchOptions` クラス改名 | 1h | なし | ✅ 完了 |
+| R-07 | `Subquery` → `Search` 完全移行 | 3h | なし | ✅ 完了 |
 | R-08 | `search_parsers.py` をエンジン別に分割 | 2h | なし | `make test-unit PYTEST_ARGS="-k parser"` |
 
 ### LOW（将来）
@@ -566,3 +537,4 @@ make test-unit
 | 2025-01-01 | Claude | 着手手順・検証コマンド追加、行番号更新 |
 | 2025-01-01 | Claude | R-04 完了: max_pages レガシーバリデーション削除 + スキーマ厳密化 |
 | 2025-01-01 | Claude | R-02/R-03 完了: モジュール分割完了、テストモジュールインポート対応完了 |
+| 2026-01-01 | Claude | R-05/R-06/R-07 完了: SearchResult→SERPResult, SearchOptions→SearchProviderOptions, Subquery→Search完全移行 |

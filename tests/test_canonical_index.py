@@ -24,7 +24,7 @@ import pytest
 pytestmark = pytest.mark.unit
 
 from src.search.canonical_index import CanonicalPaperIndex, PaperIdentityResolver
-from src.search.provider import SearchResult
+from src.search.provider import SERPResult
 from src.utils.schemas import Author, Paper, PaperIdentifier
 
 
@@ -284,13 +284,13 @@ class TestCanonicalPaperIndex:
     def test_register_serp_result(self) -> None:
         """TC-CI-N-03: Test registering SERP result.
 
-        // Given: SERP SearchResult
+        // Given: SERP SERPResult
         // When: Registering SERP result
         // Then: SERP result registered
         """
-        # Given: SERP SearchResult
+        # Given: SERP SERPResult
         index = CanonicalPaperIndex()
-        serp_result = SearchResult(
+        serp_result = SERPResult(
             title="Test Result",
             url="https://example.com/paper",
             snippet="Snippet",
@@ -333,7 +333,7 @@ class TestCanonicalPaperIndex:
         )
         index.register_paper(paper, source_api="semantic_scholar")
 
-        serp_result = SearchResult(
+        serp_result = SERPResult(
             title="Test Paper",
             url="https://doi.org/10.1234/example",
             snippet="Snippet",
@@ -489,7 +489,7 @@ class TestCanonicalPaperIndex:
         index.register_paper(paper1, source_api="test")
 
         # SERP-only entry
-        serp = SearchResult(
+        serp = SERPResult(
             title="Paper 2",
             url="https://example.com/2",
             snippet="Snippet",
@@ -515,7 +515,7 @@ class TestCanonicalPaperIndex:
             source_api="test",
         )
         index.register_paper(paper3, source_api="test")
-        serp3 = SearchResult(
+        serp3 = SERPResult(
             title="Paper 3",
             url="https://doi.org/10.3/3",
             snippet="Snippet",

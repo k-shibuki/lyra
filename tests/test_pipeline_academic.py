@@ -52,7 +52,7 @@ import pytest
 
 from src.research.pipeline import SearchPipeline, SearchResult
 from src.research.state import ExplorationState
-from src.search.provider import SearchResult as ProviderSearchResult
+from src.search.provider import SERPResult
 from src.utils.schemas import Author, CanonicalEntry, Citation, Paper
 
 T = TypeVar("T")
@@ -319,7 +319,7 @@ class TestAbstractOnlyStrategy:
         Then: needs_fetch is True
         """
         # Given
-        serp_result = ProviderSearchResult(
+        serp_result = SERPResult(
             title="Test SERP Result",
             url="https://example.com/article",
             snippet="Test snippet",
@@ -539,7 +539,7 @@ class TestCanonicalEntryNeedsFetch:
         Then: True (fetch needed)
         """
         # Given: Entry with both sources but no abstract
-        serp_result = ProviderSearchResult(
+        serp_result = SERPResult(
             title="Test SERP",
             url="https://example.com",
             snippet="Test",
@@ -1298,7 +1298,7 @@ class TestExecuteComplementarySearchE2E:
         from src.search.canonical_index import CanonicalPaperIndex
 
         # Given: SERP-only entry
-        serp_result = ProviderSearchResult(
+        serp_result = SERPResult(
             title="Test SERP",
             url="https://example.com/article",
             snippet="Test snippet",

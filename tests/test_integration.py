@@ -11,7 +11,7 @@ These tests verify end-to-end workflows across multiple modules.
 | TC-INT-N-01 | Valid HTML content | Equivalence – normal | Extraction succeeds with text key | Content extraction |
 | TC-INT-N-02 | Passage list for BM25 | Equivalence – normal | Scores array length matches input | BM25 ranking |
 | TC-INT-N-03 | Task with query | Equivalence – normal | Context with entities and templates | ResearchContext |
-| TC-INT-N-04 | Task with subquery | Equivalence – normal | Status tracks subquery progress | ExplorationState |
+| TC-INT-N-04 | Task with search | Equivalence – normal | Status tracks search progress | ExplorationState |
 | TC-INT-N-05 | 3 sources + primary | Equivalence – satisfaction | Score >= 0.8, is_satisfied=True | ADR-0010 |
 | TC-INT-N-06 | Claim + fragment | Equivalence – normal | Evidence retrieved with relationship | EvidenceGraph |
 | TC-INT-N-07 | A→B→C→A citations | Equivalence – cycle | Loop detected with length=3 | Citation loop |
@@ -168,7 +168,7 @@ class TestExplorationControlFlow:
 
     @pytest.mark.asyncio
     async def test_exploration_state_tracking(self, integration_db: Database) -> None:
-        """Verify exploration state tracks subquery progress."""
+        """Verify exploration state tracks search progress."""
         from src.research.state import ExplorationState, SearchStatus
 
         # Given: A task and exploration state
@@ -177,14 +177,14 @@ class TestExplorationControlFlow:
         state = ExplorationState(task_id)
         state._db = integration_db
 
-        # When: Register and update a subquery
-        state.register_subquery(
-            subquery_id="sq_1",
+        # When: Register and update a search
+        state.register_search(
+            search_id="sq_1",
             text="site:go.jp Topic X",
             priority="high",
         )
 
-        sq = state.get_subquery("sq_1")
+        sq = state.get_search("sq_1")
         assert sq is not None
         sq.status = SearchStatus.RUNNING
 
@@ -196,11 +196,11 @@ class TestExplorationControlFlow:
         assert status["searches"][0]["status"] == SearchStatus.RUNNING.value
 
     @pytest.mark.asyncio
-    async def test_subquery_satisfaction_score(self, integration_db: Database) -> None:
+    async def test_search_satisfaction_score(self, integration_db: Database) -> None:
         """Verify satisfaction score is calculated per ADR-0010."""
         from src.research.state import SearchState, SearchStatus
 
-        # Given: A subquery with 3 independent sources and a primary source
+        # Given: A search with 3 independent sources and a primary source
         sq = SearchState(
             id="sq_test",
             text="Topic X research",
@@ -212,7 +212,7 @@ class TestExplorationControlFlow:
         # When: Calculate satisfaction score
         score = sq.calculate_satisfaction_score()
 
-        # Then: Score >= 0.8 and subquery is satisfied
+        # Then: Score >= 0.8 and search is satisfied
         assert score >= 0.8, f"Expected score >= 0.8 with 3 sources + primary, got {score}"
         assert sq.is_satisfied() is True
 
@@ -660,10 +660,10 @@ class TestFullPipelineSimulation:
             ("sq_3", "microplastics health criticism limitations"),
         ]
         for sq_id, sq_text in subqueries:
-            state.register_subquery(sq_id, sq_text, priority="medium")
+            state.register_search(sq_id, sq_text, priority="medium")
 
-        # When: Simulate subquery execution
-        sq = state.get_subquery("sq_1")
+        # When: Simulate search execution
+        sq = state.get_search("sq_1")
         assert sq is not None
         sq.status = SearchStatus.RUNNING
         sq.independent_sources = 3

@@ -44,7 +44,7 @@ from src.search.browser_search_provider import (
 )
 from src.search.provider import (
     HealthState,
-    SearchOptions,
+    SearchProviderOptions,
 )
 from src.search.search_parsers import ParsedResult, ParseResult
 from src.utils.schemas import LastmileCheckResult
@@ -142,7 +142,10 @@ def mock_playwright(mock_browser: AsyncMock) -> AsyncMock:
 
 @pytest.fixture(autouse=True)
 def mock_human_behavior_simulator() -> Generator[Any]:
-    """Mock get_human_behavior_simulator to avoid coroutine warnings."""
+    """Mock get_human_behavior_simulator to avoid coroutine warnings.
+
+    Patches at the use site (browser_fetcher) per test-strategy.mdc rule 7.1.
+    """
     mock_simulator = MagicMock()
     mock_simulator.read_page = AsyncMock()
     mock_simulator.move_to_element = AsyncMock()
@@ -151,7 +154,7 @@ def mock_human_behavior_simulator() -> Generator[Any]:
     mock_simulator._mouse = MagicMock()
 
     with patch(
-        "src.crawler.human_behavior.get_human_behavior_simulator",
+        "src.crawler.browser_fetcher.get_human_behavior_simulator",
         return_value=mock_simulator,
     ):
         yield mock_simulator
@@ -732,7 +735,7 @@ class TestFactoryFunctions:
 
 
 # ============================================================================
-# SearchOptions Integration Tests
+# SearchProviderOptions Integration Tests
 # ============================================================================
 
 
@@ -944,8 +947,8 @@ class TestCDPConnection:
         await provider.close()
 
 
-class TestSearchOptionsIntegration:
-    """Tests for SearchOptions integration with provider."""
+class TestSearchProviderOptionsIntegration:
+    """Tests for SearchProviderOptions integration with provider."""
 
     @pytest.mark.asyncio
     async def test_search_with_options(
@@ -1008,7 +1011,7 @@ class TestSearchOptionsIntegration:
                                 AsyncMock(),
                             ),
                         ):
-                            options = SearchOptions(
+                            options = SearchProviderOptions(
                                 engines=["duckduckgo"],
                                 time_range="week",
                                 limit=5,
@@ -1096,7 +1099,7 @@ class TestSearchOptionsIntegration:
                                 AsyncMock(),
                             ),
                         ):
-                            options = SearchOptions(limit=3)
+                            options = SearchProviderOptions(limit=3)
                             response = await provider.search("test query", options)
 
                             assert response.ok is True
@@ -2112,7 +2115,7 @@ class TestBrowserSearchProviderHumanBehavior:
                 AsyncMock(return_value=False),
             ):
                 # Given: Empty engines list
-                options = SearchOptions(engines=[])
+                options = SearchProviderOptions(engines=[])
 
                 # When: Search is called with empty engines list
                 response = await provider.search("test query", options)
@@ -2924,7 +2927,7 @@ class TestQueryNormalization:
                             with patch.object(provider, "_ensure_browser", AsyncMock()):
                                 # Given: Query with after: operator, google engine
                                 query = "AI after:2024-01-01"
-                                options = SearchOptions(engines=["google"])
+                                options = SearchProviderOptions(engines=["google"])
 
                                 # When: search() is called
                                 response = await provider.search(query, options)

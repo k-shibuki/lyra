@@ -6,7 +6,7 @@ Reports state to Cursor AI for decision making.
 
 See ADR-0010.
 
-Note: This module uses "search" terminology (not "subquery").
+Note: This module uses "search" terminology.
 """
 
 import asyncio
@@ -36,10 +36,6 @@ class SearchStatus(Enum):
     PARTIAL = "partial"  # Some sources found (1-2 independent)
     EXHAUSTED = "exhausted"  # Budget consumed or novelty dropped
     SKIPPED = "skipped"  # Manually skipped by Cursor AI
-
-
-# Terminology alias ("subquery" -> "search")
-SubqueryStatus = SearchStatus
 
 
 class TaskStatus(Enum):
@@ -214,10 +210,6 @@ class SearchState(BaseModel):
             "satisfaction_score": self.satisfaction_score,
             "refutation_status": self.refutation_status,
         }
-
-
-# Terminology alias ("subquery" -> "search")
-SubqueryState = SearchState
 
 
 class ExplorationState:
@@ -489,24 +481,6 @@ class ExplorationState:
 
         return search
 
-    # Terminology alias ("subquery" -> "search")
-    def register_subquery(
-        self,
-        subquery_id: str,
-        text: str,
-        priority: str = "medium",
-        budget_pages: int | None = None,
-        budget_time_seconds: int | None = None,
-    ) -> SearchState:
-        """Deprecated: Use register_search instead."""
-        return self.register_search(
-            search_id=subquery_id,
-            text=text,
-            priority=priority,
-            budget_pages=budget_pages,
-            budget_time_seconds=budget_time_seconds,
-        )
-
     def start_search(self, search_id: str) -> SearchState | None:
         """Mark a search as running."""
         search = self._searches.get(search_id)
@@ -520,19 +494,9 @@ class ExplorationState:
 
         return search
 
-    # Terminology alias ("subquery" -> "search")
-    def start_subquery(self, subquery_id: str) -> SearchState | None:
-        """Deprecated: Use start_search instead."""
-        return self.start_search(subquery_id)
-
     def get_search(self, search_id: str) -> SearchState | None:
         """Get a search by ID."""
         return self._searches.get(search_id)
-
-    # Terminology alias ("subquery" -> "search")
-    def get_subquery(self, subquery_id: str) -> SearchState | None:
-        """Deprecated: Use get_search instead."""
-        return self.get_search(subquery_id)
 
     def record_page_fetch(
         self,
@@ -678,11 +642,6 @@ class ExplorationState:
             return None
         return self._ucb_allocator.get_recommended_search()
 
-    # Terminology alias ("subquery" -> "search")
-    def get_ucb_recommended_subquery(self) -> str | None:
-        """Deprecated: Use get_ucb_recommended_search instead."""
-        return self.get_ucb_recommended_search()
-
     def get_ucb_scores(self) -> dict[str, float]:
         """
         Get UCB1 scores for all searches.
@@ -765,7 +724,7 @@ class ExplorationState:
 
         Returns:
             - Task status
-            - All subquery states
+            - All search states
             - Metrics (counts, pages, fragments, claims)
             - Budget information
             - UCB scores (raw data, not recommendations)
@@ -954,8 +913,8 @@ class ExplorationState:
 
         Returns summary including:
         - Final status
-        - Subquery completion summary
-        - Unsatisfied subqueries
+        - Search completion summary
+        - Unsatisfied searches
         - Followup suggestions
         """
         self._task_status = TaskStatus.COMPLETED

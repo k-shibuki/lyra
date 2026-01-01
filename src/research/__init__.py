@@ -8,18 +8,13 @@ This module implements the exploration control engine where:
 See ADR-0002 for the responsibility matrix.
 See ADR-0010 for UCB1-based budget allocation and pivot exploration.
 
-Note: This module uses "search" terminology (not "subquery").
+Note: This module uses "search" terminology.
 """
 
 from src.research.context import EntityInfo, ResearchContext, TemplateInfo
 from src.research.executor import (
+    SearchExecutionResult,
     SearchExecutor,
-    # Terminology aliases ("subquery" -> "search")
-    SubqueryExecutor,
-    SubqueryResult,
-)
-from src.research.executor import (
-    SearchResult as ExecutorSearchResult,
 )
 from src.research.pipeline import (
     SearchOptions,
@@ -41,15 +36,10 @@ from src.research.state import (
     ExplorationState,
     SearchState,
     SearchStatus,
-    # Terminology aliases ("subquery" -> "search")
-    SubqueryState,
-    SubqueryStatus,
     TaskStatus,
 )
 from src.research.ucb_allocator import (
     SearchArm,
-    # Terminology alias ("subquery" -> "search")
-    SubqueryArm,
     UCBAllocator,
 )
 
@@ -58,28 +48,20 @@ __all__ = [
     "ResearchContext",
     "EntityInfo",
     "TemplateInfo",
-    # State (new names)
+    # State
     "ExplorationState",
     "SearchState",
     "SearchStatus",
     "TaskStatus",
-    # State (deprecated aliases)
-    "SubqueryState",
-    "SubqueryStatus",
-    # Executor (new names)
+    # Executor
     "SearchExecutor",
-    "ExecutorSearchResult",
-    # Executor (deprecated aliases)
-    "SubqueryExecutor",
-    "SubqueryResult",
+    "SearchExecutionResult",
     # Refutation
     "RefutationExecutor",
     "RefutationResult",
-    # UCB1 Budget Allocation (ADR-0010, new names)
+    # UCB1 Budget Allocation (ADR-0010)
     "UCBAllocator",
     "SearchArm",
-    # UCB1 (deprecated alias)
-    "SubqueryArm",
     # Pivot Exploration (ADR-0010)
     "PivotExpander",
     "PivotSuggestion",

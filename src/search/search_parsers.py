@@ -29,7 +29,7 @@ from src.search.parser_diagnostics import (
     ParserDiagnosticReport,
     create_diagnostic_report,
 )
-from src.search.provider import SearchResult, SourceTag
+from src.search.provider import SERPResult, SourceTag
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -51,17 +51,17 @@ class ParsedResult:
     rank: int = 0
     raw_element: str | None = None  # For debugging
 
-    def to_search_result(self, engine: str, serp_page: int = 1) -> SearchResult:
-        """Convert to SearchResult for provider interface.
+    def to_search_result(self, engine: str, serp_page: int = 1) -> SERPResult:
+        """Convert to SERPResult for provider interface.
 
         Args:
             engine: Search engine name.
             serp_page: SERP page number (1-indexed) for audit/reproducibility.
 
         Returns:
-            SearchResult with page_number set.
+            SERPResult with page_number set.
         """
-        return SearchResult(
+        return SERPResult(
             title=self.title,
             url=self.url,
             snippet=self.snippet,
