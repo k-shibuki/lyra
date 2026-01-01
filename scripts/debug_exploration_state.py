@@ -75,7 +75,7 @@ async def main() -> None:
         # Import after path setup
         import uuid
 
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
         from src.research.state import ExplorationState
         from src.storage.database import get_database
 
@@ -108,7 +108,7 @@ async def main() -> None:
         print("\n[4] Executing search pipeline...")
         pipeline = SearchPipeline(task_id=task_id, state=state)
 
-        options = SearchOptions(
+        options = PipelineSearchOptions(
             budget_pages=5,  # Small budget for quick test
             engines=None,
             seek_primary=True,

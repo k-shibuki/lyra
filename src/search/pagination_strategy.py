@@ -69,11 +69,11 @@ class PaginationStrategy:
 
         # Strategy-specific checks
         if self.config.strategy == "fixed":
-            # Fixed strategy: always fetch up to max_pages
+            # Fixed strategy: always fetch up to serp_max_pages
             return True
 
         if self.config.strategy == "exhaustive":
-            # Exhaustive strategy: fetch all pages up to max_pages
+            # Exhaustive strategy: fetch all pages up to serp_max_pages
             return True
 
         # Auto strategy: use saturation and harvest rate

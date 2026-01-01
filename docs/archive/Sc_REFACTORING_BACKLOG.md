@@ -1,3 +1,10 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2026-01-01
+
 # リファクタリングバックログ
 
 本ドキュメントは、コードベース分析により特定されたレガシーパターン、分割すべきモジュール、コード重複を網羅的に記載する。
@@ -350,6 +357,11 @@ make test-unit PYTEST_ARGS="-k notification or intervention"
 
 **問題**: 同名のクラスが3箇所で定義されていた（解決済み）
 
+**完了内容**: すべてのクラスが最終命名に統一された:
+- `src/search/provider.py::SearchResult` → `SERPResult` ✅
+- `src/research/executor.py::SearchResult` → `SearchExecutionResult` ✅
+- `src/research/pipeline.py::SearchResult` → `SearchPipelineResult` ✅
+
 #### 現状確認コマンド
 
 ```bash
@@ -393,9 +405,13 @@ make test-unit
 
 ### 3.2 SearchOptions クラスの重複定義
 
-**状態**: ✅ 完了（R-06として完了）
+**状態**: ✅ 完了（R-06として完了、命名統一完了: 2026-01-01）
 
 **問題**: 同名のクラスが2箇所で定義されていた（解決済み）
+
+**完了内容**: すべてのクラスが命名統一された:
+- `src/search/provider.py::SearchOptions` → `SearchProviderOptions` ✅
+- `src/research/pipeline.py::SearchOptions` → `PipelineSearchOptions` ✅（最終完遂）
 
 #### 現状確認コマンド
 
@@ -548,4 +564,4 @@ make test-unit
 |------|--------|------|
 | 2025-12-31 | 初版作成 |
 | 2025-01-01 | 着手手順・検証コマンド追加、行番号更新 |
-| 2025-01-01 | R-01 から R-09まで 完了、全テスト通過、回帰なし|
+| 2025-01-01 | R-01 から R-09まで 完了、全テスト通過、回帰なし |

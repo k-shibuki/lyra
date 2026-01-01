@@ -1755,7 +1755,11 @@ class TestUnifiedDualSourceSearch:
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
+        from src.research.pipeline import (
+            PipelineSearchOptions,
+            SearchPipeline,
+            SearchPipelineResult,
+        )
         from src.research.state import ExplorationState
 
         # Given
@@ -1790,8 +1794,8 @@ class TestUnifiedDualSourceSearch:
             mock_resolver.close = AsyncMock()
             mock_resolver_class.return_value = mock_resolver
 
-            options = SearchOptions()
-            result = SearchResult(search_id="test_search", query=query)
+            options = PipelineSearchOptions()
+            result = SearchPipelineResult(search_id="test_search", query=query)
 
             await pipeline._execute_unified_search("test_search", query, options, result)
 
@@ -1809,7 +1813,11 @@ class TestUnifiedDualSourceSearch:
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
+        from src.research.pipeline import (
+            PipelineSearchOptions,
+            SearchPipeline,
+            SearchPipelineResult,
+        )
         from src.research.state import ExplorationState
 
         # Given
@@ -1840,8 +1848,8 @@ class TestUnifiedDualSourceSearch:
             mock_resolver.close = AsyncMock()
             mock_resolver_class.return_value = mock_resolver
 
-            options = SearchOptions()
-            result = SearchResult(search_id="test_search", query=query)
+            options = PipelineSearchOptions()
+            result = SearchPipelineResult(search_id="test_search", query=query)
 
             # When: Should not raise
             returned_result = await pipeline._execute_unified_search(
@@ -1862,7 +1870,11 @@ class TestUnifiedDualSourceSearch:
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
+        from src.research.pipeline import (
+            PipelineSearchOptions,
+            SearchPipeline,
+            SearchPipelineResult,
+        )
         from src.research.state import ExplorationState
         from src.utils.schemas import Author, Paper
 
@@ -1923,8 +1935,8 @@ class TestUnifiedDualSourceSearch:
             mock_db_instance.insert = AsyncMock(return_value="test_id")
             mock_db.return_value = mock_db_instance
 
-            options = SearchOptions()
-            result = SearchResult(search_id="test_search", query=query)
+            options = PipelineSearchOptions()
+            result = SearchPipelineResult(search_id="test_search", query=query)
 
             # When: Should not raise
             returned_result = await pipeline._execute_unified_search(
@@ -1945,7 +1957,11 @@ class TestUnifiedDualSourceSearch:
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
+        from src.research.pipeline import (
+            PipelineSearchOptions,
+            SearchPipeline,
+            SearchPipelineResult,
+        )
         from src.research.state import ExplorationState
 
         # Given
@@ -1972,8 +1988,8 @@ class TestUnifiedDualSourceSearch:
             mock_resolver.close = AsyncMock()
             mock_resolver_class.return_value = mock_resolver
 
-            options = SearchOptions()
-            result = SearchResult(search_id="test_search", query=query)
+            options = PipelineSearchOptions()
+            result = SearchPipelineResult(search_id="test_search", query=query)
 
             # When: Should not raise
             returned_result = await pipeline._execute_unified_search(
@@ -1994,7 +2010,11 @@ class TestUnifiedDualSourceSearch:
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
+        from src.research.pipeline import (
+            PipelineSearchOptions,
+            SearchPipeline,
+            SearchPipelineResult,
+        )
         from src.research.state import ExplorationState
 
         # Given
@@ -2021,8 +2041,8 @@ class TestUnifiedDualSourceSearch:
             mock_resolver.close = AsyncMock()
             mock_resolver_class.return_value = mock_resolver
 
-            options = SearchOptions()
-            result = SearchResult(search_id="test_search", query=query)
+            options = PipelineSearchOptions()
+            result = SearchPipelineResult(search_id="test_search", query=query)
 
             # When: Should not raise
             returned_result = await pipeline._execute_unified_search(
@@ -2044,7 +2064,11 @@ class TestUnifiedDualSourceSearch:
         """
         from unittest.mock import AsyncMock, patch
 
-        from src.research.pipeline import SearchOptions, SearchPipeline, SearchResult
+        from src.research.pipeline import (
+            PipelineSearchOptions,
+            SearchPipeline,
+            SearchPipelineResult,
+        )
         from src.research.state import ExplorationState
 
         # Given: Non-academic query
@@ -2055,10 +2079,10 @@ class TestUnifiedDualSourceSearch:
         with patch.object(
             pipeline, "_execute_unified_search", new_callable=AsyncMock
         ) as mock_unified:
-            mock_unified.return_value = SearchResult(search_id="test", query=query)
+            mock_unified.return_value = SearchPipelineResult(search_id="test", query=query)
 
-            options = SearchOptions()
-            result = SearchResult(search_id="test", query=query)
+            options = PipelineSearchOptions()
+            result = SearchPipelineResult(search_id="test", query=query)
 
             # When
             await pipeline._execute_normal_search("test", query, options, result)

@@ -16,7 +16,7 @@ Tests query processing, source classification, and query expansion.
 | TC-QE-01 | Expand query basic | Equivalence – expansion | Expanded query list | - |
 | TC-QE-02 | Expand query with operators | Equivalence – operators | Operators applied | - |
 | TC-QE-03 | Expand empty query | Boundary – empty | Empty or original | - |
-| TC-SE-01 | Execute search | Equivalence – search | SearchResult returned | - |
+| TC-SE-01 | Execute search | Equivalence – search | SERP result dicts returned | - |
 | TC-SE-02 | Execute with cache hit | Equivalence – caching | Cached result | - |
 | TC-SE-03 | Execute with error | Abnormal – error | Handles gracefully | - |
 """

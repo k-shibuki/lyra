@@ -17,9 +17,9 @@ from src.research.executor import (
     SearchExecutor,
 )
 from src.research.pipeline import (
-    SearchOptions,
+    PipelineSearchOptions,
     SearchPipeline,
-    SearchResult,
+    SearchPipelineResult,
     search_action,
     stop_task_action,
 )
@@ -71,8 +71,8 @@ __all__ = [
     "get_pivot_expander",
     # Pipeline (ADR-0003)
     "SearchPipeline",
-    "SearchResult",
-    "SearchOptions",
+    "SearchPipelineResult",
+    "PipelineSearchOptions",
     "search_action",
     "stop_task_action",
 ]

@@ -524,6 +524,7 @@ class DomainPolicyManager:
         # Internal state
         self._config: DomainPolicyConfigSchema | None = None
         self._last_mtime: float = 0.0
+        self._last_size: int = 0
         self._last_check: float = 0.0
         self._policy_cache: dict[str, DomainPolicy] = {}
         self._cache_lock = threading.RLock()
@@ -560,6 +561,7 @@ class DomainPolicyManager:
             return
 
         try:
+            stat = self._config_path.stat()
             with open(self._config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
 
@@ -574,7 +576,8 @@ class DomainPolicyManager:
                 data["internal_search_templates"] = templates
 
             self._config = DomainPolicyConfigSchema(**data)
-            self._last_mtime = self._config_path.stat().st_mtime
+            self._last_mtime = stat.st_mtime
+            self._last_size = stat.st_size
 
             # Clear cache on reload
             with self._cache_lock:
@@ -628,8 +631,12 @@ class DomainPolicyManager:
             return
 
         try:
-            current_mtime = self._config_path.stat().st_mtime
-            if current_mtime > self._last_mtime:
+            stat = self._config_path.stat()
+            current_mtime = stat.st_mtime
+            current_size = stat.st_size
+            # Some environments/filesystems have coarse mtime resolution.
+            # Include file size in the signature so rewrites within the same mtime tick still reload.
+            if (current_mtime, current_size) != (self._last_mtime, self._last_size):
                 logger.info("Domain policy config changed, reloading...")
                 self._load_config()
         except OSError as e:

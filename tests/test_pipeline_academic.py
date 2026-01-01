@@ -50,7 +50,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.research.pipeline import SearchPipeline, SearchResult
+from src.research.pipeline import SearchPipeline, SearchPipelineResult
 from src.research.state import ExplorationState
 from src.search.provider import SERPResult
 from src.utils.schemas import Author, CanonicalEntry, Citation, Paper
@@ -1568,7 +1568,7 @@ class TestUnifiedSearchIdentifierComplement:
                     options=MagicMock(
                         budget_pages=10, engines=None, seek_primary=False, refute=False
                     ),
-                    result=SearchResult(
+                    result=SearchPipelineResult(
                         search_id="test_search",
                         query="COVID-19 treatment",
                     ),
@@ -1686,7 +1686,7 @@ class TestUnifiedSearchIdentifierComplement:
                     options=MagicMock(
                         budget_pages=10, engines=None, seek_primary=False, refute=False
                     ),
-                    result=SearchResult(
+                    result=SearchPipelineResult(
                         search_id="test_search",
                         query="drug side effects",
                     ),
@@ -1761,7 +1761,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="general topic",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="general topic",
                 ),
@@ -1882,7 +1882,7 @@ class TestUnifiedSearchIdentifierComplement:
                     options=MagicMock(
                         budget_pages=10, engines=None, seek_primary=False, refute=False
                     ),
-                    result=SearchResult(
+                    result=SearchPipelineResult(
                         search_id="test_search",
                         query="COVID-19 treatment",
                     ),
@@ -1956,7 +1956,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="COVID-19 treatment",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="COVID-19 treatment",
                 ),
@@ -2054,7 +2054,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="machine learning",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="machine learning",
                 ),
@@ -2121,7 +2121,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="general topic",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="general topic",
                 ),
@@ -2189,7 +2189,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="general topic",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="general topic",
                 ),
@@ -2284,7 +2284,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="COVID-19 treatment",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="COVID-19 treatment",
                 ),
@@ -2363,7 +2363,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="drug side effects",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="drug side effects",
                 ),
@@ -2468,7 +2468,7 @@ class TestUnifiedSearchIdentifierComplement:
                     options=MagicMock(
                         budget_pages=10, engines=None, seek_primary=False, refute=False
                     ),
-                    result=SearchResult(
+                    result=SearchPipelineResult(
                         search_id="test_search",
                         query="COVID-19 treatment",
                     ),
@@ -2538,7 +2538,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="COVID-19 treatment",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="COVID-19 treatment",
                 ),
@@ -2591,7 +2591,7 @@ class TestUnifiedSearchIdentifierComplement:
                 search_id="test_search",
                 query="COVID-19 treatment",
                 options=MagicMock(budget_pages=10, engines=None, seek_primary=False, refute=False),
-                result=SearchResult(
+                result=SearchPipelineResult(
                     search_id="test_search",
                     query="COVID-19 treatment",
                 ),

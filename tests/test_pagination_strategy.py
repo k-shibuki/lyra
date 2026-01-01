@@ -20,8 +20,8 @@ class TestPaginationStrategy:
     """Tests for PaginationStrategy."""
 
     def test_should_fetch_next_fixed_strategy(self) -> None:
-        """Test fixed strategy: always fetch up to max_pages."""
-        # Given: Fixed strategy with max_pages=5
+        """Test fixed strategy: always fetch up to serp_max_pages."""
+        # Given: Fixed strategy with serp_max_pages=5
         config = PaginationConfig(serp_max_pages=5, strategy="fixed")
         strategy = PaginationStrategy(config)
 
@@ -31,7 +31,7 @@ class TestPaginationStrategy:
         # Then: Should fetch next
         assert strategy.should_fetch_next(context) is True
 
-        # When: Current page reaches max_pages
+        # When: Current page reaches serp_max_pages
         context = PaginationContext(current_page=5)
 
         # Then: Should not fetch next
@@ -103,18 +103,18 @@ class TestPaginationStrategy:
         assert strategy.should_fetch_next(context) is False
 
     def test_should_fetch_next_max_pages_boundary(self) -> None:
-        """Test boundary: max_pages limit."""
-        # Given: Strategy with max_pages=10
+        """Test boundary: serp_max_pages limit."""
+        # Given: Strategy with serp_max_pages=10
         config = PaginationConfig(serp_max_pages=10)
         strategy = PaginationStrategy(config)
 
-        # When: Current page is max_pages
+        # When: Current page is serp_max_pages
         context = PaginationContext(current_page=10)
 
         # Then: Should not fetch next
         assert strategy.should_fetch_next(context) is False
 
-        # When: Current page exceeds max_pages
+        # When: Current page exceeds serp_max_pages
         context = PaginationContext(current_page=11)
 
         # Then: Should not fetch next
@@ -186,8 +186,8 @@ class TestPaginationStrategy:
         assert abs(novelty_rate - 2.0 / 3.0) < 0.001
 
     def test_should_fetch_next_exhaustive_strategy(self) -> None:
-        """Test exhaustive strategy: fetch all pages up to max_pages."""
-        # Given: Exhaustive strategy with max_pages=10
+        """Test exhaustive strategy: fetch all pages up to serp_max_pages."""
+        # Given: Exhaustive strategy with serp_max_pages=10
         config = PaginationConfig(serp_max_pages=10, strategy="exhaustive")
         strategy = PaginationStrategy(config)
 
@@ -197,7 +197,7 @@ class TestPaginationStrategy:
         # Then: Should fetch next
         assert strategy.should_fetch_next(context) is True
 
-        # When: Current page reaches max_pages
+        # When: Current page reaches serp_max_pages
         context = PaginationContext(current_page=10)
 
         # Then: Should not fetch next
@@ -265,7 +265,7 @@ class TestPaginationStrategy:
 
     def test_should_fetch_next_boundary_page_one(self) -> None:
         """Test boundary: current_page = 1."""
-        # Given: Strategy with max_pages=10
+        # Given: Strategy with serp_max_pages=10
         config = PaginationConfig(serp_max_pages=10)
         strategy = PaginationStrategy(config)
 

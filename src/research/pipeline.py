@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class SearchResult:
+class SearchPipelineResult:
     """Result of a search pipeline execution.
 
     Conforms to ADR-0003 search response schema.
@@ -102,7 +102,7 @@ class SearchResult:
 
 
 @dataclass
-class SearchOptions:
+class PipelineSearchOptions:
     """Options for search execution."""
 
     engines: list[str] | None = None  # Use None for Lyra-selected engines
@@ -162,8 +162,8 @@ class SearchPipeline:
     async def execute(
         self,
         query: str,
-        options: SearchOptions | None = None,
-    ) -> SearchResult:
+        options: PipelineSearchOptions | None = None,
+    ) -> SearchPipelineResult:
         """
         Execute a search designed by Cursor AI.
 
@@ -174,10 +174,10 @@ class SearchPipeline:
             options: Search options.
 
         Returns:
-            SearchResult with execution results.
+            SearchPipelineResult with execution results.
         """
         if options is None:
-            options = SearchOptions()
+            options = PipelineSearchOptions()
 
         await self._ensure_db()
 
@@ -208,7 +208,7 @@ class SearchPipeline:
                 timeout=timeout_seconds,
             )
 
-            result = SearchResult(
+            result = SearchPipelineResult(
                 search_id=search_id,
                 query=query,
                 is_refutation=options.refute,
@@ -262,9 +262,9 @@ class SearchPipeline:
         self,
         search_id: str,
         query: str,
-        options: SearchOptions,
-        result: SearchResult,
-    ) -> SearchResult:
+        options: PipelineSearchOptions,
+        result: SearchPipelineResult,
+    ) -> SearchPipelineResult:
         """
         Internal implementation of search execution.
 
@@ -298,9 +298,9 @@ class SearchPipeline:
         self,
         search_id: str,
         query: str,
-        options: SearchOptions,
-        result: SearchResult,
-    ) -> SearchResult:
+        options: PipelineSearchOptions,
+        result: SearchPipelineResult,
+    ) -> SearchPipelineResult:
         """Execute normal search mode.
 
         Always runs unified dual-source search (Academic API + Browser SERP) per ADR-0016.
@@ -313,9 +313,9 @@ class SearchPipeline:
         self,
         search_id: str,
         query: str,
-        options: SearchOptions,
-        result: SearchResult,
-    ) -> SearchResult:
+        options: PipelineSearchOptions,
+        result: SearchPipelineResult,
+    ) -> SearchPipelineResult:
         """Execute fetch and extract via SearchExecutor.
 
         Runs SearchExecutor to fetch pages and extract content/claims.
@@ -326,10 +326,10 @@ class SearchPipeline:
             search_id: Search ID
             query: Search query
             options: Search options
-            result: SearchResult to update
+            result: SearchPipelineResult to update
 
         Returns:
-            Updated SearchResult with fetch/extract stats
+            Updated SearchPipelineResult with fetch/extract stats
         """
         # ADR-0014 Phase 3: pass worker_id for context isolation
         executor = SearchExecutor(self.task_id, self.state, worker_id=options.worker_id)
@@ -344,7 +344,7 @@ class SearchPipeline:
             search_job_id=options.search_job_id,  # ADR-0007
         )
 
-        # Map executor result to SearchResult
+        # Map executor result to SearchPipelineResult
         result.status = exec_result.status
         result.pages_fetched = exec_result.pages_fetched
         result.useful_fragments = exec_result.useful_fragments
@@ -379,7 +379,7 @@ class SearchPipeline:
         search_id: str,
         query: str,
         serp_items: list[dict[str, Any]],
-        options: SearchOptions,
+        options: PipelineSearchOptions,
     ) -> tuple[Any, list[Any]]:
         """Process SERP items to extract identifiers and complement with academic API.
 
@@ -430,7 +430,7 @@ class SearchPipeline:
                     except Exception as e:
                         logger.debug("DOI resolution failed", url=url, error=str(e))
 
-                # Convert dict to SearchResult
+                # Convert dict to SERPResult
                 serp_result = SERPResult(
                     title=item.get("title", ""),
                     url=url,
@@ -520,8 +520,8 @@ class SearchPipeline:
         search_id: str,
         query: str,
         index: Any,
-        options: SearchOptions,
-        result: SearchResult,
+        options: PipelineSearchOptions,
+        result: SearchPipelineResult,
     ) -> None:
         """Process citation graph for papers with abstracts.
 
@@ -530,7 +530,7 @@ class SearchPipeline:
             query: Search query
             index: CanonicalPaperIndex with papers
             options: Search options
-            result: SearchResult to update
+            result: SearchPipelineResult to update
         """
         from src.filter.evidence_graph import (
             NodeType,
@@ -781,9 +781,9 @@ class SearchPipeline:
         self,
         search_id: str,
         query: str,
-        options: SearchOptions,
-        result: SearchResult,
-    ) -> SearchResult:
+        options: PipelineSearchOptions,
+        result: SearchPipelineResult,
+    ) -> SearchPipelineResult:
         """Execute unified dual-source search (Browser SERP + Academic API).
 
         Always runs both sources in parallel per ADR-0016:
@@ -887,7 +887,7 @@ class SearchPipeline:
                     except Exception as e:
                         logger.debug("DOI resolution failed", url=url, error=str(e))
 
-                # Convert dict to SearchResult
+                # Convert dict to SERPResult
                 serp_result = SERPResult(
                     title=item.get("title", ""),
                     url=url,
@@ -1309,9 +1309,9 @@ class SearchPipeline:
         self,
         search_id: str,
         query: str,
-        options: SearchOptions,
-        result: SearchResult,
-    ) -> SearchResult:
+        options: PipelineSearchOptions,
+        result: SearchPipelineResult,
+    ) -> SearchPipelineResult:
         """Execute refutation search mode.
 
         Applies mechanical suffix patterns and uses NLI for refutation detection.
@@ -1534,8 +1534,8 @@ async def search_action(
     Returns:
         Search result dict (pages found, claims extracted, metrics).
     """
-    # Convert options dict to SearchOptions
-    search_options = SearchOptions()
+    # Convert options dict to PipelineSearchOptions
+    search_options = PipelineSearchOptions()
     if options:
         search_options.engines = options.get("engines")
         search_options.budget_pages = options.get("budget_pages")

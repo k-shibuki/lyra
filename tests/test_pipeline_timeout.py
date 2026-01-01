@@ -62,7 +62,7 @@ class TestPipelineTimeout:
         // When: execute() is called
         // Then: Returns timeout status with is_partial=True
         """
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
 
         pipeline = SearchPipeline("test_task", mock_state)
 
@@ -78,7 +78,7 @@ class TestPipelineTimeout:
                 return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
             ),
         ):
-            result = await pipeline.execute("test query", SearchOptions())
+            result = await pipeline.execute("test query", PipelineSearchOptions())
 
             assert result.status == "timeout"
             assert result.is_partial is True
@@ -129,7 +129,7 @@ class TestPipelineTimeout:
         // When: execute() times out
         // Then: budget_remaining is populated
         """
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
 
         pipeline = SearchPipeline("test_task", mock_state)
 
@@ -145,7 +145,7 @@ class TestPipelineTimeout:
                 return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
             ),
         ):
-            result = await pipeline.execute("test query", SearchOptions())
+            result = await pipeline.execute("test query", PipelineSearchOptions())
 
             assert "pages" in result.budget_remaining
             assert result.budget_remaining["pages"] == 110
@@ -161,7 +161,7 @@ class TestPipelineTimeout:
         // When: execute() is called
         // Then: Returns satisfied status, is_partial=False
         """
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
 
         pipeline = SearchPipeline("test_task", mock_state)
 
@@ -179,7 +179,7 @@ class TestPipelineTimeout:
                 return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=10)),
             ),
         ):
-            result = await pipeline.execute("test query", SearchOptions())
+            result = await pipeline.execute("test query", PipelineSearchOptions())
 
             assert result.status == "satisfied"
             assert result.is_partial is False
@@ -196,7 +196,7 @@ class TestPipelineTimeout:
         // When: execute() times out
         // Then: Warning is logged with timeout keyword
         """
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
 
         pipeline = SearchPipeline("test_task", mock_state)
 
@@ -213,7 +213,7 @@ class TestPipelineTimeout:
             ),
             patch("src.research.pipeline.logger") as mock_logger,
         ):
-            await pipeline.execute("test query", SearchOptions())
+            await pipeline.execute("test query", PipelineSearchOptions())
 
             mock_logger.warning.assert_called()
             call_args = mock_logger.warning.call_args
@@ -230,7 +230,7 @@ class TestPipelineTimeout:
         // When: execute() is called
         // Then: Returns failed status with error message
         """
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
 
         pipeline = SearchPipeline("test_task", mock_state)
 
@@ -245,7 +245,7 @@ class TestPipelineTimeout:
                 return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=10)),
             ),
         ):
-            result = await pipeline.execute("test query", SearchOptions())
+            result = await pipeline.execute("test query", PipelineSearchOptions())
 
             assert result.status == "failed"
             assert len(result.errors) > 0
@@ -262,7 +262,7 @@ class TestPipelineTimeout:
         // When: execute() is called
         // Then: Completes normally without timeout
         """
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
 
         pipeline = SearchPipeline("test_task", mock_state)
 
@@ -280,7 +280,7 @@ class TestPipelineTimeout:
                 return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.2)),
             ),
         ):
-            result = await pipeline.execute("test query", SearchOptions())
+            result = await pipeline.execute("test query", PipelineSearchOptions())
 
             assert result.status == "satisfied"
             assert result.is_partial is False
@@ -296,7 +296,7 @@ class TestPipelineTimeout:
         // When: execute() is called
         // Then: Times out
         """
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
 
         pipeline = SearchPipeline("test_task", mock_state)
 
@@ -312,7 +312,7 @@ class TestPipelineTimeout:
                 return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
             ),
         ):
-            result = await pipeline.execute("test query", SearchOptions())
+            result = await pipeline.execute("test query", PipelineSearchOptions())
 
             assert result.status == "timeout"
             assert result.is_partial is True

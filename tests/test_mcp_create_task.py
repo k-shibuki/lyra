@@ -10,7 +10,6 @@ Tests create_task handler behavior per ADR-0003.
 | TC-CT-N-03 | Valid query, config omitted | Equivalence – normal | ok=True, default budget applied | - |
 | TC-CT-A-01 | Empty query string | Boundary – empty | InvalidParamsError | - |
 | TC-CT-A-02 | query missing | Boundary – NULL | KeyError or InvalidParamsError | - |
-| TC-CT-A-03 | budget.max_pages (legacy) | Abnormal | InvalidParamsError with message | ADR-0003 breaking change |
 | TC-CT-B-01 | budget_pages=0 | Boundary – zero | ok=True, budget_pages=0 | Zero allowed |
 | TC-CT-B-02 | budget_pages=-1 | Boundary – negative | ok=True, budget_pages=-1 | Negative allowed (validation elsewhere) |
 | TC-CT-B-03 | max_seconds=0 | Boundary – zero | ok=True, max_seconds=0 | Zero allowed |

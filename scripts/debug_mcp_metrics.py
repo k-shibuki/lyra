@@ -98,7 +98,7 @@ async def main() -> None:
 
         import uuid
 
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
         from src.storage.database import get_database
 
         # Create task
@@ -143,7 +143,7 @@ async def main() -> None:
         state.original_query = query_text
 
         pipeline = SearchPipeline(task_id=task_id, state=state)
-        options = SearchOptions(
+        options = PipelineSearchOptions(
             budget_pages=5,
             engines=None,
             seek_primary=True,

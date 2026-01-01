@@ -276,7 +276,7 @@ ALTER TABLE serp_items ADD COLUMN page_number INTEGER DEFAULT 1;
 cache_key = f"{normalized_query}|{engines}|{time_range}"
 
 # 変更後（serp_max_pages を追加）
-cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={max_pages}"
+cache_key = f"{normalized_query}|{engines}|{time_range}|serp_max_pages={serp_max_pages}"
 ```
 
 **キャッシュキー設計:**

@@ -29,7 +29,7 @@ async def main() -> None:
         # Import after path setup (DB path is set by context manager)
         import uuid
 
-        from src.research.pipeline import SearchOptions, SearchPipeline
+        from src.research.pipeline import PipelineSearchOptions, SearchPipeline
         from src.research.state import ExplorationState
 
         # Create task
@@ -64,7 +64,7 @@ async def main() -> None:
         print("\n[3] Executing search pipeline...")
         pipeline = SearchPipeline(task_id=task_id, state=state)
 
-        options = SearchOptions(
+        options = PipelineSearchOptions(
             budget_pages=10,
             engines=None,  # Use defaults (academic APIs + browser)
             seek_primary=True,
