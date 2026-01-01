@@ -83,7 +83,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics with action="get_stats"
         // Then: Statistics returned with ok=True
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         with patch(
             "src.utils.nli_calibration.get_calibration_stats", new_callable=AsyncMock
@@ -111,7 +113,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics with action="get_stats" without data
         // Then: Statistics returned (data not required for get_stats)
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         with patch(
             "src.utils.nli_calibration.get_calibration_stats", new_callable=AsyncMock
@@ -136,7 +140,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics with action="get_evaluations"
         // Then: Evaluations list returned with ok=True
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         # Mock database cursor and connection
         mock_cursor = MagicMock()
@@ -174,7 +180,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics with action="get_evaluations" and since
         // Then: Filtered evaluations returned
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         # Mock database cursor and connection
         mock_cursor = MagicMock()
@@ -213,7 +221,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics without action
         // Then: InvalidParamsError raised
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_calibration_metrics({})
@@ -229,7 +239,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics with action=""
         // Then: InvalidParamsError raised
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_calibration_metrics({"action": ""})
@@ -245,7 +257,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics with unknown action
         // Then: ok=False with error=INVALID_PARAMS
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         result = await _handle_calibration_metrics(
             {
@@ -274,7 +288,9 @@ class TestCalibrationMetricsHandler:
         // When: Calling calibration_metrics with action="get_evaluations"
         // Then: Empty list returned
         """
-        from src.mcp.server import _handle_calibration_metrics
+        from src.mcp.tools.calibration import (
+            handle_calibration_metrics as _handle_calibration_metrics,
+        )
 
         # Mock database cursor and connection
         mock_cursor = MagicMock()

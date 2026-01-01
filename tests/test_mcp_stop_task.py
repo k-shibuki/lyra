@@ -48,7 +48,7 @@ class TestStopTaskModeValidation:
         // Then: InvalidParamsError is raised
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_stop_task({})
@@ -65,7 +65,7 @@ class TestStopTaskModeValidation:
         // Then: TaskNotFoundError is raised
         """
         from src.mcp.errors import TaskNotFoundError
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         with pytest.raises(TaskNotFoundError) as exc_info:
             await _handle_stop_task({"task_id": "nonexistent_task"})
@@ -82,7 +82,7 @@ class TestStopTaskModeValidation:
         // Then: InvalidParamsError is raised
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -115,7 +115,7 @@ class TestStopTaskGracefulMode:
         // When: stop_task(mode=graceful)
         // Then: Queued jobs are cancelled
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -172,7 +172,7 @@ class TestStopTaskGracefulMode:
         // When: stop_task(mode=graceful)
         // Then: Running job state is preserved
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -226,7 +226,7 @@ class TestStopTaskGracefulMode:
         // When: stop_task without mode
         // Then: Behaves as graceful (queued cancelled, running preserved)
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -310,7 +310,7 @@ class TestStopTaskImmediateMode:
         // When: stop_task(mode=immediate)
         // Then: Queued jobs are cancelled
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -367,7 +367,7 @@ class TestStopTaskImmediateMode:
         // When: stop_task(mode=immediate)
         // Then: Running job is cancelled, state='cancelled'
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -429,7 +429,7 @@ class TestStopTaskEmptyQueue:
         // When: stop_task is called
         // Then: Completes without error
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -757,7 +757,7 @@ class TestStopTaskAuthQueueCancellation:
         // When: stop_task is called
         // Then: Auth queue items are marked as cancelled
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
         from src.utils.notification import get_intervention_queue
 
         db = test_database
@@ -825,7 +825,7 @@ class TestStopTaskAuthQueueCancellation:
         // When: stop_task is called
         // Then: Completes without error
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
         db = test_database
 
@@ -856,7 +856,7 @@ class TestStopTaskAuthQueueCancellation:
         // When: stop_task is called
         // Then: In-progress items are also cancelled
         """
-        from src.mcp.server import _handle_stop_task
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
         from src.utils.notification import get_intervention_queue
 
         db = test_database

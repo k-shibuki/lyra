@@ -50,7 +50,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback without version
         // Then: Rollback to previous version succeeds
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             result = await _handle_calibration_rollback(
@@ -80,7 +82,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback with version=1
         // Then: Rollback to version 1 succeeds
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         # Override rollback result for version 1
         rollback_params = MagicMock()
@@ -116,7 +120,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback with reason
         // Then: Reason included in response and passed to rollback
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             result = await _handle_calibration_rollback(
@@ -144,7 +150,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback
         // Then: InvalidParamsError raised
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_calibration_rollback({})
@@ -161,7 +169,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback
         // Then: InvalidParamsError raised
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_calibration_rollback({"source": ""})
@@ -177,7 +187,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback
         // Then: CalibrationError raised
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         # No calibration history
         mock_calibrator.get_params.return_value = None
@@ -198,7 +210,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback without version
         // Then: CalibrationError raised (no previous)
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         # Only version 1 exists
         current_params = MagicMock()
@@ -221,7 +235,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback with invalid version
         // Then: CalibrationError raised
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         # rollback_to_version raises ValueError for invalid version
         mock_calibrator.rollback_to_version.side_effect = ValueError("Version 999 not found")
@@ -246,7 +262,9 @@ class TestCalibrationRollbackHandler:
         // When: Calling calibration_rollback
         // Then: CalibrationError raised
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         mock_calibrator.rollback_to_version.return_value = None
 
@@ -271,7 +289,9 @@ class TestCalibrationRollbackHandler:
         // When: Checking response
         // Then: brier_after and method are included
         """
-        from src.mcp.server import _handle_calibration_rollback
+        from src.mcp.tools.calibration import (
+            handle_calibration_rollback as _handle_calibration_rollback,
+        )
 
         with patch("src.utils.nli_calibration.get_calibrator", return_value=mock_calibrator):
             result = await _handle_calibration_rollback(

@@ -61,7 +61,7 @@ pytest tests/test_serp_max_pages_propagation.py -v
 
 **状態**: 移行中（エイリアスで互換性維持）
 
-**概要**: 内部用語が `subquery` から `search` に統一された。現在はエイリアスで後方互換性を維持しているが、完全移行が未完了。
+**概要**: 内部用語が `subquery` から `search` に統一された。現在はエイリアスで後方互換性を維持しているが、完全移行が未完了。後方互換性は完全に排除すべき。
 
 #### 現状確認コマンド
 
@@ -212,6 +212,8 @@ make test-unit
 
 ### 2.3 mcp/server.py（2380行）分割計画
 
+**状態**: ✅ 完了（2025-01-01）
+
 #### 現状構造確認コマンド
 
 ```bash
@@ -328,7 +330,7 @@ grep -rn 'from src.utils.notification import' src/ tests/
 #    b. intervention_manager.py
 #    c. batch_notification.py
 #    d. intervention_queue.py
-#    e. notification.py（re-export で後方互換維持）
+#    e. notification.py（re-export 禁止、後方互換は排除）
 
 # 3. テスト実行
 make test-unit PYTEST_ARGS="-k notification or intervention"
@@ -375,7 +377,7 @@ grep -rn 'from src.research.pipeline import.*SearchResult' src/ tests/
 # 2. 改名順序（影響が小さい順）:
 #    a. search/provider.py の SearchResult → SERPResult
 #    b. research/executor.py の SearchResult → SearchExecutionResult
-#    c. エイリアスで後方互換維持
+#    c. エイリアスで後方互換することは禁止、完全に移行
 
 # 3. テスト実行
 make test-unit
@@ -472,10 +474,9 @@ grep -rn '^class Domain' src/
 
 | ID | タスク | 見積もり | 前提 | 検証 |
 |----|--------|---------|------|------|
-| R-01 | `fetcher.py` を6ファイルに分割 | 4h | なし | `make test-unit PYTEST_ARGS="-k fetcher"` |
-| R-02 | `mcp/server.py` を `mcp/tools/` に分割 | 3h | なし | `make test-unit PYTEST_ARGS="-k mcp"` |
-| R-03 | `notification.py` を4ファイルに分割 | 2h | なし | `make test-unit PYTEST_ARGS="-k notification"` |
-| ~~R-04~~ | ~~`max_pages` バリデーション削除~~ | ~~30m~~ | ~~なし~~ | ✅ **完了**（2025-01-01） |
+| R-01 | `fetcher.py` を6ファイルに分割 | 4h | なし | ✅ 完了 |
+| R-02 | `mcp/server.py` を `mcp/tools/` に分割 | 3h | なし | ✅ 完了 |
+| R-03 | `notification.py` を4ファイルに分割 | 30min | なし | ✅ 完了 |
 
 ### MEDIUM（今後1-2ヶ月）
 
@@ -492,7 +493,6 @@ grep -rn '^class Domain' src/
 |----|--------|---------|------|------|
 | R-09 | Legacy mode コードの整理 | 2h | 使用状況調査 | `make test-unit` |
 | R-10 | Domain* クラスの整理検討 | 1h | なし | N/A（調査のみ） |
-| R-11 | deprecated エイリアスに警告追加 | 1h | R-07 完了後 | `make test-unit` |
 
 ---
 
@@ -508,8 +508,8 @@ grep -n '^class\|^def\|^async def' <target_file>
 grep -rn 'from <module> import' src/ tests/
 
 # 3. 新ファイル作成（依存が少ないものから）
-# 4. 元ファイルで re-export して後方互換維持
-# 5. 各ステップ後にテスト実行
+# 4. 元ファイルで re-export せず、完全にクリーンに移行する（後方互換性を排除）
+# 5. 各ステップ後にテスト実行で移行を確認
 make test-unit PYTEST_ARGS="-k <module_name>"
 
 # 6. lint 確認
@@ -526,12 +526,9 @@ wc -l <new_files>
 grep -rn '<OldName>' src/ tests/
 
 # 2. 改名
-# 3. エイリアス追加（後方互換）
-#    OldName = NewName  # Deprecated: use NewName
-# 4. テスト実行
+# 3. エイリアスは追加せず、完全にクリーンに移行する（後方互換性を排除）
+# 4. テスト実行で移行を確認
 make test-unit
-
-# 5. 将来的にエイリアス削除（deprecation warning 追加後）
 ```
 
 ---

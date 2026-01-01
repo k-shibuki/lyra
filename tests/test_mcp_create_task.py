@@ -42,11 +42,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: ok=True and budget includes budget_pages
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "test query",
@@ -68,11 +68,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: ok=True and budget uses defaults (budget_pages=120, max_seconds=1200)
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "test query",
@@ -93,11 +93,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: ok=True and default budget applied
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "test query",
@@ -117,11 +117,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: Task is created (empty string is allowed, validation elsewhere)
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "",
@@ -141,11 +141,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: KeyError raised
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             with pytest.raises(KeyError):
                 await _handle_create_task({})
 
@@ -158,11 +158,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: ok=True, budget_pages=0
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "test query",
@@ -182,11 +182,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: ok=True, budget_pages=-1 (validation happens elsewhere)
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "test query",
@@ -206,11 +206,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: ok=True, max_seconds=0
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "test query",
@@ -230,11 +230,11 @@ class TestCreateTaskValidation:
         // When: _handle_create_task is called
         // Then: ok=True, max_seconds=-1 (validation happens elsewhere)
         """
-        from src.mcp.server import _handle_create_task
+        from src.mcp.tools.task import handle_create_task as _handle_create_task
 
         db = test_database
 
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
+        with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
                     "query": "test query",

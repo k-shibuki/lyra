@@ -50,7 +50,7 @@ class TestQueueSearchesValidation:
         // Then: InvalidParamsError is raised
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_queue_searches(
@@ -71,7 +71,7 @@ class TestQueueSearchesValidation:
         // Then: InvalidParamsError is raised
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_queue_searches(
@@ -93,7 +93,7 @@ class TestQueueSearchesValidation:
         // Then: TaskNotFoundError is raised
         """
         from src.mcp.errors import TaskNotFoundError
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         with pytest.raises(TaskNotFoundError) as exc_info:
             await _handle_queue_searches(
@@ -118,7 +118,7 @@ class TestQueueSearchesExecution:
         // When: queue_searches with one query
         // Then: Returns ok=True, queued_count=1, search_ids
         """
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         db = test_database
 
@@ -159,7 +159,7 @@ class TestQueueSearchesExecution:
         // When: queue_searches with multiple queries
         // Then: All queued with unique IDs
         """
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         db = test_database
 
@@ -190,7 +190,7 @@ class TestQueueSearchesExecution:
         // When: queue_searches with priority="high"
         // Then: Job has priority=10
         """
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         db = test_database
 
@@ -223,7 +223,7 @@ class TestQueueSearchesExecution:
         // When: queue_searches with priority="low"
         // Then: Job has priority=90
         """
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         db = test_database
 
@@ -264,7 +264,7 @@ class TestQueueSearchesOptionsPropagation:
         // When: queue_searches with options.budget_pages=5
         // Then: input_json contains {"options": {"budget_pages": 5}}
         """
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         db = test_database
 
@@ -300,7 +300,7 @@ class TestQueueSearchesOptionsPropagation:
         // When: queue_searches with options.engines=["duckduckgo"]
         // Then: input_json contains {"options": {"engines": ["duckduckgo"]}}
         """
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         db = test_database
 
@@ -336,7 +336,7 @@ class TestQueueSearchesOptionsPropagation:
         // When: queue_searches with budget_pages, engines, and priority
         // Then: budget_pages and engines in input_json.options, priority excluded (stored in jobs.priority)
         """
-        from src.mcp.server import _handle_queue_searches
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
 
         db = test_database
 
@@ -388,7 +388,7 @@ class TestGetStatusWithWait:
         // Then: InvalidParamsError is raised
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_get_status
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
 
         db = test_database
 
@@ -417,7 +417,7 @@ class TestGetStatusWithWait:
         // Then: InvalidParamsError is raised
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_get_status
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
 
         db = test_database
 
@@ -445,7 +445,7 @@ class TestGetStatusWithWait:
         // When: get_status with wait=0
         // Then: Returns immediately without waiting
         """
-        from src.mcp.server import _handle_get_status
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
 
         db = test_database
 
@@ -481,7 +481,7 @@ class TestGetStatusQueueField:
         // When: get_status called
         // Then: queue.depth reflects queued count
         """
-        from src.mcp.server import _handle_get_status
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
 
         db = test_database
 
@@ -531,7 +531,7 @@ class TestGetStatusQueueField:
         // When: get_status called
         // Then: queue.depth is 0
         """
-        from src.mcp.server import _handle_get_status
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
 
         db = test_database
 

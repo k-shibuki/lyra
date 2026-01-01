@@ -386,9 +386,9 @@ class TestRequeueAwaitingAuthJobs:
         )
 
         # When
-        from src.mcp.server import _requeue_awaiting_auth_jobs
+        from src.mcp.tools.auth import requeue_awaiting_auth_jobs as _requeue_awaiting_auth_jobs
 
-        with patch("src.mcp.server.get_database", return_value=db):
+        with patch("src.storage.database.get_database", return_value=db):
             count = await _requeue_awaiting_auth_jobs("duckduckgo")
 
         # Then
@@ -409,9 +409,9 @@ class TestRequeueAwaitingAuthJobs:
         db = test_database
 
         # When
-        from src.mcp.server import _requeue_awaiting_auth_jobs
+        from src.mcp.tools.auth import requeue_awaiting_auth_jobs as _requeue_awaiting_auth_jobs
 
-        with patch("src.mcp.server.get_database", return_value=db):
+        with patch("src.storage.database.get_database", return_value=db):
             count = await _requeue_awaiting_auth_jobs("unknown_domain")
 
         # Then
@@ -435,11 +435,14 @@ class TestResetCircuitBreaker:
         mock_manager.get_breaker = AsyncMock(return_value=mock_breaker)
 
         # When
-        from src.mcp.server import _reset_circuit_breaker_for_engine
+        from src.mcp.tools.auth import (
+            reset_circuit_breaker_for_engine as _reset_circuit_breaker_for_engine,
+        )
 
         # Patch at the use site (inside the function)
         with patch(
-            "src.search.circuit_breaker.get_circuit_breaker_manager",
+            "src.mcp.tools.auth.get_circuit_breaker_manager",
+            new_callable=AsyncMock,
             return_value=mock_manager,
         ):
             await _reset_circuit_breaker_for_engine("duckduckgo")
@@ -456,7 +459,9 @@ class TestResetCircuitBreaker:
         Then: No exception is raised (logs warning)
         """
         # Given/When
-        from src.mcp.server import _reset_circuit_breaker_for_engine
+        from src.mcp.tools.auth import (
+            reset_circuit_breaker_for_engine as _reset_circuit_breaker_for_engine,
+        )
 
         with patch(
             "src.search.circuit_breaker.get_circuit_breaker_manager",
@@ -523,7 +528,7 @@ class TestGetPendingAuthInfo:
         )
 
         # When
-        from src.mcp.server import _get_pending_auth_info
+        from src.mcp.helpers import get_pending_auth_info as _get_pending_auth_info
 
         result = await _get_pending_auth_info(db, task_id)
 
@@ -547,7 +552,7 @@ class TestGetPendingAuthInfo:
         task_id = "task_empty"
 
         # When
-        from src.mcp.server import _get_pending_auth_info
+        from src.mcp.helpers import get_pending_auth_info as _get_pending_auth_info
 
         result = await _get_pending_auth_info(db, task_id)
 

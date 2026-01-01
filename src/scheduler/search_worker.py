@@ -37,7 +37,7 @@ async def _get_exploration_state(task_id: str) -> "ExplorationState":
     This is a helper to avoid circular imports with server.py.
     Uses the same cache as the MCP server.
     """
-    from src.mcp.server import _get_exploration_state as get_state
+    from src.mcp.helpers import get_exploration_state as get_state
 
     state: ExplorationState = await get_state(task_id)
     return state

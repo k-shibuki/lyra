@@ -207,7 +207,7 @@ class TestGetStatusDomainOverrides:
         // When: Calling get_status
         // Then: domain_overrides[] contains the active rules
         """
-        from src.mcp.server import _handle_get_status
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
 
         db = test_database
 

@@ -91,10 +91,10 @@ class TestMCPIdleWarning:
             return mock_state
 
         with (
-            patch("src.mcp.server.get_database", return_value=mock_db),
-            patch("src.mcp.server._get_exploration_state", side_effect=get_state),
+            patch("src.storage.database.get_database", return_value=mock_db),
+            patch("src.mcp.helpers.get_exploration_state", side_effect=get_state),
         ):
-            from src.mcp.server import _handle_get_status
+            from src.mcp.tools.task import handle_get_status as _handle_get_status
 
             result = await _handle_get_status({"task_id": "test_task"})
 
@@ -132,16 +132,16 @@ class TestMCPIdleWarning:
             return mock_state
 
         with (
-            patch("src.mcp.server.get_database", return_value=mock_db),
-            patch("src.mcp.server._get_exploration_state", side_effect=get_state),
+            patch("src.storage.database.get_database", return_value=mock_db),
+            patch("src.mcp.helpers.get_exploration_state", side_effect=get_state),
             patch(
                 "src.research.pipeline.stop_task_action",
                 new_callable=AsyncMock,
                 return_value=mock_stop_result,
             ),
-            patch("src.mcp.server._clear_exploration_state"),
+            patch("src.mcp.helpers.clear_exploration_state"),
         ):
-            from src.mcp.server import _handle_stop_task
+            from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
             await _handle_stop_task({"task_id": "test_task"})
 
@@ -194,10 +194,10 @@ class TestMCPIdleWarning:
             return mock_state
 
         with (
-            patch("src.mcp.server.get_database", return_value=mock_db),
-            patch("src.mcp.server._get_exploration_state", side_effect=get_state),
+            patch("src.storage.database.get_database", return_value=mock_db),
+            patch("src.mcp.helpers.get_exploration_state", side_effect=get_state),
         ):
-            from src.mcp.server import _handle_get_status
+            from src.mcp.tools.task import handle_get_status as _handle_get_status
 
             result = await _handle_get_status({"task_id": "test_task"})
 
@@ -217,8 +217,8 @@ class TestMCPIdleWarning:
         """
         from src.mcp.errors import InvalidParamsError
 
-        with patch("src.mcp.server.get_database", return_value=mock_db):
-            from src.mcp.server import _handle_get_status
+        with patch("src.storage.database.get_database", return_value=mock_db):
+            from src.mcp.tools.task import handle_get_status as _handle_get_status
 
             with pytest.raises(InvalidParamsError) as exc_info:
                 await _handle_get_status({"task_id": None})
@@ -236,8 +236,8 @@ class TestMCPIdleWarning:
         """
         from src.mcp.errors import InvalidParamsError
 
-        with patch("src.mcp.server.get_database", return_value=mock_db):
-            from src.mcp.server import _handle_get_status
+        with patch("src.storage.database.get_database", return_value=mock_db):
+            from src.mcp.tools.task import handle_get_status as _handle_get_status
 
             with pytest.raises(InvalidParamsError) as exc_info:
                 await _handle_get_status({"task_id": ""})

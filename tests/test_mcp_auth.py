@@ -79,7 +79,7 @@ class TestGetAuthQueueExecution:
         // When: Calling get_auth_queue with group_by=none
         // Then: Returns flat list of items
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = mock_pending_items
@@ -110,7 +110,7 @@ class TestGetAuthQueueExecution:
         // When: Calling get_auth_queue with group_by=domain
         // Then: Returns items grouped by domain
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = mock_pending_items
@@ -145,7 +145,7 @@ class TestGetAuthQueueExecution:
         // When: Calling get_auth_queue with group_by=type
         // Then: Returns items grouped by auth_type
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = mock_pending_items
@@ -179,7 +179,7 @@ class TestGetAuthQueueExecution:
         // When: Calling get_auth_queue
         // Then: Queue.get_pending called with task_id
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = mock_pending_items
@@ -209,7 +209,7 @@ class TestGetAuthQueueExecution:
         // When: Calling get_auth_queue
         // Then: Queue.get_pending called with priority
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = [mock_pending_items[0]]  # Only high priority
@@ -242,7 +242,7 @@ class TestGetAuthQueueBoundaryValues:
         // When: Calling get_auth_queue
         // Then: Returns total_count=0 and empty items list
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = []
@@ -266,7 +266,7 @@ class TestGetAuthQueueBoundaryValues:
         // When: Calling get_auth_queue
         // Then: Returns total_count=1
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = [
@@ -299,7 +299,7 @@ class TestGetAuthQueueBoundaryValues:
         // When: Calling get_auth_queue with group_by=domain
         // Then: Returns groups as empty dict
         """
-        from src.mcp.server import _handle_get_auth_queue
+        from src.mcp.tools.auth import handle_get_auth_queue as _handle_get_auth_queue
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = []
@@ -332,7 +332,7 @@ class TestResolveAuthValidation:
         // Then: Raises InvalidParamsError
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_resolve_auth({})
@@ -349,7 +349,7 @@ class TestResolveAuthValidation:
         // Then: Raises InvalidParamsError
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_resolve_auth(
@@ -371,7 +371,7 @@ class TestResolveAuthValidation:
         // Then: Raises InvalidParamsError
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_resolve_auth(
@@ -393,7 +393,7 @@ class TestResolveAuthValidation:
         // Then: Raises InvalidParamsError
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_resolve_auth(
@@ -415,7 +415,7 @@ class TestResolveAuthValidation:
         // Then: Raises InvalidParamsError
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_resolve_auth(
@@ -438,7 +438,7 @@ class TestResolveAuthValidation:
         // Then: Raises InvalidParamsError
         """
         from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         with pytest.raises(InvalidParamsError) as exc_info:
             await _handle_resolve_auth(
@@ -463,7 +463,7 @@ class TestResolveAuthExecution:
         // When: Calling resolve_auth with action=complete, target=item
         // Then: Completes the item with session_data capture attempt
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.get_item.return_value = {
@@ -483,7 +483,7 @@ class TestResolveAuthExecution:
                 return_value=mock_queue,
             ),
             patch(
-                "src.mcp.server._capture_auth_session_cookies",
+                "src.mcp.tools.auth.capture_auth_session_cookies",
                 new_callable=AsyncMock,
                 return_value=None,
             ) as mock_capture,
@@ -517,7 +517,7 @@ class TestResolveAuthExecution:
         // When: Calling resolve_auth with action=skip, target=item
         // Then: Skips the item
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.skip.return_value = {"ok": True, "skipped": 1}
@@ -547,7 +547,7 @@ class TestResolveAuthExecution:
         // When: Calling resolve_auth with action=complete, target=domain
         // Then: Completes all items for that domain with cookie capture
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.complete_domain.return_value = {
@@ -563,7 +563,7 @@ class TestResolveAuthExecution:
                 return_value=mock_queue,
             ),
             patch(
-                "src.mcp.server._capture_auth_session_cookies",
+                "src.mcp.tools.auth.capture_auth_session_cookies",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
@@ -594,7 +594,7 @@ class TestResolveAuthExecution:
         // When: Calling resolve_auth with action=skip, target=domain
         // Then: Skips all items for that domain
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.skip.return_value = {
@@ -629,7 +629,7 @@ class TestResolveAuthExecution:
         // When: Calling resolve_auth with action=complete, target=task
         // Then: Completes all items for that task
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = [
@@ -661,17 +661,17 @@ class TestResolveAuthExecution:
                 return_value=mock_queue,
             ),
             patch(
-                "src.mcp.server._capture_auth_session_cookies",
+                "src.mcp.tools.auth.capture_auth_session_cookies",
                 new_callable=AsyncMock,
                 return_value={"cookies": []},
             ) as mock_capture,
             patch(
-                "src.mcp.server._requeue_awaiting_auth_jobs",
+                "src.mcp.tools.auth.requeue_awaiting_auth_jobs",
                 new_callable=AsyncMock,
                 return_value=2,
             ) as mock_requeue,
             patch(
-                "src.mcp.server._reset_circuit_breaker_for_engine",
+                "src.mcp.tools.auth.reset_circuit_breaker_for_engine",
                 new_callable=AsyncMock,
             ) as mock_reset,
         ):
@@ -709,7 +709,7 @@ class TestResolveAuthExecution:
         // When: Calling resolve_auth with action=skip, target=task
         // Then: Skips all items for that task
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.skip.return_value = {
@@ -746,7 +746,7 @@ class TestResolveAuthExecution:
         // When: Calling resolve_auth with action=complete, target=task
         // Then: Returns ok=True with resolved_count=0
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.get_pending.return_value = []
@@ -788,7 +788,7 @@ class TestCaptureAuthSessionCookies:
         // When: Calling _capture_auth_session_cookies
         // Then: Returns session_data with cookies
         """
-        from src.mcp.server import _capture_auth_session_cookies
+        from src.mcp.tools.auth import capture_auth_session_cookies as _capture_auth_session_cookies
 
         # Mock context with cookies
         mock_context = AsyncMock()
@@ -832,7 +832,7 @@ class TestCaptureAuthSessionCookies:
         // When: Calling _capture_auth_session_cookies
         // Then: Returns None
         """
-        from src.mcp.server import _capture_auth_session_cookies
+        from src.mcp.tools.auth import capture_auth_session_cookies as _capture_auth_session_cookies
 
         # Mock browser with no contexts
         mock_browser = AsyncMock()
@@ -864,7 +864,7 @@ class TestCaptureAuthSessionCookies:
         // When: Calling _capture_auth_session_cookies
         // Then: Returns None
         """
-        from src.mcp.server import _capture_auth_session_cookies
+        from src.mcp.tools.auth import capture_auth_session_cookies as _capture_auth_session_cookies
 
         # Mock context with cookies for different domain
         mock_context = AsyncMock()
@@ -905,7 +905,7 @@ class TestCaptureAuthSessionCookies:
         // When: Calling _capture_auth_session_cookies with parent domain (example.com)
         // Then: Subdomain cookies are NOT included in result
         """
-        from src.mcp.server import _capture_auth_session_cookies
+        from src.mcp.tools.auth import capture_auth_session_cookies as _capture_auth_session_cookies
 
         # Mock context with cookies for subdomain
         mock_context = AsyncMock()
@@ -956,7 +956,7 @@ class TestCaptureAuthSessionCookies:
         // When: Calling _capture_auth_session_cookies with subdomain (sub.example.com)
         // Then: Parent domain cookies ARE included in result
         """
-        from src.mcp.server import _capture_auth_session_cookies
+        from src.mcp.tools.auth import capture_auth_session_cookies as _capture_auth_session_cookies
 
         # Mock context with cookies for parent domain
         mock_context = AsyncMock()
@@ -1002,7 +1002,7 @@ class TestCaptureAuthSessionCookies:
         // When: Calling _capture_auth_session_cookies
         // Then: Returns None (no exception raised)
         """
-        from src.mcp.server import _capture_auth_session_cookies
+        from src.mcp.tools.auth import capture_auth_session_cookies as _capture_auth_session_cookies
 
         # Mock context that raises exception
         mock_context = AsyncMock()
@@ -1042,7 +1042,7 @@ class TestResolveAuthCookieCapture:
         // When: Calling resolve_auth action=complete with success=True
         // Then: Cookies captured and passed to complete()
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         session_data = {
             "cookies": [{"name": "auth", "value": "test"}],
@@ -1063,7 +1063,7 @@ class TestResolveAuthCookieCapture:
                 return_value=mock_queue,
             ),
             patch(
-                "src.mcp.server._capture_auth_session_cookies",
+                "src.mcp.tools.auth.capture_auth_session_cookies",
                 new_callable=AsyncMock,
                 return_value=session_data,
             ),
@@ -1091,7 +1091,7 @@ class TestResolveAuthCookieCapture:
         // When: Calling resolve_auth action=complete with success=False
         // Then: Cookie capture not attempted
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         mock_queue = AsyncMock()
         mock_queue.get_item.return_value = {
@@ -1106,7 +1106,7 @@ class TestResolveAuthCookieCapture:
                 return_value=mock_queue,
             ),
             patch(
-                "src.mcp.server._capture_auth_session_cookies",
+                "src.mcp.tools.auth.capture_auth_session_cookies",
                 new_callable=AsyncMock,
             ) as mock_capture,
         ):
@@ -1131,7 +1131,7 @@ class TestResolveAuthCookieCapture:
         // When: Calling resolve_auth target=domain action=complete
         // Then: Cookies captured and passed to complete_domain()
         """
-        from src.mcp.server import _handle_resolve_auth
+        from src.mcp.tools.auth import handle_resolve_auth as _handle_resolve_auth
 
         session_data = {
             "cookies": [{"name": "cf_clearance", "value": "xyz"}],
@@ -1151,7 +1151,7 @@ class TestResolveAuthCookieCapture:
                 return_value=mock_queue,
             ),
             patch(
-                "src.mcp.server._capture_auth_session_cookies",
+                "src.mcp.tools.auth.capture_auth_session_cookies",
                 new_callable=AsyncMock,
                 return_value=session_data,
             ),
