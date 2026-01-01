@@ -43,7 +43,8 @@ def _load_schema(name: str) -> dict[str, Any]:
     """
     path = Path(__file__).parent / "schemas" / f"{name}.json"
     with open(path) as f:
-        return json.load(f)
+        schema: dict[str, Any] = json.load(f)
+        return schema
 
 
 # ============================================================
@@ -127,6 +128,7 @@ and refuting queries to ensure balanced evidence collection.""",
                                     "description": "Max task duration in seconds (20 min default).",
                                 },
                             },
+                            "additionalProperties": False,
                         },
                         "priority_domains": {
                             "type": "array",
@@ -247,6 +249,7 @@ QUERY DESIGN TIPS:
                             "description": "Scheduling priority. Use 'high' for critical queries, 'low' for exploratory.",
                         },
                     },
+                    "additionalProperties": False,
                 },
             },
             "required": ["task_id", "queries"],
@@ -1085,15 +1088,6 @@ async def _handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
 
     # Extract budget config
     budget_config = config.get("budget", {})
-    if "max_pages" in budget_config:
-        # Legacy key is rejected (explicit schema; see ADR-0003).
-        from src.mcp.errors import InvalidParamsError
-
-        raise InvalidParamsError(
-            "budget.max_pages is no longer supported; use budget.budget_pages",
-            param_name="config.budget.budget_pages",
-            expected="integer",
-        )
     budget_pages = budget_config.get("budget_pages", 120)
     max_seconds = budget_config.get("max_seconds", 1200)
 
@@ -1379,13 +1373,6 @@ async def _handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
             "queries must not be empty",
             param_name="queries",
             expected="non-empty array of strings",
-        )
-
-    if "max_pages" in options:
-        raise InvalidParamsError(
-            "options.max_pages is no longer supported; use options.budget_pages",
-            param_name="options.budget_pages",
-            expected="integer",
         )
 
     with LogContext(task_id=task_id):

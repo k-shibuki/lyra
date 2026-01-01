@@ -50,6 +50,8 @@ from src.module import Something
 
 ## 完了条件（Definition of Done）
 
+変更箇所に関係ない既存のエラーも修正し、すべて以下を満たすこと。
+
 - `ruff check` が **エラー・警告ゼロ**
 - `ruff format --check` が **差分ゼロ**
 - `mypy` が **Success: no issues found**

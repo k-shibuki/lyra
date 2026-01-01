@@ -1204,7 +1204,7 @@ class SearchPipeline:
 
                     # Persist claim to DB
                     try:
-                        insert_result = await db.insert(
+                        await db.insert(
                             "claims",
                             {
                                 "id": claim_id,
@@ -1537,9 +1537,6 @@ async def search_action(
     # Convert options dict to SearchOptions
     search_options = SearchOptions()
     if options:
-        if "max_pages" in options:
-            # Legacy key is rejected (see ADR-0003: MCP contract stability via explicit schema).
-            raise ValueError("options.max_pages is no longer supported; use options.budget_pages")
         search_options.engines = options.get("engines")
         search_options.budget_pages = options.get("budget_pages")
         search_options.serp_max_pages = int(options.get("serp_max_pages", 1))

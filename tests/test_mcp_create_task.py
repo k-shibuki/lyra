@@ -150,32 +150,6 @@ class TestCreateTaskValidation:
                 await _handle_create_task({})
 
     @pytest.mark.asyncio
-    async def test_create_task_legacy_max_pages_rejected(self, test_database: Database) -> None:
-        """
-        TC-CT-A-03: create_task rejects legacy budget.max_pages key.
-
-        // Given: budget.max_pages (legacy key) in config
-        // When: _handle_create_task is called
-        // Then: InvalidParamsError with clear message
-        """
-        from src.mcp.errors import InvalidParamsError
-        from src.mcp.server import _handle_create_task
-
-        db = test_database
-
-        with patch("src.mcp.server.get_database", new=AsyncMock(return_value=db)):
-            with pytest.raises(InvalidParamsError) as exc_info:
-                await _handle_create_task(
-                    {
-                        "query": "test query",
-                        "config": {"budget": {"max_pages": 10}},
-                    }
-                )
-
-        assert "max_pages is no longer supported" in str(exc_info.value)
-        assert "budget.budget_pages" in str(exc_info.value)
-
-    @pytest.mark.asyncio
     async def test_create_task_budget_pages_zero(self, test_database: Database) -> None:
         """
         TC-CT-B-01: create_task accepts budget_pages=0.

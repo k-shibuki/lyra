@@ -1,6 +1,13 @@
+> **⚠️ ARCHIVED DOCUMENT**
+>
+> This document is an archived snapshot of the project's development history and is no longer maintained.
+> Content reflects the state at the time of writing and may be inconsistent with the current codebase.
+>
+> **Archived**: 2026-01-01
+
 # Sb_CITATION_NETWORK: 引用ネットワーク統合
 
-> **Status**: ALL-PHASES-COMPLETE（Phase 1-4実装完了、10.4 推奨タスク全完了）
+> **Status**: ALL-PHASES-COMPLETE（Phase 1-4実装完了、10.4 推奨タスク完了）
 >
 > **Phase 1 Implementation (2024-12-31)**:
 > - `RelationType.EVIDENCE_SOURCE` enum追加
@@ -835,7 +842,7 @@ Tool(name="get_status", ..., outputSchema=_load_schema("get_status")),
 
 ---
 
-#### 10.4.5 Phase 2d: スケール耐性（後回し可） ✅ COMPLETED
+#### 10.4.5 Phase 2d: スケール耐性 ✅ COMPLETED
 
 **目的**: IN句の上限と json_extract の堅牢性を改善。
 
@@ -846,8 +853,6 @@ Tool(name="get_status", ..., outputSchema=_load_schema("get_status")),
 **変更内容**:
 1. IN句を CHUNK_SIZE（例: 500）でバッチ処理
 2. `json_extract` の失敗を try/except でハンドルし、`citation_network` を部分欠損で返す
-
-**備考**: E2E 規模（source_page_ids が数百程度）では問題にならないため、後回し可能。
 
 **所要時間**: 1〜2時間
 

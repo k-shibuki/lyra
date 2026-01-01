@@ -116,12 +116,12 @@ class TestCitationNetworkSchema:
         year_type = item_props.get("year", {}).get("type")
 
         # Then
-        assert isinstance(citation_count_type, list) and "null" in citation_count_type, (
-            "citation_count must allow null for fault tolerance when paper_metadata is missing"
-        )
-        assert isinstance(year_type, list) and "null" in year_type, (
-            "year must allow null for fault tolerance when paper_metadata is missing"
-        )
+        assert (
+            isinstance(citation_count_type, list) and "null" in citation_count_type
+        ), "citation_count must allow null for fault tolerance when paper_metadata is missing"
+        assert (
+            isinstance(year_type, list) and "null" in year_type
+        ), "year must allow null for fault tolerance when paper_metadata is missing"
 
 
 class TestEvidenceGraphSchema:
@@ -273,9 +273,9 @@ class TestEdgePropertiesSchema:
         # Then
         assert "edge_id" in edge_props, "edge_id missing from edge properties"
         edge_id_type = edge_id.get("type")
-        assert isinstance(edge_id_type, list) and "null" in edge_id_type, (
-            "edge_id should be nullable for derived edges without DB IDs"
-        )
+        assert (
+            isinstance(edge_id_type, list) and "null" in edge_id_type
+        ), "edge_id should be nullable for derived edges without DB IDs"
 
     def test_citation_source_property_exists(self) -> None:
         """Edge schema includes citation_source for cites edges.
@@ -321,9 +321,9 @@ class TestInputSchemaOptions:
             "include_citations missing from inputSchema options. "
             "Clients cannot request citation network without this option."
         )
-        assert options["include_citations"]["type"] == "boolean", (
-            "include_citations should be boolean type"
-        )
+        assert (
+            options["include_citations"]["type"] == "boolean"
+        ), "include_citations should be boolean type"
 
     def test_include_citations_has_default_false(self) -> None:
         """TC-IN-N-02: include_citations defaults to False.
@@ -340,9 +340,9 @@ class TestInputSchemaOptions:
         include_citations = options.get("include_citations", {})
 
         # Then
-        assert include_citations.get("default") is False, (
-            "include_citations should default to False for backward compatibility"
-        )
+        assert (
+            include_citations.get("default") is False
+        ), "include_citations should default to False for backward compatibility"
 
 
 class TestLoadSchemaHelper:

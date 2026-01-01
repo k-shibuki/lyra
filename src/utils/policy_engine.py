@@ -891,7 +891,9 @@ class PolicyEngine:
 
         # 3. Apply time decay: blend raw weight with base weight
         # based on metrics_decay_confidence
-        final_weight = metrics_decay_confidence * raw_weight + (1 - metrics_decay_confidence) * base_weight
+        final_weight = (
+            metrics_decay_confidence * raw_weight + (1 - metrics_decay_confidence) * base_weight
+        )
 
         # 4. Clamp to valid range
         final_weight = max(0.1, min(1.0, final_weight))

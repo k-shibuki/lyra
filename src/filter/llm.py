@@ -71,7 +71,7 @@ EXTRACT_FACTS_SCHEMA: dict[str, Any] = {
 
 def _get_response_format_for_task(task: str) -> str | dict | None:
     """Get appropriate response format for task.
-    
+
     Uses JSON Schema for array-output tasks to enforce correct structure.
     """
     if task == "extract_claims":
@@ -162,7 +162,7 @@ class OllamaClient:
         system: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        response_format: str | None = None,
+        response_format: str | dict | None = None,
     ) -> str:
         """Generate completion from Ollama."""
         provider = self._get_provider()

@@ -62,7 +62,7 @@ def extract_json(
 
     def _maybe_wrap_in_array(result: Any) -> list | dict | None:
         """Wrap single object in array if expect_array is True (and not strict).
-        
+
         Also handles "array wrapper" pattern where LLM returns {"objects": [...]}
         or similar structures instead of a plain array.
         """
@@ -79,13 +79,12 @@ def extract_json(
                             "LLM returned array wrapped in object; extracting inner array",
                             wrapper_key=key,
                         )
-                        return result[key]
+                        inner_array: list[Any] = result[key]
+                        return inner_array
 
                 if strict_array:
                     # Strict mode: reject single object, allow caller to retry
-                    logger.debug(
-                        "Rejecting single object in strict_array mode (expect_array=True)"
-                    )
+                    logger.debug("Rejecting single object in strict_array mode (expect_array=True)")
                     return None
                 # Lenient mode: LLM returned single object instead of array - wrap it
                 logger.warning(

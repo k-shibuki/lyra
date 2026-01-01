@@ -111,6 +111,7 @@ def get_extraction_tier(domain: str, scope: str) -> int:
 
     return 0  # Not in scope
 
+
 # Mechanical refutation suffixes (ADR-0010)
 REFUTATION_SUFFIXES = [
     "課題",

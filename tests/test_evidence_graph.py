@@ -688,9 +688,9 @@ class TestIndependentSourcesFromFragments:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: independent_sources = 2 (page-A and page-B)
-        assert result["independent_sources"] == 2, (
-            f"Expected 2 independent sources (2 different pages), got {result['independent_sources']}"
-        )
+        assert (
+            result["independent_sources"] == 2
+        ), f"Expected 2 independent sources (2 different pages), got {result['independent_sources']}"
 
     def test_two_fragments_from_same_page_counts_one_source(self) -> None:
         """TC-IS-N-02: Two fragments from same page → independent_sources = 1."""
@@ -725,9 +725,9 @@ class TestIndependentSourcesFromFragments:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: independent_sources = 1 (deduplicated by page_id)
-        assert result["independent_sources"] == 1, (
-            f"Expected 1 independent source (same page), got {result['independent_sources']}"
-        )
+        assert (
+            result["independent_sources"] == 1
+        ), f"Expected 1 independent source (same page), got {result['independent_sources']}"
 
     def test_no_evidence_returns_zero_sources(self) -> None:
         """TC-IS-B-01: No evidence → independent_sources = 0."""
@@ -788,9 +788,9 @@ class TestIndependentSourcesFromFragments:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: independent_sources = 1 (fallback to fragment_id)
-        assert result["independent_sources"] == 1, (
-            "Fallback to fragment_id should count as 1 source"
-        )
+        assert (
+            result["independent_sources"] == 1
+        ), "Fallback to fragment_id should count as 1 source"
 
     def test_mixed_fragments_with_and_without_page_id(self) -> None:
         """TC-IS-N-03: Mixed fragments → correct count."""
@@ -822,9 +822,9 @@ class TestIndependentSourcesFromFragments:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: independent_sources = 3 (page-A, page-B, frag-3 fallback)
-        assert result["independent_sources"] == 3, (
-            f"Expected 3 sources (2 pages + 1 fallback), got {result['independent_sources']}"
-        )
+        assert (
+            result["independent_sources"] == 3
+        ), f"Expected 3 sources (2 pages + 1 fallback), got {result['independent_sources']}"
 
     def test_fragment_with_page_year_extracts_evidence_years(self) -> None:
         """TC-EY-N-01: Fragments with page years → evidence_years extracted."""
@@ -918,18 +918,18 @@ class TestCitationChain:
         # STRICT: Chain must include the starting node (frag-1) and follow to cited page
         # get_citation_chain follows outgoing CITES edges, so chain = [frag-1, page-1]
         assert len(chain) == 2, f"Expected chain of 2 (frag->page), got {len(chain)}"
-        assert chain[0]["node_type"] == "fragment", (
-            f"First node should be fragment, got {chain[0]['node_type']}"
-        )
-        assert chain[0]["obj_id"] == "frag-1", (
-            f"First node should be frag-1, got {chain[0]['obj_id']}"
-        )
-        assert chain[1]["node_type"] == "page", (
-            f"Second node should be page, got {chain[1]['node_type']}"
-        )
-        assert chain[1]["obj_id"] == "page-1", (
-            f"Second node should be page-1, got {chain[1]['obj_id']}"
-        )
+        assert (
+            chain[0]["node_type"] == "fragment"
+        ), f"First node should be fragment, got {chain[0]['node_type']}"
+        assert (
+            chain[0]["obj_id"] == "frag-1"
+        ), f"First node should be frag-1, got {chain[0]['obj_id']}"
+        assert (
+            chain[1]["node_type"] == "page"
+        ), f"Second node should be page, got {chain[1]['node_type']}"
+        assert (
+            chain[1]["obj_id"] == "page-1"
+        ), f"Second node should be page-1, got {chain[1]['obj_id']}"
 
     def test_citation_chain_empty(self) -> None:
         """Test citation chain for unknown node."""
