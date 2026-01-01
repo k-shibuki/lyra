@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lyra:mcp:calibration_rollback",
+  "title": "calibration_rollback Response",
+  "description": "Response schema for calibration_rollback tool (ADR-0003). Destructive operation - separate tool for safety.",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source model identifier (e.g., 'nli_judge', 'llm_extract')"
+    },
+    "rolled_back_to": {
+      "type": "integer",
+      "description": "Version now active"
+    },
+    "previous_version": {
+      "type": "integer",
+      "description": "Version that was replaced"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Reason for rollback (audit log)"
+    },
+    "brier_after": {
+      "type": ["number", "null"],
+      "description": "Brier score of restored version"
+    },
+    "method": {
+      "type": "string",
+      "enum": ["platt", "temperature"],
+      "description": "Calibration method of restored version"
+    }
+  },
+  "required": ["ok", "source", "rolled_back_to", "previous_version"],
+  "additionalProperties": false
+}

@@ -11,6 +11,7 @@ Provides 10 MCP tools per ADR-0010 async architecture:
 import asyncio
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from mcp.server.stdio import stdio_server
@@ -26,6 +27,23 @@ logger = get_logger(__name__)
 
 # Create MCP server instance
 app = Server("lyra")
+
+
+def _load_schema(name: str) -> dict[str, Any]:
+    """Load JSON schema from src/mcp/schemas/{name}.json.
+
+    Args:
+        name: Schema name (without .json extension).
+
+    Returns:
+        Parsed JSON schema dict.
+
+    Raises:
+        FileNotFoundError: If schema file does not exist.
+    """
+    path = Path(__file__).parent / "schemas" / f"{name}.json"
+    with open(path) as f:
+        return json.load(f)
 
 
 # ============================================================
@@ -124,27 +142,7 @@ and refuting queries to ensure balanced evidence collection.""",
             },
             "required": ["query"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean", "description": "True if task created successfully"},
-                "task_id": {
-                    "type": "string",
-                    "description": "Unique task identifier. Use this for all subsequent operations.",
-                },
-                "query": {"type": "string", "description": "The research query"},
-                "created_at": {"type": "string", "description": "ISO timestamp of creation"},
-                "budget": {
-                    "type": "object",
-                    "properties": {
-                        "budget_pages": {"type": "integer"},
-                        "max_seconds": {"type": "integer"},
-                    },
-                },
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-            "required": ["ok", "task_id"],
-        },
+        outputSchema=_load_schema("create_task"),
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=False,
@@ -186,94 +184,7 @@ DECISION POINTS:
             },
             "required": ["task_id"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "task_id": {"type": "string"},
-                "status": {
-                    "type": "string",
-                    "enum": ["exploring", "paused", "completed", "failed"],
-                    "description": "Current task state",
-                },
-                "query": {"type": "string", "description": "Original research query"},
-                "searches": {
-                    "type": "array",
-                    "description": "Status of each search query",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "query": {"type": "string"},
-                            "status": {
-                                "type": "string",
-                                "enum": ["pending", "queued", "running", "completed", "failed", "cancelled"],
-                            },
-                            "pages_fetched": {"type": "integer"},
-                            "useful_fragments": {"type": "integer"},
-                            "harvest_rate": {
-                                "type": "number",
-                                "description": "0.0-1.0, ratio of useful content found",
-                            },
-                            "satisfaction_score": {
-                                "type": "number",
-                                "description": "0.0-1.0, how well query is covered",
-                            },
-                            "has_primary_source": {
-                                "type": "boolean",
-                                "description": "True if academic/primary source found",
-                            },
-                        },
-                    },
-                },
-                "queue": {
-                    "type": "object",
-                    "description": "Search queue status",
-                    "properties": {
-                        "depth": {"type": "integer", "description": "Queued searches waiting"},
-                        "running": {
-                            "type": "integer",
-                            "description": "Currently executing searches",
-                        },
-                    },
-                },
-                "pending_auth_count": {
-                    "type": "integer",
-                    "description": "CAPTCHAs awaiting user resolution. If > 0, use get_auth_queue.",
-                },
-                "metrics": {
-                    "type": "object",
-                    "properties": {
-                        "total_searches": {"type": "integer"},
-                        "satisfied_count": {
-                            "type": "integer",
-                            "description": "Searches with satisfaction >= 0.7",
-                        },
-                        "total_pages": {"type": "integer"},
-                        "total_fragments": {"type": "integer"},
-                        "total_claims": {
-                            "type": "integer",
-                            "description": "Verified assertions extracted",
-                        },
-                        "elapsed_seconds": {"type": "integer"},
-                    },
-                },
-                "budget": {
-                    "type": "object",
-                    "properties": {
-                        "budget_pages_used": {"type": "integer"},
-                        "budget_pages_limit": {"type": "integer"},
-                        "remaining_percent": {
-                            "type": "integer",
-                            "description": "0-100, budget remaining",
-                        },
-                    },
-                },
-                "idle_seconds": {"type": "integer", "description": "Seconds since last activity"},
-                "warnings": {"type": "array", "items": {"type": "string"}},
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("get_status"),
         annotations=ToolAnnotations(
             readOnlyHint=True,
             destructiveHint=False,
@@ -340,27 +251,7 @@ QUERY DESIGN TIPS:
             },
             "required": ["task_id", "queries"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "queued_count": {
-                    "type": "integer",
-                    "description": "Number of queries added to queue",
-                },
-                "skipped_count": {
-                    "type": "integer",
-                    "description": "Duplicates skipped (already queued/running)",
-                },
-                "search_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "IDs of queued searches for tracking",
-                },
-                "message": {"type": "string", "description": "Human-readable status message"},
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("queue_searches"),
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=False,
@@ -405,25 +296,7 @@ AFTER STOPPING: Use get_materials to retrieve collected evidence for report comp
             },
             "required": ["task_id"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "task_id": {"type": "string"},
-                "final_status": {"type": "string"},
-                "mode": {"type": "string"},
-                "metrics": {
-                    "type": "object",
-                    "description": "Final task metrics",
-                    "properties": {
-                        "total_searches": {"type": "integer"},
-                        "total_pages": {"type": "integer"},
-                        "total_claims": {"type": "integer"},
-                    },
-                },
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("stop_task"),
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=True,
@@ -482,6 +355,11 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
                             "default": False,
                             "description": "Include evidence graph for visualization. Adds nodes/edges data.",
                         },
+                        "include_citations": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Include citation network (source_pages, citations, hub_pages).",
+                        },
                         "format": {
                             "type": "string",
                             "enum": ["structured", "narrative"],
@@ -493,188 +371,7 @@ CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong N
             },
             "required": ["task_id"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "task_id": {"type": "string"},
-                "query": {"type": "string", "description": "Original research query"},
-                "claims": {
-                    "type": "array",
-                    "description": "Claims with Bayesian confidence metrics. Use bayesian_claim_confidence for truth, llm_claim_confidence for extraction quality.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "text": {"type": "string", "description": "The claim assertion"},
-                            "bayesian_claim_confidence": {
-                                "type": "number",
-                                "description": "0.0-1.0, Bayesian posterior mean (primary truth metric)",
-                            },
-                            "llm_claim_confidence": {
-                                "type": "number",
-                                "description": "0.0-1.0, LLM extraction quality (NOT truth)",
-                            },
-                            "uncertainty": {
-                                "type": "number",
-                                "description": "0.0-0.5, posterior stddev. >0.2 = need more evidence",
-                            },
-                            "controversy": {
-                                "type": "number",
-                                "description": "0.0-0.5, support vs refute conflict. >0.3 = contested",
-                            },
-                            "evidence_count": {"type": ["integer", "null"]},
-                            "has_refutation": {
-                                "type": "boolean",
-                                "description": "True if refuting evidence exists",
-                            },
-                            "sources": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "url": {"type": "string"},
-                                        "title": {"type": "string"},
-                                        "domain": {"type": "string"},
-                                        "domain_category": {
-                                            "type": ["string", "null"],
-                                            "enum": [
-                                                "primary",
-                                                "government",
-                                                "academic",
-                                                "trusted",
-                                                "low",
-                                                "unverified",
-                                                "blocked",
-                                                None,
-                                            ],
-                                            "description": "Domain trust tier from DomainCategory enum",
-                                        },
-                                        "is_primary": {
-                                            "type": "boolean",
-                                            "description": "True if academic/primary source",
-                                        },
-                                    },
-                                },
-                            },
-                            "evidence": {
-                                "type": "array",
-                                "description": "Evidence details with NLI labels. Use edge_id for feedback corrections.",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "edge_id": {
-                                            "type": "string",
-                                            "description": "Edge ID for feedback(edge_correct)",
-                                        },
-                                        "source_id": {"type": "string"},
-                                        "source_type": {"type": "string"},
-                                        "relation": {
-                                            "type": "string",
-                                            "enum": ["supports", "refutes", "neutral"],
-                                        },
-                                        "nli_edge_confidence": {
-                                            "type": "number",
-                                            "description": "0.0-1.0, NLI model calibrated confidence",
-                                        },
-                                        "year": {
-                                            "type": ["integer", "null"],
-                                            "description": "Publication year for timeline analysis",
-                                        },
-                                    },
-                                },
-                            },
-                            "evidence_years": {
-                                "type": "object",
-                                "description": "Year summary: {oldest: 2020, newest: 2024} for temporal analysis",
-                                "properties": {
-                                    "oldest": {"type": ["integer", "null"]},
-                                    "newest": {"type": ["integer", "null"]},
-                                },
-                            },
-                        },
-                    },
-                },
-                "fragments": {
-                    "type": "array",
-                    "description": "Source excerpts for inline citations",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "text": {
-                                "type": "string",
-                                "description": "Excerpt content (max 500 chars)",
-                            },
-                            "source_url": {"type": "string"},
-                            "context": {"type": "string", "description": "Heading/section context"},
-                            "is_primary": {"type": "boolean"},
-                        },
-                    },
-                },
-                "evidence_graph": {
-                    "type": "object",
-                    "description": "Graph structure for visualization (only if include_graph=true)",
-                    "properties": {
-                        "nodes": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "id": {"type": "string"},
-                                    "type": {
-                                        "type": "string",
-                                        "enum": ["claim", "fragment", "page"],
-                                    },
-                                    "label": {"type": "string"},
-                                },
-                            },
-                        },
-                        "edges": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "source": {"type": "string"},
-                                    "target": {"type": "string"},
-                                    "relation": {
-                                        "type": "string",
-                                        "enum": ["supports", "refutes", "neutral", "cites"],
-                                    },
-                                    "nli_edge_confidence": {
-                                        "type": "number",
-                                        "description": "NLI calibrated confidence (for NLI-derived edges)",
-                                    },
-                                    "nli_label": {
-                                        "type": "string",
-                                        "description": "NLI label (supports/refutes/neutral)",
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-                "summary": {
-                    "type": "object",
-                    "properties": {
-                        "total_claims": {"type": ["integer", "null"]},
-                        "verified_claims": {
-                            "type": ["integer", "null"],
-                            "description": "Claims with 2+ evidence sources",
-                        },
-                        "refuted_claims": {
-                            "type": ["integer", "null"],
-                            "description": "Claims with refuting evidence",
-                        },
-                        "primary_source_ratio": {
-                            "type": ["number", "null"],
-                            "description": "Ratio of academic/primary sources",
-                        },
-                    },
-                },
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("get_materials"),
         annotations=ToolAnnotations(
             readOnlyHint=True,
             destructiveHint=False,
@@ -718,22 +415,7 @@ For rolling back to previous calibration, use calibration_rollback (separate too
             },
             "required": ["action"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "action": {"type": "string"},
-                "current_params": {
-                    "type": "object",
-                    "description": "For get_stats: calibration params per source",
-                },
-                "evaluations": {
-                    "type": "array",
-                    "description": "For get_evaluations: historical records",
-                },
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("calibration_metrics"),
         annotations=ToolAnnotations(
             readOnlyHint=True,
             destructiveHint=False,
@@ -770,18 +452,7 @@ Always provide a reason for audit trail.""",
             },
             "required": ["source"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "source": {"type": "string"},
-                "rolled_back_to": {"type": "integer", "description": "Version now active"},
-                "previous_version": {"type": "integer", "description": "Version that was replaced"},
-                "brier_after": {"type": "number", "description": "Brier score of restored version"},
-                "method": {"type": "string", "enum": ["platt", "temperature"]},
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("calibration_rollback"),
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=True,
@@ -824,33 +495,7 @@ Research continues on other domains while CAPTCHAs are pending.""",
                 },
             },
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "group_by": {"type": "string"},
-                "total_count": {"type": "integer"},
-                "items": {
-                    "type": "array",
-                    "description": "When group_by=none",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "domain": {"type": "string"},
-                            "auth_type": {"type": "string"},
-                            "url": {"type": "string"},
-                            "priority": {"type": "string"},
-                        },
-                    },
-                },
-                "groups": {
-                    "type": "object",
-                    "description": "When group_by=domain or type",
-                },
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("get_auth_queue"),
         annotations=ToolAnnotations(
             readOnlyHint=True,
             destructiveHint=False,
@@ -903,17 +548,7 @@ Session cookies are captured and reused for future requests to that domain.""",
             },
             "required": ["action"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "target": {"type": "string"},
-                "action": {"type": "string"},
-                "resolved_count": {"type": "integer", "description": "Items resolved"},
-                "requeued_count": {"type": "integer", "description": "Searches requeued for retry"},
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("resolve_auth"),
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=False,
@@ -987,27 +622,7 @@ When you find an edge with wrong NLI classification (e.g., marked 'neutral' but 
             },
             "required": ["action"],
         },
-        outputSchema={
-            "type": "object",
-            "properties": {
-                "ok": {"type": "boolean"},
-                "action": {"type": "string"},
-                "domain_pattern": {"type": "string"},
-                "claim_id": {"type": "string"},
-                "edge_id": {"type": "string"},
-                "previous_relation": {
-                    "type": "string",
-                    "description": "For edge_correct: old label",
-                },
-                "new_relation": {"type": "string", "description": "For edge_correct: new label"},
-                "sample_id": {
-                    "type": "string",
-                    "description": "For edge_correct: training sample ID if label changed",
-                },
-                "rule_id": {"type": "string", "description": "For domain_*: created rule ID"},
-                "_lyra_meta": _LYRA_META_SCHEMA,
-            },
-        },
+        outputSchema=_load_schema("feedback"),
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=False,
@@ -2121,6 +1736,7 @@ async def _handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
         result = await get_materials_action(
             task_id=task_id,
             include_graph=options.get("include_graph", False),
+            include_citations=options.get("include_citations", False),
             format=options.get("format", "structured"),
         )
         return result

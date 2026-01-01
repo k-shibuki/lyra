@@ -1,6 +1,6 @@
 # Sb_CITATION_NETWORK: 引用ネットワーク統合
 
-> **Status**: ALL-PHASES-COMPLETE（Phase 1-4実装完了）
+> **Status**: ALL-PHASES-COMPLETE（Phase 1-4実装完了、10.4 推奨タスク全完了）
 >
 > **Phase 1 Implementation (2024-12-31)**:
 > - `RelationType.EVIDENCE_SOURCE` enum追加
@@ -784,36 +784,54 @@ def calculate_pagerank(
 
 **対象ファイル**:
 - `src/mcp/server.py`
-- `src/mcp/schemas/get_materials.json`
+- `src/mcp/schemas/*.json`
 
 **設計選択肢**:
 
 | 案 | 実装方法 | メリット | デメリット |
 |---|---|---|---|
-| **A（推奨）** | `server.py` が起動時に `schemas/*.json` を読み込み、Tool の outputSchema に使う | 最小変更、既存 JSON 活用 | 起動時I/O |
+| **A（採用）** | `server.py` が起動時に `schemas/*.json` を読み込み、Tool の outputSchema に使う | 最小変更、既存 JSON 活用 | 起動時I/O |
 | B | pydantic モデルから JSON Schema を生成 | 型安全 | 大規模リファクタ |
 
-**案A の実装イメージ**:
+**実装完了 (2026-01-01)**:
+
+全10ツールが `_load_schema()` を使用:
+
+| ツール | `_load_schema()` 使用 |
+|--------|:--------------------:|
+| `create_task` | ✅ |
+| `get_status` | ✅ |
+| `queue_searches` | ✅ |
+| `stop_task` | ✅ |
+| `get_materials` | ✅ |
+| `calibration_metrics` | ✅ |
+| `calibration_rollback` | ✅ |
+| `get_auth_queue` | ✅ |
+| `resolve_auth` | ✅ |
+| `feedback` | ✅ |
+
+**⚠️ Cursor MCP 非互換: `oneOf`/`anyOf`/`allOf`**
+
+実装中に発見: Cursor の MCP クライアントは JSON Schema の `oneOf`/`anyOf`/`allOf` をサポートしていない。
+これらを使用すると `Found 0 tools` となりツールが認識されない。
+
+**対処**: 該当スキーマ（`calibration_metrics`, `feedback`, `get_auth_queue`, `resolve_auth`）を
+シンプルな `type: object` + `properties` 形式にフラット化した。
+
+**実装済みコード**:
 
 ```python
-# server.py 先頭付近
-import json
-from pathlib import Path
-
-def _load_schema(name: str) -> dict:
+# server.py
+def _load_schema(name: str) -> dict[str, Any]:
     path = Path(__file__).parent / "schemas" / f"{name}.json"
     with open(path) as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
-# Tool 定義で使用
-Tool(
-    name="get_materials",
-    ...
-    outputSchema=_load_schema("get_materials"),
-)
+# 全10ツールに適用
+Tool(name="create_task", ..., outputSchema=_load_schema("create_task")),
+Tool(name="get_status", ..., outputSchema=_load_schema("get_status")),
+# ... 以下同様
 ```
-
-**所要時間**: 2〜3時間（全ツールへの適用 + テスト）
 
 ---
 

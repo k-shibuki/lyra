@@ -19,8 +19,12 @@
       "items": {
         "type": "object",
         "properties": {
-          "id": {"type": "string"},
-          "text": {"type": "string"},
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
           "bayesian_claim_confidence": {
             "type": "number",
             "description": "Bayesian posterior confidence (0.0-1.0). Primary metric for truth assessment after evidence aggregation."
@@ -37,18 +41,35 @@
             "type": "number",
             "description": "Degree of conflict between supports/refutes evidence (0.0-0.5). High value (>0.3) indicates contested claim - investigate both sides before concluding."
           },
-          "evidence_count": {"type": "integer"},
-          "has_refutation": {"type": "boolean"},
+          "evidence_count": {
+            "type": "integer"
+          },
+          "has_refutation": {
+            "type": "boolean"
+          },
           "sources": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "url": {"type": "string"},
-                "title": {"type": "string"},
-                "domain": {"type": "string"},
-                "domain_category": {"type": ["string", "null"]},
-                "is_primary": {"type": "boolean"}
+                "url": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "domain": {
+                  "type": "string"
+                },
+                "domain_category": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_primary": {
+                  "type": "boolean"
+                }
               },
               "additionalProperties": false
             }
@@ -60,20 +81,64 @@
               "type": "object",
               "properties": {
                 "edge_id": {
-                  "type": ["string", "null"],
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "description": "Edge ID for feedback(edge_correct). Use this to correct NLI classification errors."
                 },
-                "relation": {"type": "string", "enum": ["supports", "refutes", "neutral"]},
-                "source_id": {"type": ["string", "null"]},
-                "source_type": {"type": ["string", "null"]},
-                "year": {"type": ["integer", "string", "null"]},
+                "relation": {
+                  "type": "string",
+                  "enum": [
+                    "supports",
+                    "refutes",
+                    "neutral"
+                  ]
+                },
+                "source_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "year": {
+                  "type": [
+                    "integer",
+                    "string",
+                    "null"
+                  ]
+                },
                 "nli_edge_confidence": {
-                  "type": ["number", "null"],
+                  "type": [
+                    "number",
+                    "null"
+                  ],
                   "description": "NLI model's calibrated confidence for this evidence relation (0.0-1.0)."
                 },
-                "source_domain_category": {"type": ["string", "null"]},
-                "doi": {"type": ["string", "null"]},
-                "venue": {"type": ["string", "null"]}
+                "source_domain_category": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "doi": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "venue": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
               },
               "additionalProperties": false
             }
@@ -82,18 +147,35 @@
             "type": "object",
             "description": "Summary of evidence years (oldest/newest).",
             "properties": {
-              "oldest": {"type": ["integer", "null"]},
-              "newest": {"type": ["integer", "null"]}
+              "oldest": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "newest": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
             },
             "additionalProperties": false
           },
           "claim_adoption_status": {
             "type": "string",
-            "enum": ["adopted", "pending", "not_adopted"],
+            "enum": [
+              "adopted",
+              "pending",
+              "not_adopted"
+            ],
             "description": "Adoption status for high-reasoning AI to filter claims"
           },
           "claim_rejection_reason": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Reason for rejection if claim_adoption_status is not_adopted"
           }
         },
@@ -106,11 +188,21 @@
       "items": {
         "type": "object",
         "properties": {
-          "id": {"type": "string"},
-          "text": {"type": "string"},
-          "source_url": {"type": "string"},
-          "context": {"type": "string"},
-          "is_primary": {"type": "boolean"}
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "is_primary": {
+            "type": "boolean"
+          }
         },
         "additionalProperties": false
       },
@@ -119,60 +211,153 @@
     "summary": {
       "type": "object",
       "properties": {
-        "total_claims": {"type": "integer"},
-        "verified_claims": {"type": "integer"},
-        "refuted_claims": {"type": "integer"},
-        "primary_source_ratio": {"type": "number"}
+        "total_claims": {
+          "type": "integer"
+        },
+        "verified_claims": {
+          "type": "integer"
+        },
+        "refuted_claims": {
+          "type": "integer"
+        },
+        "primary_source_ratio": {
+          "type": "number"
+        }
       },
       "additionalProperties": false
     },
     "evidence_graph": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "description": "Evidence graph with claim-evidence relationships and citation network",
       "properties": {
         "nodes": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Node ID in format {node_type}:{obj_id}"
+              },
+              "node_type": {
+                "type": "string",
+                "enum": [
+                  "claim",
+                  "fragment",
+                  "page"
+                ]
+              },
+              "obj_id": {
+                "type": "string",
+                "description": "Object ID (claim_id, fragment_id, or page_id)"
+              }
+            }
+          }
         },
         "edges": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "source": {"type": "string"},
-              "target": {"type": "string"},
+              "source": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
               "relation": {
                 "type": "string",
-                "enum": ["supports", "refutes", "neutral", "cites", "evidence_source"],
+                "enum": [
+                  "supports",
+                  "refutes",
+                  "neutral",
+                  "cites",
+                  "evidence_source"
+                ],
                 "description": "Edge relation type. cites = page->page citation, evidence_source = claim->page (Phase 2)"
               },
-              "edge_id": {"type": ["string", "null"]},
-              "nli_label": {"type": ["string", "null"]},
-              "nli_edge_confidence": {"type": ["number", "null"]},
-              "citation_source": {"type": ["string", "null"]},
-              "citation_context": {"type": ["string", "null"]},
-              "source_domain_category": {"type": ["string", "null"]},
-              "target_domain_category": {"type": ["string", "null"]}
+              "edge_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "nli_label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "nli_edge_confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "citation_source": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "citation_context": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source_domain_category": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target_domain_category": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           }
         },
         "stats": {
           "type": "object",
           "properties": {
-            "total_nodes": {"type": "integer"},
-            "total_edges": {"type": "integer"},
-            "node_counts": {"type": "object"},
-            "edge_counts": {"type": "object"},
-            "citation_integrity_score": {"type": "number"},
-            "citation_loop_count": {"type": "integer"},
-            "round_trip_count": {"type": "integer"}
+            "total_nodes": {
+              "type": "integer"
+            },
+            "total_edges": {
+              "type": "integer"
+            },
+            "node_counts": {
+              "type": "object"
+            },
+            "edge_counts": {
+              "type": "object"
+            },
+            "citation_integrity_score": {
+              "type": "number"
+            },
+            "citation_loop_count": {
+              "type": "integer"
+            },
+            "round_trip_count": {
+              "type": "integer"
+            }
           }
         }
       },
       "additionalProperties": false
     },
     "citation_network": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "description": "Citation network reachable from task's claims. Only included when include_citations=true.",
       "properties": {
         "source_pages": {
@@ -181,12 +366,36 @@
           "items": {
             "type": "object",
             "properties": {
-              "id": {"type": "string"},
-              "title": {"type": ["string", "null"]},
-              "url": {"type": "string"},
-              "domain": {"type": ["string", "null"]},
-              "citation_count": {"type": ["integer", "null"]},
-              "year": {"type": ["integer", "null"]}
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": "string"
+              },
+              "domain": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "citation_count": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
             }
           }
         },
@@ -196,11 +405,27 @@
           "items": {
             "type": "object",
             "properties": {
-              "edge_id": {"type": "string"},
-              "citing_page_id": {"type": "string"},
-              "cited_page_id": {"type": "string"},
-              "cited_title": {"type": ["string", "null"]},
-              "citation_source": {"type": ["string", "null"]}
+              "edge_id": {
+                "type": "string"
+              },
+              "citing_page_id": {
+                "type": "string"
+              },
+              "cited_page_id": {
+                "type": "string"
+              },
+              "cited_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "citation_source": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           }
         },
@@ -210,9 +435,18 @@
           "items": {
             "type": "object",
             "properties": {
-              "page_id": {"type": "string"},
-              "title": {"type": ["string", "null"]},
-              "cited_by_count": {"type": "integer"}
+              "page_id": {
+                "type": "string"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "cited_by_count": {
+                "type": "integer"
+              }
             }
           }
         }
@@ -221,9 +455,19 @@
     },
     "format": {
       "type": "string",
-      "enum": ["structured", "narrative"]
+      "enum": [
+        "structured",
+        "narrative"
+      ]
     }
   },
-  "required": ["ok", "task_id", "query", "claims", "fragments", "summary"],
+  "required": [
+    "ok",
+    "task_id",
+    "query",
+    "claims",
+    "fragments",
+    "summary"
+  ],
   "additionalProperties": false
 }

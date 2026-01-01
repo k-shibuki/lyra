@@ -2,67 +2,26 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:calibration_metrics",
   "title": "calibration_metrics Response",
-  "description": "Response schema for calibration_metrics tool (2 actions). Batch evaluation/visualization are handled by scripts (see ADR-0011).",
-  "oneOf": [
-    {
-      "title": "get_stats Response",
+  "description": "Response schema for calibration_metrics tool",
+  "type": "object",
+  "properties": {
+    "ok": { "type": "boolean" },
+    "action": { "type": "string", "enum": ["get_stats", "get_evaluations"] },
+    "current_params": {
       "type": "object",
-      "properties": {
-        "ok": { "type": "boolean" },
-        "action": { "type": "string", "const": "get_stats" },
-        "current_params": {
-          "type": "object",
-          "description": "Current calibration parameters per source",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "version": { "type": "integer" },
-              "method": { "type": "string" },
-              "brier_after": { "type": ["number", "null"] },
-              "samples_used": { "type": "integer" }
-            }
-          }
-        },
-        "history": {
-          "type": "object",
-          "description": "History statistics"
-        },
-        "recalibration_threshold": { "type": "integer" },
-        "degradation_threshold": { "type": "number" }
-      },
-      "required": ["ok", "action", "current_params", "history"],
-      "additionalProperties": false
+      "description": "For get_stats: calibration params per source"
     },
-    {
-      "title": "get_evaluations Response",
+    "history": {
       "type": "object",
-      "properties": {
-        "ok": { "type": "boolean" },
-        "action": { "type": "string", "const": "get_evaluations" },
-        "evaluations": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "evaluation_id": { "type": "string" },
-              "source": { "type": "string" },
-              "brier_score": { "type": "number" },
-              "brier_score_calibrated": { "type": ["number", "null"] },
-              "improvement_ratio": { "type": "number" },
-              "expected_calibration_error": { "type": "number" },
-              "samples_evaluated": { "type": "integer" },
-              "calibration_version": { "type": ["integer", "null"] },
-              "evaluated_at": { "type": "string" }
-            }
-          }
-        },
-        "total_count": { "type": "integer" },
-        "filter_source": { "type": ["string", "null"] },
-        "filter_since": { "type": ["string", "null"] },
-        "returned_count": { "type": "integer" }
-      },
-      "required": ["ok", "action", "evaluations"],
-      "additionalProperties": false
-    }
-  ]
+      "description": "History statistics"
+    },
+    "evaluations": {
+      "type": "array",
+      "description": "For get_evaluations: historical records"
+    },
+    "total_count": { "type": "integer" },
+    "returned_count": { "type": "integer" },
+    "_lyra_meta": { "type": "object" }
+  },
+  "required": ["ok", "action"]
 }

@@ -2,53 +2,33 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:get_auth_queue",
   "title": "get_auth_queue Response",
-  "description": "Response schema for get_auth_queue tool (ADR-0003, ADR-0007)",
-  "oneOf": [
-    {
-      "title": "Ungrouped Response",
-      "type": "object",
-      "properties": {
-        "ok": {"type": "boolean"},
-        "group_by": {"type": "string", "const": "none"},
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "queue_id": {"type": "string"},
-              "url": {"type": "string"},
-              "domain": {"type": "string"},
-              "auth_type": {"type": "string"},
-              "priority": {"type": "string"},
-              "created_at": {"type": "string"},
-              "task_id": {"type": "string"}
-            },
-            "additionalProperties": false
-          }
-        },
-        "total_count": {"type": "integer"}
-      },
-      "required": ["ok", "group_by", "items", "total_count"],
-      "additionalProperties": false
+  "description": "Response schema for get_auth_queue tool",
+  "type": "object",
+  "properties": {
+    "ok": { "type": "boolean" },
+    "group_by": { "type": "string", "enum": ["none", "domain", "type"] },
+    "items": {
+      "type": "array",
+      "description": "For group_by=none: flat list of auth items",
+      "items": {
+        "type": "object",
+        "properties": {
+          "queue_id": { "type": "string" },
+          "url": { "type": "string" },
+          "domain": { "type": "string" },
+          "auth_type": { "type": "string" },
+          "priority": { "type": "string" },
+          "created_at": { "type": "string" },
+          "task_id": { "type": "string" }
+        }
+      }
     },
-    {
-      "title": "Grouped Response",
+    "groups": {
       "type": "object",
-      "properties": {
-        "ok": {"type": "boolean"},
-        "group_by": {"type": "string", "enum": ["domain", "type"]},
-        "groups": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "array",
-            "items": {"type": "object"}
-          }
-        },
-        "total_count": {"type": "integer"}
-      },
-      "required": ["ok", "group_by", "groups", "total_count"],
-      "additionalProperties": false
-    }
-  ]
+      "description": "For group_by=domain|type: grouped items"
+    },
+    "total_count": { "type": "integer" },
+    "_lyra_meta": { "type": "object" }
+  },
+  "required": ["ok", "group_by", "total_count"]
 }
-

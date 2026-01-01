@@ -300,6 +300,51 @@ class TestEdgePropertiesSchema:
         )
 
 
+class TestInputSchemaOptions:
+    """Tests for get_materials inputSchema options."""
+
+    def test_include_citations_in_input_schema(self) -> None:
+        """TC-IN-N-01: inputSchema exposes include_citations option.
+
+        // Given: get_materials Tool definition
+        // When: Inspecting inputSchema.properties.options.properties
+        // Then: include_citations exists with type boolean
+        """
+        # Given
+        tool = _get_get_materials_tool()
+
+        # When
+        options = tool.inputSchema["properties"]["options"]["properties"]
+
+        # Then
+        assert "include_citations" in options, (
+            "include_citations missing from inputSchema options. "
+            "Clients cannot request citation network without this option."
+        )
+        assert options["include_citations"]["type"] == "boolean", (
+            "include_citations should be boolean type"
+        )
+
+    def test_include_citations_has_default_false(self) -> None:
+        """TC-IN-N-02: include_citations defaults to False.
+
+        // Given: get_materials Tool inputSchema
+        // When: Checking include_citations default
+        // Then: default is False
+        """
+        # Given
+        tool = _get_get_materials_tool()
+
+        # When
+        options = tool.inputSchema["properties"]["options"]["properties"]
+        include_citations = options.get("include_citations", {})
+
+        # Then
+        assert include_citations.get("default") is False, (
+            "include_citations should default to False for backward compatibility"
+        )
+
+
 class TestLoadSchemaHelper:
     """Tests for _load_schema helper function (10.4.2c).
 
