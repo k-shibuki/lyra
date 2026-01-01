@@ -137,13 +137,13 @@ class TestMetricsCollectorTorTracking:
     """Tests for MetricsCollector Tor tracking methods."""
 
     @pytest.fixture
-    def fresh_collector(self) -> "MetricsCollector":
+    def fresh_collector(self) -> MetricsCollector:
         """Create a fresh MetricsCollector for each test."""
         from src.utils.metrics import MetricsCollector
 
         return MetricsCollector()
 
-    def test_get_today_tor_metrics_initial(self, fresh_collector: "MetricsCollector") -> None:
+    def test_get_today_tor_metrics_initial(self, fresh_collector: MetricsCollector) -> None:
         """
         Initial Tor metrics should have zero counts.
 
@@ -157,7 +157,7 @@ class TestMetricsCollectorTorTracking:
         assert metrics.tor_requests == 0
         assert metrics.date == date.today().isoformat()
 
-    def test_record_request_increments_total(self, fresh_collector: "MetricsCollector") -> None:
+    def test_record_request_increments_total(self, fresh_collector: MetricsCollector) -> None:
         """
         record_request should increment total_requests.
 
@@ -171,7 +171,7 @@ class TestMetricsCollectorTorTracking:
         assert metrics.total_requests == 1
         assert metrics.tor_requests == 0
 
-    def test_record_tor_usage_increments_tor(self, fresh_collector: "MetricsCollector") -> None:
+    def test_record_tor_usage_increments_tor(self, fresh_collector: MetricsCollector) -> None:
         """
         record_tor_usage should increment tor_requests.
 
@@ -184,7 +184,7 @@ class TestMetricsCollectorTorTracking:
         metrics = fresh_collector.get_today_tor_metrics()
         assert metrics.tor_requests == 1
 
-    def test_domain_metrics_tracking(self, fresh_collector: "MetricsCollector") -> None:
+    def test_domain_metrics_tracking(self, fresh_collector: MetricsCollector) -> None:
         """
         Domain-specific metrics should be tracked separately.
 
@@ -205,7 +205,7 @@ class TestMetricsCollectorTorTracking:
         assert other_metrics.total_requests == 1
         assert other_metrics.tor_requests == 0
 
-    def test_domain_case_insensitive(self, fresh_collector: "MetricsCollector") -> None:
+    def test_domain_case_insensitive(self, fresh_collector: MetricsCollector) -> None:
         """
         Domain metrics should be case-insensitive.
 
@@ -220,7 +220,7 @@ class TestMetricsCollectorTorTracking:
         assert metrics.total_requests == 2
         assert metrics.domain == "example.com"
 
-    def test_date_reset_on_new_day(self, fresh_collector: "MetricsCollector") -> None:
+    def test_date_reset_on_new_day(self, fresh_collector: MetricsCollector) -> None:
         """
         Metrics should reset when date changes.
 

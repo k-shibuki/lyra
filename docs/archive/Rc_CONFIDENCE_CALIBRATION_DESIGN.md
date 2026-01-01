@@ -944,7 +944,6 @@ LoRA によるNLIモデルのファインチューニングは、100+ フィー�
 |------|-----|------|------|
 | 高 Confidence | ≥ 0.7 | report/generator.py | レポート内分類 |
 | 反論検出 | > 0.7 | filter/nli.py | 矛盾検出 |
-| OCR 行信頼度 | > 0.5 | extractor/content.py | OCRの低信頼行を除外 |
 | 校正劣化 | 0.05 | utils/nli_calibration.py | fit()時のロールバックトリガー |
 | LoRA 訓練 | ≥ 100 samples | ADR-0011 | 訓練開始条件 |
 

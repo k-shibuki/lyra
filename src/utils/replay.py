@@ -4,7 +4,7 @@ Enables reconstruction and re-execution of decision flows from logs.
 
 Features:
 - Export decision logs for analysis
-- Replay task flows for A/B testing
+- Replay task flows for comparison and validation
 - Compare metrics between runs
 """
 
@@ -67,7 +67,7 @@ class Decision:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Decision":
+    def from_dict(cls, data: dict[str, Any]) -> Decision:
         """Create from dictionary."""
         return cls(
             decision_id=data["decision_id"],
@@ -229,7 +229,7 @@ class ReplayEngine:
     Enables:
     - Re-execution of tasks with same or modified parameters
     - Comparison of outcomes between runs
-    - A/B testing of policy changes
+    - Validation of policy changes
     """
 
     def __init__(self) -> None:

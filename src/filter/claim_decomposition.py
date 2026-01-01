@@ -91,7 +91,7 @@ class AtomicClaim:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AtomicClaim":
+    def from_dict(cls, data: dict[str, Any]) -> AtomicClaim:
         """Create from dictionary."""
         return cls(
             claim_id=data["claim_id"],

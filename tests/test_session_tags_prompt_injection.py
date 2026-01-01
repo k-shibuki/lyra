@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
 from src.utils.prompt_manager import render_prompt
 
 
@@ -15,7 +17,7 @@ def _extract_lyra_tag_pair(rendered: str) -> tuple[str, str]:
     return (f"<{tag_name}>", close_tag)
 
 
-def test_render_prompt_injects_session_tags_by_default(monkeypatch) -> None:
+def test_render_prompt_injects_session_tags_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     # Given: default ON (explicitly set to avoid test env surprises)
     monkeypatch.setenv("LYRA_LLM__SESSION_TAGS_ENABLED", "true")
     from src.utils.config import get_settings
@@ -34,7 +36,7 @@ def test_render_prompt_injects_session_tags_by_default(monkeypatch) -> None:
     )
 
 
-def test_render_prompt_can_disable_session_tags(monkeypatch) -> None:
+def test_render_prompt_can_disable_session_tags(monkeypatch: pytest.MonkeyPatch) -> None:
     # Given: session tags disabled via env
     monkeypatch.setenv("LYRA_LLM__SESSION_TAGS_ENABLED", "false")
     from src.utils.config import get_settings
@@ -49,7 +51,7 @@ def test_render_prompt_can_disable_session_tags(monkeypatch) -> None:
     assert "UNTRUSTED_TEXT_ABC" in rendered
 
 
-def test_render_prompt_does_not_override_explicit_tag_vars(monkeypatch) -> None:
+def test_render_prompt_does_not_override_explicit_tag_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     # Given: even if enabled, explicit vars should win (caller-controlled)
     monkeypatch.setenv("LYRA_LLM__SESSION_TAGS_ENABLED", "true")
     from src.utils.config import get_settings

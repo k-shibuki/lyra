@@ -81,7 +81,7 @@ class SERPResult(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SERPResult":
+    def from_dict(cls, data: dict[str, Any]) -> SERPResult:
         """Create from dictionary."""
         return cls(
             title=data.get("title", ""),
@@ -216,7 +216,7 @@ class HealthStatus(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict, description="Additional health details")
 
     @classmethod
-    def healthy(cls, latency_ms: float = 0.0) -> "HealthStatus":
+    def healthy(cls, latency_ms: float = 0.0) -> HealthStatus:
         """Create a healthy status."""
         return cls(
             state=HealthState.HEALTHY,
@@ -226,7 +226,7 @@ class HealthStatus(BaseModel):
         )
 
     @classmethod
-    def degraded(cls, success_rate: float, message: str | None = None) -> "HealthStatus":
+    def degraded(cls, success_rate: float, message: str | None = None) -> HealthStatus:
         """Create a degraded status."""
         return cls(
             state=HealthState.DEGRADED,
@@ -236,7 +236,7 @@ class HealthStatus(BaseModel):
         )
 
     @classmethod
-    def unhealthy(cls, message: str | None = None) -> "HealthStatus":
+    def unhealthy(cls, message: str | None = None) -> HealthStatus:
         """Create an unhealthy status."""
         return cls(
             state=HealthState.UNHEALTHY,

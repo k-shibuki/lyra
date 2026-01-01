@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyra Evidence Graph - task_9c48928b</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e8e8ed;
+            --text-secondary: #9898a8;
+            --text-muted: #6868788;
+            --accent-cyan: #00d4ff;
+            --accent-green: #00ff88;
+            --accent-red: #ff4466;
+            --accent-yellow: #ffcc00;
+            --accent-purple: #aa66ff;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+        }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            height: 100vh;
+        }
+        
+        .graph-container {
+            position: relative;
+            background: 
+                radial-gradient(ellipse at 20% 80%, rgba(0, 212, 255, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(170, 102, 255, 0.03) 0%, transparent 50%),
+                var(--bg-primary);
+        }
+        
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .sidebar {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--bg-tertiary);
+        }
+        
+        .sidebar-header h1 {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: var(--accent-cyan);
+            margin-bottom: 4px;
+        }
+        
+        .sidebar-header .task-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .stat-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .stat-value.cyan { color: var(--accent-cyan); }
+        .stat-value.green { color: var(--accent-green); }
+        .stat-value.red { color: var(--accent-red); }
+        .stat-value.yellow { color: var(--accent-yellow); }
+        
+        .stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .legend {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .legend h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+        
+        .legend-line {
+            width: 24px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        
+        .legend-line.supports { background: var(--accent-green); }
+        .legend-line.refutes { background: var(--accent-red); }
+        .legend-line.neutral { background: var(--text-secondary); opacity: 0.4; }
+        
+        .legend-node {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .legend-node.claim { background: var(--accent-cyan); }
+        .legend-node.fragment { background: var(--accent-purple); }
+        
+        .detail-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+        
+        .detail-panel h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .detail-content {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+        
+        .detail-content.empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        
+        .detail-meta {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-subtle);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .detail-meta .label {
+            color: var(--text-muted);
+        }
+        
+        .detail-source {
+            margin-top: 8px;
+        }
+        
+        .detail-source a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+            word-break: break-all;
+        }
+        
+        .detail-source a:hover {
+            text-decoration: underline;
+        }
+        
+        .controls {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-subtle);
+            background: var(--bg-tertiary);
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .control-row label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            background: var(--bg-primary);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 6px;
+            flex: 1;
+        }
+        
+        .filter-btn {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--text-secondary);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+        
+        .filter-btn.active.green {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+        }
+        
+        .filter-btn.active.red {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+        }
+        
+        /* Graph styles */
+        .node {
+            cursor: pointer;
+        }
+        
+        .node circle {
+            stroke-width: 2px;
+            transition: all 0.2s;
+        }
+        
+        .node:hover circle {
+            stroke-width: 3px;
+        }
+        
+        .node.claim circle {
+            fill: var(--bg-tertiary);
+            stroke: var(--accent-cyan);
+        }
+        
+        .node.fragment circle {
+            fill: var(--bg-tertiary);
+            stroke: var(--accent-purple);
+        }
+        
+        .node.selected circle {
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+        
+        .node.claim.selected circle {
+            filter: drop-shadow(0 0 12px var(--accent-cyan));
+        }
+        
+        .node.fragment.selected circle {
+            filter: drop-shadow(0 0 12px var(--accent-purple));
+        }
+        
+        .link {
+            fill: none;
+            stroke-opacity: 0.6;
+            transition: stroke-opacity 0.2s;
+        }
+        
+        .link.supports {
+            stroke: var(--accent-green);
+        }
+        
+        .link.refutes {
+            stroke: var(--accent-red);
+        }
+        
+        .link.neutral {
+            stroke: var(--text-secondary);
+            stroke-opacity: 0.2;
+        }
+        
+        .link.highlighted {
+            stroke-opacity: 1;
+            stroke-width: 3px;
+        }
+        
+        .link.dimmed {
+            stroke-opacity: 0.05;
+        }
+        
+        .node.dimmed circle {
+            opacity: 0.2;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 12px;
+            max-width: 300px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="graph-container">
+            <svg id="graph"></svg>
+            <div class="tooltip" id="tooltip"></div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>LYRA EVIDENCE GRAPH</h1>
+                <div class="task-id">task_9c48928b</div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value cyan" id="stat-claims">-</div>
+                    <div class="stat-label">Claims</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value yellow" id="stat-fragments">-</div>
+                    <div class="stat-label">Fragments</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value green" id="stat-supports">-</div>
+                    <div class="stat-label">Supports</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value red" id="stat-refutes">-</div>
+                    <div class="stat-label">Refutes</div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <h3>Legend</h3>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-node claim"></div>
+                        <span>Claim (extracted assertion)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-node fragment"></div>
+                        <span>Fragment (source text)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line supports"></div>
+                        <span>Supports</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line refutes"></div>
+                        <span>Refutes</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line neutral"></div>
+                        <span>Neutral</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="detail-panel">
+                <h3>Selected Node</h3>
+                <div class="detail-content empty" id="detail-content">
+                    Click on a node to view details
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="control-row">
+                    <label>Filter</label>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn green" data-filter="supports">Supports</button>
+                        <button class="filter-btn red" data-filter="refutes">Refutes</button>
+                    </div>
+                </div>
+                <div class="control-row">
+                    <label>Force</label>
+                    <input type="range" id="force-strength" min="0" max="100" value="30">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Data will be loaded from JSON files
+        let claims = [];
+        let fragments = [];
+        let edges = [];
+        let simulation;
+        let currentFilter = 'all';
+        
+        // Load data
+        Promise.all([
+            fetch('claims.json').then(r => r.json()),
+            fetch('fragments.json').then(r => r.json()),
+            fetch('edges.json').then(r => r.json())
+        ]).then(([claimsData, fragmentsData, edgesData]) => {
+            claims = claimsData;
+            fragments = fragmentsData;
+            edges = edgesData;
+            
+            initGraph();
+            updateStats();
+        }).catch(err => {
+            console.error('Failed to load data:', err);
+            document.getElementById('detail-content').innerHTML = 
+                `<span style="color: var(--accent-red)">Error loading data: ${err.message}</span>`;
+        });
+        
+        function updateStats() {
+            document.getElementById('stat-claims').textContent = claims.length;
+            document.getElementById('stat-fragments').textContent = fragments.length;
+            document.getElementById('stat-supports').textContent = 
+                edges.filter(e => e.relation === 'supports').length;
+            document.getElementById('stat-refutes').textContent = 
+                edges.filter(e => e.relation === 'refutes').length;
+        }
+        
+        function initGraph() {
+            const svg = d3.select('#graph');
+            const container = document.querySelector('.graph-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            svg.attr('width', width).attr('height', height);
+            
+            // Build nodes
+            const claimNodes = claims.map(c => ({
+                id: c.id,
+                type: 'claim',
+                data: c
+            }));
+            
+            const fragmentMap = new Map(fragments.map(f => [f.id, f]));
+            const usedFragmentIds = new Set(edges.map(e => e.source_id));
+            const fragmentNodes = fragments
+                .filter(f => usedFragmentIds.has(f.id))
+                .map(f => ({
+                    id: f.id,
+                    type: 'fragment',
+                    data: f
+                }));
+            
+            const nodes = [...claimNodes, ...fragmentNodes];
+            const nodeMap = new Map(nodes.map(n => [n.id, n]));
+            
+            // Build links
+            const links = edges
+                .filter(e => nodeMap.has(e.source_id) && nodeMap.has(e.target_id))
+                .map(e => ({
+                    source: e.source_id,
+                    target: e.target_id,
+                    relation: e.relation,
+                    confidence: e.nli_edge_confidence
+                }));
+            
+            // Create zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+            
+            svg.call(zoom);
+            
+            const g = svg.append('g');
+            
+            // Create links
+            const link = g.append('g')
+                .attr('class', 'links')
+                .selectAll('line')
+                .data(links)
+                .join('line')
+                .attr('class', d => `link ${d.relation}`)
+                .attr('stroke-width', d => Math.max(1, (d.confidence || 0.5) * 3));
+            
+            // Create nodes
+            const node = g.append('g')
+                .attr('class', 'nodes')
+                .selectAll('g')
+                .data(nodes)
+                .join('g')
+                .attr('class', d => `node ${d.type}`)
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+            
+            node.append('circle')
+                .attr('r', d => d.type === 'claim' ? 8 : 5);
+            
+            // Tooltip
+            const tooltip = d3.select('#tooltip');
+            
+            node.on('mouseover', (event, d) => {
+                const text = d.type === 'claim' 
+                    ? d.data.claim_text.substring(0, 150) + (d.data.claim_text.length > 150 ? '...' : '')
+                    : d.data.text_content.substring(0, 150) + (d.data.text_content.length > 150 ? '...' : '');
+                
+                tooltip
+                    .html(`<strong>${d.type.toUpperCase()}</strong><br>${text}`)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px')
+                    .classed('visible', true);
+            })
+            .on('mouseout', () => {
+                tooltip.classed('visible', false);
+            })
+            .on('click', (event, d) => {
+                selectNode(d, nodes, links, node, link);
+            });
+            
+            // Force simulation
+            simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(80))
+                .force('charge', d3.forceManyBody().strength(-100))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(15))
+                .on('tick', () => {
+                    link
+                        .attr('x1', d => d.source.x)
+                        .attr('y1', d => d.source.y)
+                        .attr('x2', d => d.target.x)
+                        .attr('y2', d => d.target.y);
+                    
+                    node.attr('transform', d => `translate(${d.x},${d.y})`);
+                });
+            
+            // Force strength control
+            document.getElementById('force-strength').addEventListener('input', (e) => {
+                const strength = -e.target.value * 5;
+                simulation.force('charge').strength(strength);
+                simulation.alpha(0.3).restart();
+            });
+            
+            // Filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    applyFilter(link, node, links);
+                });
+            });
+            
+            // Initial zoom to fit
+            const bounds = g.node().getBBox();
+            const dx = bounds.width;
+            const dy = bounds.height;
+            const x = bounds.x + dx / 2;
+            const y = bounds.y + dy / 2;
+            const scale = 0.8 / Math.max(dx / width, dy / height);
+            const translate = [width / 2 - scale * x, height / 2 - scale * y];
+            
+            svg.transition()
+                .duration(750)
+                .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+            
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+            
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                event.subject.fx = null;
+                event.subject.fy = null;
+            }
+        }
+        
+        function applyFilter(link, node, links) {
+            if (currentFilter === 'all') {
+                link.classed('dimmed', false);
+                node.classed('dimmed', false);
+            } else {
+                const visibleLinks = new Set();
+                const visibleNodes = new Set();
+                
+                links.forEach(l => {
+                    if (l.relation === currentFilter) {
+                        visibleLinks.add(l);
+                        visibleNodes.add(l.source.id || l.source);
+                        visibleNodes.add(l.target.id || l.target);
+                    }
+                });
+                
+                link.classed('dimmed', d => !visibleLinks.has(d));
+                node.classed('dimmed', d => !visibleNodes.has(d.id));
+            }
+        }
+        
+        function selectNode(d, nodes, links, nodeSelection, linkSelection) {
+            // Highlight connected edges
+            nodeSelection.classed('selected', n => n.id === d.id);
+            
+            const connectedLinks = links.filter(l => 
+                (l.source.id || l.source) === d.id || 
+                (l.target.id || l.target) === d.id
+            );
+            
+            linkSelection.classed('highlighted', l => 
+                (l.source.id || l.source) === d.id || 
+                (l.target.id || l.target) === d.id
+            );
+            
+            // Update detail panel
+            const detailContent = document.getElementById('detail-content');
+            
+            if (d.type === 'claim') {
+                const c = d.data;
+                detailContent.innerHTML = `
+                    <div>${c.claim_text}</div>
+                    <div class="detail-meta">
+                        <span class="label">Type:</span> ${c.claim_type || 'N/A'}<br>
+                        <span class="label">ID:</span> ${c.id}<br>
+                        <span class="label">Support:</span> ${c.supporting_count} / 
+                        <span class="label">Refute:</span> ${c.refuting_count} / 
+                        <span class="label">Neutral:</span> ${c.neutral_count}
+                    </div>
+                `;
+            } else {
+                const f = d.data;
+                detailContent.innerHTML = `
+                    <div>${f.text_content}</div>
+                    <div class="detail-meta">
+                        <span class="label">Heading:</span> ${f.heading_context || 'N/A'}<br>
+                        <span class="label">Domain:</span> ${f.domain}<br>
+                        <span class="label">Title:</span> ${f.title || 'N/A'}
+                    </div>
+                    <div class="detail-source">
+                        <span class="label">Source:</span><br>
+                        <a href="${f.url}" target="_blank">${f.url}</a>
+                    </div>
+                `;
+            }
+            detailContent.classList.remove('empty');
+        }
+    </script>
+</body>
+</html>
+
+

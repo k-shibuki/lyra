@@ -1644,7 +1644,6 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 - HTTP Client: curl_cffi（Chrome impersonate）
 - Browser Automation: Playwright（CDP接続／Windows側Chromeの実プロファイルpersistent context）＋ undetected-chromedriver（フォールバック）
 - Content Extraction: trafilatura（静的ページ抽出）
- - PDF Extraction: PyMuPDF（`fitz`）でPDFからテキスト/画像を抽出（必要時のみOCRをGPUで適用）
 - Network: Tor + Stem（回線制御）＋（任意）Privoxy
 - Storage: SQLite / JSON（エビデンスグラフ・ログ）
 - Search Engine: Playwright経由の直接ブラウザ検索（BrowserSearchProvider）
@@ -1661,7 +1660,6 @@ MCP応答がCursor AIに渡る前に、最終的なサニタイズとスキー�
 - 軽量NLI: ONNX Runtime + tiny-DeBERTa系モデル（完全ローカル推論）
  - ステルス限定適用: `playwright-stealth`相当の軽量対策（限定ドメインのみ・常用禁止）
  - PDF構造解析: `GROBID`（参考文献・セクション構造の抽出強化）
- - OCR: `PaddleOCR`（GPU対応, スキャンPDF/画像主体の分野のみ適用）, `Tesseract`（軽量フォールバック）
  - 表抽出: `Camelot`, `Tabula`（PDFのテーブル抽出）
  - ベクトル検索: `faiss-gpu`（コーパスが大規模な場合の任意採用）
 - 外部データソースAPI（無料・公式）:

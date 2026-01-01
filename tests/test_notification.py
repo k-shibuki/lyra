@@ -650,9 +650,9 @@ class TestNotifyUserFunction:
                 "src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)
             ):
                 # Reset global manager
-                import src.utils.notification as notif_module
+                import src.utils.intervention_manager as intervention_module
 
-                notif_module._manager = None
+                intervention_module._manager = None
 
                 with patch.object(
                     InterventionManager,
@@ -687,9 +687,9 @@ class TestNotifyUserFunction:
                 "src.utils.intervention_manager.get_database", new=AsyncMock(return_value=mock_db)
             ):
                 # Reset global manager
-                import src.utils.notification as notif_module
+                import src.utils.intervention_manager as intervention_module
 
-                notif_module._manager = None
+                intervention_module._manager = None
 
                 with patch.object(
                     InterventionManager,

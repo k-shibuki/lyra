@@ -367,7 +367,7 @@ class ProcessLifecycleManager:
             )
             return False
 
-    async def _cleanup_browser(self, browser: "Browser") -> None:
+    async def _cleanup_browser(self, browser: Browser) -> None:
         """Cleanup Playwright browser instance.
 
         Args:
@@ -378,7 +378,7 @@ class ProcessLifecycleManager:
         except Exception as e:
             logger.debug("Browser close error (may be expected)", error=str(e))
 
-    async def _cleanup_browser_context(self, context: "BrowserContext") -> None:
+    async def _cleanup_browser_context(self, context: BrowserContext) -> None:
         """Cleanup Playwright browser context.
 
         Args:
@@ -389,7 +389,7 @@ class ProcessLifecycleManager:
         except Exception as e:
             logger.debug("Context close error (may be expected)", error=str(e))
 
-    async def _cleanup_playwright(self, playwright: "Playwright") -> None:
+    async def _cleanup_playwright(self, playwright: Playwright) -> None:
         """Cleanup Playwright instance.
 
         Args:
@@ -474,7 +474,7 @@ class ProcessLifecycleManager:
             except Exception as e:
                 logger.debug("HTTP session close error", error=str(e))
 
-    async def _cleanup_tor_controller(self, controller: "Controller") -> None:
+    async def _cleanup_tor_controller(self, controller: Controller) -> None:
         """Cleanup Tor controller connection.
 
         Args:
@@ -531,9 +531,9 @@ async def cleanup_all_resources() -> dict[str, bool]:
 
 async def register_browser_for_task(
     task_id: str,
-    browser: "Browser",
-    context: "BrowserContext | None" = None,
-    playwright: "Playwright | None" = None,
+    browser: Browser,
+    context: BrowserContext | None = None,
+    playwright: Playwright | None = None,
 ) -> list[str]:
     """Register browser resources for task-scoped lifecycle management.
 

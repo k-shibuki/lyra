@@ -51,7 +51,7 @@ class ParameterBounds:
     step_down: float  # Amount to decrease per adjustment
 
 
-def _get_default_bounds() -> dict["PolicyParameter", ParameterBounds]:
+def _get_default_bounds() -> dict[PolicyParameter, ParameterBounds]:
     """Get default parameter bounds from DomainPolicyManager.
 
     Loads bounds from config/domains.yaml via DomainPolicyManager.

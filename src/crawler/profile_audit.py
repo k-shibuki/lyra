@@ -93,7 +93,7 @@ class FingerprintData(BaseModel):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FingerprintData":
+    def from_dict(cls, data: dict[str, Any]) -> FingerprintData:
         """Create from dictionary."""
         # Convert fonts list to set if needed
         if "fonts" in data and isinstance(data["fonts"], list):
@@ -459,7 +459,7 @@ class ProfileAuditor:
                 path=str(log_path),
             )
 
-    async def collect_fingerprint(self, page: "Page") -> FingerprintData:
+    async def collect_fingerprint(self, page: Page) -> FingerprintData:
         """Collect current browser fingerprint from page.
 
         Args:
@@ -649,7 +649,7 @@ class ProfileAuditor:
 
     async def audit(
         self,
-        page: "Page",
+        page: Page,
         force: bool = False,
         update_baseline: bool = False,
     ) -> AuditResult:
@@ -904,7 +904,7 @@ def get_profile_auditor(profile_dir: Path | None = None) -> ProfileAuditor:
 
 
 async def perform_health_check(
-    page: "Page",
+    page: Page,
     force: bool = False,
     auto_repair: bool = True,
     browser_manager: Any = None,

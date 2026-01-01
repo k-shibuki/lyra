@@ -146,7 +146,7 @@ class HumanBehaviorConfig:
     think_time_max_ms: float = 800.0
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "HumanBehaviorConfig":
+    def from_yaml(cls, path: str | Path) -> HumanBehaviorConfig:
         """Load configuration from YAML file.
 
         Args:
@@ -206,7 +206,7 @@ class Point:
     x: float
     y: float
 
-    def distance_to(self, other: "Point") -> float:
+    def distance_to(self, other: Point) -> float:
         """Calculate Euclidean distance to another point."""
         return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
@@ -387,7 +387,7 @@ class TypingEvent:
         KEY = "key"
         BACKSPACE = "backspace"
 
-    event_type: "TypingEvent.EventType"
+    event_type: TypingEvent.EventType
     key: str
     delay_ms: float
 
@@ -710,7 +710,7 @@ class HumanBehaviorSimulator:
         self._scroll = InertialScroll(self._config.scroll)
 
     @classmethod
-    def from_config_file(cls, path: str | Path) -> "HumanBehaviorSimulator":
+    def from_config_file(cls, path: str | Path) -> HumanBehaviorSimulator:
         """Create simulator from YAML configuration file.
 
         Args:
@@ -724,7 +724,7 @@ class HumanBehaviorSimulator:
 
     async def move_mouse(
         self,
-        page: "Page",
+        page: Page,
         start: tuple[float, float],
         end: tuple[float, float],
     ) -> None:
@@ -742,7 +742,7 @@ class HumanBehaviorSimulator:
             if delay_ms > 0:
                 await asyncio.sleep(delay_ms / 1000)
 
-    async def move_to_element(self, page: "Page", selector: str) -> bool:
+    async def move_to_element(self, page: Page, selector: str) -> bool:
         """Move mouse to element with human-like trajectory.
 
         Args:
@@ -780,7 +780,7 @@ class HumanBehaviorSimulator:
 
     async def type_text(
         self,
-        page: "Page",
+        page: Page,
         text: str,
         selector: str | None = None,
     ) -> None:
@@ -809,7 +809,7 @@ class HumanBehaviorSimulator:
 
     async def scroll_page(
         self,
-        page: "Page",
+        page: Page,
         amount: int | None = None,
         direction: int = 1,
     ) -> None:
@@ -832,7 +832,7 @@ class HumanBehaviorSimulator:
 
     async def read_page(
         self,
-        page: "Page",
+        page: Page,
         max_scrolls: int = 5,
     ) -> None:
         """Simulate reading a page with natural scrolling.

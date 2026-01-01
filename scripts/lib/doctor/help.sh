@@ -23,7 +23,7 @@ show_help() {
     echo ""
     echo "What doctor checks (10 items):"
     echo "  - Environment: WSL2/Linux detection"
-    echo "  - Python/uv: uv command, .venv existence, Python 3.13 version"
+    echo "  - Python/uv: uv command, .venv existence, Python 3.14 version"
     echo "  - Container: podman, podman-compose availability"
     echo "  - GPU: nvidia-smi for container GPU passthrough"
     echo "  - Disk space: ~25GB required for ML images and models"

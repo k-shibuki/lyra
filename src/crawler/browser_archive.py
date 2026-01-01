@@ -570,7 +570,7 @@ class BrowserArchiver:
         self._collector = NetworkEventCollector()
         return self._collector
 
-    async def attach_to_page(self, page: "Page", main_url: str) -> NetworkEventCollector:
+    async def attach_to_page(self, page: Page, main_url: str) -> NetworkEventCollector:
         """Attach network event listeners to a Playwright page.
 
         This sets up event handlers to automatically collect network
@@ -587,7 +587,7 @@ class BrowserArchiver:
         collector.start_collection(main_url)
 
         # Handle request events
-        async def on_request(request: "Request") -> None:
+        async def on_request(request: Request) -> None:
             try:
                 collector.on_request(
                     url=request.url,
@@ -599,7 +599,7 @@ class BrowserArchiver:
                 logger.debug("Error handling request event", error=str(e))
 
         # Handle response events
-        async def on_response(response: "Response") -> None:
+        async def on_response(response: Response) -> None:
             try:
                 headers = {}
                 try:
@@ -618,7 +618,7 @@ class BrowserArchiver:
                 logger.debug("Error handling response event", error=str(e))
 
         # Handle request finished events
-        async def on_request_finished(request: "Request") -> None:
+        async def on_request_finished(request: Request) -> None:
             try:
                 sizes = await request.sizes()
                 collector.on_request_finished(
@@ -786,7 +786,7 @@ def get_browser_archiver() -> BrowserArchiver:
 
 
 async def archive_browser_page(
-    page: "Page",
+    page: Page,
     url: str,
     content: bytes | None = None,
     warc_path: str | None = None,

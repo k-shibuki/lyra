@@ -31,7 +31,7 @@ EMPTY_QUEUE_POLL_INTERVAL = 1.0
 ERROR_RECOVERY_DELAY = 5.0
 
 
-async def _get_exploration_state(task_id: str) -> "ExplorationState":
+async def _get_exploration_state(task_id: str) -> ExplorationState:
     """Get or create exploration state for a task.
 
     This is a helper to avoid circular imports with server.py.

@@ -820,7 +820,7 @@ class TestMLServerAPI:
     """
 
     @pytest.fixture
-    def client(self) -> "TestClient":
+    def client(self) -> TestClient:
         """Create test client."""
         from fastapi.testclient import TestClient
 
@@ -828,7 +828,7 @@ class TestMLServerAPI:
 
         return TestClient(app)
 
-    def test_health_check(self, client: "TestClient") -> None:
+    def test_health_check(self, client: TestClient) -> None:
         """
         Given: ML Server is running
         When: GET /health is called
@@ -843,7 +843,7 @@ class TestMLServerAPI:
         assert data["status"] == "ok"
         assert "models_loaded" in data
 
-    def test_embed_endpoint_validation(self, client: "TestClient") -> None:
+    def test_embed_endpoint_validation(self, client: TestClient) -> None:
         """
         Given: ML Server is running
         When: POST /embed is called without texts
@@ -855,7 +855,7 @@ class TestMLServerAPI:
         # Then
         assert response.status_code == 422  # Validation error
 
-    def test_rerank_endpoint_validation(self, client: "TestClient") -> None:
+    def test_rerank_endpoint_validation(self, client: TestClient) -> None:
         """
         Given: ML Server is running
         When: POST /rerank is called without required fields
@@ -867,7 +867,7 @@ class TestMLServerAPI:
         # Then
         assert response.status_code == 422  # Validation error
 
-    def test_nli_endpoint_validation(self, client: "TestClient") -> None:
+    def test_nli_endpoint_validation(self, client: TestClient) -> None:
         """
         Given: ML Server is running
         When: POST /nli is called without required fields

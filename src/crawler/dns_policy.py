@@ -477,7 +477,7 @@ class DNSPolicyManager:
         self,
         hostname: str,
         domain: str | None = None,
-    ) -> list["IPv6Address"]:
+    ) -> list[IPv6Address]:
         """Resolve hostname with IPv6 preference.
 
         Integrates with IPv6ConnectionManager for Happy Eyeballs-style
@@ -498,7 +498,7 @@ class DNSPolicyManager:
     def get_preferred_address_family(
         self,
         domain: str | None = None,
-    ) -> "AddressFamily":
+    ) -> AddressFamily:
         """Get preferred address family for a domain.
 
         Args:
@@ -542,7 +542,7 @@ class DNSPolicyManager:
     async def get_preferred_address_family_async(
         self,
         domain: str,
-    ) -> "AddressFamily":
+    ) -> AddressFamily:
         """Get preferred address family for a domain (async version).
 
         Args:

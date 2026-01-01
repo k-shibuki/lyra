@@ -279,7 +279,7 @@ class LinkExtractor:
                 return True
         return False
 
-    def _classify_link(self, anchor: "Tag", soup: BeautifulSoup) -> LinkType:
+    def _classify_link(self, anchor: Tag, soup: BeautifulSoup) -> LinkType:
         """Classify link type based on context.
 
         Args:
@@ -324,7 +324,7 @@ class LinkExtractor:
         # Default to body
         return LinkType.BODY
 
-    def _calculate_priority(self, anchor: "Tag", link_type: LinkType) -> float:
+    def _calculate_priority(self, anchor: Tag, link_type: LinkType) -> float:
         """Calculate link priority score.
 
         Args:
@@ -365,7 +365,7 @@ class LinkExtractor:
 
         return min(1.0, priority)
 
-    def _get_context(self, anchor: "Tag", chars: int = 100) -> str:
+    def _get_context(self, anchor: Tag, chars: int = 100) -> str:
         """Get surrounding text context for link.
 
         Args:

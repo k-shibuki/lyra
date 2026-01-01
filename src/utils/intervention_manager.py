@@ -183,7 +183,7 @@ class InterventionManager:
         }
         return messages.get(intervention_type, f"手動操作が必要です\nサイト: {domain}")
 
-    async def _bring_tab_to_front(self, page: "Page") -> bool:
+    async def _bring_tab_to_front(self, page: Page) -> bool:
         """Bring browser window to front using safe methods.
 
         Safe Operation Policy:

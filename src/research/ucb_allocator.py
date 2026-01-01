@@ -496,7 +496,7 @@ class UCBAllocator:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "UCBAllocator":
+    def from_dict(cls, data: dict[str, Any]) -> UCBAllocator:
         """Restore from dictionary."""
         allocator = cls(
             total_budget=data.get("total_budget", 120),

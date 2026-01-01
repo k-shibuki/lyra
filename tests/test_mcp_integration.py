@@ -37,7 +37,7 @@ class TestGetStatusIntegration:
     """Integration tests for get_status with real database data."""
 
     @pytest.fixture
-    async def setup_task_with_search_data(self, memory_database: "Database") -> dict[str, Any]:
+    async def setup_task_with_search_data(self, memory_database: Database) -> dict[str, Any]:
         """Create a task with search/exploration data.
 
         Returns dict with task_id, search_id, page_count, fragment_count.
@@ -102,7 +102,7 @@ class TestGetStatusIntegration:
 
     @pytest.mark.asyncio
     async def test_get_status_returns_task_info(
-        self, memory_database: "Database", setup_task_with_search_data: dict[str, Any]
+        self, memory_database: Database, setup_task_with_search_data: dict[str, Any]
     ) -> None:
         """
         TC-I-01: get_status returns task and search information.
@@ -134,7 +134,7 @@ class TestGetStatusIntegration:
 
     @pytest.mark.asyncio
     async def test_get_status_without_exploration_returns_minimal(
-        self, memory_database: "Database"
+        self, memory_database: Database
     ) -> None:
         """
         TC-I-03: Task with no exploration data returns empty searches.
@@ -172,7 +172,7 @@ class TestGetMaterialsIntegration:
     """Integration tests for get_materials with real database data."""
 
     @pytest.fixture
-    async def setup_task_with_claims(self, memory_database: "Database") -> dict[str, Any]:
+    async def setup_task_with_claims(self, memory_database: Database) -> dict[str, Any]:
         """Create a task with claims, fragments, and edges.
 
         Returns dict with task_id and expected counts.
@@ -257,7 +257,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_returns_claims_and_fragments(
-        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+        self, memory_database: Database, setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
         TC-I-02: get_materials returns claims and fragments from DB.
@@ -292,7 +292,7 @@ class TestGetMaterialsIntegration:
         assert result["summary"]["total_claims"] == 2
 
     @pytest.mark.asyncio
-    async def test_get_materials_empty_task(self, memory_database: "Database") -> None:
+    async def test_get_materials_empty_task(self, memory_database: Database) -> None:
         """
         TC-I-04: Task with 0 claims/fragments returns empty lists.
 
@@ -322,7 +322,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_with_evidence_graph(
-        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+        self, memory_database: Database, setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
         TC-I-05: get_materials with include_graph=True includes evidence_graph.
@@ -356,7 +356,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_includes_bayesian_confidence(
-        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+        self, memory_database: Database, setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
         TC-4.3-N-01: get_materials includes uncertainty and controversy .
@@ -447,7 +447,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_call_tool_preserves_bayesian_fields(
-        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+        self, memory_database: Database, setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
         TC-L7-01: get_materials via MCP call_tool preserves Bayesian fields after L7.
@@ -557,7 +557,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_includes_claim_adoption_status_default(
-        self, memory_database: "Database", setup_task_with_claims: dict[str, Any]
+        self, memory_database: Database, setup_task_with_claims: dict[str, Any]
     ) -> None:
         """
         TC-N-01 / TC-W-01: get_materials includes claim_adoption_status with default value.
@@ -589,7 +589,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_not_adopted_claim_with_reason(
-        self, memory_database: "Database"
+        self, memory_database: Database
     ) -> None:
         """
         TC-N-02 / TC-E-01: get_materials returns not_adopted claim with rejection reason.
@@ -643,7 +643,7 @@ class TestGetMaterialsIntegration:
 
     @pytest.mark.asyncio
     async def test_get_materials_claim_rejection_reason_null(
-        self, memory_database: "Database"
+        self, memory_database: Database
     ) -> None:
         """
         TC-B-02: Claim with NULL rejection_reason returns None.
@@ -695,7 +695,7 @@ class TestGetMaterialsIntegration:
         assert claim["claim_rejection_reason"] is None
 
     @pytest.mark.asyncio
-    async def test_get_materials_mixed_adoption_statuses(self, memory_database: "Database") -> None:
+    async def test_get_materials_mixed_adoption_statuses(self, memory_database: Database) -> None:
         """
         TC-E-01 variant: get_materials correctly returns mixed adoption statuses.
 
@@ -764,7 +764,7 @@ class TestMCPToolDataConsistency:
     """Tests for data consistency across MCP tools."""
 
     @pytest.fixture
-    async def setup_full_exploration(self, memory_database: "Database") -> dict[str, Any]:
+    async def setup_full_exploration(self, memory_database: Database) -> dict[str, Any]:
         """Create complete exploration data for consistency testing."""
         db = memory_database
         task_id = f"task_full_{uuid.uuid4().hex[:8]}"
@@ -845,7 +845,7 @@ class TestMCPToolDataConsistency:
 
     @pytest.mark.asyncio
     async def test_get_status_and_materials_consistent(
-        self, memory_database: "Database", setup_full_exploration: dict[str, Any]
+        self, memory_database: Database, setup_full_exploration: dict[str, Any]
     ) -> None:
         """
         Test that get_status and get_materials return consistent data.
@@ -911,7 +911,7 @@ class TestDomainOverrideStartupRestore:
         reset_source_verifier()
 
     @pytest.mark.asyncio
-    async def test_startup_restores_blocked_domain(self, memory_database: "Database") -> None:
+    async def test_startup_restores_blocked_domain(self, memory_database: Database) -> None:
         """
         TC-SR-01: Server startup restores blocked domain from DB.
 
@@ -949,7 +949,7 @@ class TestDomainOverrideStartupRestore:
         ), f"Expected '{domain}' in _blocked_domains after startup restore"
 
     @pytest.mark.asyncio
-    async def test_startup_restores_unblocked_domain(self, memory_database: "Database") -> None:
+    async def test_startup_restores_unblocked_domain(self, memory_database: Database) -> None:
         """
         TC-SR-02: Server startup restores unblocked domain from DB.
 
@@ -991,7 +991,7 @@ class TestDomainOverrideStartupRestore:
         ), f"Expected '{domain}' NOT in _blocked_domains after startup restore"
 
     @pytest.mark.asyncio
-    async def test_startup_restores_multiple_rules(self, memory_database: "Database") -> None:
+    async def test_startup_restores_multiple_rules(self, memory_database: Database) -> None:
         """
         TC-SR-03: Server startup restores multiple domain rules (block + unblock).
 
@@ -1038,7 +1038,7 @@ class TestDomainOverrideStartupRestore:
         assert unblock_domain not in verifier._blocked_domains
 
     @pytest.mark.asyncio
-    async def test_startup_with_empty_rules(self, memory_database: "Database") -> None:
+    async def test_startup_with_empty_rules(self, memory_database: Database) -> None:
         """
         TC-SR-04: Server startup with no domain rules leaves _blocked_domains empty.
 
@@ -1065,7 +1065,7 @@ class TestDomainOverrideStartupRestore:
         assert len(verifier._blocked_domains) == 0
 
     @pytest.mark.asyncio
-    async def test_startup_ignores_inactive_rules(self, memory_database: "Database") -> None:
+    async def test_startup_ignores_inactive_rules(self, memory_database: Database) -> None:
         """
         TC-SR-05: Server startup ignores inactive (is_active=0) rules.
 

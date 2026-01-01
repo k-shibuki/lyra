@@ -118,7 +118,7 @@ class NotificationResult:
         provider: str,
         message_id: str | None = None,
         elapsed_ms: float = 0.0,
-    ) -> "NotificationResult":
+    ) -> NotificationResult:
         """Create a successful result."""
         return cls(
             ok=True,
@@ -133,7 +133,7 @@ class NotificationResult:
         provider: str,
         error: str,
         elapsed_ms: float = 0.0,
-    ) -> "NotificationResult":
+    ) -> NotificationResult:
         """Create a failure result."""
         return cls(
             ok=False,
@@ -171,7 +171,7 @@ class NotificationHealthStatus:
         cls,
         platform: Platform,
         message: str | None = None,
-    ) -> "NotificationHealthStatus":
+    ) -> NotificationHealthStatus:
         """Create a healthy status."""
         return cls(
             state=NotificationHealthState.HEALTHY,
@@ -188,7 +188,7 @@ class NotificationHealthStatus:
         platform: Platform,
         success_rate: float,
         message: str | None = None,
-    ) -> "NotificationHealthStatus":
+    ) -> NotificationHealthStatus:
         """Create a degraded status."""
         return cls(
             state=NotificationHealthState.DEGRADED,
@@ -204,7 +204,7 @@ class NotificationHealthStatus:
         cls,
         platform: Platform,
         message: str | None = None,
-    ) -> "NotificationHealthStatus":
+    ) -> NotificationHealthStatus:
         """Create an unhealthy status."""
         return cls(
             state=NotificationHealthState.UNHEALTHY,
@@ -220,7 +220,7 @@ class NotificationHealthStatus:
         cls,
         platform: Platform,
         message: str | None = None,
-    ) -> "NotificationHealthStatus":
+    ) -> NotificationHealthStatus:
         """Create an unavailable status (platform/dependency not available)."""
         return cls(
             state=NotificationHealthState.UNHEALTHY,

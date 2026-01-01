@@ -23,7 +23,7 @@ class PivotTemplateInfo(TypedDict):
 
     templates: list[str]
     priority: str
-    target_type: "EntityType | None"
+    target_type: EntityType | None
     rationale: str
     operators: list[str]
 

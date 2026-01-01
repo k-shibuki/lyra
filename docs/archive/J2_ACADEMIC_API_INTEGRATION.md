@@ -158,7 +158,7 @@
 
 | ファイル | 理由 |
 |----------|------|
-| `src/extractor/content.py` | PDF抽出機能（PyMuPDF + OCR）は実装済み |
+| `src/extractor/content.py` | HTML抽出機能は実装済み |
 | `src/crawler/fetcher.py` | PDF取得・保存は対応済み |
 | `src/search/provider.py` | `BaseSearchProvider`, `SourceTag.ACADEMIC` 既存 |
 | `src/utils/api_retry.py` | `ACADEMIC_API_POLICY` 定義済み |
@@ -835,7 +835,7 @@ Lyraは**コンテキストエンジニアリングの一部**であり、すべ
 
 **設計根拠**:
 1. **学術APIから高品質な抄録が取得可能**: PDFパースによる誤りがない
-2. **PDF本文の自動処理は複雑**: 段組み、図表、数式、OCR問題
+2. **PDF本文の自動処理は削除済み**: Abstract Only設計のためPDF本文抽出は実装されていない
 3. **フルテキストの解釈には専門知識が必要**: 人間が読むべき
 4. **信頼性の高いサジェストが重要**: 「どの論文を読むべきか」を正確に示す
 
@@ -1032,7 +1032,7 @@ async def add_academic_page_with_citations(
 | **データ品質** | PDF構造依存で不安定 | APIから高品質な構造化データ |
 | **実装複雑度** | 高（段組み、図表、数式） | 低（API呼び出しのみ） |
 | **処理時間** | PDF取得＋抽出で遅い | 軽量 |
-| **エラー率** | OCR誤り、構造解析失敗 | ほぼゼロ |
+| **エラー率** | PDF処理削除済み | 該当せず |
 | **Zero OpEx適合** | Vision API依存の恐れ | 完全適合 |
 
 **フルテキストが必要な場面の対応**:
@@ -1079,7 +1079,7 @@ async def add_academic_page_with_citations(
 
 | ファイル | 理由 |
 |----------|------|
-| `src/extractor/content.py` | PDF抽出機能（PyMuPDF + OCR）は実装済み |
+| `src/extractor/content.py` | HTML抽出機能は実装済み |
 | `src/crawler/fetcher.py` | PDF取得・保存は対応済み |
 | `src/search/provider.py` | `BaseSearchProvider`, `SourceTag.ACADEMIC` 既存 |
 | `src/utils/api_retry.py` | `ACADEMIC_API_POLICY` 定義済み |

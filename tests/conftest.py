@@ -300,7 +300,7 @@ def _check_core_dependencies() -> tuple[bool, list[str]]:
 _deps_available, _missing_deps = _check_core_dependencies()
 
 
-def pytest_ignore_collect(collection_path: Path, config: "Config") -> bool | None:
+def pytest_ignore_collect(collection_path: Path, config: Config) -> bool | None:
     """Skip test modules that require unavailable dependencies.
 
     ONLY in cloud agent environments with missing dependencies,
@@ -339,7 +339,7 @@ def pytest_ignore_collect(collection_path: Path, config: "Config") -> bool | Non
 # =============================================================================
 
 
-def pytest_configure(config: "Config") -> None:
+def pytest_configure(config: Config) -> None:
     """Register custom markers for test classification per .1.7 and ADR-0009."""
     # Primary classification markers
     config.addinivalue_line(
@@ -404,7 +404,7 @@ def pytest_configure(config: "Config") -> None:
             print("  Dependencies: Full")
 
 
-def pytest_collection_modifyitems(config: "Config", items: list["Item"]) -> None:
+def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
     """
     Auto-apply markers and skip tests based on environment.
 
@@ -449,7 +449,7 @@ def pytest_collection_modifyitems(config: "Config", items: list["Item"]) -> None
                     item.add_marker(skip_slow_reason)
 
 
-def pytest_sessionfinish(session: "Session", exitstatus: int) -> None:
+def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     """Clean up global async resources after all tests complete.
 
     This ensures aiosqlite connections are properly closed before
@@ -500,7 +500,7 @@ def temp_db_path(temp_dir: Path) -> Path:
 
 
 @pytest_asyncio.fixture
-async def test_database(temp_db_path: Path) -> AsyncGenerator["Database"]:
+async def test_database(temp_db_path: Path) -> AsyncGenerator[Database]:
     """Create a temporary test database.
 
     Guards against global database singleton interference by saving
@@ -533,7 +533,7 @@ async def test_database(temp_db_path: Path) -> AsyncGenerator["Database"]:
 
 
 @pytest.fixture
-def mock_settings() -> "Settings":
+def mock_settings() -> Settings:
     """Create mock settings for testing."""
     from src.utils.config import (
         BrowserConfig,
@@ -626,7 +626,7 @@ class MockResponse:
     async def json(self) -> dict[str, object]:
         return self._json_data
 
-    async def __aenter__(self) -> "MockResponse":
+    async def __aenter__(self) -> MockResponse:
         return self
 
     async def __aexit__(
@@ -731,7 +731,7 @@ def mock_browser() -> Generator[MagicMock]:
 
 
 @pytest_asyncio.fixture
-async def memory_database() -> AsyncGenerator["Database"]:
+async def memory_database() -> AsyncGenerator[Database]:
     """Create an in-memory database for fast unit tests.
 
     Per .1.7: Database should use in-memory SQLite for unit tests.
@@ -848,7 +848,7 @@ def make_claim() -> Callable[..., dict[str, str | float]]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def cleanup_aiohttp_sessions(request: "FixtureRequest") -> Generator[None]:
+def cleanup_aiohttp_sessions(request: FixtureRequest) -> Generator[None]:
     """Cleanup global aiohttp client sessions after all tests complete.
 
     This prevents 'Unclosed client session' warnings by ensuring all
@@ -862,12 +862,8 @@ def cleanup_aiohttp_sessions(request: "FixtureRequest") -> Generator[None]:
 
     # Synchronous cleanup - just reset globals without async operations
     # This avoids event loop conflicts with pytest-asyncio
-    try:
-        from src.filter import llm
-
-        llm._client = None
-    except ImportError:
-        pass
+    # Note: llm._client was removed in favor of provider-based architecture
+    # No cleanup needed for llm module
 
     try:
         from src.storage import database as db_module

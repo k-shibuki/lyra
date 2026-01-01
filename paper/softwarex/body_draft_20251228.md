@@ -61,7 +61,7 @@ BLOCKING ITEMS BEFORE SUBMISSION:
 | Permanent link to reproducible capsule | TODO: Zenodo DOI |
 | Legal code license | MIT |
 | Code versioning system | git |
-| Software code language | Python 3.13 |
+| Software code language | Python 3.14 |
 | Compilation requirements | NVIDIA GPU (8GB+ VRAM), CUDA 12.x |
 | Operating system | Windows 11 + WSL2 (Ubuntu 22.04/24.04) |
 | RAM | 32GB+ (WSL2 allocation) |

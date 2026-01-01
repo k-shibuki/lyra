@@ -78,7 +78,7 @@ class Cookie:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Cookie":
+    def from_dict(cls, data: dict[str, Any]) -> Cookie:
         """Create from dictionary."""
         return cls(
             name=data.get("name", ""),
@@ -203,7 +203,7 @@ class PageResult:
         html_path: str | None = None,
         mode: BrowserMode = BrowserMode.HEADLESS,
         elapsed_ms: float = 0.0,
-    ) -> "PageResult":
+    ) -> PageResult:
         """Create a successful result."""
         return cls(
             ok=True,
@@ -230,7 +230,7 @@ class PageResult:
         mode: BrowserMode = BrowserMode.HEADLESS,
         challenge_detected: bool = False,
         challenge_type: str | None = None,
-    ) -> "PageResult":
+    ) -> PageResult:
         """Create a failure result."""
         return cls(
             ok=False,
@@ -268,7 +268,7 @@ class BrowserHealthStatus:
     details: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def healthy(cls, latency_ms: float = 0.0) -> "BrowserHealthStatus":
+    def healthy(cls, latency_ms: float = 0.0) -> BrowserHealthStatus:
         """Create a healthy status."""
         return cls(
             state=BrowserHealthState.HEALTHY,
@@ -283,7 +283,7 @@ class BrowserHealthStatus:
         cls,
         success_rate: float,
         message: str | None = None,
-    ) -> "BrowserHealthStatus":
+    ) -> BrowserHealthStatus:
         """Create a degraded status."""
         return cls(
             state=BrowserHealthState.DEGRADED,
@@ -294,7 +294,7 @@ class BrowserHealthStatus:
         )
 
     @classmethod
-    def unhealthy(cls, message: str | None = None) -> "BrowserHealthStatus":
+    def unhealthy(cls, message: str | None = None) -> BrowserHealthStatus:
         """Create an unhealthy status."""
         return cls(
             state=BrowserHealthState.UNHEALTHY,
@@ -305,7 +305,7 @@ class BrowserHealthStatus:
         )
 
     @classmethod
-    def unavailable(cls, message: str | None = None) -> "BrowserHealthStatus":
+    def unavailable(cls, message: str | None = None) -> BrowserHealthStatus:
         """Create an unavailable status (dependency not installed)."""
         return cls(
             state=BrowserHealthState.UNHEALTHY,

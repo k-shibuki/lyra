@@ -138,8 +138,6 @@
 | 機能 | 実装 | 仕様参照 |
 |------|------|----------|
 | HTML抽出 | trafilatura | §5.1 |
-| PDF抽出 | PyMuPDF | §5.1.1 |
-| OCR | PaddleOCR + Tesseract | §5.1.1 |
 | 重複検出 | MinHash + SimHash | §3.3.1 |
 
 #### A.6 フィルタリング/評価 ✅
@@ -460,7 +458,7 @@
 
 **実行環境**:
 - **WSL venv（推奨）**: `requirements-mcp.txt`で基本テスト実行可能
-- **オプショナル依存関係**: ML/PDF/OCR機能のテストには追加依存関係が必要（§K.4参照）
+- **オプショナル依存関係**: ML機能のテストには追加依存関係が必要（§K.4参照）
 
 ```bash
 # WSL venvから実行（推奨）
@@ -485,8 +483,6 @@ podman exec lyra pytest tests/test_robots.py -v
 # ML関連依存関係の確認
 python -c "import sentence_transformers, transformers, torch" 2>/dev/null && echo "ML deps OK" || echo "ML deps MISSING"
 
-# PDF/OCR関連依存関係の確認
-python -c "import fitz, PIL" 2>/dev/null && echo "PDF/OCR deps OK" || echo "PDF/OCR deps MISSING"
 ```
 
 **現在のテスト数**: 2886件（依存関係インストール済み環境で全パス、依存関係不足時は一部スキップ）
@@ -1353,8 +1349,6 @@ K.1の調査で以下が判明:
    - **オプショナル機能テスト**: 以下の依存関係が必要（インストールされていない場合はテストが失敗する）
      - **ML関連** (`requirements-ml.txt`): `sentence-transformers`, `transformers`, `torch`
        - 影響テスト: `tests/test_ml_server.py`（`import torch`等の直接インポート）
-     - **PDF/OCR関連**: `PyMuPDF` (`fitz`), `Pillow` (`PIL`)
-       - 影響テスト: `tests/test_extractor.py`（PDF抽出、OCR機能）
    - **実装状況**:
      - MLモデルは別コンテナ（`lyra-ml`）で実行される設計だが、テストコード内で直接インポートしているため、WSL venvにも依存関係が必要
      - モックを使用しているテストでも、インポート時に依存関係がチェックされるため、事前インストールが必要
@@ -1366,8 +1360,6 @@ K.1の調査で以下が判明:
        # ML関連依存関係の確認（オプショナル - スキップされるが、ローカルでモックテストを実行する場合は必要）
        python -c "import sentence_transformers, transformers, torch" 2>/dev/null && echo "ML deps OK" || echo "ML deps MISSING"
        
-       # PDF/OCR関連依存関係の確認
-       python -c "import fitz, PIL" 2>/dev/null && echo "PDF/OCR deps OK" || echo "PDF/OCR deps MISSING"
        ```
      - **注意**: ML依存関係がなくても、`test_ml_server.py`は20件のテストがパスし、ML依存関係が必要な12件は適切にスキップされる
      - **推奨**: MLサーバーの検証は`pytest tests/test_ml_server_e2e.py -v -m e2e`を使用（ML依存関係不要）
@@ -1392,7 +1384,6 @@ K.1の調査で以下が判明:
      - **推奨**: MLサーバーの検証はE2Eテストを使用（`pytest tests/test_ml_server_e2e.py -v -m e2e`）
    - **影響範囲**:
      - `tests/test_ml_server.py`: ML依存関係が必要なテストはスキップ（`sentence-transformers`, `transformers`, `torch`）
-     - `tests/test_extractor.py`: PDF/OCR関連テストは未対応（将来の改善案）
    - **テスト結果**:
      - Unit tests: 20 passed, 12 skipped（ML依存関係チェックによる適切なスキップ）
      - E2E tests: 6 passed（MLサーバーの全機能をHTTP経由で検証）

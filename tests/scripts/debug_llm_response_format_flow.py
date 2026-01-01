@@ -43,7 +43,7 @@ async def _check_payload_propagation() -> None:
     captured: list[dict[str, object]] = []
     call_n = {"n": 0}
 
-    def capture_post(url: str, json: dict[str, object], timeout=None) -> AsyncMock:
+    def capture_post(url: str, json: dict[str, object], timeout: float | None = None) -> AsyncMock:
         captured.append(dict(json))
         call_n["n"] += 1
         return cm1 if call_n["n"] == 1 else cm2
@@ -67,8 +67,12 @@ async def _check_payload_propagation() -> None:
     assert len(captured) == 2
     assert captured[0].get("format") == "json"
     assert "format" not in captured[1]
-    _ = OllamaGenerateRequest.model_validate(captured[1])
-    assert captured[1]["options"]["stop"] == ["\n"]
+    captured_1_dict: dict[str, object] = captured[1]
+    _ = OllamaGenerateRequest.model_validate(captured_1_dict)
+    assert captured_1_dict.get("options") is not None
+    options_dict = captured_1_dict["options"]
+    assert isinstance(options_dict, dict)
+    assert options_dict.get("stop") == ["\n"]
 
     print("[debug] payload propagation OK (format + stop + fallback)")
 

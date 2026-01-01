@@ -88,7 +88,7 @@ if TYPE_CHECKING:
 
 
 @pytest_asyncio.fixture
-async def queue_with_db(test_database: "Database") -> InterventionQueue:
+async def queue_with_db(test_database: Database) -> InterventionQueue:
     """Create InterventionQueue with real in-memory database.
 
     Per .1.7: Database should use in-memory SQLite for unit tests.
@@ -99,7 +99,7 @@ async def queue_with_db(test_database: "Database") -> InterventionQueue:
 
 
 @pytest_asyncio.fixture
-async def sample_task_id(test_database: "Database") -> str:
+async def sample_task_id(test_database: Database) -> str:
     """Create a sample task and return its ID.
 
     Per schema: intervention_queue.task_id references tasks(id)
@@ -138,7 +138,7 @@ class TestInterventionQueueInit:
         assert queue._db is None, "_db should be None before _ensure_db is called"
 
     @pytest.mark.asyncio
-    async def test_ensure_db_creates_connection(self, test_database: "Database") -> None:
+    async def test_ensure_db_creates_connection(self, test_database: Database) -> None:
         """Test _ensure_db establishes database connection."""
         # Given
         queue = InterventionQueue()
@@ -452,7 +452,7 @@ class TestGetPending:
 
     @pytest.mark.asyncio
     async def test_get_pending_filters_by_task_id(
-        self, queue_with_db: InterventionQueue, test_database: "Database"
+        self, queue_with_db: InterventionQueue, test_database: Database
     ) -> None:
         """Test get_pending filters by task_id correctly."""
         # Given: Create two tasks and add items to each

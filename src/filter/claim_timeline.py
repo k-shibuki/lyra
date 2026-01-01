@@ -82,7 +82,7 @@ class TimelineEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TimelineEvent":
+    def from_dict(cls, data: dict[str, Any]) -> TimelineEvent:
         """Create TimelineEvent from dictionary."""
         timestamp = data.get("timestamp")
         if isinstance(timestamp, str):
@@ -264,7 +264,7 @@ class ClaimTimeline:
         return json.dumps(self.to_dict(), ensure_ascii=False)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ClaimTimeline":
+    def from_dict(cls, data: dict[str, Any]) -> ClaimTimeline:
         """Create ClaimTimeline from dictionary."""
         timeline = cls(claim_id=data.get("claim_id", ""))
 
@@ -277,7 +277,7 @@ class ClaimTimeline:
         return timeline
 
     @classmethod
-    def from_json(cls, json_str: str | None) -> "ClaimTimeline | None":
+    def from_json(cls, json_str: str | None) -> ClaimTimeline | None:
         """Create ClaimTimeline from JSON string.
 
         Args:

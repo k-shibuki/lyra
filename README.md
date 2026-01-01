@@ -3,7 +3,7 @@
 > **L**ocal **Y**ielding **R**esearch **A**ide — An MCP Toolkit with Embedded ML for AI-Collaborative Desktop Research
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-3000%2B-success.svg)](tests/)
 
 ---
@@ -272,7 +272,7 @@ Sources are classified by institutional category for **ranking adjustment only**
 ### Prerequisites
 
 - **OS**: Windows 11 + WSL2 (Ubuntu 22.04 or 24.04)
-- **Python**: 3.13.* (required, see `pyproject.toml`)
+- **Python**: 3.14.* (required, see `pyproject.toml`)
 - **Browser**: Google Chrome (for CDP remote debugging)
 - **Container Runtime**: Podman (recommended) or Docker
 

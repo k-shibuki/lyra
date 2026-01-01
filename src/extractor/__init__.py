@@ -1,11 +1,11 @@
 """
 Content extraction module for Lyra.
 
-Provides HTML/PDF content extraction with OCR support,
+Provides HTML content extraction,
 page type classification, and content quality analysis.
 """
 
-from src.extractor.content import extract_content, ocr_image
+from src.extractor.content import extract_content
 from src.extractor.page_classifier import (
     ClassificationResult,
     PageClassifier,
@@ -26,7 +26,6 @@ from src.extractor.quality_analyzer import (
 __all__ = [
     # Content extraction
     "extract_content",
-    "ocr_image",
     # Page classification
     "PageType",
     "PageFeatures",

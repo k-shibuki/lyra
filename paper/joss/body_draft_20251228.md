@@ -119,7 +119,7 @@ Lyra differentiates by providing:
 
 # Implementation
 
-Lyra is implemented in Python 3.13 with an async architecture (~76,000 lines of source code, ~90,000 lines of tests). The reference environment requires Windows 11 + WSL2 (Ubuntu), NVIDIA GPU (8GB+ VRAM), and ~25GB storage for ML containers and models. Key components include:
+Lyra is implemented in Python 3.14 with an async architecture (~76,000 lines of source code, ~90,000 lines of tests). The reference environment requires Windows 11 + WSL2 (Ubuntu), NVIDIA GPU (8GB+ VRAM), and ~25GB storage for ML containers and models. Key components include:
 
 - **MCP Server** (`src/mcp/`): 10 tools for task management, search execution, and materials retrieval
 - **Evidence Graph** (`src/filter/evidence_graph.py`): NetworkX-based graph with SQLite persistence; Bayesian confidence via Beta distribution updating

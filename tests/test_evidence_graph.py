@@ -1494,7 +1494,7 @@ class TestDatabaseIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_save_and_load(self, test_database: "Database") -> None:
+    async def test_save_and_load(self, test_database: Database) -> None:
         """Test saving and loading graph from database."""
         from unittest.mock import patch
 
@@ -1524,7 +1524,7 @@ class TestDatabaseIntegration:
         assert edges[0]["relation"] == "supports"
 
     @pytest.mark.asyncio
-    async def test_add_claim_evidence_persists(self, test_database: "Database") -> None:
+    async def test_add_claim_evidence_persists(self, test_database: Database) -> None:
         """Test add_claim_evidence persists to database."""
         from unittest.mock import patch
 
@@ -1647,7 +1647,7 @@ class TestAcademicCitationAttributes:
         assert edges[0]["citation_context"] == "Context text"
 
     @pytest.mark.asyncio
-    async def test_save_to_db_with_academic_attributes(self, test_database: "Database") -> None:
+    async def test_save_to_db_with_academic_attributes(self, test_database: Database) -> None:
         """Test saving edges with academic attributes to DB.
 
         // Given: Edge with academic attributes
@@ -1985,7 +1985,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edge_data["target_domain_category"] == "primary"
 
     @pytest.mark.asyncio
-    async def test_save_to_db_with_domain_categories(self, test_database: "Database") -> None:
+    async def test_save_to_db_with_domain_categories(self, test_database: Database) -> None:
         """
         TC-P2-EDGE-I-01: Save edges with domain categories to database.
 
@@ -2018,7 +2018,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         assert edges[0]["target_domain_category"] == "low"
 
     @pytest.mark.asyncio
-    async def test_load_from_db_with_domain_categories(self, test_database: "Database") -> None:
+    async def test_load_from_db_with_domain_categories(self, test_database: Database) -> None:
         """
         TC-P2-EDGE-I-02: Load edges with domain categories from database.
 
@@ -2108,7 +2108,7 @@ class TestCitationNetworkLoading:
     """
 
     @pytest.mark.asyncio
-    async def test_load_cites_edges_for_task(self, test_database: "Database") -> None:
+    async def test_load_cites_edges_for_task(self, test_database: Database) -> None:
         """TC-CITES-N-01: Load cites edges for task with claims linked to fragments with page_id.
 
         // Given: Task with claim -> fragment edge, fragment has page_id, page has cites edges
@@ -2193,7 +2193,7 @@ class TestCitationNetworkLoading:
         assert es_edge["relation"] == "evidence_source"
 
     @pytest.mark.asyncio
-    async def test_cites_edges_in_stats(self, test_database: "Database") -> None:
+    async def test_cites_edges_in_stats(self, test_database: Database) -> None:
         """TC-CITES-N-04: get_stats returns correct cites count.
 
         // Given: Task with loaded cites edges
@@ -2260,7 +2260,7 @@ class TestCitationNetworkLoading:
         assert stats["edge_counts"]["supports"] == 1
 
     @pytest.mark.asyncio
-    async def test_cites_edges_in_to_dict(self, test_database: "Database") -> None:
+    async def test_cites_edges_in_to_dict(self, test_database: Database) -> None:
         """TC-CITES-N-05: to_dict includes cites edges.
 
         // Given: Task with loaded cites edges
@@ -2329,7 +2329,7 @@ class TestCitationNetworkLoading:
         assert cites_edges[0]["target"] == "page:page-2"
 
     @pytest.mark.asyncio
-    async def test_multiple_source_pages_load_all_cites(self, test_database: "Database") -> None:
+    async def test_multiple_source_pages_load_all_cites(self, test_database: Database) -> None:
         """TC-CITES-N-03: Multiple source pages load all cites edges.
 
         // Given: Task with claims linked to multiple fragments from different pages
@@ -2425,7 +2425,7 @@ class TestCitationNetworkLoading:
         assert stats["edge_counts"]["evidence_source"] == 2  # 2 claims, 2 source pages
 
     @pytest.mark.asyncio
-    async def test_no_claims_empty_cites(self, test_database: "Database") -> None:
+    async def test_no_claims_empty_cites(self, test_database: Database) -> None:
         """TC-CITES-B-01: Task with no claims loads no cites edges.
 
         // Given: Task with no claims
@@ -2473,7 +2473,7 @@ class TestCitationNetworkLoading:
         assert graph._graph.number_of_edges() == 0
 
     @pytest.mark.asyncio
-    async def test_fragment_page_without_cites(self, test_database: "Database") -> None:
+    async def test_fragment_page_without_cites(self, test_database: Database) -> None:
         """TC-CITES-B-03: Fragment's page without cites edges loads no cites.
 
         // Given: Fragment linked to claim, but fragment's page has no cites edges
@@ -2556,7 +2556,7 @@ class TestCitationNetworkLoading:
         assert stats["edge_counts"]["evidence_source"] == 1
 
     @pytest.mark.asyncio
-    async def test_no_cites_edges_in_db(self, test_database: "Database") -> None:
+    async def test_no_cites_edges_in_db(self, test_database: Database) -> None:
         """TC-CITES-B-04: No cites edges in DB loads empty.
 
         // Given: Task with claims and fragments, but no cites edges
@@ -2613,7 +2613,7 @@ class TestCitationNetworkLoading:
         assert stats["edge_counts"]["evidence_source"] == 1
 
     @pytest.mark.asyncio
-    async def test_claims_no_fragment_edges(self, test_database: "Database") -> None:
+    async def test_claims_no_fragment_edges(self, test_database: Database) -> None:
         """TC-CITES-B-02: Claims with no fragment edges load no cites.
 
         // Given: Task with claims but no fragment edges
@@ -2687,7 +2687,7 @@ class TestEvidenceSourceDerived:
     """
 
     @pytest.mark.asyncio
-    async def test_evidence_source_basic(self, test_database: "Database") -> None:
+    async def test_evidence_source_basic(self, test_database: Database) -> None:
         """TC-ES-N-01: EVIDENCE_SOURCE edge created for claim with fragment.
 
         // Given: Task with claim, fragment linked to page
@@ -2741,7 +2741,7 @@ class TestEvidenceSourceDerived:
         assert evidence_source_edge["relation"] == RelationType.EVIDENCE_SOURCE.value
 
     @pytest.mark.asyncio
-    async def test_evidence_source_deduplication(self, test_database: "Database") -> None:
+    async def test_evidence_source_deduplication(self, test_database: Database) -> None:
         """TC-ES-N-02: Multiple fragments from same page to same claim creates 1 edge.
 
         // Given: Two fragments from the same page, both linking to the same claim
@@ -2808,7 +2808,7 @@ class TestEvidenceSourceDerived:
         assert graph._graph.number_of_edges() == 3
 
     @pytest.mark.asyncio
-    async def test_evidence_source_multiple_pairs(self, test_database: "Database") -> None:
+    async def test_evidence_source_multiple_pairs(self, test_database: Database) -> None:
         """TC-ES-N-03: Multiple claims and pages create correct number of edges.
 
         // Given: 2 claims, 2 pages, each claim linked to different page via fragment
@@ -2888,7 +2888,7 @@ class TestEvidenceSourceDerived:
         assert graph._graph.has_edge("claim:claim-2", "page:page-2")
 
     @pytest.mark.asyncio
-    async def test_evidence_source_in_stats(self, test_database: "Database") -> None:
+    async def test_evidence_source_in_stats(self, test_database: Database) -> None:
         """TC-ES-N-04: get_stats counts evidence_source edges correctly.
 
         // Given: Task with EVIDENCE_SOURCE edges
@@ -2943,7 +2943,7 @@ class TestEvidenceSourceDerived:
         assert stats["edge_counts"]["supports"] == 1
 
     @pytest.mark.asyncio
-    async def test_evidence_source_in_to_dict(self, test_database: "Database") -> None:
+    async def test_evidence_source_in_to_dict(self, test_database: Database) -> None:
         """TC-ES-N-05: to_dict includes evidence_source edges.
 
         // Given: Task with EVIDENCE_SOURCE edges
@@ -3000,7 +3000,7 @@ class TestEvidenceSourceDerived:
         assert evidence_source_edges[0]["target"] == "page:page-1"
 
     @pytest.mark.asyncio
-    async def test_full_traversal_claim_to_cited_page(self, test_database: "Database") -> None:
+    async def test_full_traversal_claim_to_cited_page(self, test_database: Database) -> None:
         """TC-ES-N-06: Full traversal Claim → Page → Cited Page works.
 
         // Given: Claim -> Fragment (page) -> Page -> Cited Page chain
@@ -3080,7 +3080,7 @@ class TestEvidenceSourceDerived:
         assert nx.has_path(graph._graph, "claim:claim-1", "page:page-cited")
 
     @pytest.mark.asyncio
-    async def test_no_claims_no_evidence_source(self, test_database: "Database") -> None:
+    async def test_no_claims_no_evidence_source(self, test_database: Database) -> None:
         """TC-ES-B-01: Task with no claims has no EVIDENCE_SOURCE edges.
 
         // Given: Task with no claims
@@ -3111,7 +3111,7 @@ class TestEvidenceSourceDerived:
 
     @pytest.mark.asyncio
     async def test_claims_no_fragment_edges_no_evidence_source(
-        self, test_database: "Database"
+        self, test_database: Database
     ) -> None:
         """TC-ES-B-02: Claims with no fragment edges have no EVIDENCE_SOURCE.
 
@@ -3148,7 +3148,7 @@ class TestEvidenceSourceDerived:
 
     @pytest.mark.asyncio
     async def test_fragment_null_page_id_no_evidence_source(
-        self, test_database: "Database"
+        self, test_database: Database
     ) -> None:
         """TC-ES-B-03: Fragment with NULL page_id creates no EVIDENCE_SOURCE.
 
@@ -3211,7 +3211,7 @@ class TestEvidenceSourceDerived:
         assert stats["edge_counts"]["evidence_source"] == 1
 
     @pytest.mark.asyncio
-    async def test_evidence_source_not_persisted_to_db(self, test_database: "Database") -> None:
+    async def test_evidence_source_not_persisted_to_db(self, test_database: Database) -> None:
         """TC-ES-A-01: EVIDENCE_SOURCE edges are not persisted to DB.
 
         // Given: Task with EVIDENCE_SOURCE edges in graph
@@ -3270,7 +3270,7 @@ class TestEvidenceSourceDerived:
         assert len(db_edges) == 0
 
     @pytest.mark.asyncio
-    async def test_evidence_source_with_neutral_relation(self, test_database: "Database") -> None:
+    async def test_evidence_source_with_neutral_relation(self, test_database: Database) -> None:
         """Test EVIDENCE_SOURCE is created for neutral fragment->claim edges.
 
         // Given: Fragment -> claim edge with neutral relation
@@ -3632,7 +3632,7 @@ class TestSaveToDbDerivedEdgeSkip:
     """
 
     @pytest.mark.asyncio
-    async def test_save_supports_refutes_edges(self, test_database: "Database") -> None:
+    async def test_save_supports_refutes_edges(self, test_database: Database) -> None:
         """TC-SAVE-N-01: Graph with supports/refutes edges saves all edges.
 
         // Given: Graph with SUPPORTS and REFUTES edges
@@ -3679,7 +3679,7 @@ class TestSaveToDbDerivedEdgeSkip:
         assert len(edges) == 2
 
     @pytest.mark.asyncio
-    async def test_save_cites_edges(self, test_database: "Database") -> None:
+    async def test_save_cites_edges(self, test_database: Database) -> None:
         """TC-SAVE-N-02: Graph with cites edges saves all edges.
 
         // Given: Graph with CITES edges (page->page)
@@ -3713,7 +3713,7 @@ class TestSaveToDbDerivedEdgeSkip:
         assert edges[0]["relation"] == "cites"
 
     @pytest.mark.asyncio
-    async def test_skip_evidence_source_edges(self, test_database: "Database") -> None:
+    async def test_skip_evidence_source_edges(self, test_database: Database) -> None:
         """TC-SAVE-N-03: Graph with evidence_source edges does NOT save them.
 
         // Given: Graph with EVIDENCE_SOURCE edges (derived edges)
@@ -3745,7 +3745,7 @@ class TestSaveToDbDerivedEdgeSkip:
         assert len(edges) == 0
 
     @pytest.mark.asyncio
-    async def test_mixed_graph_saves_only_non_derived(self, test_database: "Database") -> None:
+    async def test_mixed_graph_saves_only_non_derived(self, test_database: Database) -> None:
         """TC-SAVE-N-04: Mixed graph saves only non-derived edges.
 
         // Given: Graph with SUPPORTS and EVIDENCE_SOURCE edges
@@ -3802,7 +3802,7 @@ class TestSaveToDbDerivedEdgeSkip:
         assert "evidence_source" not in relations
 
     @pytest.mark.asyncio
-    async def test_empty_graph_no_inserts(self, test_database: "Database") -> None:
+    async def test_empty_graph_no_inserts(self, test_database: Database) -> None:
         """TC-SAVE-B-01: Empty graph does not call insert.
 
         // Given: Empty graph (no edges)
@@ -3826,7 +3826,7 @@ class TestSaveToDbDerivedEdgeSkip:
         assert len(edges) == 0
 
     @pytest.mark.asyncio
-    async def test_only_evidence_source_edges_all_skipped(self, test_database: "Database") -> None:
+    async def test_only_evidence_source_edges_all_skipped(self, test_database: Database) -> None:
         """TC-SAVE-A-01: Graph with only evidence_source edges saves nothing.
 
         // Given: Graph with only EVIDENCE_SOURCE edges

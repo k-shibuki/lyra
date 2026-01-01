@@ -1890,7 +1890,12 @@ class TestUnifiedDualSourceSearch:
             abstract="Test abstract content",
             authors=[Author(name="Test Author", affiliation=None, orcid=None)],
             year=2024,
+            published_date=None,
             doi="10.1234/test",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
 

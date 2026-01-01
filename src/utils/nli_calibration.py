@@ -85,7 +85,7 @@ class CalibrationParams:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CalibrationParams":
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationParams:
         """Create from dictionary."""
         fitted_at = data.get("fitted_at")
         if isinstance(fitted_at, str):
@@ -155,7 +155,7 @@ class RollbackEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RollbackEvent":
+    def from_dict(cls, data: dict[str, Any]) -> RollbackEvent:
         """Create from dictionary."""
         timestamp = data.get("timestamp")
         if isinstance(timestamp, str):

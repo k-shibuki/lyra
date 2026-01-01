@@ -34,7 +34,7 @@ class TestCitationNetworkBasic:
 
     @pytest.mark.asyncio
     async def test_include_citations_returns_citation_network(
-        self, test_database: "Database"
+        self, test_database: Database
     ) -> None:
         """TC-CN-N-01: include_citations=true returns citation_network.
 
@@ -103,7 +103,7 @@ class TestCitationNetworkBasic:
         assert result["citation_network"] is not None
 
     @pytest.mark.asyncio
-    async def test_source_pages_populated(self, test_database: "Database") -> None:
+    async def test_source_pages_populated(self, test_database: Database) -> None:
         """TC-CN-N-02: source_pages contains correct pages.
 
         // Given: Task with claim linked to fragment with page
@@ -161,7 +161,7 @@ class TestCitationNetworkBasic:
         assert citation_network["source_pages"][0]["url"] == "https://source.com"
 
     @pytest.mark.asyncio
-    async def test_citations_populated(self, test_database: "Database") -> None:
+    async def test_citations_populated(self, test_database: Database) -> None:
         """TC-CN-N-03: citations contains citation edges.
 
         // Given: Task with source page that has cites edges
@@ -233,7 +233,7 @@ class TestCitationNetworkBasic:
         assert citation_network["citations"][0]["citation_source"] == "semantic_scholar"
 
     @pytest.mark.asyncio
-    async def test_hub_pages_sorted_by_count(self, test_database: "Database") -> None:
+    async def test_hub_pages_sorted_by_count(self, test_database: Database) -> None:
         """TC-CN-N-04: hub_pages sorted by cited_by_count descending.
 
         // Given: Multiple pages with different citation counts
@@ -346,7 +346,7 @@ class TestCitationNetworkBasic:
         assert hub_pages[1]["cited_by_count"] == 1
 
     @pytest.mark.asyncio
-    async def test_include_citations_false_returns_null(self, test_database: "Database") -> None:
+    async def test_include_citations_false_returns_null(self, test_database: Database) -> None:
         """TC-CN-N-05: include_citations=false returns no citation_network.
 
         // Given: Task with citation data
@@ -373,7 +373,7 @@ class TestCitationNetworkBasic:
         assert "citation_network" not in result
 
     @pytest.mark.asyncio
-    async def test_include_graph_and_citations_both_work(self, test_database: "Database") -> None:
+    async def test_include_graph_and_citations_both_work(self, test_database: Database) -> None:
         """TC-CN-N-06: include_graph and include_citations work independently.
 
         // Given: Task with data
@@ -435,7 +435,7 @@ class TestCitationNetworkBoundary:
     """Tests for boundary cases in citation network."""
 
     @pytest.mark.asyncio
-    async def test_no_claims_empty_citation_network(self, test_database: "Database") -> None:
+    async def test_no_claims_empty_citation_network(self, test_database: Database) -> None:
         """TC-CN-B-01: Task with no claims returns empty citation_network.
 
         // Given: Task with no claims
@@ -468,7 +468,7 @@ class TestCitationNetworkBoundary:
         assert citation_network["hub_pages"] == []
 
     @pytest.mark.asyncio
-    async def test_claims_no_citations_empty_arrays(self, test_database: "Database") -> None:
+    async def test_claims_no_citations_empty_arrays(self, test_database: Database) -> None:
         """TC-CN-B-02: Claims but no citations returns empty citations/hub_pages.
 
         // Given: Task with claims but no cites edges
@@ -525,7 +525,7 @@ class TestCitationNetworkBoundary:
         assert citation_network["hub_pages"] == []
 
     @pytest.mark.asyncio
-    async def test_hub_pages_limit_10(self, test_database: "Database") -> None:
+    async def test_hub_pages_limit_10(self, test_database: Database) -> None:
         """TC-CN-B-03: hub_pages limited to 10 results.
 
         // Given: More than 10 cited pages
@@ -599,7 +599,7 @@ class TestCitationNetworkNegative:
     """Tests for negative cases in citation network."""
 
     @pytest.mark.asyncio
-    async def test_invalid_task_returns_error(self, test_database: "Database") -> None:
+    async def test_invalid_task_returns_error(self, test_database: Database) -> None:
         """TC-CN-A-01: Invalid task_id returns error response.
 
         // Given: Non-existent task_id

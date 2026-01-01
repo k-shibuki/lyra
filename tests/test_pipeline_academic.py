@@ -159,7 +159,9 @@ class TestAbstractOnlyStrategy:
             )
 
             # Then
+            assert page_id is not None
             assert page_id.startswith("page_")
+            assert fragment_id is not None
             assert fragment_id.startswith("frag_")
 
             # Verify DB inserts: pages, fragments, claims, edges
@@ -1206,6 +1208,7 @@ class TestExecuteComplementarySearchE2E:
             )
 
             # Then: page_id is generated and can be used for mapping
+            assert page_id is not None
             assert page_id.startswith("page_")
             # In actual flow, paper_to_page_map[sample_paper_with_abstract.id] = page_id
             # This mapping is used for citation graph integration

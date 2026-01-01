@@ -290,7 +290,7 @@ class ViewportJitter:
 # =============================================================================
 
 
-async def apply_stealth_to_page(page: "Page", is_cdp: bool = False) -> None:
+async def apply_stealth_to_page(page: Page, is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright page.
 
     Injects JavaScript to override navigator.webdriver and related
@@ -314,7 +314,7 @@ async def apply_stealth_to_page(page: "Page", is_cdp: bool = False) -> None:
         logger.warning("Failed to apply stealth scripts", error=str(e))
 
 
-async def apply_stealth_to_context(context: "BrowserContext", is_cdp: bool = False) -> None:
+async def apply_stealth_to_context(context: BrowserContext, is_cdp: bool = False) -> None:
     """Apply stealth measures to a Playwright browser context.
 
     Ensures all new pages in the context have stealth measures applied.

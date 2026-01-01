@@ -65,7 +65,7 @@ class CitationInfo:
         }
 
     @classmethod
-    def from_fragment(cls, fragment: dict[str, Any]) -> "CitationInfo":
+    def from_fragment(cls, fragment: dict[str, Any]) -> CitationInfo:
         """Create from a fragment record."""
         url = fragment.get("url", "")
         heading = fragment.get("heading_context")

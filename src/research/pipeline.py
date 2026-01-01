@@ -989,7 +989,7 @@ class SearchPipeline:
 
     async def _persist_abstract_as_fragment(
         self,
-        paper: "Paper",
+        paper: Paper,
         task_id: str,
         search_id: str,
         worker_id: int = 0,
@@ -1149,7 +1149,7 @@ class SearchPipeline:
 
     async def _extract_claims_from_abstract(
         self,
-        paper: "Paper",
+        paper: Paper,
         task_id: str,
         fragment_id: str,
         reference_url: str,

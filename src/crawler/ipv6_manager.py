@@ -235,7 +235,7 @@ class DomainIPv6Stats:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DomainIPv6Stats":
+    def from_dict(cls, data: dict[str, Any]) -> DomainIPv6Stats:
         """Create from dictionary."""
         preference = data.get("ipv6_preference", "auto")
         if isinstance(preference, str):
@@ -788,7 +788,7 @@ class IPv6ConnectionManager:
         """
         return self._domain_stats.copy()
 
-    async def load_domain_stats_from_db(self, db: "Database") -> int:
+    async def load_domain_stats_from_db(self, db: Database) -> int:
         """Load domain stats from database.
 
         Args:
@@ -820,7 +820,7 @@ class IPv6ConnectionManager:
             logger.warning("Failed to load domain IPv6 stats from DB", error=str(e))
             return 0
 
-    async def save_domain_stats_to_db(self, db: "Database", domain: str) -> bool:
+    async def save_domain_stats_to_db(self, db: Database, domain: str) -> bool:
         """Save domain stats to database.
 
         Args:

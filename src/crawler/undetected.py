@@ -103,7 +103,7 @@ class UndetectedChromeFetcher:
         self,
         headless: bool = False,
         user_data_dir: str | None = None,
-    ) -> "ChromeOptions":
+    ) -> ChromeOptions:
         """Create Chrome options for undetected-chromedriver.
 
         Args:
@@ -538,7 +538,7 @@ class UndetectedChromeFetcher:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.close)
 
-    def __enter__(self) -> "UndetectedChromeFetcher":
+    def __enter__(self) -> UndetectedChromeFetcher:
         """Context manager entry."""
         return self
 

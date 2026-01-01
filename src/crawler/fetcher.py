@@ -210,7 +210,7 @@ def _get_http_status_text(status_code: int) -> str:
     return status_texts.get(status_code, "Unknown")
 
 
-async def _save_screenshot(page: "Page", url: str) -> Path | None:
+async def _save_screenshot(page: Page, url: str) -> Path | None:
     """Save page screenshot.
 
     Args:
@@ -904,7 +904,7 @@ async def _fetch_url_impl(
         return {}
 
 
-async def _update_domain_headful_ratio(db: "Database", domain: str, increase: bool = True) -> None:
+async def _update_domain_headful_ratio(db: Database, domain: str, increase: bool = True) -> None:
     """Update domain's headful ratio based on fetch outcomes.
 
     Args:
@@ -949,7 +949,7 @@ async def _update_domain_headful_ratio(db: "Database", domain: str, increase: bo
         )
 
 
-async def _update_domain_wayback_success(db: "Database", domain: str, success: bool) -> None:
+async def _update_domain_wayback_success(db: Database, domain: str, success: bool) -> None:
     """Update domain's Wayback fallback success rate.
 
     Track Wayback fallback success to inform future fallback decisions.

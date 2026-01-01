@@ -76,7 +76,6 @@ def identifier_normalizer() -> IdentifierNormalizer:
 @pytest_asyncio.fixture
 async def entity_kb(tmp_path: Path) -> AsyncGenerator[EntityKB]:
     """Create EntityKB with in-memory database."""
-    from pathlib import Path
 
     import aiosqlite
 

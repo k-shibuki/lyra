@@ -110,7 +110,7 @@ class CookieData(BaseModel):
         }
 
     @classmethod
-    def from_playwright_cookie(cls, cookie: dict) -> "CookieData":
+    def from_playwright_cookie(cls, cookie: dict) -> CookieData:
         """Create from Playwright cookie format.
 
         Args:
@@ -249,7 +249,7 @@ class SessionData(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "SessionData":
+    def from_dict(cls, data: dict) -> SessionData:
         """Create from dictionary.
 
         Args:

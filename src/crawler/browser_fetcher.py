@@ -113,7 +113,7 @@ class HumanBehavior:
         # Return format: (x, y) tuples
         return [(int(x), int(y)) for x, y, _ in path]
 
-    async def simulate_reading(self, page: "Page", content_length: int) -> None:
+    async def simulate_reading(self, page: Page, content_length: int) -> None:
         """Simulate human reading behavior on page.
 
         Args:
@@ -125,7 +125,7 @@ class HumanBehavior:
         except Exception as e:
             logger.debug("Reading simulation error", error=str(e))
 
-    async def move_mouse_to_element(self, page: "Page", selector: str) -> None:
+    async def move_mouse_to_element(self, page: Page, selector: str) -> None:
         """Move mouse to element with human-like motion.
 
         Args:
@@ -351,7 +351,7 @@ class BrowserFetcher:
 
     async def _perform_health_audit(
         self,
-        context: "BrowserContext",
+        context: BrowserContext,
         task_id: str | None = None,
     ) -> None:
         """Perform profile health audit on browser session initialization.
@@ -511,7 +511,7 @@ class BrowserFetcher:
                 )
                 return False
 
-    async def _setup_blocking(self, context: "BrowserContext") -> None:
+    async def _setup_blocking(self, context: BrowserContext) -> None:
         """Setup resource blocking rules.
 
         Args:
@@ -553,7 +553,7 @@ class BrowserFetcher:
                 ]
             )
 
-        async def block_route(route: "Route") -> None:
+        async def block_route(route: Route) -> None:
             await route.abort()
 
         for pattern in block_patterns:

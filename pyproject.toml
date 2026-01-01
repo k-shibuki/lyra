@@ -3,10 +3,7 @@ name = "lyra"
 version = "0.1.0"
 description = "Local Yielding Research Aide for Academic Research"
 readme = "README.md"
-# Note: Python 3.14 is not yet supported due to paddlepaddle (OCR) dependency
-# which only provides wheels up to cp313. Revisit when paddlepaddle releases cp314 wheels.
-# Using ==3.13.* to prevent uv from selecting 3.14+ which breaks paddlepaddle[ocr].
-requires-python = "==3.13.*"
+requires-python = ">=3.14,<3.15"
 license = {text = "MIT"}
 authors = [
     {name = "Katsuya Shibuki"}
@@ -79,20 +76,10 @@ browser = [
     "selenium>=4.15.0",
 ]
 
-# OCR (Optical Character Recognition) - heavy dependencies
-ocr = [
-    "paddleocr>=2.7.0",
-    "paddlepaddle>=2.5.0",
-    "pytesseract>=0.3.10",
-    "pillow>=10.0.0",
-]
-
 # Content extraction (additional extractors)
 extraction = [
     "justext>=3.0.0",
     "boilerpy3>=1.0.6",
-    # PDF Processing
-    "pymupdf>=1.23.0",
 ]
 
 # Tor network support
@@ -121,7 +108,7 @@ test = [
 
 # Full development environment (all optional deps)
 full = [
-    "lyra[mcp,ml,browser,ocr,extraction,tor,dev,test]",
+    "lyra[mcp,ml,browser,extraction,tor,dev,test]",
 ]
 
 [project.scripts]
@@ -151,7 +138,7 @@ dev = [
 # =============================================================================
 [tool.black]
 line-length = 100
-target-version = ["py313"]
+target-version = ["py314"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -165,7 +152,7 @@ exclude = '''
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py314"
 exclude = [
     "*.json",
     "data/",
@@ -195,7 +182,7 @@ ignore = [
 known-first-party = ["src"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true

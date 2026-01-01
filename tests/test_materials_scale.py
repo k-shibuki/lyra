@@ -27,7 +27,7 @@ class TestJsonExtractRobustness:
     """Tests for json_extract handling in _collect_citation_network."""
 
     @pytest.mark.asyncio
-    async def test_valid_json_extracts_values(self, test_database: "Database") -> None:
+    async def test_valid_json_extracts_values(self, test_database: Database) -> None:
         """TC-JSON-N-01: Valid JSON paper_metadata extracts citation_count and year.
 
         // Given: A page with valid paper_metadata JSON
@@ -87,7 +87,7 @@ class TestJsonExtractRobustness:
         assert page["year"] == 2023
 
     @pytest.mark.asyncio
-    async def test_null_paper_metadata_returns_null(self, test_database: "Database") -> None:
+    async def test_null_paper_metadata_returns_null(self, test_database: Database) -> None:
         """TC-JSON-A-01: NULL paper_metadata returns NULL for citation_count/year.
 
         // Given: A page with NULL paper_metadata
@@ -143,7 +143,7 @@ class TestJsonExtractRobustness:
         assert page["year"] is None
 
     @pytest.mark.asyncio
-    async def test_malformed_json_returns_null(self, test_database: "Database") -> None:
+    async def test_malformed_json_returns_null(self, test_database: Database) -> None:
         """TC-JSON-A-02: Malformed paper_metadata returns NULL for citation_count/year.
 
         // Given: A page with invalid JSON in paper_metadata
@@ -203,7 +203,7 @@ class TestChunkedCitationQueries:
     """Tests for chunked IN clause processing in citation network."""
 
     @pytest.mark.asyncio
-    async def test_empty_page_ids_no_error(self, test_database: "Database") -> None:
+    async def test_empty_page_ids_no_error(self, test_database: Database) -> None:
         """Empty page_ids list doesn't cause errors.
 
         // Given: A task with no linked pages

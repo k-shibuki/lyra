@@ -112,7 +112,7 @@ class ChatMessage:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ChatMessage":
+    def from_dict(cls, data: dict[str, Any]) -> ChatMessage:
         """Create from dictionary."""
         return cls(
             role=data.get("role", "user"),
@@ -177,7 +177,7 @@ class LLMResponse:
         provider: str,
         elapsed_ms: float = 0.0,
         usage: dict[str, int] | None = None,
-    ) -> "LLMResponse":
+    ) -> LLMResponse:
         """Create a successful response."""
         return cls(
             text=text,
@@ -195,7 +195,7 @@ class LLMResponse:
         model: str,
         provider: str,
         status: LLMResponseStatus = LLMResponseStatus.ERROR,
-    ) -> "LLMResponse":
+    ) -> LLMResponse:
         """Create an error response."""
         return cls(
             text="",
@@ -251,7 +251,7 @@ class EmbeddingResponse:
         model: str,
         provider: str,
         elapsed_ms: float = 0.0,
-    ) -> "EmbeddingResponse":
+    ) -> EmbeddingResponse:
         """Create a successful response."""
         return cls(
             embeddings=embeddings,
@@ -267,7 +267,7 @@ class EmbeddingResponse:
         error: str,
         model: str,
         provider: str,
-    ) -> "EmbeddingResponse":
+    ) -> EmbeddingResponse:
         """Create an error response."""
         return cls(
             embeddings=[],
@@ -359,7 +359,7 @@ class LLMHealthStatus:
         available_models: list[str] | None = None,
         loaded_models: list[str] | None = None,
         latency_ms: float = 0.0,
-    ) -> "LLMHealthStatus":
+    ) -> LLMHealthStatus:
         """Create a healthy status."""
         return cls(
             state=LLMHealthState.HEALTHY,
@@ -375,7 +375,7 @@ class LLMHealthStatus:
         cls,
         success_rate: float,
         message: str | None = None,
-    ) -> "LLMHealthStatus":
+    ) -> LLMHealthStatus:
         """Create a degraded status."""
         return cls(
             state=LLMHealthState.DEGRADED,
@@ -385,7 +385,7 @@ class LLMHealthStatus:
         )
 
     @classmethod
-    def unhealthy(cls, message: str | None = None) -> "LLMHealthStatus":
+    def unhealthy(cls, message: str | None = None) -> LLMHealthStatus:
         """Create an unhealthy status."""
         return cls(
             state=LLMHealthState.UNHEALTHY,

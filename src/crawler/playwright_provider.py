@@ -72,7 +72,7 @@ class HumanBehaviorSimulator:
         return positions
 
     @staticmethod
-    async def simulate_reading(page: "Page", content_length: int) -> None:
+    async def simulate_reading(page: Page, content_length: int) -> None:
         """Simulate human reading behavior on page."""
         try:
             dimensions = await page.evaluate(
@@ -196,7 +196,7 @@ class PlaywrightProvider(BaseBrowserProvider):
                 "Use headful mode with CDP connection to real Chrome profile."
             )
 
-    async def _setup_blocking(self, context: "BrowserContext") -> None:
+    async def _setup_blocking(self, context: BrowserContext) -> None:
         """Setup resource blocking rules."""
         browser_settings = self._settings.browser
 
@@ -234,7 +234,7 @@ class PlaywrightProvider(BaseBrowserProvider):
                 ]
             )
 
-        async def block_route(route: "Route") -> None:
+        async def block_route(route: Route) -> None:
             await route.abort()
 
         for pattern in block_patterns:
@@ -291,7 +291,7 @@ class PlaywrightProvider(BaseBrowserProvider):
         filepath.write_bytes(content)
         return filepath
 
-    async def _save_screenshot(self, page: "Page", url: str) -> Path | None:
+    async def _save_screenshot(self, page: Page, url: str) -> Path | None:
         """Save page screenshot."""
         screenshots_dir = Path(self._settings.storage.screenshots_dir)
         screenshots_dir.mkdir(parents=True, exist_ok=True)

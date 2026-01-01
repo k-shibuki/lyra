@@ -110,7 +110,7 @@ async def is_ollama_available() -> bool:
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
-async def e2e_database(tmp_path_factory: TempPathFactory) -> AsyncGenerator["Database"]:
+async def e2e_database(tmp_path_factory: TempPathFactory) -> AsyncGenerator[Database]:
     """Create a test database for E2E tests."""
     from src.storage.database import Database
 
@@ -164,7 +164,7 @@ class TestSearchToReportPipeline:
 
     @pytest.mark.asyncio
     async def test_search_returns_results(
-        self, check_browser_search: bool, e2e_database: "Database"
+        self, check_browser_search: bool, e2e_database: Database
     ) -> None:
         """
         Verify browser-based search returns normalized results.
@@ -205,7 +205,7 @@ class TestSearchToReportPipeline:
 
     @pytest.mark.asyncio
     async def test_fetch_and_extract_content(
-        self, check_browser_search: bool, e2e_database: "Database"
+        self, check_browser_search: bool, e2e_database: Database
     ) -> None:
         """
         Verify URL fetching and content extraction.
@@ -260,7 +260,7 @@ class TestSearchToReportPipeline:
 
     @pytest.mark.asyncio
     async def test_full_pipeline_simulation(
-        self, check_browser_search: bool, e2e_database: "Database"
+        self, check_browser_search: bool, e2e_database: Database
     ) -> None:
         """
         Simulate a complete research pipeline.
@@ -329,7 +329,7 @@ class TestSearchToReportPipeline:
 
     @pytest.mark.asyncio
     async def test_report_materials_generation(
-        self, check_browser_search: bool, e2e_database: "Database"
+        self, check_browser_search: bool, e2e_database: Database
     ) -> None:
         """
         Test report materials can be generated from research data.
@@ -409,13 +409,13 @@ class TestAuthenticationQueueFlow:
     """
 
     @pytest_asyncio.fixture(autouse=True)
-    async def cleanup_queue(self, e2e_database: "Database") -> AsyncGenerator[None]:
+    async def cleanup_queue(self, e2e_database: Database) -> AsyncGenerator[None]:
         """Clear intervention_queue before each test to ensure isolation."""
         await e2e_database.execute("DELETE FROM intervention_queue WHERE 1=1")
         yield
 
     @pytest.mark.asyncio
-    async def test_enqueue_authentication(self, e2e_database: "Database") -> None:
+    async def test_enqueue_authentication(self, e2e_database: Database) -> None:
         """
         Test enqueueing authentication challenges.
 
@@ -464,7 +464,7 @@ class TestAuthenticationQueueFlow:
         print(f"[E2E] Low priority: {queue_id_3}")
 
     @pytest.mark.asyncio
-    async def test_get_pending_by_domain(self, e2e_database: "Database") -> None:
+    async def test_get_pending_by_domain(self, e2e_database: Database) -> None:
         """
         Test retrieving pending authentications grouped by domain.
 
@@ -526,7 +526,7 @@ class TestAuthenticationQueueFlow:
             )
 
     @pytest.mark.asyncio
-    async def test_complete_authentication_single_item(self, e2e_database: "Database") -> None:
+    async def test_complete_authentication_single_item(self, e2e_database: Database) -> None:
         """
         Test completing a single authentication item.
 
@@ -569,7 +569,7 @@ class TestAuthenticationQueueFlow:
         print(f"\n[E2E] Single authentication completed for {queue_id}")
 
     @pytest.mark.asyncio
-    async def test_complete_domain_resolves_multiple_tasks(self, e2e_database: "Database") -> None:
+    async def test_complete_domain_resolves_multiple_tasks(self, e2e_database: Database) -> None:
         """
         Test domain-based authentication completion.
 
@@ -633,7 +633,7 @@ class TestAuthenticationQueueFlow:
         print(f"[E2E] Affected tasks: {result['affected_tasks']}")
 
     @pytest.mark.asyncio
-    async def test_skip_by_queue_ids(self, e2e_database: "Database") -> None:
+    async def test_skip_by_queue_ids(self, e2e_database: Database) -> None:
         """
         Test skipping specific queue items.
 
@@ -680,7 +680,7 @@ class TestAuthenticationQueueFlow:
         print(f"[E2E] Remaining pending: {len(pending)}")
 
     @pytest.mark.asyncio
-    async def test_skip_by_domain(self, e2e_database: "Database") -> None:
+    async def test_skip_by_domain(self, e2e_database: Database) -> None:
         """
         Test skipping all items for a domain.
 
@@ -730,7 +730,7 @@ class TestAuthenticationQueueFlow:
         print(f"\n[E2E] Skipped domain skip-domain.com: {result['skipped']} items")
 
     @pytest.mark.asyncio
-    async def test_pending_count_and_summary(self, e2e_database: "Database") -> None:
+    async def test_pending_count_and_summary(self, e2e_database: Database) -> None:
         """
         Test getting pending count for exploration status.
 
@@ -795,7 +795,7 @@ class TestAuthenticationQueueFlow:
         )
 
     @pytest.mark.asyncio
-    async def test_cleanup_expired_items(self, e2e_database: "Database") -> None:
+    async def test_cleanup_expired_items(self, e2e_database: Database) -> None:
         """
         Test cleanup of expired queue items.
 
@@ -849,7 +849,7 @@ class TestCompleteResearchFlow:
 
     @pytest.mark.asyncio
     async def test_end_to_end_research_workflow(
-        self, check_browser_search: bool, e2e_database: "Database"
+        self, check_browser_search: bool, e2e_database: Database
     ) -> None:
         """
         Complete E2E test of the research workflow.
@@ -1010,7 +1010,7 @@ class TestLLMIntegration:
                     pytest.skip("No Ollama models installed")
 
     @pytest.mark.asyncio
-    async def test_llm_extract_basic(self, check_ollama: bool, e2e_database: "Database") -> None:
+    async def test_llm_extract_basic(self, check_ollama: bool, e2e_database: Database) -> None:
         """
         Test basic LLM extraction.
 

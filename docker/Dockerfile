@@ -1,14 +1,14 @@
 # Lyra Development Container
-# Python 3.13 + uv package manager
-# Note: Python 3.14 not yet supported (paddlepaddle OCR lacks cp314 wheels)
+# Python 3.14 + uv package manager
 
-FROM python:3.13-slim-bookworm AS base
+FROM python:3.14-slim-bookworm AS base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
 # Install uv (from official image)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
@@ -61,6 +61,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Rust (required for building sudachipy on Python 3.14)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    . "$HOME/.cargo/env" && \
+    rustc --version
+
 # Install Google Chrome for undetected-chromedriver
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
@@ -75,7 +80,9 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 
 # Install Python dependencies with uv (MCP + browser + extraction + tor + dev + test)
-RUN uv sync --frozen --no-install-project --extra mcp --extra browser --extra extraction --extra tor --extra dev --extra test
+# Note: PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 is set in ENV above for sudachipy build
+RUN . "$HOME/.cargo/env" && \
+    uv sync --frozen --no-install-project --extra mcp --extra browser --extra extraction --extra tor --extra dev --extra test
 
 # Install Playwright browsers
 RUN uv run playwright install chromium --with-deps
@@ -84,13 +91,15 @@ RUN uv run playwright install chromium --with-deps
 COPY . .
 
 # Install the project itself
-RUN uv sync --frozen --extra mcp --extra browser --extra extraction --extra tor --extra dev --extra test
+RUN . "$HOME/.cargo/env" && \
+    uv sync --frozen --extra mcp --extra browser --extra extraction --extra tor --extra dev --extra test
 
 # Create necessary directories
 RUN mkdir -p data/cache data/warc data/screenshots data/reports logs models
 
-# Set Python path
-ENV PYTHONPATH=/app
+# Set Python path and ensure Rust is in PATH
+ENV PYTHONPATH=/app \
+    PATH="/root/.cargo/bin:${PATH}"
 
 # Default command: run proxy server for hybrid mode
 CMD ["uv", "run", "python", "-m", "src.proxy.server"]

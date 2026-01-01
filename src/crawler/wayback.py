@@ -64,7 +64,7 @@ class Snapshot:
         return f"{WAYBACK_BASE}/web/{ts}/{self.original_url}"
 
     @classmethod
-    def from_cdx_line(cls, line: str, original_url: str) -> "Snapshot | None":
+    def from_cdx_line(cls, line: str, original_url: str) -> Snapshot | None:
         """Parse snapshot from CDX response line.
 
         CDX format: urlkey timestamp original mimetype statuscode digest length

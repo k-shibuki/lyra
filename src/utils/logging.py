@@ -171,7 +171,7 @@ class LogContext:
         self.context = kwargs
         self._token = None
 
-    def __enter__(self) -> "LogContext":
+    def __enter__(self) -> LogContext:
         """Enter context and bind variables."""
         bind_context(**self.context)
         return self
@@ -204,7 +204,7 @@ class CausalTrace:
         self.trace_id = str(uuid.uuid4())
         self.parent_id = cause_id
 
-    def __enter__(self) -> "CausalTrace":
+    def __enter__(self) -> CausalTrace:
         """Enter trace context."""
         bind_context(
             cause_id=self.trace_id,

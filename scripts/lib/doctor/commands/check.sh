@@ -106,16 +106,16 @@ cmd_check() {
     if check_dir "${VENV_DIR}"; then
         if check_python_version "${VENV_DIR}/bin/python"; then
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-                echo "  ✓ .venv exists (Python 3.13)"
+                echo "  ✓ .venv exists (Python 3.14)"
             fi
         else
             local py_version
             py_version=$("${VENV_DIR}/bin/python" -V 2>&1 | awk '{print $2}' || echo "unknown")
             if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
                 json_parts+=("$(json_kv "python_version" "$py_version")")
-                json_parts+=("$(json_kv "python_version_issue" "expected_3.13")")
+                json_parts+=("$(json_kv "python_version_issue" "expected_3.14")")
             else
-                echo "  ⚠ .venv exists but Python version is $py_version (expected 3.13.*)"
+                echo "  ⚠ .venv exists but Python version is $py_version (expected 3.14.*)"
                 echo "    -> Recreate: rm -rf .venv && make setup"
             fi
             ((warnings++)) || true

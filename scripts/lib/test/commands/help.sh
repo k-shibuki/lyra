@@ -66,7 +66,7 @@ show_help() {
     echo "Manual Override (via .env or environment):"
     echo "  LYRA_RUN_ML_TESTS=1      Enable ML tests even without libs"
     echo "  LYRA_RUN_ML_API_TESTS=1  Enable ML API tests even without FastAPI"
-    echo "  LYRA_RUN_EXTRACTOR_TESTS=1  Enable extractor tests even without libs"
+    echo "  LYRA_RUN_EXTRACTOR_TESTS=1  Enable extractor tests (HTML extraction only)"
     echo ""
     echo "Note: Tests run in WSL venv (.venv) by default, or in container if detected."
     echo ""

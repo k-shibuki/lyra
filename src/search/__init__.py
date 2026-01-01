@@ -26,20 +26,6 @@ All searches use BrowserSearchProvider for direct browser-based search.
 """
 
 # Core search function (uses provider by default)
-# A/B Testing
-from src.search.ab_test import (
-    ABTestExecutor,
-    ABTestResult,
-    ABTestSession,
-    HighYieldQueryCache,
-    QueryVariant,
-    QueryVariantGenerator,
-    VariantType,
-    generate_query_variants,
-    get_optimized_query,
-    run_query_ab_test,
-)
-
 # Browser-based search provider (default)
 from src.search.browser_search_provider import (
     BrowserSearchProvider,
@@ -111,17 +97,6 @@ __all__ = [
     "parse_query_operators",
     "transform_query_for_engine",
     "build_search_query",
-    # A/B Testing
-    "run_query_ab_test",
-    "get_optimized_query",
-    "generate_query_variants",
-    "QueryVariant",
-    "VariantType",
-    "ABTestSession",
-    "ABTestResult",
-    "ABTestExecutor",
-    "QueryVariantGenerator",
-    "HighYieldQueryCache",
     # Provider abstraction
     "SearchProvider",
     "BaseSearchProvider",

@@ -84,7 +84,7 @@ class SearchConfig(BaseModel):
     citation_graph_top_n_papers: int = 5
     citation_graph_depth: int = 1
     citation_graph_direction: str = "both"  # references, citations, both
-    citation_filter: "CitationFilterConfig" = Field(default_factory=lambda: CitationFilterConfig())
+    citation_filter: CitationFilterConfig = Field(default_factory=lambda: CitationFilterConfig())
     web_citation_detection: WebCitationDetectionConfig = Field(
         default_factory=WebCitationDetectionConfig
     )

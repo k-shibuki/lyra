@@ -35,7 +35,7 @@ class ProtocolVersion(Enum):
     UNKNOWN = "unknown"
 
     @classmethod
-    def from_string(cls, value: str) -> "ProtocolVersion":
+    def from_string(cls, value: str) -> ProtocolVersion:
         """Parse protocol version from string.
 
         Args:
@@ -151,7 +151,7 @@ class HTTP3DomainStats:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HTTP3DomainStats":
+    def from_dict(cls, data: dict[str, Any]) -> HTTP3DomainStats:
         """Create from dictionary."""
         stats = cls(domain=data["domain"])
         stats.http3_detected = data.get("http3_detected", False)

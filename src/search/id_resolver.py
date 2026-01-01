@@ -102,7 +102,7 @@ class IDResolver:
             logger.warning("Failed to resolve arXiv ID to DOI", arxiv_id=arxiv_id, error=str(e))
             return None
 
-    async def resolve_to_doi(self, identifier: "PaperIdentifier") -> str | None:
+    async def resolve_to_doi(self, identifier: PaperIdentifier) -> str | None:
         """Resolve DOI from PaperIdentifier.
 
         Args:

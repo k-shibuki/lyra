@@ -51,7 +51,7 @@ class SearchTemplate:
     wait_for: str | None = None  # CSS selector to wait for after search
 
     @classmethod
-    def from_dict(cls, domain: str, data: dict) -> "SearchTemplate":
+    def from_dict(cls, domain: str, data: dict) -> SearchTemplate:
         """Create from dictionary."""
         return cls(
             domain=data.get("domain", domain),
@@ -289,7 +289,7 @@ class SiteSearchManager:
         self,
         domain: str,
         query: str,
-        browser_context: "BrowserContext | None" = None,
+        browser_context: BrowserContext | None = None,
         fallback_to_site: bool = True,
     ) -> SiteSearchResult:
         """Execute site-internal search.
@@ -386,7 +386,7 @@ class SiteSearchManager:
         domain: str,
         query: str,
         template: SearchTemplate,
-        context: "BrowserContext",
+        context: BrowserContext,
     ) -> SiteSearchResult:
         """Execute search using browser automation.
 
@@ -650,7 +650,7 @@ class SiteSearchManager:
 
         return urls[:50]  # Limit results
 
-    async def _detect_challenge(self, page: "Page") -> bool:
+    async def _detect_challenge(self, page: Page) -> bool:
         """Detect CAPTCHA or login wall.
 
         Args:
