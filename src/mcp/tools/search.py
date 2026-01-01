@@ -142,5 +142,3 @@ async def handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
             "search_ids": search_ids,
             "message": message,
         }
-
-

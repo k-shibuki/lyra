@@ -42,11 +42,11 @@ from src.search.browser_search_provider import (
     get_browser_search_provider,
     reset_browser_search_provider,
 )
+from src.search.parsers import ParsedResult, ParseResult
 from src.search.provider import (
     HealthState,
     SearchProviderOptions,
 )
-from src.search.search_parsers import ParsedResult, ParseResult
 from src.utils.schemas import LastmileCheckResult
 
 # ============================================================================

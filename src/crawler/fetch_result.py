@@ -113,4 +113,3 @@ class FetchResult:
             result["archive_url"] = self.archive_url
             result["freshness_penalty"] = self.freshness_penalty
         return result
-

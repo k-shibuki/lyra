@@ -427,4 +427,3 @@ async def reset_circuit_breaker_for_engine(engine: str) -> None:
             engine=engine,
             error=str(e),
         )
-

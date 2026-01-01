@@ -30,6 +30,10 @@ if TYPE_CHECKING:
 from src.crawler.browser_fetcher import HumanBehavior
 from src.search.circuit_breaker import check_engine_available, record_engine_result
 from src.search.engine_config import get_engine_config_manager
+from src.search.parsers import (
+    get_available_parsers,
+    get_parser,
+)
 from src.search.provider import (
     BaseSearchProvider,
     HealthState,
@@ -39,10 +43,6 @@ from src.search.provider import (
     SERPResult,
 )
 from src.search.search_api import transform_query_for_engine
-from src.search.search_parsers import (
-    get_available_parsers,
-    get_parser,
-)
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.utils.policy_engine import get_policy_engine

@@ -1190,7 +1190,8 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page",
+                                    return_value=False,
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 
@@ -1277,7 +1278,8 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page",
+                                    return_value=False,
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 
@@ -1365,7 +1367,8 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page",
+                                    return_value=False,
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 
@@ -1453,7 +1456,8 @@ class TestBrowserFetcherHumanBehavior:
                                 "src.crawler.fetcher._save_screenshot", AsyncMock(return_value=None)
                             ):
                                 with patch(
-                                    "src.crawler.challenge_detector._is_challenge_page", return_value=False
+                                    "src.crawler.challenge_detector._is_challenge_page",
+                                    return_value=False,
                                 ):
                                     from src.crawler.http3_policy import ProtocolVersion
 

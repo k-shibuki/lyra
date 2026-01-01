@@ -514,7 +514,7 @@ class TestParsedResultToSearchResult:
         // When: Calling to_search_result without serp_page
         // Then: page_number is 1
         """
-        from src.search.search_parsers import ParsedResult
+        from src.search.parsers import ParsedResult
 
         # Given: ParsedResult
         parsed = ParsedResult(
@@ -537,7 +537,7 @@ class TestParsedResultToSearchResult:
         // When: Calling to_search_result with serp_page=3
         // Then: page_number is 3
         """
-        from src.search.search_parsers import ParsedResult
+        from src.search.parsers import ParsedResult
 
         # Given: ParsedResult
         parsed = ParsedResult(
@@ -560,7 +560,7 @@ class TestParsedResultToSearchResult:
         // When: Calling to_search_result with serp_page=1 and serp_page=10
         // Then: page_number matches serp_page
         """
-        from src.search.search_parsers import ParsedResult
+        from src.search.parsers import ParsedResult
 
         # Given: ParsedResult
         parsed = ParsedResult(

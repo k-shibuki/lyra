@@ -860,4 +860,3 @@ def get_intervention_queue() -> InterventionQueue:
     if _queue is None:
         _queue = InterventionQueue()
     return _queue
-

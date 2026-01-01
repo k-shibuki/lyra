@@ -652,7 +652,7 @@ async def _search_with_provider(
             engine_match = (
                 error_msg.split("engine:")[-1].strip() if "engine:" in error_msg else None
             )
-            from src.search.search_parsers import get_available_parsers
+            from src.search.parsers import get_available_parsers
 
             raise ParserNotAvailableSearchError(
                 engine=engine_match or "unknown",

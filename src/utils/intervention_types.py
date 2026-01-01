@@ -65,4 +65,3 @@ class InterventionResult:
             "skip_domain_today": self.skip_domain_today,
             "notes": self.notes,
         }
-

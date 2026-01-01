@@ -225,4 +225,3 @@ async def _can_use_tor(domain: str | None = None) -> bool:
             error=str(e),
         )
         return True
-

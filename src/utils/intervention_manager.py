@@ -578,4 +578,3 @@ def get_intervention_manager() -> InterventionManager:
         InterventionManager instance.
     """
     return _get_manager()
-

@@ -153,4 +153,3 @@ def _estimate_auth_effort(challenge_type: str) -> str:
     }
 
     return effort_map.get(challenge_type, "medium")
-

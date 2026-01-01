@@ -34,5 +34,3 @@ async def handle_feedback(args: dict[str, Any]) -> dict[str, Any]:
 
     # Delegate to feedback handler
     return await handle_feedback_action(action, args)
-
-

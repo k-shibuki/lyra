@@ -318,4 +318,3 @@ class HTTPFetcher:
                 reason=str(e),
                 method="http_client",
             )
-

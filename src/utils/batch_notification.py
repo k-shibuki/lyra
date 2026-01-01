@@ -143,4 +143,3 @@ async def notify_search_queue_empty() -> None:
     Called by SearchQueueWorkerManager when queue becomes empty.
     """
     await _get_batch_notification_manager().on_search_queue_empty()
-

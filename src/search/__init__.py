@@ -68,6 +68,11 @@ from src.search.parser_config import (
     get_engine_parser_config,
     get_parser_config_manager,
 )
+from src.search.parsers import (
+    BaseSearchParser,
+    get_available_parsers,
+    get_parser,
+)
 
 # Provider abstraction
 from src.search.provider import (
@@ -93,11 +98,6 @@ from src.search.search_api import (
     parse_query_operators,
     search_serp,
     transform_query_for_engine,
-)
-from src.search.search_parsers import (
-    BaseSearchParser,
-    get_available_parsers,
-    get_parser,
 )
 
 __all__ = [

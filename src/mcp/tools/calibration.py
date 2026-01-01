@@ -115,5 +115,3 @@ async def handle_calibration_rollback(args: dict[str, Any]) -> dict[str, Any]:
         "brier_after": rolled_back_params.brier_after,
         "method": rolled_back_params.method,
     }
-
-

@@ -494,7 +494,7 @@ grep -rn '^class Domain' src/
 | R-05 | `SearchResult` クラス改名 | 2h | なし | ✅ 完了 |
 | R-06 | `SearchOptions` クラス改名 | 1h | なし | ✅ 完了 |
 | R-07 | `Subquery` → `Search` 完全移行 | 3h | なし | ✅ 完了 |
-| R-08 | `search_parsers.py` をエンジン別に分割 | 2h | なし | `make test-unit PYTEST_ARGS="-k parser"` |
+| R-08 | `search_parsers.py` をエンジン別に分割 | 2h | なし | ✅ 完了（2026-01-01） |
 
 ### LOW
 
@@ -546,9 +546,6 @@ make test-unit
 
 | 日付 | 更新者 | 内容 |
 |------|--------|------|
-| 2025-12-31 | Claude | 初版作成 |
-| 2025-01-01 | Claude | 着手手順・検証コマンド追加、行番号更新 |
-| 2025-01-01 | Claude | R-04 完了: max_pages レガシーバリデーション削除 + スキーマ厳密化 |
-| 2025-01-01 | Claude | R-02/R-03 完了: モジュール分割完了、テストモジュールインポート対応完了 |
-| 2026-01-01 | Claude | R-05/R-06/R-07 完了: SearchResult→SERPResult, SearchOptions→SearchProviderOptions, Subquery→Search完全移行 |
-| 2026-01-01 | Claude | R-09 完了: Legacy mode コード削除（OllamaClient, legacy intervention, コメント改善） |
+| 2025-12-31 | 初版作成 |
+| 2025-01-01 | 着手手順・検証コマンド追加、行番号更新 |
+| 2025-01-01 | R-01 から R-09まで 完了、全テスト通過、回帰なし|

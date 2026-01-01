@@ -685,5 +685,3 @@ class TestErrorHandling:
         # Then: Both callbacks are called despite exception
         assert callback1_called is True
         assert callback2_called is True
-
-

@@ -454,5 +454,3 @@ async def cancel_auth_queue_for_task(task_id: str, db: Any) -> int:
         )
 
     return cancelled_count
-
-

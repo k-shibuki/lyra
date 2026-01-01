@@ -400,7 +400,7 @@ class TestCategoryManagement:
         # So after filtering, it should be empty
         # But duckduckgo might be included via fallback if category_engines is empty
         # Let's check that only engines with parsers are returned
-        from src.search.search_parsers import get_available_parsers
+        from src.search.parsers import get_available_parsers
 
         available_parsers = set(get_available_parsers())
         for engine in academic:
@@ -414,7 +414,7 @@ class TestCategoryManagement:
         # However, arxiv doesn't have a parser, so it should be filtered out
         names = {e.name for e in technical}
         # Only engines with parsers should be returned
-        from src.search.search_parsers import get_available_parsers
+        from src.search.parsers import get_available_parsers
 
         available_parsers = set(get_available_parsers())
         for engine in technical:

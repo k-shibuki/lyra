@@ -82,8 +82,6 @@ def _get_response_format_for_task(task: str) -> str | dict | None:
     return None
 
 
-
-
 # ============================================================================
 # Provider-based Functions (New API)
 # ============================================================================

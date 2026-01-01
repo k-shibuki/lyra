@@ -570,7 +570,7 @@ class SearchEngineConfigManager:
         Returns:
             List of engine names that have available parsers.
         """
-        from src.search.search_parsers import get_available_parsers
+        from src.search.parsers import get_available_parsers
 
         available_parsers = set(get_available_parsers())
 

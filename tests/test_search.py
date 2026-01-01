@@ -1266,7 +1266,9 @@ class TestMirrorQueryGeneration:
         return mock_generate
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_ja_to_en(self, mock_generate_with_provider: object) -> None:
+    async def test_generate_mirror_query_ja_to_en(
+        self, mock_generate_with_provider: object
+    ) -> None:
         """Test Japanese to English translation (ADR-0010)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
@@ -1282,7 +1284,9 @@ class TestMirrorQueryGeneration:
         assert result != "機械学習の最新動向", "Result should be different from original"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_en_to_ja(self, mock_generate_with_provider: object) -> None:
+    async def test_generate_mirror_query_en_to_ja(
+        self, mock_generate_with_provider: object
+    ) -> None:
         """Test English to Japanese translation (ADR-0010)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 

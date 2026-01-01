@@ -33,8 +33,7 @@ from src.search.parser_config import (
     get_parser_config_manager,
     reset_parser_config_manager,
 )
-from src.search.provider import SourceTag
-from src.search.search_parsers import (
+from src.search.parsers import (
     BingParser,
     DuckDuckGoParser,
     EcosiaParser,
@@ -43,6 +42,7 @@ from src.search.search_parsers import (
     get_available_parsers,
     get_parser,
 )
+from src.search.provider import SourceTag
 
 # ============================================================================
 # Test Fixtures

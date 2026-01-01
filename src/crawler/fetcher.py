@@ -58,6 +58,7 @@ logger = get_logger(__name__)
 # Utility Functions
 # =============================================================================
 
+
 async def _save_content(url: str, content: bytes, headers: dict) -> Path | None:
     """Save fetched content to file.
 

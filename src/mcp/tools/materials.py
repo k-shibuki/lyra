@@ -50,4 +50,3 @@ async def handle_get_materials(args: dict[str, Any]) -> dict[str, Any]:
             format=options.get("format", "structured"),
         )
         return result
-

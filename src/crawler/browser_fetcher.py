@@ -138,7 +138,6 @@ class HumanBehavior:
             logger.debug("Mouse movement error", error=str(e))
 
 
-
 class BrowserFetcher:
     """Browser-based fetcher using Playwright with headless/headful auto-switching.
 
@@ -933,7 +932,6 @@ class BrowserFetcher:
                     url=url[:80],
                 )
 
-
     async def close(self) -> None:
         """Close all browser connections."""
         if self._headless_context:
@@ -946,4 +944,3 @@ class BrowserFetcher:
             await self._headful_browser.close()
         if self._playwright:
             await self._playwright.stop()
-
