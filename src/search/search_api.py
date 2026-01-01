@@ -1297,9 +1297,8 @@ async def generate_mirror_query(
         return cached
 
     try:
-        from src.filter.llm import _get_client
+        from src.filter.llm import generate_with_provider
 
-        client = _get_client()
         settings = get_settings()
 
         # Language names for prompt
@@ -1323,7 +1322,7 @@ Query: {query}
 
 Translation:"""
 
-        response = await client.generate(
+        response = await generate_with_provider(
             prompt=prompt,
             model=settings.llm.model,
             temperature=0.1,  # Low temperature for consistent translation

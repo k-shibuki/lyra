@@ -21,7 +21,7 @@ Tests query processing, source classification, and query expansion.
 | TC-SE-03 | Execute with error | Abnormal – error | Handles gracefully | - |
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -380,11 +380,8 @@ class TestGenerateMirrorQuery:
         query = "テストクエリ"
         _mirror_query_cache.clear()
 
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value="test query")
-
         # When: generate_mirror_query is called
-        with patch("src.filter.llm._get_client", return_value=mock_client):
+        with patch("src.filter.llm.generate_with_provider", return_value="test query"):
             result = await generate_mirror_query(query, "ja", "en")
 
         # Then: Returns translated query
@@ -417,16 +414,12 @@ class TestGenerateMirrorQuery:
         _mirror_query_cache.clear()
         _mirror_query_cache[cache_key] = "cached translation"
 
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value="new translation")
-
         # When: generate_mirror_query is called
-        with patch("src.filter.llm._get_client", return_value=mock_client):
+        with patch("src.filter.llm.generate_with_provider", return_value="new translation"):
             result = await generate_mirror_query(query, "ja", "en")
 
         # Then: Returns cached value, LLM not called
         assert result == "cached translation"
-        mock_client.generate.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_double_quote_removal(self) -> None:
@@ -439,11 +432,8 @@ class TestGenerateMirrorQuery:
         query = "クォートテスト"
         _mirror_query_cache.clear()
 
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value='"quoted response"')
-
         # When: generate_mirror_query is called
-        with patch("src.filter.llm._get_client", return_value=mock_client):
+        with patch("src.filter.llm.generate_with_provider", return_value='"quoted response"'):
             result = await generate_mirror_query(query, "ja", "en")
 
         # Then: Returns response without quotes
@@ -460,11 +450,8 @@ class TestGenerateMirrorQuery:
         query = "シングルクォート"
         _mirror_query_cache.clear()
 
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value="'single quoted'")
-
         # When: generate_mirror_query is called
-        with patch("src.filter.llm._get_client", return_value=mock_client):
+        with patch("src.filter.llm.generate_with_provider", return_value="'single quoted'"):
             result = await generate_mirror_query(query, "ja", "en")
 
         # Then: Returns response without quotes
@@ -509,11 +496,8 @@ class TestGenerateMirrorQuery:
         query = "例外テスト"
         _mirror_query_cache.clear()
 
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(side_effect=Exception("LLM error"))
-
         # When: generate_mirror_query is called
-        with patch("src.filter.llm._get_client", return_value=mock_client):
+        with patch("src.filter.llm.generate_with_provider", side_effect=Exception("LLM error")):
             result = await generate_mirror_query(query, "ja", "en")
 
         # Then: Returns None (exception handled)
@@ -530,11 +514,8 @@ class TestGenerateMirrorQuery:
         query = "空レスポンス"
         _mirror_query_cache.clear()
 
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value="")
-
         # When: generate_mirror_query is called
-        with patch("src.filter.llm._get_client", return_value=mock_client):
+        with patch("src.filter.llm.generate_with_provider", return_value=""):
             result = await generate_mirror_query(query, "ja", "en")
 
         # Then: Returns None (validation failed)
@@ -551,11 +532,8 @@ class TestGenerateMirrorQuery:
         query = "同一クエリ"
         _mirror_query_cache.clear()
 
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value="同一クエリ")
-
         # When: generate_mirror_query is called
-        with patch("src.filter.llm._get_client", return_value=mock_client):
+        with patch("src.filter.llm.generate_with_provider", return_value="同一クエリ"):
             result = await generate_mirror_query(query, "ja", "en")
 
         # Then: Returns None (translation considered failed)
@@ -1263,40 +1241,39 @@ class TestQueryOperatorEdgeCases:
 class TestMirrorQueryGeneration:
     """Tests for cross-language mirror query generation (ADR-0010)."""
 
-    @pytest.fixture
-    def mock_ollama_client(self) -> object:
-        """Create a mock Ollama client for translation tests."""
+    @pytest.fixture(scope="class")
+    def mock_generate_with_provider(self) -> object:
+        """Create a mock generate_with_provider for translation tests."""
 
-        class MockOllamaClient:
-            async def generate(
-                self,
-                prompt: str,
-                model: str | None = None,
-                temperature: float | None = None,
-                max_tokens: int | None = None,
-            ) -> str:
-                # Extract query from prompt and return translation
-                if "機械学習" in prompt:
-                    return "machine learning"
-                elif "machine learning" in prompt:
-                    return "機械学習"
-                elif "セキュリティ" in prompt:
-                    return "security"
-                elif "AIエージェント" in prompt:
-                    return "AI agent"
-                return "translated query"
+        async def mock_generate(
+            prompt: str,
+            model: str | None = None,
+            temperature: float | None = None,
+            max_tokens: int | None = None,
+            response_format: str | None = None,
+        ) -> str:
+            # Extract query from prompt and return translation
+            if "機械学習" in prompt:
+                return "machine learning"
+            elif "machine learning" in prompt:
+                return "機械学習"
+            elif "セキュリティ" in prompt:
+                return "security"
+            elif "AIエージェント" in prompt:
+                return "AI agent"
+            return "translated query"
 
-        return MockOllamaClient()
+        return mock_generate
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_ja_to_en(self, mock_ollama_client: object) -> None:
+    async def test_generate_mirror_query_ja_to_en(self, mock_generate_with_provider: object) -> None:
         """Test Japanese to English translation (ADR-0010)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
         # Clear cache
         _mirror_query_cache.clear()
 
-        with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
+        with patch("src.filter.llm.generate_with_provider", mock_generate_with_provider):
             result = await generate_mirror_query(
                 "機械学習の最新動向", source_lang="ja", target_lang="en"
             )
@@ -1305,13 +1282,13 @@ class TestMirrorQueryGeneration:
         assert result != "機械学習の最新動向", "Result should be different from original"
 
     @pytest.mark.asyncio
-    async def test_generate_mirror_query_en_to_ja(self, mock_ollama_client: object) -> None:
+    async def test_generate_mirror_query_en_to_ja(self, mock_generate_with_provider: object) -> None:
         """Test English to Japanese translation (ADR-0010)."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_query
 
         _mirror_query_cache.clear()
 
-        with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
+        with patch("src.filter.llm.generate_with_provider", mock_generate_with_provider):
             result = await generate_mirror_query(
                 "machine learning trends", source_lang="en", target_lang="ja"
             )
@@ -1348,19 +1325,17 @@ class TestMirrorQueryGeneration:
 
         call_count = 0
 
-        class CountingMockClient:
-            async def generate(
-                self,
-                prompt: str,
-                model: str | None = None,
-                temperature: float | None = None,
-                max_tokens: int | None = None,
-            ) -> str:
-                nonlocal call_count
-                call_count += 1
-                return "security"
+        async def counting_mock_generate(
+            prompt: str,
+            model: str | None = None,
+            temperature: float | None = None,
+            max_tokens: int | None = None,
+        ) -> str:
+            nonlocal call_count
+            call_count += 1
+            return "security"
 
-        with patch("src.filter.llm._get_client", return_value=CountingMockClient()):
+        with patch("src.filter.llm.generate_with_provider", counting_mock_generate):
             # First call
             result1 = await generate_mirror_query("セキュリティ", "ja", "en")
             # Second call (should use cache)
@@ -1371,14 +1346,14 @@ class TestMirrorQueryGeneration:
 
     @pytest.mark.asyncio
     async def test_generate_mirror_queries_multiple_languages(
-        self, mock_ollama_client: object
+        self, mock_generate_with_provider: object
     ) -> None:
         """Test generating mirrors in multiple target languages."""
         from src.search.search_api import _mirror_query_cache, generate_mirror_queries
 
         _mirror_query_cache.clear()
 
-        with patch("src.filter.llm._get_client", return_value=mock_ollama_client):
+        with patch("src.filter.llm.generate_with_provider", mock_generate_with_provider):
             results = await generate_mirror_queries(
                 "AIエージェント", source_lang="ja", target_langs=["en"]
             )
@@ -1395,11 +1370,10 @@ class TestMirrorQueryGeneration:
 
         _mirror_query_cache.clear()
 
-        class FailingMockClient:
-            async def generate(self, *args: object, **kwargs: object) -> str:
-                raise RuntimeError("LLM unavailable")
+        async def failing_mock_generate(*args: object, **kwargs: object) -> str:
+            raise RuntimeError("LLM unavailable")
 
-        with patch("src.filter.llm._get_client", return_value=FailingMockClient()):
+        with patch("src.filter.llm.generate_with_provider", failing_mock_generate):
             result = await generate_mirror_query("test", "ja", "en")
 
         assert result is None, "Error should return None, not raise"
@@ -1411,11 +1385,10 @@ class TestMirrorQueryGeneration:
 
         _mirror_query_cache.clear()
 
-        class QuotedMockClient:
-            async def generate(self, *args: object, **kwargs: object) -> str:
-                return '"quoted translation"'
+        async def quoted_mock_generate(*args: object, **kwargs: object) -> str:
+            return '"quoted translation"'
 
-        with patch("src.filter.llm._get_client", return_value=QuotedMockClient()):
+        with patch("src.filter.llm.generate_with_provider", quoted_mock_generate):
             result = await generate_mirror_query("test", "ja", "en")
 
         assert result == "quoted translation", "Quotes should be stripped"

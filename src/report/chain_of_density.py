@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from src.filter.llm import _get_client
+from src.filter.llm import generate_with_provider
 from src.filter.llm_output import parse_and_validate
 from src.filter.llm_schemas import DenseSummaryOutput, InitialSummaryOutput
 from src.report.generator import generate_deep_link
@@ -533,11 +533,9 @@ class ChainOfDensityCompressor:
         claims: list[DenseClaim],
     ) -> DenseSummary:
         """Generate initial summary using LLM."""
-        client = _get_client()
-
         prompt = render_prompt("initial_summary", content=content[:8000])
 
-        response = await client.generate(
+        response = await generate_with_provider(
             prompt=prompt,
             model=self._settings.llm.model,
             temperature=0.3,
@@ -546,7 +544,7 @@ class ChainOfDensityCompressor:
         )
 
         async def _retry_llm_call(retry_prompt: str) -> str:
-            return await client.generate(
+            return await generate_with_provider(
                 prompt=retry_prompt,
                 model=self._settings.llm.model,
                 temperature=0.3,
@@ -592,8 +590,6 @@ class ChainOfDensityCompressor:
         iteration: int,
     ) -> DenseSummary:
         """Densify summary by adding missing entities."""
-        client = _get_client()
-
         prompt = render_prompt(
             "densify",
             current_summary=current.text,
@@ -601,7 +597,7 @@ class ChainOfDensityCompressor:
             missing_entities=", ".join(missing_entities),
         )
 
-        response = await client.generate(
+        response = await generate_with_provider(
             prompt=prompt,
             model=self._settings.llm.model,
             temperature=0.3,
@@ -610,7 +606,7 @@ class ChainOfDensityCompressor:
         )
 
         async def _retry_llm_call(retry_prompt: str) -> str:
-            return await client.generate(
+            return await generate_with_provider(
                 prompt=retry_prompt,
                 model=self._settings.llm.model,
                 temperature=0.3,

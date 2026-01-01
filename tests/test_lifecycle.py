@@ -33,10 +33,6 @@ after each task completion to prevent memory leaks.
 | TC-LC-N-22 | register_ollama helper | Equivalence – normal | 1 resource registered | Ollama helper |
 | TC-LC-A-02 | close() throws exception | Equivalence – error | Error logged, resource removed | Exception handling |
 | TC-LC-A-03 | Callback exception | Equivalence – error | Other callbacks still run | Isolation |
-| TC-LC-N-23 | set_task_id | Equivalence – normal | task_id stored | OllamaClient |
-| TC-LC-N-24 | unload_model | Equivalence – normal | Model unloaded | OllamaClient |
-| TC-LC-N-25 | cleanup_llm_for_task | Equivalence – normal | LLM cleaned | Convenience function |
-| TC-LC-N-26 | set_llm_task_id | Equivalence – normal | task_id set | Convenience function |
 """
 
 import asyncio
@@ -691,97 +687,3 @@ class TestErrorHandling:
         assert callback2_called is True
 
 
-# =============================================================================
-# LLM Cleanup Tests
-# =============================================================================
-
-
-class TestLLMCleanup:
-    """Tests for LLM cleanup functions."""
-
-    @pytest.fixture(autouse=True)
-    def reset_llm_client(self) -> Generator[None]:
-        """Reset global LLM client before each test."""
-        import src.filter.llm as llm_module
-
-        llm_module._client = None
-        yield
-        llm_module._client = None
-
-    @pytest.mark.asyncio
-    async def test_ollama_client_set_task_id(self) -> None:
-        """Test OllamaClient.set_task_id()."""
-        from src.filter.llm import OllamaClient
-
-        # Given: An OllamaClient instance
-        client = OllamaClient()
-
-        # When: Set task ID
-        client.set_task_id("task_123")
-
-        # Then: task_id is stored
-        assert client._current_task_id == "task_123"
-
-    @pytest.mark.asyncio
-    async def test_ollama_client_unload_model(self) -> None:
-        """Test OllamaClient.unload_model()."""
-
-        from src.filter.llm import OllamaClient
-
-        # Given: An OllamaClient with a loaded model
-        client = OllamaClient()
-        client._current_model = "qwen2.5:3b"
-
-        mock_response = MagicMock()
-        mock_response.status = 200
-
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_cm.__aexit__ = AsyncMock(return_value=None)
-
-        mock_session = MagicMock()
-        mock_session.post.return_value = mock_cm
-        mock_session.closed = False
-        mock_session.close = AsyncMock()
-
-        provider = client._get_provider()
-
-        async def mock_get_session() -> MagicMock:
-            return mock_session
-
-        # When: Unload the model
-        with patch.object(provider, "_get_session", mock_get_session):
-            result = await client.unload_model()
-
-        # Then: Model is unloaded
-        assert result is True
-        assert client._current_model is None
-
-    @pytest.mark.asyncio
-    async def test_cleanup_llm_for_task(self) -> None:
-        """Test cleanup_llm_for_task function."""
-        from src.filter.llm import _get_client, cleanup_llm_for_task
-
-        # Given: An LLM client with a loaded model
-        client = _get_client()
-        client._current_model = "qwen2.5:3b"
-
-        # When: Cleanup LLM for task
-        with patch.object(client, "cleanup_for_task", new_callable=AsyncMock) as mock_cleanup:
-            await cleanup_llm_for_task("task_123")
-
-            # Then: cleanup_for_task is called
-            mock_cleanup.assert_called_once_with(unload_model=True)
-
-    def test_set_llm_task_id(self) -> None:
-        """Test set_llm_task_id function."""
-        from src.filter.llm import _get_client, set_llm_task_id
-
-        # Given: An LLM client
-        client = _get_client()
-
-        # When: Set task ID
-        set_llm_task_id("task_456")
-
-        # Then: task_id is stored in client
-        assert client._current_task_id == "task_456"

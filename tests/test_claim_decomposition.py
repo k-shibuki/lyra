@@ -468,7 +468,7 @@ class TestClaimDecomposerLLM:
     @pytest.mark.asyncio
     async def test_llm_decomposition(self, monkeypatch: MonkeyPatch) -> None:
         """Test LLM-based decomposition with mocked response."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         # Given: Mocked LLM response with valid JSON
         mock_response = """[
@@ -489,11 +489,9 @@ class TestClaimDecomposerLLM:
                 "hints": ["技術ドキュメント"]
             }
         ]"""
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value=mock_response)
         monkeypatch.setattr(
-            "src.filter.claim_decomposition._get_client",
-            lambda: mock_client,
+            "src.filter.claim_decomposition.generate_with_provider",
+            AsyncMock(return_value=mock_response),
         )
 
         # When: Decomposing with LLM
@@ -516,14 +514,12 @@ class TestClaimDecomposerLLM:
     @pytest.mark.asyncio
     async def test_llm_fallback_on_invalid_json(self, monkeypatch: MonkeyPatch) -> None:
         """Test fallback to rule-based when LLM returns invalid JSON."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         # Given: Mocked LLM returning invalid JSON
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(return_value="Invalid response")
         monkeypatch.setattr(
-            "src.filter.claim_decomposition._get_client",
-            lambda: mock_client,
+            "src.filter.claim_decomposition.generate_with_provider",
+            AsyncMock(return_value="Invalid response"),
         )
 
         # When: Decomposing with LLM
@@ -537,14 +533,12 @@ class TestClaimDecomposerLLM:
     @pytest.mark.asyncio
     async def test_llm_fallback_on_error(self, monkeypatch: MonkeyPatch) -> None:
         """Test fallback to rule-based when LLM raises an error."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         # Given: Mocked LLM raising exception
-        mock_client = MagicMock()
-        mock_client.generate = AsyncMock(side_effect=RuntimeError("Connection error"))
         monkeypatch.setattr(
-            "src.filter.claim_decomposition._get_client",
-            lambda: mock_client,
+            "src.filter.claim_decomposition.generate_with_provider",
+            AsyncMock(side_effect=RuntimeError("Connection error")),
         )
 
         # When: Decomposing with LLM

@@ -14,7 +14,7 @@ from typing import Any
 from src.filter.llm_output import parse_and_validate
 from src.filter.llm_schemas import ExtractedClaim, ExtractedFact
 from src.filter.llm_security import validate_llm_output
-from src.filter.ollama_provider import OllamaProvider, create_ollama_provider
+from src.filter.ollama_provider import create_ollama_provider
 from src.filter.provider import (
     ChatMessage,
     LLMOptions,
@@ -22,7 +22,6 @@ from src.filter.provider import (
     get_llm_registry,
     reset_llm_registry,
 )
-from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.utils.prompt_manager import render_prompt
 from src.utils.secure_logging import (
@@ -83,173 +82,6 @@ def _get_response_format_for_task(task: str) -> str | dict | None:
     return None
 
 
-# ============================================================================
-# OllamaClient Facade
-# ============================================================================
-
-
-class OllamaClient:
-    """
-    Thin facade for OllamaProvider.
-
-    Per ADR-0004, LLM processes should be released after task completion.
-    Prefer LLMProvider directly for new code.
-    """
-
-    def __init__(self) -> None:
-        self._provider: OllamaProvider | None = None
-        self._settings = get_settings()
-
-    def _get_provider(self) -> OllamaProvider:
-        """Get or create Ollama provider."""
-        if self._provider is None:
-            self._provider = create_ollama_provider()
-        return self._provider
-
-    @property
-    def _current_task_id(self) -> str | None:
-        """Get current task ID from provider."""
-        if self._provider is None:
-            return None
-        return self._provider._current_task_id
-
-    @_current_task_id.setter
-    def _current_task_id(self, value: str | None) -> None:
-        """Set current task ID on provider."""
-        provider = self._get_provider()
-        provider._current_task_id = value
-
-    @property
-    def _current_model(self) -> str | None:
-        """Get current model from provider."""
-        if self._provider is None:
-            return None
-        return self._provider._current_model
-
-    @_current_model.setter
-    def _current_model(self, value: str | None) -> None:
-        """Set current model on provider."""
-        provider = self._get_provider()
-        provider._current_model = value
-
-    def set_task_id(self, task_id: str | None) -> None:
-        """Set current task ID for lifecycle tracking."""
-        provider = self._get_provider()
-        provider.set_task_id(task_id)
-
-    async def close(self) -> None:
-        """Close HTTP session."""
-        if self._provider is not None:
-            await self._provider.close()
-
-    async def unload_model(self, model: str | None = None) -> bool:
-        """Unload model to free VRAM."""
-        if self._provider is None:
-            return False
-        return await self._provider.unload_model(model)
-
-    async def cleanup_for_task(self, unload_model: bool = True) -> None:
-        """Cleanup resources after task completion."""
-        if unload_model and self._settings.llm.unload_on_task_complete:
-            await self.unload_model()
-        if self._provider:
-            self._provider.set_task_id(None)
-
-    async def generate(
-        self,
-        prompt: str,
-        model: str | None = None,
-        system: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        response_format: str | dict | None = None,
-    ) -> str:
-        """Generate completion from Ollama."""
-        provider = self._get_provider()
-
-        options = LLMOptions(
-            model=model,
-            system=system,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format=response_format,
-        )
-
-        response = await provider.generate(prompt, options)
-
-        if not response.ok:
-            raise RuntimeError(f"Ollama error: {response.error}")
-
-        return response.text
-
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        model: str | None = None,
-        temperature: float | None = None,
-    ) -> str:
-        """Chat completion from Ollama."""
-        provider = self._get_provider()
-
-        # Convert dict messages to ChatMessage objects
-        chat_messages = [
-            ChatMessage(
-                role=m.get("role", "user"),
-                content=m.get("content", ""),
-            )
-            for m in messages
-        ]
-
-        options = LLMOptions(
-            model=model,
-            temperature=temperature,
-        )
-
-        response = await provider.chat(chat_messages, options)
-
-        if not response.ok:
-            raise RuntimeError(f"Ollama error: {response.error}")
-
-        return response.text
-
-
-# Global client (module-level singleton)
-_client: OllamaClient | None = None
-
-
-def _get_client() -> OllamaClient:
-    """Get or create Ollama client (legacy)."""
-    global _client
-    if _client is None:
-        _client = OllamaClient()
-    return _client
-
-
-async def _cleanup_client() -> None:
-    """Close and cleanup the global Ollama client."""
-    global _client
-    if _client is not None:
-        await _client.close()
-        _client = None
-
-
-async def cleanup_llm_for_task(task_id: str | None = None) -> None:
-    """
-    Cleanup LLM resources after task completion.
-
-    LLM processes should be released after task completion.
-    """
-    global _client
-    if _client is not None:
-        logger.info("Cleaning up LLM resources for task", task_id=task_id)
-        await _client.cleanup_for_task(unload_model=True)
-
-
-def set_llm_task_id(task_id: str | None) -> None:
-    """Set current task ID for LLM lifecycle tracking."""
-    global _client
-    if _client is not None:
-        _client.set_task_id(task_id)
 
 
 # ============================================================================
@@ -289,6 +121,7 @@ async def generate_with_provider(
     system: str | None = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
+    response_format: str | dict | None = None,
     provider_name: str | None = None,
 ) -> str:
     """
@@ -300,6 +133,7 @@ async def generate_with_provider(
         system: System prompt.
         temperature: Generation temperature.
         max_tokens: Maximum tokens to generate.
+        response_format: Response format (e.g., "json" or JSON schema dict).
         provider_name: Specific provider to use (default provider if not specified).
 
     Returns:
@@ -323,6 +157,7 @@ async def generate_with_provider(
         system=system,
         temperature=temperature,
         max_tokens=max_tokens,
+        response_format=response_format,
     )
 
     response = await provider.generate(prompt, options)
@@ -423,7 +258,6 @@ async def llm_extract(
     passages: list[dict[str, Any]],
     task: str,
     context: str | None = None,
-    use_provider: bool = True,
 ) -> dict[str, Any]:
     """
     Extract information using LLM.
@@ -432,7 +266,6 @@ async def llm_extract(
         passages: List of passage dicts with 'id' and 'text'.
         task: Task type (extract_facts, extract_claims, summarize, translate).
         context: Additional context (e.g., research question).
-        use_provider: Whether to use the new provider API (default: True).
 
     Returns:
         Extraction result.
@@ -440,296 +273,161 @@ async def llm_extract(
     Note:
         Per ADR-0004: Single 3B model is used for all LLM tasks.
     """
-    settings = get_settings()
+    # Use provider-based API
+    registry = get_llm_registry()
 
-    if use_provider:
-        # Use new provider-based API
-        registry = get_llm_registry()
+    # Auto-register if needed
+    if not registry.list_providers():
+        provider = create_ollama_provider()
+        registry.register(provider, set_default=True)
 
-        # Auto-register if needed
-        if not registry.list_providers():
-            provider = create_ollama_provider()
-            registry.register(provider, set_default=True)
+    default_provider = registry.get_default()
+    if default_provider is None:
+        raise RuntimeError("No LLM provider available")
 
-        default_provider = registry.get_default()
-        if default_provider is None:
-            raise RuntimeError("No LLM provider available")
+    # Use single model (per ADR-0004)
+    model = None
+    if hasattr(default_provider, "model"):
+        model = default_provider.model
 
-        # Use single model (per ADR-0004)
-        model = None
-        if hasattr(default_provider, "model"):
-            model = default_provider.model
+    results = []
 
-        results = []
+    for passage in passages:
+        passage_id = passage.get("id", "unknown")
+        text = passage.get("text", "")
+        source_url = passage.get("source_url", "")
 
-        for passage in passages:
-            passage_id = passage.get("id", "unknown")
-            text = passage.get("text", "")
-            source_url = passage.get("source_url", "")
+        # Select and render prompt template based on task
+        if task == "extract_facts":
+            prompt = render_prompt("extract_facts", text=text[:4000])
+        elif task == "extract_claims":
+            prompt = render_prompt(
+                "extract_claims",
+                text=text[:4000],
+                context=context or "一般的な調査",
+            )
+        elif task == "summarize":
+            prompt = render_prompt("summarize", text=text[:4000])
+        elif task == "translate":
+            target_lang = context or "英語"
+            prompt = render_prompt(
+                "translate",
+                text=text[:4000],
+                target_lang=target_lang,
+            )
+        else:
+            raise ValueError(f"Unknown task: {task}")
 
-            # Select and render prompt template based on task
-            if task == "extract_facts":
-                prompt = render_prompt("extract_facts", text=text[:4000])
-            elif task == "extract_claims":
-                prompt = render_prompt(
-                    "extract_claims",
-                    text=text[:4000],
-                    context=context or "一般的な調査",
-                )
-            elif task == "summarize":
-                prompt = render_prompt("summarize", text=text[:4000])
-            elif task == "translate":
-                target_lang = context or "英語"
-                prompt = render_prompt(
-                    "translate",
-                    text=text[:4000],
-                    target_lang=target_lang,
-                )
-            else:
-                raise ValueError(f"Unknown task: {task}")
+        try:
+            response_format = _get_response_format_for_task(task)
+            options = LLMOptions(model=model, response_format=response_format)
+            response = await default_provider.generate(prompt, options)
 
-            try:
-                response_format = _get_response_format_for_task(task)
-                options = LLMOptions(model=model, response_format=response_format)
-                response = await default_provider.generate(prompt, options)
-
-                if not response.ok:
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "error": response.error,
-                        }
-                    )
-                    continue
-
-                response_text = response.text
-
-                # Validate LLM output per ADR-0005 L4
-                # Use instruction-only template to avoid false positives from user text
-                validation_result = validate_llm_output(
-                    response_text,
-                    system_prompt=TASK_INSTRUCTIONS.get(task),
-                    mask_leakage=True,
-                )
-                if validation_result.leakage_detected:
-                    # L8: Use audit logger for security events
-                    audit_logger.log_prompt_leakage(
-                        source="llm_extract",
-                        fragment_count=(
-                            validation_result.leakage_result.total_leaks
-                            if validation_result.leakage_result
-                            else 1
-                        ),
-                    )
-                response_text = validation_result.validated_text
-
-                # Parse response based on task
-                if task in ("extract_facts", "extract_claims"):
-                    schema = ExtractedFact if task == "extract_facts" else ExtractedClaim
-
-                    async def _retry_llm_call(retry_prompt: str) -> str:
-                        retry_response = await default_provider.generate(
-                            retry_prompt,
-                            LLMOptions(model=model, response_format="json"),
-                        )
-                        if not retry_response.ok:
-                            raise RuntimeError(retry_response.error or "LLM retry failed")
-
-                        retry_validation = validate_llm_output(
-                            retry_response.text,
-                            system_prompt=TASK_INSTRUCTIONS.get(task),
-                            mask_leakage=True,
-                        )
-                        if retry_validation.leakage_detected:
-                            audit_logger.log_prompt_leakage(
-                                source="llm_extract_retry",
-                                fragment_count=(
-                                    retry_validation.leakage_result.total_leaks
-                                    if retry_validation.leakage_result
-                                    else 1
-                                ),
-                            )
-                        return retry_validation.validated_text
-
-                    validated = await parse_and_validate(
-                        response=response_text,
-                        schema=schema,
-                        template_name=task,
-                        expect_array=True,
-                        llm_call=_retry_llm_call,
-                        max_retries=1,
-                        context={
-                            "passage_id": passage_id,
-                            "source_url": source_url,
-                            "task": task,
-                        },
-                    )
-
-                    if validated is None:
-                        extracted = [{"raw_response": response_text}]
-                    else:
-                        extracted = [m.model_dump() for m in validated]
-
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "extracted": extracted,
-                        }
-                    )
-                else:
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "result": response_text.strip(),
-                        }
-                    )
-
-            except Exception as e:
-                # L8: Use secure logger for exception handling
-                sanitized = secure_logger.log_exception(
-                    e,
-                    context={"passage_id": passage_id, "task": task},
-                )
+            if not response.ok:
                 results.append(
                     {
                         "id": passage_id,
-                        "error": sanitized.sanitized_message,
+                        "error": response.error,
                     }
                 )
-    else:
-        # Legacy path using OllamaClient
-        client = _get_client()
-        model = settings.llm.model
+                continue
 
-        results = []
+            response_text = response.text
 
-        for passage in passages:
-            passage_id = passage.get("id", "unknown")
-            text = passage.get("text", "")
-            source_url = passage.get("source_url", "")
-
-            # Select and render prompt template based on task
-            if task == "extract_facts":
-                prompt = render_prompt("extract_facts", text=text[:4000])
-            elif task == "extract_claims":
-                prompt = render_prompt(
-                    "extract_claims",
-                    text=text[:4000],
-                    context=context or "一般的な調査",
+            # Validate LLM output per ADR-0005 L4
+            # Use instruction-only template to avoid false positives from user text
+            validation_result = validate_llm_output(
+                response_text,
+                system_prompt=TASK_INSTRUCTIONS.get(task),
+                mask_leakage=True,
+            )
+            if validation_result.leakage_detected:
+                # L8: Use audit logger for security events
+                audit_logger.log_prompt_leakage(
+                    source="llm_extract",
+                    fragment_count=(
+                        validation_result.leakage_result.total_leaks
+                        if validation_result.leakage_result
+                        else 1
+                    ),
                 )
-            elif task == "summarize":
-                prompt = render_prompt("summarize", text=text[:4000])
-            elif task == "translate":
-                target_lang = context or "英語"
-                prompt = render_prompt(
-                    "translate",
-                    text=text[:4000],
-                    target_lang=target_lang,
-                )
-            else:
-                raise ValueError(f"Unknown task: {task}")
+            response_text = validation_result.validated_text
 
-            try:
-                response_format = _get_response_format_for_task(task)
-                response_text = await client.generate(
-                    prompt,
-                    model=model,
-                    response_format=response_format,
-                )
+            # Parse response based on task
+            if task in ("extract_facts", "extract_claims"):
+                schema = ExtractedFact if task == "extract_facts" else ExtractedClaim
 
-                # Validate LLM output per ADR-0005 L4
-                # Use instruction-only template to avoid false positives from user text
-                validation_result = validate_llm_output(
-                    response_text,
-                    system_prompt=TASK_INSTRUCTIONS.get(task),
-                    mask_leakage=True,
-                )
-                if validation_result.leakage_detected:
-                    # L8: Use audit logger for security events (legacy path)
-                    audit_logger.log_prompt_leakage(
-                        source="llm_extract_legacy",
-                        fragment_count=(
-                            validation_result.leakage_result.total_leaks
-                            if validation_result.leakage_result
-                            else 1
-                        ),
+                async def _retry_llm_call(retry_prompt: str) -> str:
+                    retry_response = await default_provider.generate(
+                        retry_prompt,
+                        LLMOptions(model=model, response_format="json"),
                     )
-                response_text = validation_result.validated_text
+                    if not retry_response.ok:
+                        raise RuntimeError(retry_response.error or "LLM retry failed")
 
-                if task in ("extract_facts", "extract_claims"):
-                    schema = ExtractedFact if task == "extract_facts" else ExtractedClaim
-
-                    async def _retry_llm_call(retry_prompt: str) -> str:
-                        retry_text = await client.generate(
-                            prompt=retry_prompt,
-                            model=model,
-                            response_format="json",
+                    retry_validation = validate_llm_output(
+                        retry_response.text,
+                        system_prompt=TASK_INSTRUCTIONS.get(task),
+                        mask_leakage=True,
+                    )
+                    if retry_validation.leakage_detected:
+                        audit_logger.log_prompt_leakage(
+                            source="llm_extract_retry",
+                            fragment_count=(
+                                retry_validation.leakage_result.total_leaks
+                                if retry_validation.leakage_result
+                                else 1
+                            ),
                         )
-                        retry_validation = validate_llm_output(
-                            retry_text,
-                            system_prompt=TASK_INSTRUCTIONS.get(task),
-                            mask_leakage=True,
-                        )
-                        if retry_validation.leakage_detected:
-                            audit_logger.log_prompt_leakage(
-                                source="llm_extract_legacy_retry",
-                                fragment_count=(
-                                    retry_validation.leakage_result.total_leaks
-                                    if retry_validation.leakage_result
-                                    else 1
-                                ),
-                            )
-                        return retry_validation.validated_text
+                    return retry_validation.validated_text
 
-                    validated = await parse_and_validate(
-                        response=response_text,
-                        schema=schema,
-                        template_name=task,
-                        expect_array=True,
-                        llm_call=_retry_llm_call,
-                        max_retries=1,
-                        context={
-                            "passage_id": passage_id,
-                            "source_url": source_url,
-                            "task": task,
-                        },
-                    )
+                validated = await parse_and_validate(
+                    response=response_text,
+                    schema=schema,
+                    template_name=task,
+                    expect_array=True,
+                    llm_call=_retry_llm_call,
+                    max_retries=1,
+                    context={
+                        "passage_id": passage_id,
+                        "source_url": source_url,
+                        "task": task,
+                    },
+                )
 
-                    if validated is None:
-                        extracted = [{"raw_response": response_text}]
-                    else:
-                        extracted = [m.model_dump() for m in validated]
-
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "extracted": extracted,
-                        }
-                    )
+                if validated is None:
+                    extracted = [{"raw_response": response_text}]
                 else:
-                    results.append(
-                        {
-                            "id": passage_id,
-                            "source_url": source_url,
-                            "result": response_text.strip(),
-                        }
-                    )
+                    extracted = [m.model_dump() for m in validated]
 
-            except Exception as e:
-                # L8: Use secure logger for exception handling
-                sanitized = secure_logger.log_exception(
-                    e,
-                    context={"passage_id": passage_id, "task": task},
-                )
                 results.append(
                     {
                         "id": passage_id,
-                        "error": sanitized.sanitized_message,
+                        "source_url": source_url,
+                        "extracted": extracted,
                     }
                 )
+            else:
+                results.append(
+                    {
+                        "id": passage_id,
+                        "source_url": source_url,
+                        "result": response_text.strip(),
+                    }
+                )
+
+        except Exception as e:
+            # L8: Use secure logger for exception handling
+            sanitized = secure_logger.log_exception(
+                e,
+                context={"passage_id": passage_id, "task": task},
+            )
+            results.append(
+                {
+                    "id": passage_id,
+                    "error": sanitized.sanitized_message,
+                }
+            )
 
     # Aggregate results
     if task == "extract_facts":
@@ -783,9 +481,6 @@ async def cleanup_all_providers() -> None:
 
     Should be called during application shutdown.
     """
-    # Cleanup legacy client
-    await _cleanup_client()
-
     # Cleanup registry
     from src.filter.provider import cleanup_llm_registry
 
@@ -798,6 +493,4 @@ def reset_for_testing() -> None:
 
     For testing purposes only.
     """
-    global _client
-    _client = None
     reset_llm_registry()

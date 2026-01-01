@@ -5,7 +5,7 @@ import hashlib
 import random
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from src.crawler.challenge_detector import (
@@ -23,8 +23,6 @@ from src.crawler.http3_policy import (
 from src.crawler.http_fetcher import RateLimiter
 from src.crawler.human_behavior import get_human_behavior_simulator
 from src.utils.config import get_settings
-from src.utils.intervention_manager import get_intervention_manager
-from src.utils.intervention_types import InterventionStatus, InterventionType
 from src.utils.lifecycle import ResourceType, get_lifecycle_manager
 from src.utils.logging import get_logger
 
@@ -82,7 +80,7 @@ class HumanBehavior:
             page_height=page_height,
             viewport_height=viewport_height,
         )
-        # Convert to legacy format: (position, delay_seconds)
+        # Return format: (position, delay_seconds)
         return [(step.position, step.delay_ms / 1000) for step in steps]
 
     @staticmethod
@@ -112,7 +110,7 @@ class HumanBehavior:
             start=(float(start_x), float(start_y)),
             end=(float(end_x), float(end_y)),
         )
-        # Convert to legacy format: (x, y) only (no delays)
+        # Return format: (x, y) tuples
         return [(int(x), int(y)) for x, y, _ in path]
 
     async def simulate_reading(self, page: "Page", content_length: int) -> None:
@@ -764,51 +762,6 @@ class BrowserFetcher:
                             auth_type=challenge_type,
                             estimated_effort=estimated_effort,
                         )
-                    elif allow_intervention:
-                        # Immediate intervention (legacy mode)
-                        intervention_result = await self._request_manual_intervention(
-                            url=url,
-                            domain=domain,
-                            page=page,
-                            task_id=task_id,
-                            challenge_type=challenge_type,
-                        )
-
-                        if (
-                            intervention_result
-                            and intervention_result.status == InterventionStatus.SUCCESS
-                        ):
-                            # Re-check page content after intervention
-                            content = await page.content()
-                            if not _is_challenge_page(content, {}):
-                                # Intervention succeeded - continue with normal flow
-                                logger.info(
-                                    "Challenge bypassed via manual intervention",
-                                    url=url[:80],
-                                )
-                                # Fall through to save content below
-                            else:
-                                # Still challenged - return failure
-                                return FetchResult(
-                                    ok=False,
-                                    url=url,
-                                    status=response.status,
-                                    reason="challenge_detected_after_intervention",
-                                    method="browser_headful",
-                                    auth_type=challenge_type,
-                                    estimated_effort=estimated_effort,
-                                )
-                        elif intervention_result:
-                            # Intervention failed/timed out/skipped
-                            return FetchResult(
-                                ok=False,
-                                url=url,
-                                status=response.status,
-                                reason=f"intervention_{intervention_result.status.value}",
-                                method="browser_headful",
-                                auth_type=challenge_type,
-                                estimated_effort=estimated_effort,
-                            )
                     else:
                         # Intervention not allowed - return challenge error
                         return FetchResult(
@@ -980,69 +933,6 @@ class BrowserFetcher:
                     url=url[:80],
                 )
 
-    async def _request_manual_intervention(
-        self,
-        url: str,
-        domain: str,
-        page: "Page",
-        task_id: str | None,
-        challenge_type: str,
-    ) -> Any:
-        """Request manual intervention for challenge bypass.
-
-        Safe Operation Policy:
-        - Sends toast notification
-        - Brings window to front via OS API
-        - Returns PENDING status immediately
-        - User finds and resolves challenge themselves
-        - NO DOM operations (scroll, highlight, focus)
-
-        Args:
-            url: Target URL.
-            domain: Domain name.
-            page: Playwright page object.
-            task_id: Associated task ID.
-            challenge_type: Type of challenge detected.
-
-        Returns:
-            InterventionResult or None.
-        """
-        try:
-            intervention_manager = get_intervention_manager()
-
-            # Map challenge type to InterventionType
-            intervention_type_map = {
-                "cloudflare": InterventionType.CLOUDFLARE,
-                "captcha": InterventionType.CAPTCHA,
-                "recaptcha": InterventionType.CAPTCHA,
-                "hcaptcha": InterventionType.CAPTCHA,
-                "turnstile": InterventionType.TURNSTILE,
-                "js_challenge": InterventionType.JS_CHALLENGE,
-            }
-            intervention_type = intervention_type_map.get(
-                challenge_type,
-                InterventionType.CLOUDFLARE,
-            )
-
-            # Request intervention per safe operation policy
-            # No element_selector or on_success_callback (DOM operations forbidden)
-            result = await intervention_manager.request_intervention(
-                intervention_type=intervention_type,
-                url=url,
-                domain=domain,
-                task_id=task_id,
-                page=page,
-            )
-
-            return result
-
-        except Exception as e:
-            logger.error(
-                "Manual intervention request failed",
-                url=url,
-                error=str(e),
-            )
-            return None
 
     async def close(self) -> None:
         """Close all browser connections."""

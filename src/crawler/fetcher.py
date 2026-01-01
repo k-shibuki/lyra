@@ -560,7 +560,7 @@ async def _fetch_url_impl(
                     await _update_domain_headful_ratio(db, domain, increase=True)
 
         # =====================================================================
-        # Stage 2b: Browser Headless (legacy path, auto mode selection)
+        # Stage 2b: Browser Headless (auto mode selection)
         # =====================================================================
         elif force_browser and not force_headful:
             allow_intervention = policy.get("allow_intervention", True)

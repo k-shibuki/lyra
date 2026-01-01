@@ -1380,7 +1380,7 @@ class TestLLMModuleIntegration:
         registry.register(mock_provider, set_default=True)
 
         passages = [{"id": "p1", "text": "Test passage content"}]
-        result = await llm_extract(passages, task="extract_facts", use_provider=True)
+        result = await llm_extract(passages, task="extract_facts")
 
         assert result["ok"] is True
         assert result["task"] == "extract_facts"

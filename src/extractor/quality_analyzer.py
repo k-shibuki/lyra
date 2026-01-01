@@ -27,11 +27,12 @@ from typing import TYPE_CHECKING, Any
 
 from src.filter.llm_output import parse_and_validate
 from src.filter.llm_schemas import QualityAssessmentOutput
+from src.filter.provider import LLMOptions
 from src.utils.logging import get_logger
 from src.utils.prompt_manager import render_prompt
 
 if TYPE_CHECKING:
-    from src.filter.llm import OllamaClient
+    from src.filter.provider import LLMProvider
 
 logger = get_logger(__name__)
 
@@ -429,13 +430,13 @@ class ContentQualityAnalyzer:
         r"comprehensive\s+(?:guide|overview|analysis)",  # Non-capturing group
     ]
 
-    def __init__(self, ollama_client: OllamaClient | None = None):
+    def __init__(self, llm_provider: LLMProvider | None = None):
         """Initialize the quality analyzer.
 
         Args:
-            ollama_client: Optional OllamaClient for LLM-based assessment.
+            llm_provider: Optional LLMProvider for LLM-based assessment.
         """
-        self._ollama_client = ollama_client
+        self._llm_provider = llm_provider
 
         # Compile patterns
         self._ad_pattern = re.compile("|".join(self.AD_PATTERNS), re.IGNORECASE)
@@ -446,13 +447,13 @@ class ContentQualityAnalyzer:
         self._seo_spam_pattern = re.compile("|".join(self.SEO_SPAM_PATTERNS), re.IGNORECASE)
         self._ai_pattern = re.compile("|".join(self.AI_PATTERNS), re.IGNORECASE)
 
-    def set_ollama_client(self, client: OllamaClient) -> None:
-        """Set the Ollama client for LLM-based assessment.
+    def set_llm_provider(self, provider: LLMProvider) -> None:
+        """Set the LLM provider for LLM-based assessment.
 
         Args:
-            client: OllamaClient instance.
+            provider: LLMProvider instance.
         """
-        self._ollama_client = client
+        self._llm_provider = provider
 
     def analyze(
         self,
@@ -526,7 +527,7 @@ class ContentQualityAnalyzer:
         # Determine if LLM assessment is needed
         llm_assessed = False
         if use_llm or (use_llm_on_ambiguous and 0.4 <= quality_score <= 0.6):
-            if self._ollama_client is not None:
+            if self._llm_provider is not None:
                 llm_result = await self._llm_assess_quality(text)
                 if llm_result:
                     llm_assessed = True
@@ -601,10 +602,10 @@ class ContentQualityAnalyzer:
         Returns:
             Assessment dict or None if LLM unavailable/failed.
         """
-        if self._ollama_client is None:
+        if self._llm_provider is None:
             return None
 
-        client = self._ollama_client
+        provider = self._llm_provider
 
         try:
             # Detect language for response
@@ -619,23 +620,33 @@ class ContentQualityAnalyzer:
             )
 
             # Generate assessment
-            response = await client.generate(
-                prompt=formatted_prompt,
+            options = LLMOptions(
                 temperature=0.1,  # Low temperature for consistent assessment
                 max_tokens=500,
                 response_format="json",
             )
+            response = await provider.generate(formatted_prompt, options)
+
+            if not response.ok:
+                return None
+
+            response_text = response.text
 
             async def _retry_llm_call(retry_prompt: str) -> str:
-                return await client.generate(
-                    prompt=retry_prompt,
-                    temperature=0.1,
-                    max_tokens=500,
-                    response_format="json",
+                retry_response = await provider.generate(
+                    retry_prompt,
+                    LLMOptions(
+                        temperature=0.1,
+                        max_tokens=500,
+                        response_format="json",
+                    ),
                 )
+                if not retry_response.ok:
+                    raise RuntimeError(retry_response.error or "LLM retry failed")
+                return retry_response.text
 
             validated = await parse_and_validate(
-                response=response,
+                response=response_text,
                 schema=QualityAssessmentOutput,
                 template_name="quality_assessment",
                 expect_array=False,

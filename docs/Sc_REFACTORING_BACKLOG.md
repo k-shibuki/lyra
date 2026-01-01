@@ -86,29 +86,42 @@ grep -rn 'subquery_id\|min_budget_per_subquery\|execute_for_subquery' src/
 
 ### 1.4 Legacy Mode コード
 
-**状態**: 残存（削除判断が必要）
+**状態**: ✅ 完了（2026-01-01）
 
-#### 現状確認コマンド
+**概要**: 未使用のlegacyコードを削除し、誤解を招くコメントを改善した。
+
+#### 完了した変更
+
+| ファイル | 変更内容 | 状態 |
+|---------|---------|------|
+| `src/filter/llm.py` | `OllamaClient` クラス削除 | ✅ 完了 |
+| `src/filter/llm.py` | `_get_client()`, `_cleanup_client()` 削除 | ✅ 完了 |
+| `src/filter/llm.py` | `cleanup_llm_for_task()`, `set_llm_task_id()` 削除 | ✅ 完了 |
+| `src/filter/llm.py` | `llm_extract()` の `use_provider` パラメータ削除 | ✅ 完了 |
+| `src/filter/llm.py` | `llm_extract()` の legacyブランチ削除 | ✅ 完了 |
+| `src/crawler/browser_fetcher.py` | `_request_manual_intervention()` メソッド削除 | ✅ 完了 |
+| `src/crawler/browser_fetcher.py` | legacy interventionパス削除 | ✅ 完了 |
+| `src/crawler/browser_fetcher.py` | 不要なimport削除（`get_intervention_manager`, `InterventionStatus`, `InterventionType`） | ✅ 完了 |
+| `src/crawler/browser_fetcher.py` | コメント改善（"legacy format" → "Return format"） | ✅ 完了 |
+| `src/crawler/fetcher.py` | コメント改善（"legacy path" 削除） | ✅ 完了 |
+| `src/search/search_api.py` | `_get_client()` → `generate_with_provider()` に移行 | ✅ 完了 |
+| `src/report/chain_of_density.py` | `_get_client()` → `generate_with_provider()` に移行 | ✅ 完了 |
+| `src/filter/claim_decomposition.py` | `_get_client()` → `generate_with_provider()` に移行 | ✅ 完了 |
+| `src/extractor/quality_analyzer.py` | `OllamaClient` → `LLMProvider` に移行 | ✅ 完了 |
+| `tests/test_lifecycle.py` | legacy API関連テスト削除 | ✅ 完了 |
+| `tests/test_llm_provider.py` | `use_provider` パラメータ削除 | ✅ 完了 |
+| `tests/test_claim_decomposition.py` | パッチ対象を `generate_with_provider` に更新 | ✅ 完了 |
+| `tests/test_search.py` | パッチ対象を `generate_with_provider` に更新 | ✅ 完了 |
+
+#### 確認コマンド
 
 ```bash
-# legacy キーワードを含む箇所
-grep -rni 'legacy' src/crawler/fetcher.py src/filter/llm.py
+# legacy コードが削除されたことを確認（結果が空であるべき）
+grep -rn 'OllamaClient\|_get_client\|cleanup_llm_for_task\|set_llm_task_id\|_request_manual_intervention' src/
+
+# 誤解を招くlegacyコメントが改善されたことを確認
+grep -rn 'legacy format\|legacy path\|legacy mode' src/crawler/ src/filter/
 ```
-
-#### 発見箇所
-
-| ファイル | 行 | 内容 | 判断 |
-|---------|-----|------|------|
-| `src/crawler/fetcher.py:133` | `# Convert to legacy format: (position, delay_seconds)` | 内部フォーマット変換、削除不可 |
-| `src/crawler/fetcher.py:163` | `# Convert to legacy format: (x, y) only` | 内部フォーマット変換、削除不可 |
-| `src/crawler/fetcher.py:1432` | `Immediate intervention (legacy mode)` | 要調査 |
-| `src/crawler/fetcher.py:2383` | `Browser Headless (legacy path)` | 要調査 |
-| `src/filter/llm.py:221,602,650` | `Ollama client (legacy)` | Ollama 非推奨パス、要調査 |
-
-#### 残タスク
-
-- [ ] **R-09a**: `fetcher.py` の legacy intervention mode が使用されているか調査
-- [ ] **R-09b**: `llm.py` の Ollama legacy パスが必要か調査（新クライアント移行状況確認）
 
 ---
 
@@ -465,7 +478,7 @@ grep -rn '^class Domain' src/
 
 ## 4. 優先順位付きアクションリスト
 
-### HIGH（次のスプリント）
+### HIGH
 
 | ID | タスク | 見積もり | 前提 | 検証 |
 |----|--------|---------|------|------|
@@ -474,7 +487,7 @@ grep -rn '^class Domain' src/
 | R-03 | `notification.py` を4ファイルに分割 | 2h | なし | ✅ 完了（テストモジュールインポート対応済み） |
 | R-04 | max_pages バリデーションの重複削除 | 30min | なし | ✅ 完了 |
 
-### MEDIUM（今後1-2ヶ月）
+### MEDIUM
 
 | ID | タスク | 見積もり | 前提 | 検証 |
 |----|--------|---------|------|------|
@@ -483,12 +496,12 @@ grep -rn '^class Domain' src/
 | R-07 | `Subquery` → `Search` 完全移行 | 3h | なし | ✅ 完了 |
 | R-08 | `search_parsers.py` をエンジン別に分割 | 2h | なし | `make test-unit PYTEST_ARGS="-k parser"` |
 
-### LOW（将来）
+### LOW
 
 | ID | タスク | 見積もり | 前提 | 検証 |
 |----|--------|---------|------|------|
-| R-09 | Legacy mode コードの整理 | 2h | 使用状況調査 | `make test-unit` |
-| R-10 | Domain* クラスの整理検討 | 1h | なし | N/A（調査のみ） |
+| R-09 | Legacy mode コードの整理 | 2h | なし | ✅ 完了（2026-01-01） |
+
 
 ---
 
@@ -538,3 +551,4 @@ make test-unit
 | 2025-01-01 | Claude | R-04 完了: max_pages レガシーバリデーション削除 + スキーマ厳密化 |
 | 2025-01-01 | Claude | R-02/R-03 完了: モジュール分割完了、テストモジュールインポート対応完了 |
 | 2026-01-01 | Claude | R-05/R-06/R-07 完了: SearchResult→SERPResult, SearchOptions→SearchProviderOptions, Subquery→Search完全移行 |
+| 2026-01-01 | Claude | R-09 完了: Legacy mode コード削除（OllamaClient, legacy intervention, コメント改善） |

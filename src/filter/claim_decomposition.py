@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from src.filter.llm import _get_client
+from src.filter.llm import generate_with_provider
 from src.filter.llm_output import parse_and_validate
 from src.filter.llm_schemas import DecomposedClaim
 from src.utils.config import get_settings
@@ -208,13 +208,12 @@ class ClaimDecomposer:
         Note:
             Per ADR-0004: Single 3B model is used for all LLM tasks.
         """
-        client = _get_client()
         model = self._settings.llm.model
 
         # Render prompt template
         prompt = render_prompt("decompose", question=question)
 
-        response = await client.generate(
+        response = await generate_with_provider(
             prompt=prompt,
             model=model,
             temperature=0.3,  # Lower temperature for more consistent output
@@ -223,7 +222,7 @@ class ClaimDecomposer:
         )
 
         async def _retry_llm_call(retry_prompt: str) -> str:
-            return await client.generate(
+            return await generate_with_provider(
                 prompt=retry_prompt,
                 model=model,
                 temperature=0.3,
