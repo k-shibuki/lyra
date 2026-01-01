@@ -947,6 +947,99 @@ class TestCDPConnection:
         await provider.close()
 
 
+class TestBrowserContextSelection:
+    """Tests for browser context selection logic.
+
+    Context selection is critical for preserving cookies/session state.
+    When connected via CDP, Playwright's new_context() creates an incognito-like context,
+    so we must prefer reusing the existing default context when available.
+    """
+
+    @pytest.mark.asyncio
+    async def test_ensure_browser_reuses_existing_context_when_available(self) -> None:
+        """TC-CTX-N-01: Reuse existing context when browser.contexts is non-empty."""
+        # Given: A provider and a browser that already has a default context
+        provider = BrowserSearchProvider(worker_id=1)
+
+        existing_context = AsyncMock()
+        existing_context.route = AsyncMock()
+        existing_context.cookies = AsyncMock(return_value=[])
+
+        mock_browser = AsyncMock()
+        mock_browser.contexts = [existing_context]
+        mock_browser.new_context = AsyncMock()
+
+        mock_playwright = AsyncMock()
+        mock_playwright.chromium = MagicMock()
+        mock_playwright.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright.stop = AsyncMock()
+
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+
+            # When: Ensuring browser via CDP
+            await provider._ensure_browser()
+
+            # Then: Existing context is reused and new_context is NOT called
+            assert provider._browser is mock_browser
+            assert provider._context is existing_context
+            mock_browser.new_context.assert_not_awaited()
+            existing_context.route.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_ensure_browser_creates_new_context_when_no_existing_context(self) -> None:
+        """TC-CTX-B-01: Create a new context when browser.contexts is empty (boundary)."""
+        # Given: A provider and a browser with no contexts
+        provider = BrowserSearchProvider(worker_id=1)
+
+        created_context = AsyncMock()
+        created_context.route = AsyncMock()
+        created_context.cookies = AsyncMock(return_value=[])
+
+        mock_browser = AsyncMock()
+        mock_browser.contexts = []
+        mock_browser.new_context = AsyncMock(return_value=created_context)
+
+        mock_playwright = AsyncMock()
+        mock_playwright.chromium = MagicMock()
+        mock_playwright.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright.stop = AsyncMock()
+
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+
+            # When: Ensuring browser via CDP
+            await provider._ensure_browser()
+
+            # Then: new_context is used as fallback
+            assert provider._browser is mock_browser
+            assert provider._context is created_context
+            mock_browser.new_context.assert_awaited()
+            created_context.route.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_ensure_browser_raises_when_new_context_fails(self) -> None:
+        """TC-CTX-A-01: Propagate errors when new_context() fails (abnormal)."""
+        # Given: A provider and a browser with no contexts, and new_context() raises
+        provider = BrowserSearchProvider(worker_id=1)
+
+        mock_browser = AsyncMock()
+        mock_browser.contexts = []
+        mock_browser.new_context = AsyncMock(side_effect=RuntimeError("new_context failed"))
+
+        mock_playwright = AsyncMock()
+        mock_playwright.chromium = MagicMock()
+        mock_playwright.chromium.connect_over_cdp = AsyncMock(return_value=mock_browser)
+        mock_playwright.stop = AsyncMock()
+
+        with patch("playwright.async_api.async_playwright") as mock_async_pw:
+            mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+
+            # When/Then: Error is raised with type and message
+            with pytest.raises(RuntimeError, match="new_context failed"):
+                await provider._ensure_browser()
+
+
 class TestSearchProviderOptionsIntegration:
     """Tests for SearchProviderOptions integration with provider."""
 

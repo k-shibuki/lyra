@@ -332,23 +332,24 @@ class BrowserSearchProvider(BaseSearchProvider):
                         f"CDP connection failed: {cdp_error}. Start Chrome with: make chrome-start"
                     ) from cdp_error
 
-                # Per ADR-0014 Phase 3: Each worker gets its own isolated BrowserContext
-                # This enables true parallelization and reduces blocking risk
+                # Per ADR-0014 Phase 3: Each worker connects to its own Chrome instance (own CDP port).
+                # Each Chrome instance is launched with a worker-specific --user-data-dir (see scripts/chrome.sh),
+                # so the default context already provides worker-level cookie/session isolation.
                 assert self._browser is not None  # Just connected
                 existing_contexts = self._browser.contexts
 
-                # Check if this worker already has a context (by matching viewport/locale)
-                # Worker 0 can reuse Chrome's default context for cookie preservation
-                # Other workers always create new isolated contexts
-                if self._worker_id == 0 and existing_contexts:
+                if existing_contexts:
+                    # Reuse the Chrome profile's default context (preserves cookies).
+                    # NOTE: Creating a new context under CDP creates an incognito-like context,
+                    # which looks like "separate/secret" session to operators.
                     self._context = existing_contexts[0]
                     logger.info(
-                        "Worker 0 reusing existing browser context for cookie preservation",
+                        "Reusing existing browser context for cookie preservation",
                         worker_id=self._worker_id,
                         context_count=len(existing_contexts),
                     )
                 else:
-                    # Create new isolated context for this worker
+                    # Fallback: create new context if none exists (rare).
                     self._context = await self._browser.new_context(
                         viewport={"width": 1920, "height": 1080},
                         locale="ja-JP",
@@ -356,7 +357,7 @@ class BrowserSearchProvider(BaseSearchProvider):
                         user_agent=self._get_user_agent(),
                     )
                     logger.info(
-                        "Created new isolated browser context for worker",
+                        "Created new browser context (no existing context found)",
                         worker_id=self._worker_id,
                         total_contexts=len(self._browser.contexts),
                     )
