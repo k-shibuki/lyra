@@ -4,6 +4,8 @@
 
 本文書は、S_FULL_E2E.md ケーススタディ実行中に発見された `get_materials` ツールの課題と、AIエージェントがEvidence Graphを効果的に探索するためのインターフェース改善提案をまとめる。
 
+加えて、ランキングシステムの簡素化とEmbedding永続化の提案を統合する。
+
 ---
 
 ## 1. 計測結果
@@ -43,7 +45,7 @@
 
 **症状**: `get_materials` を1回呼び出すだけで、AIエージェントのコンテキストウィンドウを圧迫し、後続の処理ができなくなる。
 
-**原因**: 
+**原因**:
 - 全データを一度に返却する設計
 - 333件のclaims × 関連fragmentsの全テキストが含まれる
 - エージェント会話には他の文脈も存在する
@@ -60,9 +62,17 @@
 
 | 代替手段 | 問題 |
 |----------|------|
-| sqlite3直接クエリ | AIエージェントには使えない（プロダクトとしてNG） |
 | D3.js可視化 | 人間向け、AIの探索には役立たない |
 | 手動でclaims抽出 | スケールしない、自動化できない |
+
+### 2.4 ランキングシステムの問題
+
+| 問題 | 詳細 |
+|------|------|
+| Rerankerのオーバーヘッド | CrossEncoder (O(n×d²)) は100件→20件の選定に過剰 |
+| 効果測定なし | Reranker有無での精度比較データがない |
+| 固定top_k | `top_k=20` のハードコードに根拠がない |
+| Embedding使い捨て | 計算したEmbeddingがDBに永続化されない |
 
 ---
 
@@ -70,222 +80,778 @@
 
 **Lyraの目的**: AIに信頼できる情報を与える
 
-**必要なもの**: AIがEvidence Graphを**自律的に探索できる**インターフェース
-
-現状の `get_materials` は「全データダンプ」であり、AIの探索を支援する設計になっていない。
+**必要なもの**:
+1. AIがEvidence Graphを**自律的に探索できる**インターフェース
+2. **効率的なランキング**（過剰な計算コストを避ける）
+3. **永続化されたEmbedding**でセマンティック検索を可能に
 
 ---
 
-## 4. 提案: Evidence Graph探索ツール群
+## 4. 統合提案
 
-### 4.1 設計思想
+### 4.1 アプローチ選定
 
-1. **小さなツール群**: 各ツールは10-20件程度のデータを返す
-2. **AIが戦略を立てる**: ツールを組み合わせて自律探索
-3. **構造を活かす**: supports/refutes関係、ドメインカテゴリを活用
-4. **透明性**: AIがどのエビデンスを見て結論を出したか追跡可能
+**採用**: パターンA「SQL実行ツール」+ ベクトル検索ツール
 
-### 4.2 提案ツール一覧
+| パターン | 説明 | 採用理由 |
+|----------|------|----------|
+| A: SQL実行ツール | sqlite3ラッパー、Read-only | ✅ 柔軟性最大、AI自律探索 |
+| B: 定型ツール群 | 各ツールが10-20件返却 | ❌ ツール数増加、拡張性低 |
 
-#### (1) get_evidence_summary
+### 4.2 新規MCPツール
 
-**目的**: 全体像の把握（軽量）
+#### 4.2.1 `query_graph` - SQL実行ツール
 
-**入力**: `task_id`
+```yaml
+name: query_graph
+description: |
+  Execute read-only SQL against the Evidence Graph database.
+  AI can freely explore claims, fragments, edges, pages tables.
 
-**出力**:
-```json
-{
-  "task_id": "task_9c48928b",
-  "query": "DPP-4阻害薬の有効性と安全性...",
-  "statistics": {
-    "total_claims": 333,
-    "total_fragments": 67,
-    "supports_edges": 41,
-    "refutes_edges": 11,
-    "neutral_edges": 281
-  },
-  "top_topics": ["有効性", "心血管安全性", "低血糖リスク", "他剤比較"],
-  "contradiction_highlights": [
-    {"topic": "心不全リスク", "claim_count": 3}
-  ],
-  "primary_source_ratio": 0.45
-}
+  IMPORTANT: This is read-only. No INSERT/UPDATE/DELETE allowed.
+
+  SCHEMA HINT: Use get_status(include_schema=true) to see table definitions.
+
+inputSchema:
+  type: object
+  properties:
+    sql:
+      type: string
+      description: |
+        Read-only SQL query. Examples:
+        - "SELECT * FROM claims WHERE task_id = 'xxx' LIMIT 10"
+        - "SELECT c.*, e.relation FROM claims c JOIN edges e ON c.id = e.source_id"
+        - "SELECT * FROM pages WHERE paper_metadata IS NOT NULL"
+    limit:
+      type: integer
+      default: 50
+      maximum: 200
+      description: Maximum rows to return (safety limit)
+  required: [sql]
+
+outputSchema:
+  type: object
+  properties:
+    ok: { type: boolean }
+    rows: { type: array, items: { type: object } }
+    row_count: { type: integer }
+    columns: { type: array, items: { type: string } }
+    truncated: { type: boolean, description: "True if limit was applied" }
+    error: { type: string }
 ```
 
-**推定サイズ**: 1-2 KB
+**セキュリティ対策**（シングルユーザーだが任意コード実行は防止）:
 
----
+```python
+import re
+import sqlite3
 
-#### (2) list_claim_topics
+# Read-only接続（最重要）
+conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
 
-**目的**: トピック一覧の取得
+# 危険なステートメントを拒否
+FORBIDDEN_PATTERNS = [
+    r"\bATTACH\b",         # 外部DBアタッチ → ファイルシステムアクセス
+    r"\bDETACH\b",
+    r"\bload_extension\b", # 共有ライブラリロード → 任意コード実行
+    r"\bCREATE\b",         # DDL
+    r"\bDROP\b",
+    r"\bALTER\b",
+    r"\bINSERT\b",         # DML
+    r"\bUPDATE\b",
+    r"\bDELETE\b",
+    r"\bREPLACE\b",
+    r"\bPRAGMA\b",         # 設定変更
+]
 
-**入力**: `task_id`
-
-**出力**:
-```json
-{
-  "topics": [
-    {"name": "HbA1c効果", "claim_count": 45, "has_contradiction": false},
-    {"name": "心血管安全性", "claim_count": 28, "has_contradiction": true},
-    {"name": "低血糖リスク", "claim_count": 12, "has_contradiction": false},
-    ...
-  ]
-}
+def validate_sql(sql: str) -> bool:
+    """SQLクエリの安全性を検証"""
+    sql_upper = sql.upper()
+    for pattern in FORBIDDEN_PATTERNS:
+        if re.search(pattern, sql_upper, re.IGNORECASE):
+            return False
+    return True
 ```
 
-**推定サイズ**: 1-3 KB
+**脅威モデル**（シングルユーザー環境）:
 
-**実装案**: claimsをLLMでクラスタリング、またはキーワード抽出
+| 脅威 | リスク | 対策 |
+|------|--------|------|
+| 任意コード実行 | `load_extension()`で共有ライブラリロード | 正規表現で拒否 + Read-only接続 |
+| ファイルシステムアクセス | `ATTACH DATABASE '/etc/passwd'` | ATTACH禁止 + Read-only |
+| DoS（自爆） | 巨大CROSS JOINでメモリ枯渇 | LIMIT強制 + タイムアウト |
 
----
+#### 4.2.2 `vector_search` - ベクトル検索ツール
 
-#### (3) get_claims_by_topic
+```yaml
+name: vector_search
+description: |
+  Semantic similarity search over fragments/claims/pages using embeddings.
+  Use BEFORE query_graph to find relevant content by meaning, not keywords.
 
-**目的**: 特定トピックのclaims取得
+  WORKFLOW:
+  1. vector_search(query="...", target="fragments") → get relevant IDs
+  2. query_graph(sql="SELECT * FROM fragments WHERE id IN (...)") → get full data
 
-**入力**: `task_id`, `topic`, `limit=20`
+inputSchema:
+  type: object
+  properties:
+    query:
+      type: string
+      description: Natural language query for semantic search
+    target:
+      type: string
+      enum: [fragments, claims, pages]
+      default: fragments
+      description: Table to search
+    task_id:
+      type: string
+      description: |
+        Optional. Scope search to specific task.
+        - fragments/claims: filter by task
+        - pages: ignored (pages are global)
+    top_k:
+      type: integer
+      default: 10
+      maximum: 50
+      description: Number of results to return
+    min_similarity:
+      type: number
+      default: 0.5
+      minimum: 0.0
+      maximum: 1.0
+      description: Minimum cosine similarity threshold
+  required: [query]
 
-**出力**:
-```json
-{
-  "topic": "HbA1c効果",
-  "claims": [
-    {
-      "id": "c_xxx",
-      "text": "DPP-4i + insulin でHbA1c -0.52%低下 (WMD, 95% CI -0.61 to -0.43)",
-      "evidence_count": 3,
-      "supports": 2,
-      "refutes": 0
-    },
-    ...
-  ]
-}
+outputSchema:
+  type: object
+  properties:
+    ok: { type: boolean }
+    results:
+      type: array
+      items:
+        type: object
+        properties:
+          id: { type: string }
+          text_preview: { type: string, description: "First 200 chars" }
+          similarity: { type: number }
+    total_searched: { type: integer, description: "Total embeddings searched" }
+    error: { type: string }
 ```
 
-**推定サイズ**: 5-10 KB
+### 4.2.3 分析ビュー
 
----
+探索ヒントを動的に生成するのではなく、**構造化されたビューを事前定義**することで、AIに分析の導線を提供する。
 
-#### (4) get_claim_evidence
+#### Evidence Graph分析
 
-**目的**: 特定claimの根拠詳細
+| ビュー名 | 分析目的 | 主要カラム |
+|----------|----------|------------|
+| `v_claim_evidence_summary` | Claim毎のエビデンス集約状況 | claim_id, claim_text, support_count, refute_count, neutral_count, bayesian_confidence, is_controversial |
+| `v_contradictions` | 矛盾するエビデンスを持つClaim | claim_id, claim_text, supporting_fragments, refuting_fragments, controversy_score |
+| `v_unsupported_claims` | エビデンス不足のClaim | claim_id, claim_text, evidence_count, uncertainty |
+| `v_evidence_chain` | Fragment→Claim→Claimの推論連鎖 | source_fragment_id, intermediate_claim_id, derived_claim_id, chain_confidence |
 
-**入力**: `claim_id`
+#### Citation Network分析
 
-**出力**:
-```json
-{
-  "claim_id": "c_xxx",
-  "claim_text": "DPP-4i + insulin でHbA1c -0.52%低下...",
-  "evidence": {
-    "supports": [
-      {
-        "fragment_id": "f_aaa",
-        "text": "This updated systematic review...",
-        "source": {
-          "url": "https://doi.org/...",
-          "domain": "doi.org",
-          "domain_category": "PRIMARY",
-          "title": "DPP-4 inhibitors meta-analysis"
-        },
-        "confidence": 0.92
-      }
-    ],
-    "refutes": [],
-    "neutral": [...]
-  }
-}
-```
+| ビュー名 | 分析目的 | 主要カラム |
+|----------|----------|------------|
+| `v_hub_pages` | 複数Claimを支持する中核ソース | page_id, title, domain, claims_supported, citation_count |
+| `v_citation_flow` | 引用関係の方向性 | citing_page_id, cited_page_id, citation_source, hop_distance |
+| `v_citation_clusters` | 相互引用するページ群 | cluster_id, page_ids, internal_citations, cluster_size |
+| `v_orphan_sources` | 引用されていない孤立ソース | page_id, title, domain, claims_supported |
 
-**推定サイズ**: 3-8 KB
+#### 時系列構造分析
 
----
+| ビュー名 | 分析目的 | 主要カラム |
+|----------|----------|------------|
+| `v_evidence_timeline` | 年別エビデンス分布 | year, fragment_count, claim_count, avg_confidence |
+| `v_claim_temporal_support` | Claimを支持するエビデンスの時代分布 | claim_id, earliest_year, latest_year, year_span, temporal_consistency |
+| `v_emerging_consensus` | 時間経過で支持が増加したClaim | claim_id, claim_text, support_trend, years_observed |
+| `v_outdated_evidence` | 古いエビデンスのみに依存するClaim | claim_id, claim_text, newest_evidence_year, years_since_update |
 
-#### (5) find_contradictions
+#### 複合分析（Graph × Citation × Timeline）
 
-**目的**: 矛盾するエビデンスの発見
+| ビュー名 | 分析目的 | 主要カラム |
+|----------|----------|------------|
+| `v_source_authority` | 引用数×被引用数×時間的新しさの総合スコア | page_id, title, authority_score, citation_count, cited_by_count, year |
+| `v_controversy_by_era` | 時代別の論争トピック | decade, controversial_claims, consensus_claims, shift_detected |
+| `v_citation_age_gap` | 新しい論文が古い論文を引用するパターン | citing_year, cited_year, age_gap, frequency |
+| `v_evidence_freshness` | Claim別の最新エビデンス鮮度 | claim_id, claim_text, avg_evidence_age, has_recent_support, has_recent_refutation |
 
-**入力**: `task_id`
-
-**出力**:
-```json
-{
-  "contradictions": [
-    {
-      "topic": "心不全リスク",
-      "claims": [
-        {"id": "c_111", "text": "DPP-4阻害薬は心不全リスクを増加させない", "supports": 2},
-        {"id": "c_222", "text": "saxagliptinは心不全入院リスクを増加させる可能性", "supports": 1}
-      ],
-      "note": "薬剤間の差異の可能性"
-    }
-  ]
-}
-```
-
-**推定サイズ**: 2-5 KB
-
----
-
-### 4.3 AIの探索フロー例
+#### ビュー使用例
 
 ```
-1. get_evidence_summary("task_9c48928b")
-   → 全体像把握: 333 claims, 主要トピック確認, 矛盾ハイライト
+-- AIの典型的な探索パターン
 
-2. AIが判断: "研究質問に関連するトピックは有効性と安全性"
+-- 1. まず矛盾を確認
+SELECT * FROM v_contradictions ORDER BY controversy_score DESC LIMIT 5;
 
-3. get_claims_by_topic("task_9c48928b", "HbA1c効果")
-   → 主要なclaims一覧を取得
+-- 2. 中核となるソースを特定
+SELECT * FROM v_hub_pages ORDER BY claims_supported DESC LIMIT 10;
 
-4. get_claim_evidence("c_xxx")
-   → 最重要claimの根拠を詳細確認
+-- 3. 時系列で見解の変化を追跡
+SELECT * FROM v_evidence_timeline WHERE year >= 2015;
 
-5. find_contradictions("task_9c48928b")
-   → 矛盾するエビデンスを確認
-
-6. AIが結論を構成
+-- 4. 古いエビデンスに依存するClaimを警告
+SELECT * FROM v_outdated_evidence WHERE years_since_update > 5;
 ```
 
+**設計原則**:
+- ビュー名から分析意図が読み取れる（self-documenting）
+- 複雑なJOINはビュー内に隠蔽
+- AIは `SELECT * FROM v_xxx` で分析開始可能
+- 生SQLも許可（柔軟性維持）
+
+#### SQLテンプレート外部化
+
+LLMプロンプト（`config/prompts/*.j2`）と同様に、SQLビュー定義を外部テンプレート化する。
+
+```
+config/
+  prompts/          # LLMプロンプト（既存）
+    *.j2
+  views/            # SQLビュー（新規）
+    *.sql.j2
+```
+
+**テンプレート例** (`config/views/contradictions.sql.j2`):
+
+```sql
+-- 矛盾するエビデンスを持つClaim
+SELECT
+    c.id as claim_id,
+    c.claim_text,
+    COUNT(CASE WHEN e.relation = 'supports' THEN 1 END) as support_count,
+    COUNT(CASE WHEN e.relation = 'refutes' THEN 1 END) as refute_count
+FROM claims c
+LEFT JOIN edges e ON e.target_id = c.id AND e.target_type = 'claim'
+{% if task_id %}
+WHERE c.task_id = '{{ task_id }}'
+{% endif %}
+GROUP BY c.id
+HAVING refute_count > 0 AND support_count > 0
+ORDER BY refute_count DESC
+```
+
+**ViewManager** (`src/storage/view_manager.py`):
+
+| メソッド | 説明 |
+|----------|------|
+| `render(view_name, **kwargs)` | テンプレートをレンダリングしてSQL文字列を返す |
+| `query(view_name, task_id, limit)` | レンダリング→実行→結果返却 |
+| `list_views()` | 利用可能なビュー一覧 |
+
+**使用パターン**:
+
+```python
+# 1. 単独クエリ
+results = await vm.query("contradictions", task_id="task_xxx", limit=10)
+
+# 2. CTE（WITH句）として組み合わせ
+base_sql = vm.render("hub_pages", task_id="task_xxx")
+custom_sql = f"WITH hub AS ({base_sql}) SELECT * FROM hub WHERE claims_supported > 3"
+```
+
+**メリット**:
+- SQLロジックがコードから独立
+- 非エンジニアでも`.sql.j2`ファイルを直接編集可能
+- `task_id`を動的に注入してタスク単位でスコープ
+- CREATE VIEW不要（CTEとして使用、または直接実行）
+- 各テンプレートを個別にテスト可能
+
+### 4.3 ランキングシステムの簡素化
+
+#### 4.3.1 Reranker削除
+
+**変更前（3段階）**:
+```
+BM25 → Embedding → Reranker → top_k固定
+```
+
+**変更後（2段階 + 動的カットオフ）**:
+```
+BM25 → Embedding → 動的カットオフ
+```
+
+#### 4.3.2 Kneedleアルゴリズムによる動的カットオフ
+
+**学術的根拠**: [Satopaa et al., "Finding a Kneedle in a Haystack: Detecting Knee Points in System Behavior", ICDCS 2011](https://raghavan.usc.edu/papers/kneedle-simplex11.pdf)
+
+Kneedle はスコア曲線の「膝」（急落点＝最大曲率点）を検出するアルゴリズム。これ以降の結果は追加しても価値が低いことを意味する。
+
+```python
+from kneed import KneeLocator
+
+def kneedle_cutoff(
+    ranked: list[dict],
+    min_results: int = 3,
+    max_results: int = 50,
+    sensitivity: float = 1.0,
+) -> list[dict]:
+    """
+    Kneedleアルゴリズムによる適応的カットオフ。
+
+    スコア曲線の「膝」（急落点）を検出し、そこでカットオフする。
+
+    Args:
+        ranked: スコア降順でソート済みの結果リスト
+        min_results: 最低保証件数
+        max_results: 最大件数
+        sensitivity: Kneedle感度パラメータ（デフォルト1.0）
+
+    Returns:
+        カットオフ適用後の結果リスト
+    """
+    if len(ranked) <= min_results:
+        return ranked
+
+    scores = [p["final_score"] for p in ranked[:max_results]]
+    x = list(range(len(scores)))
+
+    kneedle = KneeLocator(
+        x, scores,
+        curve="convex",
+        direction="decreasing",
+        S=sensitivity,
+    )
+
+    cutoff = kneedle.knee if kneedle.knee else len(scores)
+    cutoff = max(cutoff, min_results)
+
+    return ranked[:cutoff]
+```
+
+**パラメータ根拠**:
+
+| パラメータ | 値 | 根拠 |
+|------------|-----|------|
+| `sensitivity` | 1.0 | Kneedleデフォルト値（原論文推奨） |
+| `min_results` | 3 | 最低保証件数 |
+| `max_results` | 50 | 計算量制限 |
+
+#### 4.3.3 設定パラメータ
+
+```yaml
+# config/settings.yaml
+ranking:
+  # Stage 1: BM25
+  bm25_top_k: 150  # 旧 reranker.max_top_k
+
+  # Stage 2: Embedding
+  embedding_weight: 0.7
+  bm25_weight: 0.3
+
+  # 動的カットオフ（Stage 3 Rerankerの代替）
+  kneedle_cutoff:
+    enabled: true
+    min_results: 3
+    max_results: 50
+    sensitivity: 1.0  # Kneedle S parameter
+```
+
+**依存関係追加**:
+
+```toml
+# pyproject.toml
+[project.dependencies]
+kneed = ">=0.8.0"
+```
+
+### 4.4 Embeddingとベクトル検索
+
+#### 4.4.1 Embeddingとは
+
+**テキスト → 768次元の数値ベクトルへの変換**
+
+```
+"DPP-4阻害薬は血糖値を下げる"
+    ↓ bge-m3 モデル
+[0.023, -0.156, 0.089, ..., 0.042]  (768個の数値)
+```
+
+**特性**: 意味が似たテキストは、ベクトルも近くなる（コサイン類似度が高い）
+
+#### 4.4.2 何をどこに埋め込むか
+
+| 対象 | テキスト | タイミング | task紐づき |
+|------|----------|-----------|-----------|
+| fragment | 抽出したテキスト断片 | ランキング時 | あり（page → query → task） |
+| claim | 抽出した主張 | Claim抽出時 | あり（claims.task_id） |
+| page | 論文abstract等 | 引用追跡時 | **なし（グローバル）** |
+
+**紐づきの違い**:
+- `fragment` / `claim`: 特定の検索クエリ・タスクに依存。同じテキストでも別タスクなら別embedding
+- `page`: 論文のabstractは普遍的。複数タスクで共有可能
+
+#### 4.4.3 ベクトル検索で何ができるか
+
+**Before（FTS5のみ）**:
+```sql
+-- キーワード一致のみ
+SELECT * FROM fragments WHERE text_content LIKE '%血糖%'
+```
+問題: 「グルコース値」「糖尿病の指標」など、同じ意味でも単語が違うとヒットしない
+
+**After（ベクトル検索）**:
+```
+vector_search(query="血糖値への影響", target="fragments")
+```
+結果:
+```
+| id       | text_preview                          | similarity |
+|----------|---------------------------------------|------------|
+| frag_012 | "DPP-4阻害薬はグルコース値を..."      | 0.89       |
+| frag_045 | "HbA1cの低下が認められ..."            | 0.82       |
+| frag_023 | "インスリン分泌を促進し..."           | 0.76       |
+```
+
+**違い**: 「血糖」という単語がなくても、**意味的に関連する**断片が見つかる
+
+#### 4.4.4 具体的なユースケース
+
+**1. 矛盾するエビデンスの発見**
+```
+# AIが「副作用は軽微」という主張に対して
+vector_search(query="副作用 深刻 危険", target="fragments")
+# → 「重篤な膵炎のリスク」などの反論エビデンスを発見
+```
+
+**2. 関連Claimの探索**
+```
+# あるClaimに関連する他のClaimを探す
+vector_search(query="心血管イベントのリスク", target="claims")
+# → 心臓病、脳卒中、動脈硬化に関するClaimが見つかる
+```
+
+**3. SQL検索との組み合わせ**
+```
+# Step 1: セマンティック検索でID取得
+vector_search(query="長期安全性", target="fragments") → [frag_012, frag_045, ...]
+
+# Step 2: SQLで詳細取得（JOIN、フィルタ等）
+query_graph(sql="SELECT f.*, p.url FROM fragments f
+                 JOIN pages p ON f.page_id = p.id
+                 WHERE f.id IN ('frag_012', 'frag_045')")
+```
+
+#### 4.4.5 なぜ永続化が必要か
+
+| 方式 | 問題 |
+|------|------|
+| 毎回計算 | GPU負荷、遅延（100件で数秒） |
+| キャッシュ（現状） | TTL切れで消える、検索不可 |
+| **永続化** | 一度計算すれば再利用、検索可能 |
+
+#### 4.4.6 スキーマ変更
+
+```sql
+-- cache_embed を置き換え（キャッシュではなく永続データ）
+CREATE TABLE IF NOT EXISTS embeddings (
+    id TEXT PRIMARY KEY,
+    target_type TEXT NOT NULL,  -- 'fragment' | 'claim' | 'page'
+    target_id TEXT NOT NULL,    -- fragments.id | claims.id | pages.id
+    task_id TEXT,               -- fragment/claim: 紐づくtask, page: NULL
+    model_id TEXT NOT NULL,     -- 'BAAI/bge-m3'
+    embedding_blob BLOB NOT NULL,
+    dimension INTEGER NOT NULL,  -- 768
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(target_type, target_id, model_id)
+);
+CREATE INDEX IF NOT EXISTS idx_embeddings_target ON embeddings(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_embeddings_task ON embeddings(task_id);
+CREATE INDEX IF NOT EXISTS idx_embeddings_type ON embeddings(target_type);
+
+-- 旧 cache_embed は削除
+DROP TABLE IF EXISTS cache_embed;
+```
+
+**task_id の扱い**:
+- `fragment`: page経由で間接的にtaskに紐づくが、検索効率のため直接task_idを保持
+- `claim`: claims.task_id をそのまま使用
+- `page`: NULL（グローバル、複数taskで共有）
+
+#### 4.4.7 永続化タイミング
+
+| タイミング | 処理 |
+|-----------|------|
+| ランキング時 | fragments の embedding を永続化 |
+| 引用追跡時 | pages（論文abstract）の embedding を永続化 |
+| Claim抽出時 | claims の embedding を永続化 |
+
+#### 4.4.8 ベクトル検索の実装
+
+```python
+# src/storage/vector_store.py
+
+async def vector_search(
+    query: str,
+    target_type: str,  # 'fragment' | 'claim' | 'page'
+    task_id: str | None = None,
+    top_k: int = 10,
+    min_similarity: float = 0.5,
+) -> list[dict]:
+    """
+    セマンティック類似度検索。
+
+    実装方針:
+    - SQLite上でブルートフォース（1000件以下なら十分高速）
+    - 将来的にsqlite-vecやhnswlibへの移行も可能
+    """
+    # 1. クエリのembeddingを計算（ML Server経由）
+    ml_client = get_ml_client()
+    query_embeddings = await ml_client.embed([query])
+    query_vec = query_embeddings[0]
+
+    # 2. 対象のembeddingsをDBから取得
+    db = await get_database()
+
+    sql = """
+        SELECT e.target_id, e.embedding_blob,
+               CASE
+                 WHEN e.target_type = 'fragment' THEN f.text_content
+                 WHEN e.target_type = 'claim' THEN c.claim_text
+                 WHEN e.target_type = 'page' THEN p.paper_metadata
+               END as text_content
+        FROM embeddings e
+        LEFT JOIN fragments f ON e.target_type = 'fragment' AND e.target_id = f.id
+        LEFT JOIN claims c ON e.target_type = 'claim' AND e.target_id = c.id
+        LEFT JOIN pages p ON e.target_type = 'page' AND e.target_id = p.id
+        WHERE e.target_type = ?
+    """
+    params = [target_type]
+
+    # task_idでフィルタ（page以外）
+    if task_id and target_type != 'page':
+        sql += " AND e.task_id = ?"
+        params.append(task_id)
+
+    rows = await db.fetch_all(sql, params)
+
+    # 3. コサイン類似度を計算
+    results = []
+    for row in rows:
+        emb = deserialize_embedding(row["embedding_blob"])
+        sim = cosine_similarity(query_vec, emb)
+        if sim >= min_similarity:
+            results.append({
+                "id": row["target_id"],
+                "similarity": sim,
+                "text_preview": row["text_content"][:200] if row["text_content"] else "",
+            })
+
+    # 4. ソートしてtop_k返却
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    return results[:top_k]
+
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """コサイン類似度（正規化済みベクトル前提）"""
+    return sum(x * y for x, y in zip(a, b))
+```
+
+**パフォーマンス見込み**:
+| 件数 | 想定時間 | 備考 |
+|------|----------|------|
+| 100件 | ~10ms | 即座 |
+| 1,000件 | ~100ms | 許容範囲 |
+| 10,000件 | ~1s | 要検討（sqlite-vec導入） |
+
+**将来の最適化オプション**:
+- `sqlite-vec`: SQLite拡張でベクトルインデックス
+- `hnswlib`: 近似最近傍探索ライブラリ
+- NumPy/バッチ処理: 大量データ時の高速化
+
+### 4.5 get_materials の廃止
+
+**決定**: `get_materials` は**完全に廃止**。サマリ機能は `get_status` に統合する。
+
+**理由**:
+- サマリを返すだけなら別ツールにする必要がない
+- `get_status` は検索完了時に呼ばれる → その時点でサマリを含めれば十分
+- ツール数削減によりAIの認知負荷軽減
+
+#### 4.5.1 get_status の拡張
+
+```yaml
+# get_status の出力に追加（status=completed の場合のみ）
+outputSchema:
+  type: object
+  properties:
+    # ... 既存フィールド ...
+
+    # 完了時のみ含まれるサマリ
+    evidence_summary:
+      type: object
+      description: "Only present when status=completed"
+      properties:
+        total_claims: { type: integer }
+        total_fragments: { type: integer }
+        total_pages: { type: integer }
+        supporting_edges: { type: integer }
+        refuting_edges: { type: integer }
+        neutral_edges: { type: integer }
+        top_domains: { type: array, items: { type: string } }
+```
+
+**分析の導線**: §4.2.3の分析ビューにより、AIは構造化された入口から探索を開始できる。動的なヒント生成ではなく、事前定義されたビューで分析パターンを提供する。
+
 ---
 
-## 5. 実装の優先順位
+## 5. 影響範囲
 
-| 優先度 | ツール | 理由 |
-|--------|--------|------|
-| P0 | get_evidence_summary | 全体像把握は必須 |
-| P0 | get_claims_by_topic | トピックベース探索の基盤 |
-| P1 | get_claim_evidence | 根拠確認に必要 |
-| P1 | find_contradictions | 信頼性評価に必要 |
-| P2 | list_claim_topics | トピック自動抽出（LLM依存） |
+### 5.1 削除対象
+
+#### Reranker関連（完全削除）
+
+| ファイル | 変更 |
+|----------|------|
+| `src/ml_server/reranker.py` | **削除** |
+| `src/ml_server/main.py` | `/rerank` エンドポイント削除 |
+| `src/ml_server/models.py` | `RerankRequest`, `RerankResponse` 削除 |
+| `src/ml_server/schemas.py` | `RerankRequest` 削除 |
+| `src/ml_server/model_paths.py` | reranker パス削除 |
+| `src/ml_client.py` | `rerank()` メソッド、`RerankingError` 削除 |
+| `src/filter/ranking.py` | `Reranker` クラス完全削除 |
+| `src/scheduler/jobs.py` | `JobKind.RERANK` 削除 |
+| `src/utils/config.py` | `RerankerConfig` 削除 |
+| `config/settings.yaml` | `reranker:` セクション削除 |
+| `docker/Dockerfile.ml` | reranker モデルダウンロード削除 |
+| `scripts/download_models.py` | reranker ダウンロード削除 |
+| `.env.example` | `LYRA_ML__RERANKER_MODEL` 削除 |
+| `tests/test_ranking.py` | reranker モック・テスト削除 |
+| `tests/test_ml_server.py` | reranker テスト削除 |
+| `tests/test_ml_server_e2e.py` | reranker E2Eテスト削除 |
+| `tests/conftest.py` | reranker フィクスチャ削除 |
+
+#### get_materials関連（完全削除）
+
+| ファイル | 変更 |
+|----------|------|
+| `src/mcp/tools/materials.py` | **削除** |
+| `src/mcp/schemas/get_materials.json` | **削除** |
+| `src/research/materials.py` | **削除** |
+| `src/mcp/server.py` | get_materials ツール定義削除 |
+| `tests/test_materials.py` | **削除**（存在する場合） |
+
+#### スキーマ（DB再作成）
+
+| テーブル | 変更 |
+|----------|------|
+| `cache_embed` | **削除**（`embeddings` に置き換え） |
+
+**注意**: DBはマイグレーションではなく**削除→再作成**。既存データは破棄。
+
+### 5.2 修正対象
+
+| ファイル | 変更 |
+|----------|------|
+| `src/storage/schema.sql` | `cache_embed` 削除、`embeddings` テーブル新規作成、分析ビュー追加（§4.2.3） |
+| `src/storage/database.py` | embedding 永続化メソッド追加 |
+| `src/filter/ranking.py` | Reranker削除、動的カットオフ実装、embedding永続化 |
+| `src/main.py` | `top_k=20` ハードコード削除 |
+| `src/mcp/server.py` | get_materials削除、新規ツール登録 |
+| `src/mcp/tools/task.py` | `get_status` にサマリ出力追加 |
+
+### 5.3 新規作成
+
+| ファイル | 内容 |
+|----------|------|
+| `src/mcp/tools/sql.py` | `query_graph` ツールハンドラ |
+| `src/mcp/tools/vector.py` | `vector_search` ツールハンドラ |
+| `src/mcp/schemas/query_graph.json` | SQLツールスキーマ |
+| `src/mcp/schemas/vector_search.json` | ベクトル検索スキーマ |
+| `src/storage/vector_store.py` | Embedding検索ロジック |
+| `src/storage/view_manager.py` | SQLビューテンプレート管理（§4.2.3） |
+| `config/views/*.sql.j2` | 分析ビューテンプレート（16ファイル） |
+| `tests/test_query_graph.py` | SQLツールテスト |
+| `tests/test_vector_search.py` | ベクトル検索テスト |
+| `tests/test_view_manager.py` | ViewManagerテスト |
+| `docs/adr/0017-ranking-simplification.md` | ADR |
+
+### 5.4 ADR更新
+
+| ADR | 変更 |
+|-----|------|
+| ADR-0001 | lyra-ml から reranker 削除を反映 |
+| ADR-0005 | vector_search ツール追加を反映 |
+| 新規 ADR-0017 | ランキング簡素化とベクトル検索の設計決定 |
+
+### 5.5 ドキュメント更新
+
+| ファイル | 変更 |
+|----------|------|
+| `README.md` | MLモデル一覧からreranker削除 |
+| `docs/archive/REQUIREMENTS.md` | §3.3, §5.1 の reranker 記述更新 |
+| `docs/archive/P_EVIDENCE_SYSTEM.md` | ランキングパイプライン更新 |
 
 ---
 
-## 6. 既存ツールとの関係
+## 6. 実装方針
 
-### 6.1 get_materials の扱い
+### クリーン移行（一括実装）
 
-**選択肢**:
-1. **廃止**: 新ツール群に完全移行
-2. **軽量化**: `format="summary"` オプション追加で get_evidence_summary 相当を返す
-3. **維持**: バッチ処理・非AI用途向けに残す
+**原則**: 後方互換性不要。レガシーコードを一切残さず、クリーンに移行する。
 
-**推奨**: 選択肢2（後方互換性を維持しつつ改善）
+```
+1. 削除
+   - Reranker関連コード・テスト・設定を完全削除
+   - get_materials関連コード・テスト・スキーマを完全削除
+   - cache_embed テーブル削除
 
-### 6.2 feedback ツールとの連携
+2. 新規実装
+   - 動的カットオフ（ranking.py）
+   - embeddings テーブル + 永続化ロジック
+   - query_graph MCPツール
+   - vector_search MCPツール
+   - get_status へのサマリ統合
 
-`find_contradictions` で発見した矛盾は、`feedback(action=edge_correct)` で人間がレビュー・修正できる。
+3. DB再作成
+   - data/lyra.db を削除
+   - schema.sql から新規作成
+
+4. テスト
+   - 新規テストのみ作成
+   - 旧テストは削除（修正ではなく削除）
+
+5. ドキュメント
+   - ADR-0017 新規作成
+   - 既存ADR・REQUIREMENTSからreranker/get_materials記述削除
+```
+
+### 作業順序
+
+```
+[削除] → [スキーマ変更] → [新規実装] → [テスト] → [ドキュメント]
+```
+
+**注意**: フラグ制御やマイグレーションは行わない。一括で移行する。
 
 ---
 
-## 7. 次のアクション
+## 7. リスクと対策
 
-1. [ ] ADR作成: Evidence Graph探索ツール設計
-2. [ ] get_evidence_summary 実装
-3. [ ] get_claims_by_topic 実装（トピック分類ロジック含む）
-4. [ ] S_FULL_E2E.md 再実行で検証
+| リスク | 対策 |
+|--------|------|
+| Reranker削除で精度低下 | fragments 67件に対しCrossEncoder（O(n×d²)）は過剰。Embeddingスコア + Kneedleカットオフで十分 |
+| Embedding永続化でDB肥大 | 768次元 × 4bytes = 3KB/件、許容範囲 |
+| 任意コード実行 | Read-only接続 + FORBIDDEN_PATTERNS（§4.2.1参照）。`load_extension`, `ATTACH` 等を正規表現で拒否 |
+| ベクトル検索の遅延 | SQLite上でブルートフォース、1000件以下なら許容 |
+| 既存データ喪失 | DB再作成のため全データ破棄。問題なし（開発中） |
+
+---
+
+## 8. 期待効果
+
+| 項目 | Before | After |
+|------|--------|-------|
+| GPU使用量 | Embedding + Reranker | Embedding のみ（約40%削減） |
+| ランキング速度 | O(n×d²) CrossEncoder | O(n×d) Embedding のみ |
+| DB検索 | FTS5 キーワードのみ | FTS5 + セマンティック検索 |
+| AI探索 | get_materials 一括取得（コンテキスト圧迫） | SQL + ベクトル検索で自律探索 |
+| 透明性 | AIが何を見たか不明 | SQLクエリで追跡可能 |
+| MCPツール数 | 10ツール（get_materials含む） | 10ツール（query_graph, vector_search追加、get_materials削除） |
+| コード量 | Reranker + get_materials | 削減（不要コード除去） |
 
 ---
 
@@ -294,4 +860,3 @@
 - 関連タスク: task_9c48928b（DPP-4阻害薬の有効性と安全性）
 - 関連ADR: ADR-0005 Evidence Graph Structure
 - 関連ファイル: `case_study/lyra/evidence_graph.html`（D3.js可視化）
-
