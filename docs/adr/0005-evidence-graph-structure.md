@@ -224,7 +224,7 @@ Full citation network support was added in [Sb_CITATION_NETWORK](../Sb_CITATION_
 |---------|---------------|
 | `EVIDENCE_SOURCE` edge | Derived in-memory from `fragment→claim` + `fragment.page_id` |
 | `CITES` edge loading | `load_from_db(task_id)` includes page→page edges reachable from task's claims |
-| MCP API | `query_graph` tool for SQL queries, `vector_search` for semantic search (per ADR-0017) |
+| MCP API | `query_sql` tool for SQL queries, `vector_search` for semantic search (per ADR-0017) |
 | Graph analysis | `calculate_pagerank()`, `calculate_betweenness_centrality()`, `get_citation_hub_pages()` |
 
 This enables full graph traversal from Claim → Page → Cited Pages via NetworkX.

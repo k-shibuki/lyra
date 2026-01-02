@@ -1,6 +1,24 @@
--- Mutual citation pairs (lightweight cluster signal)
-SELECT *
-FROM v_citation_clusters
-ORDER BY page_a, page_b
-
-
+-- Bibliographic coupling: papers cited by the same papers
+-- Papers A and B are coupled if they share citing papers (common citers)
+-- coupling_strength = number of papers that cite both A and B
+SELECT
+    e1.target_id AS page_a,
+    p1.title AS page_a_title,
+    e2.target_id AS page_b,
+    p2.title AS page_b_title,
+    COUNT(DISTINCT e1.source_id) AS coupling_strength
+FROM edges e1
+JOIN edges e2
+  ON e1.source_id = e2.source_id  -- Same citing paper
+ AND e1.target_id < e2.target_id  -- Avoid duplicates (A,B) and (B,A)
+JOIN pages p1 ON e1.target_id = p1.id
+JOIN pages p2 ON e2.target_id = p2.id
+WHERE e1.relation = 'cites'
+  AND e2.relation = 'cites'
+  AND e1.source_type = 'page'
+  AND e1.target_type = 'page'
+  AND e2.source_type = 'page'
+  AND e2.target_type = 'page'
+GROUP BY e1.target_id, e2.target_id, p1.title, p2.title
+HAVING COUNT(DISTINCT e1.source_id) >= 1
+ORDER BY coupling_strength DESC

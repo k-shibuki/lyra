@@ -17,6 +17,7 @@ Tests for vector_search MCP tool.
 | TC-VS-A-05 | top_k < 1 | Boundary – min exceeded | Raises InvalidParamsError | - |
 | TC-VS-A-06 | min_similarity > 1.0 | Boundary – max exceeded | Raises InvalidParamsError | - |
 | TC-VS-A-07 | min_similarity < 0.0 | Boundary – min exceeded | Raises InvalidParamsError | - |
+| TC-VS-A-08 | Zero embeddings in DB | Boundary – no data | Returns ok=False with error | - |
 """
 
 import pytest
@@ -34,22 +35,44 @@ async def test_vector_search_valid_query_claims(test_database) -> None:
     """
     TC-VS-N-01: Valid query with target=claims returns results.
 
-    // Given: Valid query and target=claims
+    // Given: Valid query and target=claims with embeddings in DB
     // When: Executing vector_search
     // Then: Returns results with similarity scores
     """
-    # Mock ML client and vector_search
-    with patch("src.mcp.tools.vector.vector_search") as mock_search:
-        mock_search.return_value = [
-            {"id": "claim_1", "similarity": 0.85, "text_preview": "Test claim"},
-        ]
+    from unittest.mock import AsyncMock
+
+    # Setup: Insert claim and embedding
+    db = test_database
+    await db.execute(
+        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        ("task_vs_01", "test", "completed"),
+    )
+    await db.execute(
+        "INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence) VALUES (?, ?, ?, ?)",
+        ("claim_1", "task_vs_01", "Test claim text", 0.8),
+    )
+    # Insert a dummy embedding
+    import struct
+
+    dummy_embedding = struct.pack("<3f", 0.5, 0.5, 0.5)
+    await db.execute(
+        "INSERT INTO embeddings (id, target_type, target_id, model_id, embedding_blob, dimension) VALUES (?, ?, ?, ?, ?, ?)",
+        ("claim:claim_1:test_model", "claim", "claim_1", "BAAI/bge-m3", dummy_embedding, 3),
+    )
+
+    # Mock ML client to return matching embedding
+    with patch("src.storage.vector_store.get_ml_client") as mock_get_ml:
+        mock_client = AsyncMock()
+        mock_client.embed.return_value = [[0.5, 0.5, 0.5]]
+        mock_get_ml.return_value = mock_client
 
         result = await vector.handle_vector_search({"query": "test query", "target": "claims"})
 
         assert result["ok"] is True
         assert len(result["results"]) == 1
-        assert result["results"][0]["similarity"] == 0.85
+        assert result["results"][0]["id"] == "claim_1"
         assert "total_searched" in result
+        assert result["total_searched"] == 1
 
 
 @pytest.mark.asyncio
@@ -57,14 +80,36 @@ async def test_vector_search_valid_query_fragments(test_database) -> None:
     """
     TC-VS-N-02: Valid query with target=fragments returns results.
 
-    // Given: Valid query and target=fragments
+    // Given: Valid query and target=fragments with embeddings in DB
     // When: Executing vector_search
     // Then: Returns results with similarity scores
     """
-    with patch("src.mcp.tools.vector.vector_search") as mock_search:
-        mock_search.return_value = [
-            {"id": "frag_1", "similarity": 0.75, "text_preview": "Test fragment"},
-        ]
+    from unittest.mock import AsyncMock
+
+    # Setup: Insert page, fragment, and embedding
+    db = test_database
+    await db.execute(
+        "INSERT INTO pages (id, url, domain) VALUES (?, ?, ?)",
+        ("page_vs_02", "https://example.com", "example.com"),
+    )
+    await db.execute(
+        "INSERT INTO fragments (id, page_id, fragment_type, text_content, is_relevant) VALUES (?, ?, ?, ?, ?)",
+        ("frag_1", "page_vs_02", "paragraph", "Test fragment text", 1),
+    )
+    # Insert a dummy embedding
+    import struct
+
+    dummy_embedding = struct.pack("<3f", 0.5, 0.5, 0.5)
+    await db.execute(
+        "INSERT INTO embeddings (id, target_type, target_id, model_id, embedding_blob, dimension) VALUES (?, ?, ?, ?, ?, ?)",
+        ("fragment:frag_1:test_model", "fragment", "frag_1", "BAAI/bge-m3", dummy_embedding, 3),
+    )
+
+    # Mock ML client to return matching embedding
+    with patch("src.storage.vector_store.get_ml_client") as mock_get_ml:
+        mock_client = AsyncMock()
+        mock_client.embed.return_value = [[0.5, 0.5, 0.5]]
+        mock_get_ml.return_value = mock_client
 
         result = await vector.handle_vector_search({"query": "test query", "target": "fragments"})
 
@@ -82,19 +127,47 @@ async def test_vector_search_with_task_id(test_database) -> None:
     // When: Executing vector_search
     // Then: Returns only results from specified task
     """
-    with patch("src.mcp.tools.vector.vector_search") as mock_search:
-        mock_search.return_value = [
-            {"id": "claim_1", "similarity": 0.80, "text_preview": "Task claim"},
-        ]
+    from unittest.mock import AsyncMock
+
+    # Setup: Insert task, claim, and embedding
+    db = test_database
+    await db.execute(
+        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        ("task_123", "test", "completed"),
+    )
+    await db.execute(
+        "INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence) VALUES (?, ?, ?, ?)",
+        ("claim_task_123", "task_123", "Task-scoped claim", 0.8),
+    )
+    import struct
+
+    dummy_embedding = struct.pack("<3f", 0.5, 0.5, 0.5)
+    await db.execute(
+        "INSERT INTO embeddings (id, target_type, target_id, model_id, embedding_blob, dimension) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            "claim:claim_task_123:test_model",
+            "claim",
+            "claim_task_123",
+            "BAAI/bge-m3",
+            dummy_embedding,
+            3,
+        ),
+    )
+
+    # Mock ML client
+    with patch("src.storage.vector_store.get_ml_client") as mock_get_ml:
+        mock_client = AsyncMock()
+        mock_client.embed.return_value = [[0.5, 0.5, 0.5]]
+        mock_get_ml.return_value = mock_client
 
         result = await vector.handle_vector_search(
             {"query": "test", "target": "claims", "task_id": "task_123"}
         )
 
         assert result["ok"] is True
-        mock_search.assert_called_once()
-        call_kwargs = mock_search.call_args[1]
-        assert call_kwargs["task_id"] == "task_123"
+        assert result["total_searched"] == 1
+        assert len(result["results"]) == 1
+        assert result["results"][0]["id"] == "claim_task_123"
 
 
 @pytest.mark.asyncio
@@ -102,24 +175,46 @@ async def test_vector_search_top_k(test_database) -> None:
     """
     TC-VS-N-04: top_k parameter respects limit.
 
-    // Given: Query with top_k=5
+    // Given: Query with top_k=2 and multiple embeddings
     // When: Executing vector_search
-    // Then: Returns at most 5 results
+    // Then: Returns at most top_k results
     """
-    with patch("src.mcp.tools.vector.vector_search") as mock_search:
-        mock_search.return_value = [
-            {"id": f"claim_{i}", "similarity": 0.9 - i * 0.1, "text_preview": f"Claim {i}"}
-            for i in range(3)
-        ]
+    from unittest.mock import AsyncMock
+
+    # Setup: Insert multiple claims with embeddings
+    db = test_database
+    await db.execute(
+        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        ("task_topk", "test", "completed"),
+    )
+
+    import struct
+
+    for i in range(5):
+        await db.execute(
+            "INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence) VALUES (?, ?, ?, ?)",
+            (f"claim_topk_{i}", "task_topk", f"Claim {i}", 0.8),
+        )
+        # Vary embeddings slightly so they have different similarities
+        emb = struct.pack("<3f", 0.5 + i * 0.01, 0.5, 0.5)
+        await db.execute(
+            "INSERT INTO embeddings (id, target_type, target_id, model_id, embedding_blob, dimension) VALUES (?, ?, ?, ?, ?, ?)",
+            (f"claim:claim_topk_{i}:test_model", "claim", f"claim_topk_{i}", "BAAI/bge-m3", emb, 3),
+        )
+
+    # Mock ML client
+    with patch("src.storage.vector_store.get_ml_client") as mock_get_ml:
+        mock_client = AsyncMock()
+        mock_client.embed.return_value = [[0.5, 0.5, 0.5]]
+        mock_get_ml.return_value = mock_client
 
         result = await vector.handle_vector_search(
-            {"query": "test", "target": "claims", "top_k": 5}
+            {"query": "test", "target": "claims", "top_k": 2}
         )
 
         assert result["ok"] is True
-        mock_search.assert_called_once()
-        call_kwargs = mock_search.call_args[1]
-        assert call_kwargs["top_k"] == 5
+        assert result["total_searched"] == 5
+        assert len(result["results"]) <= 2  # Respects top_k
 
 
 @pytest.mark.asyncio
@@ -127,23 +222,51 @@ async def test_vector_search_min_similarity(test_database) -> None:
     """
     TC-VS-N-05: min_similarity parameter filters results.
 
-    // Given: Query with min_similarity=0.7
+    // Given: Query with embeddings and min_similarity threshold
     // When: Executing vector_search
-    // Then: Only returns results with similarity >= 0.7
+    // Then: Only returns results with similarity >= threshold
     """
-    with patch("src.mcp.tools.vector.vector_search") as mock_search:
-        mock_search.return_value = [
-            {"id": "claim_1", "similarity": 0.75, "text_preview": "High similarity"},
-        ]
+    from unittest.mock import AsyncMock
+
+    # Setup: Insert claim with embedding
+    db = test_database
+    await db.execute(
+        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        ("task_minsim", "test", "completed"),
+    )
+    await db.execute(
+        "INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence) VALUES (?, ?, ?, ?)",
+        ("claim_minsim", "task_minsim", "High similarity claim", 0.8),
+    )
+    import struct
+
+    # Embedding that should have very high similarity with query (identical)
+    dummy_embedding = struct.pack("<3f", 0.5, 0.5, 0.5)
+    await db.execute(
+        "INSERT INTO embeddings (id, target_type, target_id, model_id, embedding_blob, dimension) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            "claim:claim_minsim:test_model",
+            "claim",
+            "claim_minsim",
+            "BAAI/bge-m3",
+            dummy_embedding,
+            3,
+        ),
+    )
+
+    # Mock ML client with identical query embedding
+    with patch("src.storage.vector_store.get_ml_client") as mock_get_ml:
+        mock_client = AsyncMock()
+        mock_client.embed.return_value = [[0.5, 0.5, 0.5]]
+        mock_get_ml.return_value = mock_client
 
         result = await vector.handle_vector_search(
-            {"query": "test", "target": "claims", "min_similarity": 0.7}
+            {"query": "test", "target": "claims", "min_similarity": 0.9}
         )
 
         assert result["ok"] is True
-        mock_search.assert_called_once()
-        call_kwargs = mock_search.call_args[1]
-        assert call_kwargs["min_similarity"] == 0.7
+        # With identical embeddings, cosine similarity = 1.0, so it should pass the threshold
+        assert len(result["results"]) >= 1
 
 
 @pytest.mark.asyncio
@@ -253,3 +376,35 @@ async def test_vector_search_min_similarity_too_low() -> None:
         )
 
     assert "min_similarity must be between 0.0 and 1.0" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_vector_search_zero_embeddings(test_database) -> None:
+    """
+    TC-VS-A-08: Zero embeddings returns ok=False with descriptive error.
+
+    // Given: No embeddings in database for target
+    // When: Calling handle_vector_search
+    // Then: Returns ok=False with error message about no embeddings
+    """
+    from unittest.mock import AsyncMock
+
+    # Mock ML client to avoid actual embedding call
+    with patch("src.storage.vector_store.get_ml_client") as mock_get_ml:
+        mock_client = AsyncMock()
+        mock_client.embed.return_value = [[0.5, 0.5, 0.5]]  # Dummy embedding
+        mock_get_ml.return_value = mock_client
+
+        # No embeddings in test_database (clean DB)
+        result = await vector.handle_vector_search(
+            {
+                "query": "test query",
+                "target": "claims",
+                "task_id": "nonexistent_task",
+            }
+        )
+
+        assert result["ok"] is False
+        assert "error" in result
+        assert "no embeddings found" in result["error"].lower()
+        assert result["total_searched"] == 0

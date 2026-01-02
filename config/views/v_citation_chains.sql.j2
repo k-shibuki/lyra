@@ -1,0 +1,23 @@
+-- Citation chains: A → B → C paths through literature
+-- Shows how ideas propagate through citation networks
+SELECT
+    e1.source_id AS citing_page,
+    substr(p1.title, 1, 60) AS citing_title,
+    e1.target_id AS intermediate_page,
+    substr(p2.title, 1, 60) AS intermediate_title,
+    e2.target_id AS cited_page,
+    substr(p3.title, 1, 60) AS cited_title
+FROM edges e1
+JOIN edges e2
+  ON e1.target_id = e2.source_id  -- Chain: citing -> intermediate -> cited
+JOIN pages p1 ON e1.source_id = p1.id
+JOIN pages p2 ON e1.target_id = p2.id
+JOIN pages p3 ON e2.target_id = p3.id
+WHERE e1.relation = 'cites'
+  AND e2.relation = 'cites'
+  AND e1.source_type = 'page'
+  AND e1.target_type = 'page'
+  AND e2.source_type = 'page'
+  AND e2.target_type = 'page'
+ORDER BY p1.title, p2.title, p3.title
+

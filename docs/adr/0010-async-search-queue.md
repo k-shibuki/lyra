@@ -224,10 +224,17 @@ class StatusResult:
 
 ### stop_task Semantics
 
-| Mode | Queued Items | Running Items |
-|------|--------------|---------------|
-| `graceful` | → cancelled | Wait for completion |
-| `immediate` | → cancelled | Cancel via `asyncio.Task.cancel()` |
+| Mode | Queued Items | Running Items | ML/NLI Operations |
+|------|--------------|---------------|-------------------|
+| `graceful` | → cancelled | Wait for completion (30s timeout) | Continue until job completes |
+| `immediate` | → cancelled | Cancel via `asyncio.Task.cancel()` | May be interrupted mid-flight |
+| `full` | → cancelled | Cancel via `asyncio.Task.cancel()` | Wait for drain (0.5s) |
+
+**DB Impact on stop_task**:
+- `tasks.status` → `completed` (or `cancelled` if reason=user_cancelled)
+- `jobs.state` → `cancelled` for queued jobs (all modes) and running jobs (immediate/full modes)
+- `intervention_queue.status` → `cancelled` for pending auth items
+- Claims/fragments already persisted remain in DB for query_sql/vector_search
 
 **Consistency**: Job's `state = 'cancelled'` in `jobs` table is authoritative record. Partial artifacts may exist but are filterable.
 

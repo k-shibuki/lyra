@@ -57,7 +57,9 @@ async def _main() -> None:
         with patch("src.ml_client.get_ml_client") as mock_get_ml:
             mock_client = AsyncMock()
             mock_client.embed.return_value = [[0.9, 0.1, 0.0]]
-            mock_client.nli.return_value = [{"pair_id": "p1", "label": "supports", "confidence": 0.9}]
+            mock_client.nli.return_value = [
+                {"pair_id": "p1", "label": "supports", "confidence": 0.9}
+            ]
             mock_get_ml.return_value = mock_client
 
             async def fake_nli_judge(pairs):
@@ -130,5 +132,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

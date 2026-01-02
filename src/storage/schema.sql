@@ -982,24 +982,7 @@ WHERE e.relation = 'cites'
   AND e.source_type = 'page'
   AND e.target_type = 'page';
 
--- 7) Mutual citation pairs (lightweight "cluster" signal)
-CREATE VIEW IF NOT EXISTS v_citation_clusters AS
-SELECT
-    e1.source_id AS page_a,
-    e1.target_id AS page_b,
-    1 AS is_mutual
-FROM edges e1
-JOIN edges e2
-  ON e2.source_id = e1.target_id
- AND e2.target_id = e1.source_id
-WHERE e1.relation = 'cites'
-  AND e2.relation = 'cites'
-  AND e1.source_type = 'page'
-  AND e1.target_type = 'page'
-  AND e2.source_type = 'page'
-  AND e2.target_type = 'page';
-
--- 8) Orphan sources (evidence pages with zero inbound citations)
+-- 7) Orphan sources (evidence pages with zero inbound citations)
 CREATE VIEW IF NOT EXISTS v_orphan_sources AS
 WITH evidence_pages AS (
   SELECT DISTINCT

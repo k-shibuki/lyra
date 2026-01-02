@@ -100,22 +100,22 @@
 
 ### 4.2 新規MCPツール
 
-#### 4.2.1 `query_graph` - SQL実行ツール
+#### 4.2.1 `query_sql` - SQL実行ツール
 
 ```yaml
-name: query_graph
+name: query_sql
 description: |
   Execute read-only SQL against the Evidence Graph database.
   AI can freely explore claims, fragments, edges, pages tables.
 
   IMPORTANT: This is read-only. No INSERT/UPDATE/DELETE allowed.
 
-  LYRA NOTE (L7): This tool MUST have a JSON schema (src/mcp/schemas/query_graph.json).
+  LYRA NOTE (L7): This tool MUST have a JSON schema (src/mcp/schemas/query_sql.json).
   Without a schema, Lyra's ResponseSanitizer may pass responses through unsanitized,
   defeating L7 allowlist filtering.
 
   SCHEMA HINT (Lyra-compatible):
-  - Option A (recommended): query_graph(..., options.include_schema=true) to return a safe schema snapshot.
+  - Option A (recommended): query_sql(..., options.include_schema=true) to return a safe schema snapshot.
   - Option B: rely on config/views/*.sql.j2 templates (predefined analysis queries) rather than ad-hoc introspection SQL.
 
 inputSchema:
@@ -260,11 +260,11 @@ install_sqlite_guards(conn, timeout_ms=300, max_vm_steps=500000)
 name: vector_search
 description: |
   Semantic similarity search over fragments/claims using embeddings.
-  Use BEFORE query_graph to find relevant content by meaning, not keywords.
+  Use BEFORE query_sql to find relevant content by meaning, not keywords.
 
   WORKFLOW:
   1. vector_search(query="...", target="fragments") → get relevant IDs
-  2. query_graph(sql="SELECT * FROM fragments WHERE id IN (...)") → get full data
+  2. query_sql(sql="SELECT * FROM fragments WHERE id IN (...)") → get full data
 
   LYRA NOTE (L7): This tool MUST have a JSON schema (src/mcp/schemas/vector_search.json),
   otherwise responses may bypass allowlist sanitization.
@@ -335,8 +335,9 @@ outputSchema:
 | ビュー名 | 分析目的 | 主要カラム |
 |----------|----------|------------|
 | `v_hub_pages` | 複数Claimを支持する中核ソース | page_id, title, domain, claims_supported, citation_count |
-| `v_citation_flow` | 引用関係の方向性 | citing_page_id, cited_page_id, citation_source, hop_distance |
-| `v_citation_clusters` | 相互引用するページ群 | cluster_id, page_ids, internal_citations, cluster_size |
+| `v_citation_flow` | 引用関係の方向性 | citing_page_id, cited_page_id, citation_source, created_at |
+| `v_citation_clusters` | Bibliographic coupling（同じ論文に引用されるペア） | page_a, page_a_title, page_b, page_b_title, coupling_strength |
+| `v_citation_chains` | 引用連鎖（A→B→C経路） | citing_page, citing_title, intermediate_page, intermediate_title, cited_page, cited_title |
 | `v_orphan_sources` | 引用されていない孤立ソース | page_id, title, domain, claims_supported |
 
 #### 時系列構造分析
@@ -614,7 +615,7 @@ WHERE c.task_id = :task_id
 
 **埋め込み対象（決定）**:
 - **claim + fragment の2対象のみ**
-- page は埋め込み対象にしない（原典は query_graph で参照すれば足りる）
+- page は埋め込み対象にしない（原典は query_sql で参照すれば足りる）
 
 #### 4.4.3 ベクトル検索で何ができるか
 
@@ -662,7 +663,7 @@ vector_search(query="心血管イベントのリスク", target="claims")
 vector_search(query="長期安全性", target="fragments") → [frag_012, frag_045, ...]
 
 # Step 2: SQLで詳細取得（JOIN、フィルタ等）
-query_graph(sql="SELECT f.*, p.url FROM fragments f
+query_sql(sql="SELECT f.*, p.url FROM fragments f
                  JOIN pages p ON f.page_id = p.id
                  WHERE f.id IN ('frag_012', 'frag_045')")
 ```
@@ -898,14 +899,14 @@ outputSchema:
 
 | ファイル | 内容 |
 |----------|------|
-| `src/mcp/tools/sql.py` | `query_graph` ツールハンドラ |
+| `src/mcp/tools/sql.py` | `query_sql` ツールハンドラ |
 | `src/mcp/tools/vector.py` | `vector_search` ツールハンドラ |
-| `src/mcp/schemas/query_graph.json` | SQLツールスキーマ |
+| `src/mcp/schemas/query_sql.json` | SQLツールスキーマ |
 | `src/mcp/schemas/vector_search.json` | ベクトル検索スキーマ |
 | `src/storage/vector_store.py` | Embedding検索ロジック |
 | `src/storage/view_manager.py` | SQLビューテンプレート管理（§4.2.3） |
 | `config/views/*.sql.j2` | 分析ビューテンプレート（16ファイル） |
-| `tests/test_query_graph.py` | SQLツールテスト |
+| `tests/test_query_sql.py` | SQLツールテスト |
 | `tests/test_vector_search.py` | ベクトル検索テスト |
 | `tests/test_view_manager.py` | ViewManagerテスト |
 | `docs/adr/0017-ranking-simplification.md` | ADR |
@@ -943,7 +944,7 @@ outputSchema:
 2. 新規実装
    - 動的カットオフ（ranking.py）
    - embeddings テーブル + 永続化ロジック
-   - query_graph MCPツール
+   - query_sql MCPツール
    - vector_search MCPツール
    - get_status へのサマリ統合
 
@@ -991,7 +992,7 @@ outputSchema:
 | DB検索 | FTS5 キーワードのみ | FTS5 + セマンティック検索 |
 | AI探索 | get_materials 一括取得（コンテキスト圧迫） | SQL + ベクトル検索で自律探索 |
 | 透明性 | AIが何を見たか不明 | SQLクエリで追跡可能 |
-| MCPツール数 | 10ツール（get_materials含む） | 10ツール（query_graph, vector_search追加、get_materials削除） |
+| MCPツール数 | 10ツール（get_materials含む） | 10ツール（query_sql, vector_search追加、get_materials削除） |
 | コード量 | Reranker + get_materials | 削減（不要コード除去） |
 
 ---

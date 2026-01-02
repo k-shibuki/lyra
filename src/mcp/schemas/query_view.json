@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lyra:mcp:query_view",
+  "title": "query_view Response",
+  "description": "Response schema for query_view tool (predefined SQL template execution)",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "view_name": {
+      "type": "string",
+      "description": "Name of the executed view template"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "row_count": {
+      "type": "integer"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "True if limit was applied"
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "description": "Query execution time (ms)"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": ["ok", "rows", "row_count", "columns", "truncated", "elapsed_ms"]
+}
+

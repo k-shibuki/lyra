@@ -19,7 +19,7 @@
     },
     "mode": {
       "type": "string",
-      "enum": ["graceful", "immediate"],
+      "enum": ["graceful", "immediate", "full"],
       "description": "Stop mode used (ADR-0010)"
     },
     "summary": {

@@ -1,6 +1,6 @@
 """SQL query handler for MCP tools.
 
-Handles query_graph operation (read-only SQL execution).
+Handles query_sql operation (read-only SQL execution).
 """
 
 import asyncio
@@ -142,8 +142,8 @@ def install_sqlite_guards(
     raw.set_progress_handler(progress_handler, callback_n)
 
 
-async def handle_query_graph(args: dict[str, Any]) -> dict[str, Any]:
-    """Handle query_graph tool call.
+async def handle_query_sql(args: dict[str, Any]) -> dict[str, Any]:
+    """Handle query_sql tool call.
 
     Executes read-only SQL against Evidence Graph database.
 
@@ -337,7 +337,7 @@ async def handle_query_graph(args: dict[str, Any]) -> dict[str, Any]:
             "error": str(e),
         }
     except Exception as e:
-        logger.error("Unexpected error in query_graph", error=str(e), exc_info=True)
+        logger.error("Unexpected error in query_sql", error=str(e), exc_info=True)
         return {
             "ok": False,
             "rows": [],

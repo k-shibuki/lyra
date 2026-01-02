@@ -586,7 +586,7 @@ async def _search_with_provider(
     time_range: str = "all",
     task_id: str | None = None,
     search_job_id: str | None = None,
-    serp_max_pages: int = 1,
+    serp_max_pages: int = 2,
     worker_id: int = 0,
 ) -> list[dict[str, Any]]:
     """
@@ -687,7 +687,7 @@ def _get_cache_key(
     query: str,
     engines: list[str] | None,
     time_range: str,
-    serp_max_pages: int = 1,
+    serp_max_pages: int = 2,
 ) -> str:
     """Generate cache key for SERP results.
 
@@ -719,7 +719,7 @@ async def search_serp(
     use_cache: bool = True,
     transform_operators: bool = True,
     search_job_id: str | None = None,
-    serp_max_pages: int = 1,
+    serp_max_pages: int = 2,
     worker_id: int = 0,
 ) -> list[dict[str, Any]]:
     """Execute search and return normalized SERP results.

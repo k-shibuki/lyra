@@ -12,17 +12,17 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-class QueryGraphOptions(BaseModel):
+class QuerySqlOptions(BaseModel):
     limit: int = Field(50, ge=1, le=200)
     timeout_ms: int = Field(300, ge=1, le=2000)
     max_vm_steps: int = Field(500000, ge=1, le=5_000_000)
     include_schema: bool = False
 
 
-class QueryGraphRequest(BaseModel):
+class QuerySqlRequest(BaseModel):
     sql: str = Field(..., min_length=1)
-    options: QueryGraphOptions = Field(
-        default_factory=lambda: QueryGraphOptions(
+    options: QuerySqlOptions = Field(
+        default_factory=lambda: QuerySqlOptions(
             limit=50,
             timeout_ms=300,
             max_vm_steps=500000,
@@ -31,23 +31,23 @@ class QueryGraphRequest(BaseModel):
     )
 
 
-class QueryGraphSchemaTable(BaseModel):
+class QuerySqlSchemaTable(BaseModel):
     name: str
     columns: list[str]
 
 
-class QueryGraphSchemaSnapshot(BaseModel):
-    tables: list[QueryGraphSchemaTable] = Field(default_factory=list)
+class QuerySqlSchemaSnapshot(BaseModel):
+    tables: list[QuerySqlSchemaTable] = Field(default_factory=list)
 
 
-class QueryGraphResponse(BaseModel):
+class QuerySqlResponse(BaseModel):
     ok: bool
     rows: list[dict[str, Any]] = Field(default_factory=list)
     row_count: int = 0
     columns: list[str] = Field(default_factory=list)
     truncated: bool = False
     elapsed_ms: int = 0
-    schema_: QueryGraphSchemaSnapshot | None = Field(default=None, alias="schema")
+    schema_: QuerySqlSchemaSnapshot | None = Field(default=None, alias="schema")
     error: str | None = None
 
 
@@ -72,3 +72,30 @@ class VectorSearchResponse(BaseModel):
     error: str | None = None
 
 
+class QueryViewRequest(BaseModel):
+    view_name: str = Field(..., min_length=1)
+    task_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    limit: int = Field(50, ge=1, le=200)
+
+
+class QueryViewResponse(BaseModel):
+    ok: bool
+    view_name: str | None = None
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    row_count: int = 0
+    columns: list[str] = Field(default_factory=list)
+    truncated: bool = False
+    elapsed_ms: int = 0
+    error: str | None = None
+
+
+class ViewInfo(BaseModel):
+    name: str
+    description: str = ""
+
+
+class ListViewsResponse(BaseModel):
+    ok: bool
+    views: list[ViewInfo] = Field(default_factory=list)
+    count: int = 0

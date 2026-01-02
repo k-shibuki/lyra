@@ -1,4 +1,4 @@
-## Evidence Graph Exploration (query_graph + vector_search) — Integration Sequence
+## Evidence Graph Exploration (query_sql + vector_search) — Integration Sequence
 
 ```mermaid
 sequenceDiagram
@@ -30,7 +30,7 @@ sequenceDiagram
     MCP->>DB: SELECT embeddings + join targets
     MCP-->>Client: {results[], total_searched}
 
-    Client->>MCP: query_graph(sql, options)
+    Client->>MCP: query_sql(sql, options)
     MCP->>DB: read-only SQL (guards: authorizer/progress/timeout)
     MCP-->>Client: {rows[], columns[], truncated, schema?}
 
@@ -48,7 +48,7 @@ sequenceDiagram
 
 ## Data contracts (shared boundaries)
 
-- **`query_graph`**
+- **`query_sql`**
   - Request: `{sql: str, options?: {limit, timeout_ms, max_vm_steps, include_schema}}`
   - Response: `{ok: bool, rows: object[], row_count: int, columns: str[], truncated: bool, elapsed_ms: int, schema?: {...}, error?: str}`
 - **`vector_search`**
@@ -57,11 +57,11 @@ sequenceDiagram
 
 ## Propagation map (checkpoints)
 
-- **`query_graph.options.timeout_ms`**
-  - Accept: `src/mcp/tools/sql.py` (`handle_query_graph`)
+- **`query_sql.options.timeout_ms`**
+  - Accept: `src/mcp/tools/sql.py` (`handle_query_sql`)
   - Effect: `asyncio.wait_for` timeout + SQLite progress handler deadline
   - Observable: timeout returns `ok=False` with timeout/interrupted error
-- **`query_graph.options.max_vm_steps`**
+- **`query_sql.options.max_vm_steps`**
   - Accept: `src/mcp/tools/sql.py`
   - Effect: SQLite progress handler interrupts when budget exceeded
   - Observable: `ok=False` with interrupted error

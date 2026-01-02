@@ -257,7 +257,7 @@ class SearchExecutor:
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
         engines: list[str] | None = None,
-        serp_max_pages: int = 1,
+        serp_max_pages: int = 2,
         search_job_id: str | None = None,
     ) -> SearchExecutionResult:
         """
@@ -747,7 +747,7 @@ class SearchExecutor:
                         is_novel=is_novel,
                     )
 
-                    # Persist fragment to DB for query_graph/vector_search
+                    # Persist fragment to DB for query_sql/vector_search
                     fragment_id = f"f_{uuid.uuid4().hex[:8]}"
                     page_id = fetch_result.get("page_id", f"p_{uuid.uuid4().hex[:8]}")
                     await self._persist_fragment(
@@ -774,7 +774,7 @@ class SearchExecutor:
                             self.state.record_claim(search_id)
                             result.new_claims.append(claim)
 
-                            # Persist claim to DB for query_graph/vector_search
+                            # Persist claim to DB for query_sql/vector_search
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
                                 claim_id=claim_id,
@@ -796,7 +796,7 @@ class SearchExecutor:
                                 }
                             )
 
-                            # Persist snippet as claim for query_graph/vector_search
+                            # Persist snippet as claim for query_sql/vector_search
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
                                 claim_id=claim_id,
@@ -892,7 +892,7 @@ class SearchExecutor:
         is_primary: bool,
     ) -> None:
         """
-        Persist fragment to database for query_graph/vector_search retrieval.
+        Persist fragment to database for query_sql/vector_search retrieval.
 
         Fragments must be persisted to DB; memory-only tracking causes
         query tools to return empty results.
@@ -932,8 +932,17 @@ class SearchExecutor:
                 ),
             )
 
-            # Persist embedding for semantic search (best-effort; core pipeline already relies on embeddings).
-            if text.strip():
+        except Exception as e:
+            logger.warning(
+                "Failed to persist fragment to DB",
+                fragment_id=fragment_id,
+                error=str(e),
+            )
+            return  # Cannot proceed without fragment in DB
+
+        # Persist embedding for semantic search (separate try-except for observability)
+        if text.strip():
+            try:
                 from src.ml_client import get_ml_client
                 from src.storage.vector_store import persist_embedding
                 from src.utils.config import get_settings
@@ -943,12 +952,16 @@ class SearchExecutor:
                 ml_client = get_ml_client()
                 emb = (await ml_client.embed([text]))[0]
                 await persist_embedding("fragment", fragment_id, emb, model_id=model_id)
-        except Exception as e:
-            logger.debug(
-                "Failed to persist fragment",
-                fragment_id=fragment_id,
-                error=str(e),
-            )
+            except Exception as e:
+                # Log as warning (not debug) so failures are observable
+                # Fragment is still in DB; vector_search will report ok=false when 0 embeddings
+                logger.warning(
+                    "Embedding generation failed for fragment",
+                    fragment_id=fragment_id,
+                    task_id=self.task_id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
 
     async def _persist_claim(
         self,
@@ -959,7 +972,7 @@ class SearchExecutor:
         source_fragment_id: str,
     ) -> None:
         """
-        Persist claim to database for query_graph/vector_search retrieval.
+        Persist claim to database for query_sql/vector_search retrieval.
 
         Claims must be persisted to DB; memory-only tracking causes
         query tools to return empty results.
@@ -973,6 +986,7 @@ class SearchExecutor:
         """
         import json
 
+        # Phase 1: Insert claim to DB
         try:
             db = await get_database()
 
@@ -995,9 +1009,17 @@ class SearchExecutor:
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
+        except Exception as e:
+            logger.warning(
+                "Failed to persist claim to DB",
+                claim_id=claim_id,
+                error=str(e),
+            )
+            return  # Cannot proceed without claim in DB
 
-            # Persist claim embedding for semantic search
-            if claim_text.strip():
+        # Phase 2: Persist claim embedding (separate try-except for observability)
+        if claim_text.strip():
+            try:
                 from src.ml_client import get_ml_client
                 from src.storage.vector_store import persist_embedding
                 from src.utils.config import get_settings
@@ -1007,11 +1029,23 @@ class SearchExecutor:
                 ml_client = get_ml_client()
                 emb = (await ml_client.embed([claim_text]))[0]
                 await persist_embedding("claim", claim_id, emb, model_id=model_id)
+            except Exception as e:
+                # Log as warning (not debug) so failures are observable
+                # Claim is still in DB; vector_search will report ok=false when 0 embeddings
+                logger.warning(
+                    "Embedding generation failed for claim",
+                    claim_id=claim_id,
+                    task_id=self.task_id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                # Continue with NLI processing - claim is already in DB
 
-            # Run NLI for (fragment -> claim) and persist edge with nli_edge_confidence.
-            #
-            # Note: We intentionally do NOT use LLM-extracted confidence as Bayesian input.
-            # The evidence edge should carry NLI confidence (edges.nli_edge_confidence).
+        # Phase 3: Run NLI for (fragment -> claim) and persist edge with nli_edge_confidence.
+        #
+        # Note: We intentionally do NOT use LLM-extracted confidence as Bayesian input.
+        # The evidence edge should carry NLI confidence (edges.nli_edge_confidence).
+        try:
             from urllib.parse import urlparse
 
             from src.filter.evidence_graph import add_claim_evidence
@@ -1081,9 +1115,10 @@ class SearchExecutor:
                 target_domain_category=target_domain_category,
             )
         except Exception as e:
-            logger.debug(
-                "Failed to persist claim",
+            logger.warning(
+                "Failed to process NLI for claim",
                 claim_id=claim_id,
+                source_fragment_id=source_fragment_id,
                 error=str(e),
             )
 

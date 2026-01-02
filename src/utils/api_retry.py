@@ -169,6 +169,7 @@ async def retry_api_call[T](
     policy: APIRetryPolicy | None = None,
     operation_name: str | None = None,
     rate_limiter_provider: str | None = None,
+    max_consecutive_429: int | None = None,
     **kwargs: Any,
 ) -> T:
     """Execute async function with retry logic for public APIs.
@@ -189,13 +190,17 @@ async def retry_api_call[T](
         *args: Positional arguments for func
         policy: Retry policy (default: APIRetryPolicy())
         operation_name: Name for logging (default: func.__name__)
+        rate_limiter_provider: Provider name for rate limiter reporting
+        max_consecutive_429: Early fail threshold for consecutive 429 errors.
+            If set, raises APIRetryError after this many consecutive 429s
+            (useful for falling back to alternative APIs like OpenAlex).
         **kwargs: Keyword arguments for func
 
     Returns:
         Result from func
 
     Raises:
-        APIRetryError: When all retries exhausted
+        APIRetryError: When all retries exhausted or max_consecutive_429 reached
         Exception: When a non-retryable error occurs
 
     Example:
@@ -217,6 +222,7 @@ async def retry_api_call[T](
     op_name = operation_name or getattr(func, "__name__", "api_call")
     last_error: Exception | None = None
     last_status: int | None = None
+    consecutive_429_count = 0
 
     for attempt in range(policy.max_retries + 1):
         try:
@@ -258,15 +264,36 @@ async def retry_api_call[T](
             last_error = e
             last_status = status_code
 
-            # H-A fix: Report 429 to rate limiter for adaptive backoff (ADR-0015)
-            if status_code == 429 and rate_limiter_provider:
-                try:
-                    from src.search.apis.rate_limiter import get_academic_rate_limiter
+            # Track consecutive 429s for early fail (E2E fix: OpenAlex fallback)
+            if status_code == 429:
+                consecutive_429_count += 1
 
-                    limiter = get_academic_rate_limiter()
-                    await limiter.report_429(rate_limiter_provider)
-                except Exception as report_err:
-                    logger.debug("Failed to report 429 to rate limiter", error=str(report_err))
+                # H-A fix: Report 429 to rate limiter for adaptive backoff (ADR-0015)
+                if rate_limiter_provider:
+                    try:
+                        from src.search.apis.rate_limiter import get_academic_rate_limiter
+
+                        limiter = get_academic_rate_limiter()
+                        await limiter.report_429(rate_limiter_provider)
+                    except Exception as report_err:
+                        logger.debug("Failed to report 429 to rate limiter", error=str(report_err))
+
+                # Early fail on persistent 429 (E2E fix: allow OpenAlex fallback)
+                if max_consecutive_429 and consecutive_429_count >= max_consecutive_429:
+                    logger.warning(
+                        "Early fail: consecutive 429 threshold reached",
+                        operation=op_name,
+                        consecutive_429_count=consecutive_429_count,
+                        threshold=max_consecutive_429,
+                    )
+                    raise APIRetryError(
+                        f"Rate limited {consecutive_429_count} times consecutively",
+                        attempts=attempt + 1,
+                        last_error=e,
+                        last_status=429,
+                    ) from e
+            else:
+                consecutive_429_count = 0  # Reset on non-429
 
             # Check if status is retryable
             if not policy.should_retry_status(status_code):

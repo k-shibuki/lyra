@@ -148,15 +148,15 @@ class TestNormalCases:
         assert result.sanitized_response["status"] == "exploring"
         assert len(result.sanitized_response["searches"]) == 1
 
-    def test_query_graph_response(self, sanitizer: ResponseSanitizer) -> None:
+    def test_query_sql_response(self, sanitizer: ResponseSanitizer) -> None:
         """
-        TC-N-03: Valid query_graph response with rows
+        TC-N-03: Valid query_sql response with rows
 
-        // Given: A query_graph response containing SQL results
+        // Given: A query_sql response containing SQL results
         // When: Sanitizing the response
         // Then: Response passes through sanitization
 
-        NOTE: query_graph replaced get_materials per ADR-0017.
+        NOTE: query_sql replaced get_materials per ADR-0017.
         """
         response = {
             "ok": True,
@@ -169,7 +169,7 @@ class TestNormalCases:
             "elapsed_ms": 5,
         }
 
-        result = sanitizer.sanitize_response(response, "query_graph")
+        result = sanitizer.sanitize_response(response, "query_sql")
 
         assert result.sanitized_response["ok"] is True
         assert len(result.sanitized_response["rows"]) == 1
@@ -279,7 +279,7 @@ class TestAbnormalCases:
         // When: Sanitizing the response
         // Then: URL is detected and logged as suspicious
 
-        NOTE: Using query_graph for URL detection test.
+        NOTE: Using query_sql for URL detection test.
         """
         response = {
             "ok": True,
@@ -296,7 +296,7 @@ class TestAbnormalCases:
         }
 
         with patch("src.mcp.response_sanitizer.logger"):
-            result = sanitizer.sanitize_response(response, "query_graph")
+            result = sanitizer.sanitize_response(response, "query_sql")
 
             # URL should still be present (L4 detects but doesn't remove URLs)
             # The important thing is that it passed through sanitizer
@@ -312,7 +312,7 @@ class TestAbnormalCases:
         // When: Sanitizing the response
         // Then: Fragment is masked with [REDACTED]
 
-        NOTE: Using query_graph for prompt leakage test.
+        NOTE: Using query_sql for prompt leakage test.
         """
         response = {
             "ok": True,
@@ -329,7 +329,7 @@ class TestAbnormalCases:
             "elapsed_ms": 5,
         }
 
-        result = sanitizer_with_prompt.sanitize_response(response, "query_graph")
+        result = sanitizer_with_prompt.sanitize_response(response, "query_sql")
 
         # Check that response was processed
         assert result.sanitized_response["ok"] is True
@@ -538,7 +538,7 @@ class TestBoundaryCases:
         // When: Sanitizing the response
         // Then: Text is processed normally
 
-        NOTE: Using query_graph for long text test.
+        NOTE: Using query_sql for long text test.
         """
         long_text = "A" * 10000  # 10000 character text
 
@@ -556,7 +556,7 @@ class TestBoundaryCases:
             "elapsed_ms": 5,
         }
 
-        result = sanitizer.sanitize_response(response, "query_graph")
+        result = sanitizer.sanitize_response(response, "query_sql")
 
         # Text should be present
         assert result.sanitized_response["ok"] is True
@@ -670,7 +670,7 @@ class TestSchemas:
             "get_status",
             "queue_searches",
             "stop_task",
-            "query_graph",
+            "query_sql",
             "vector_search",
             "calibration_metrics",
             "calibrate_rollback",  # Schema file is calibrate_rollback.json

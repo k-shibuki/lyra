@@ -113,7 +113,7 @@ class PipelineSearchOptions:
     # SERP pagination:
     # This is distinct from budget_pages (crawl budget). It controls how many SERP pages
     # BrowserSearchProvider.search() will fetch per query.
-    serp_max_pages: int = 1
+    serp_max_pages: int = 2
     seek_primary: bool = False  # Prioritize primary sources
     refute: bool = False  # Enable refutation mode
     # ADR-0007: CAPTCHA queue integration
@@ -663,75 +663,97 @@ class SearchPipeline:
                         )
                         filtered = []
 
-                    # Persist relevant citation papers (Abstract Only)
+                    # Persist relevant citation papers
+                    # Papers with abstracts: full persist (counts toward budget)
+                    # Papers without abstracts: placeholder only (for CITES edges, no budget impact)
+                    placeholders_created = 0
                     for scored in filtered:
                         rp = scored.paper
                         if rp.id in paper_to_page_map:
                             continue
-                        if not rp.abstract:
-                            continue
-                        try:
-                            (
-                                cited_page_id,
-                                cited_fragment_id,
-                            ) = await self._persist_abstract_as_fragment(
-                                paper=rp,
-                                task_id=self.task_id,
-                                search_id=search_id,
-                                worker_id=options.worker_id,
-                            )
-                            # Only add to map if we got a valid page_id
-                            if cited_page_id:
-                                paper_to_page_map[rp.id] = cited_page_id
-                                graph = await get_evidence_graph(self.task_id)
-                                graph.add_node(NodeType.PAGE, cited_page_id)
 
-                                # FIX: Update ExplorationState metrics for citation papers
-                                if cited_fragment_id is not None:
-                                    result.pages_fetched += 1
-                                    result.useful_fragments += 1
+                        if rp.abstract:
+                            # Full persist with abstract (counts toward budget)
+                            try:
+                                (
+                                    cited_page_id,
+                                    cited_fragment_id,
+                                ) = await self._persist_abstract_as_fragment(
+                                    paper=rp,
+                                    task_id=self.task_id,
+                                    search_id=search_id,
+                                    worker_id=options.worker_id,
+                                )
+                                # Only add to map if we got a valid page_id
+                                if cited_page_id:
+                                    paper_to_page_map[rp.id] = cited_page_id
+                                    graph = await get_evidence_graph(self.task_id)
+                                    graph.add_node(NodeType.PAGE, cited_page_id)
 
-                                    # Extract domain from paper URL
-                                    rp_url = rp.oa_url or (
-                                        f"https://doi.org/{rp.doi}" if rp.doi else ""
-                                    )
-                                    rp_domain = self._extract_domain(rp_url)
+                                    # Update ExplorationState metrics for citation papers
+                                    if cited_fragment_id is not None:
+                                        result.pages_fetched += 1
+                                        result.useful_fragments += 1
 
-                                    is_independent = rp_domain not in self._seen_domains
-                                    if is_independent:
-                                        self._seen_domains.add(rp_domain)
+                                        # Extract domain from paper URL
+                                        rp_url = rp.oa_url or (
+                                            f"https://doi.org/{rp.doi}" if rp.doi else ""
+                                        )
+                                        rp_domain = self._extract_domain(rp_url)
 
-                                    # Record page fetch in ExplorationState
-                                    self.state.record_page_fetch(
-                                        search_id=search_id,
-                                        domain=rp_domain,
-                                        is_primary_source=True,
-                                        is_independent=is_independent,
-                                    )
+                                        is_independent = rp_domain not in self._seen_domains
+                                        if is_independent:
+                                            self._seen_domains.add(rp_domain)
 
-                                    # Record fragment in ExplorationState
-                                    import hashlib
+                                        # Record page fetch in ExplorationState
+                                        self.state.record_page_fetch(
+                                            search_id=search_id,
+                                            domain=rp_domain,
+                                            is_primary_source=True,
+                                            is_independent=is_independent,
+                                        )
 
-                                    rp_hash = hashlib.sha256(
-                                        rp.abstract[:500].encode()
-                                    ).hexdigest()[:16]
-                                    rp_novel = rp_hash not in self._seen_fragment_hashes
-                                    if rp_novel:
-                                        self._seen_fragment_hashes.add(rp_hash)
+                                        # Record fragment in ExplorationState
+                                        import hashlib
 
-                                    self.state.record_fragment(
-                                        search_id=search_id,
-                                        fragment_hash=rp_hash,
-                                        is_useful=True,
-                                        is_novel=rp_novel,
-                                    )
+                                        rp_hash = hashlib.sha256(
+                                            rp.abstract[:500].encode()
+                                        ).hexdigest()[:16]
+                                        rp_novel = rp_hash not in self._seen_fragment_hashes
+                                        if rp_novel:
+                                            self._seen_fragment_hashes.add(rp_hash)
 
-                        except Exception as e:
-                            logger.debug(
-                                "Failed to persist citation paper",
-                                paper_id=rp.id,
-                                error=str(e),
-                            )
+                                        self.state.record_fragment(
+                                            search_id=search_id,
+                                            fragment_hash=rp_hash,
+                                            is_useful=True,
+                                            is_novel=rp_novel,
+                                        )
+
+                            except Exception as e:
+                                logger.debug(
+                                    "Failed to persist citation paper",
+                                    paper_id=rp.id,
+                                    error=str(e),
+                                )
+                        else:
+                            # No abstract: create placeholder for CITES edge (no budget impact)
+                            try:
+                                placeholder_id = await self._create_citation_placeholder(
+                                    paper=rp,
+                                    task_id=self.task_id,
+                                )
+                                if placeholder_id:
+                                    paper_to_page_map[rp.id] = placeholder_id
+                                    graph = await get_evidence_graph(self.task_id)
+                                    graph.add_node(NodeType.PAGE, placeholder_id)
+                                    placeholders_created += 1
+                            except Exception as e:
+                                logger.debug(
+                                    "Failed to create citation placeholder",
+                                    paper_id=rp.id,
+                                    error=str(e),
+                                )
 
                     # Look up page_id from mapping
                     mapped_page_id = paper_to_page_map.get(paper.id)
@@ -769,6 +791,7 @@ class SearchPipeline:
                             paper_id=paper.id,
                             page_id=mapped_page_id,
                             citation_count=len(citations),
+                            placeholders_created=placeholders_created,
                         )
 
                 except Exception as e:
@@ -1113,6 +1136,27 @@ class SearchPipeline:
                 or_ignore=True,
             )
 
+            # Persist fragment embedding for semantic search (vector_search)
+            if paper.abstract and paper.abstract.strip():
+                try:
+                    from src.ml_client import get_ml_client
+                    from src.storage.vector_store import persist_embedding
+                    from src.utils.config import get_settings
+
+                    settings = get_settings()
+                    model_id = settings.embedding.model_name
+                    ml_client = get_ml_client()
+                    emb = (await ml_client.embed([paper.abstract]))[0]
+                    await persist_embedding("fragment", fragment_id, emb, model_id=model_id)
+                except Exception as e:
+                    # Log as warning so failures are observable
+                    # Fragment is still in DB; vector_search will report ok=false when 0 embeddings
+                    logger.warning(
+                        "Embedding generation failed for abstract fragment",
+                        fragment_id=fragment_id,
+                        error=str(e),
+                    )
+
             # Mark resource as completed
             await db.complete_resource(
                 identifier_type=identifier_type,
@@ -1220,6 +1264,27 @@ class SearchPipeline:
                     except Exception:
                         raise
 
+                    # Persist claim embedding for semantic search (vector_search)
+                    if claim_text.strip():
+                        try:
+                            from src.ml_client import get_ml_client
+                            from src.storage.vector_store import persist_embedding
+                            from src.utils.config import get_settings
+
+                            settings = get_settings()
+                            model_id = settings.embedding.model_name
+                            ml_client = get_ml_client()
+                            emb = (await ml_client.embed([claim_text]))[0]
+                            await persist_embedding("claim", claim_id, emb, model_id=model_id)
+                        except Exception as e:
+                            # Log as debug (claim extraction is more frequent)
+                            # Claim is still in DB; vector_search will report ok=false when 0 embeddings
+                            logger.debug(
+                                "Embedding generation failed for claim",
+                                claim_id=claim_id,
+                                error=str(e),
+                            )
+
                     # Create edge from fragment to claim (NLI evaluation)
                     try:
                         from src.filter.nli import nli_judge
@@ -1304,6 +1369,104 @@ class SearchPipeline:
         """
         match = re.search(r"https?://([^/]+)", url)
         return match.group(1) if match else "unknown"
+
+    async def _create_citation_placeholder(
+        self,
+        paper: Paper,
+        task_id: str,
+    ) -> str | None:
+        """Create placeholder page for cited paper (no abstract/fragment).
+
+        Creates a minimal page record for citation graph edges without
+        counting toward page budget. If abstract is later fetched,
+        the page_id is preserved (page_id stability).
+
+        Args:
+            paper: Paper object (may or may not have abstract)
+            task_id: Task ID
+
+        Returns:
+            page_id if created/existing, None if failed
+        """
+        import json
+
+        db = await get_database()
+
+        # Build reference URL (OA URL or DOI URL)
+        reference_url = paper.oa_url or (f"https://doi.org/{paper.doi}" if paper.doi else "")
+        if not reference_url:
+            # Fallback to paper ID-based URL
+            reference_url = f"https://paper/{paper.id}"
+
+        try:
+            # Check if page already exists by URL
+            existing = await db.fetch_one(
+                "SELECT id FROM pages WHERE url = ?", (reference_url,)
+            )
+            if existing and existing.get("id"):
+                page_id_existing = str(existing["id"])
+                logger.debug(
+                    "Citation placeholder: page already exists",
+                    url=reference_url[:80],
+                    page_id=page_id_existing,
+                )
+                return page_id_existing
+
+            # Prepare minimal paper_metadata JSON
+            paper_metadata = {
+                "doi": paper.doi,
+                "arxiv_id": paper.arxiv_id,
+                "authors": [
+                    {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
+                    for a in paper.authors
+                ] if paper.authors else [],
+                "year": paper.year,
+                "venue": paper.venue,
+                "citation_count": paper.citation_count,
+                "reference_count": paper.reference_count,
+                "is_open_access": paper.is_open_access,
+                "oa_url": paper.oa_url,
+                "pdf_url": paper.pdf_url,
+                "source_api": paper.source_api,
+            }
+
+            # Generate page ID
+            page_id = f"page_{uuid.uuid4().hex[:8]}"
+
+            # Insert placeholder page (no fragment, not counted in budget)
+            await db.insert(
+                "pages",
+                {
+                    "id": page_id,
+                    "url": reference_url,
+                    "final_url": reference_url,
+                    "domain": self._extract_domain(reference_url),
+                    "page_type": "citation_placeholder",
+                    "fetch_method": "citation_graph",
+                    "title": paper.title,
+                    "paper_metadata": json.dumps(paper_metadata),
+                    "fetched_at": time.time(),
+                },
+                auto_id=False,
+                or_ignore=True,
+            )
+
+            logger.debug(
+                "Created citation placeholder",
+                page_id=page_id,
+                doi=paper.doi,
+                title=paper.title[:60] if paper.title else None,
+            )
+
+            return page_id
+
+        except Exception as e:
+            logger.warning(
+                "Failed to create citation placeholder",
+                doi=paper.doi,
+                error=str(e),
+            )
+            return None
 
     async def _execute_refutation_search(
         self,
@@ -1539,7 +1702,7 @@ async def search_action(
     if options:
         search_options.engines = options.get("engines")
         search_options.budget_pages = options.get("budget_pages")
-        search_options.serp_max_pages = int(options.get("serp_max_pages", 1))
+        search_options.serp_max_pages = int(options.get("serp_max_pages", 2))
         search_options.seek_primary = options.get("seek_primary", False)
         search_options.refute = options.get("refute", False)
         # ADR-0007: Pass job identifiers for CAPTCHA queue integration

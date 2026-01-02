@@ -32,7 +32,7 @@ Additionally, the `get_materials` tool returns all evidence data at once (300-40
 
 - **Remove**: `get_materials` MCP tool and related code
 - **Replace with**: 
-  - `query_graph`: Read-only SQL execution for granular exploration
+  - `query_sql`: Read-only SQL execution for granular exploration
   - `vector_search`: Semantic similarity search over fragments/claims
   - `get_status` extension: Add `evidence_summary` field when status=completed
 - **Benefits**:
@@ -86,7 +86,7 @@ def kneedle_cutoff(
     # Falls back to min_results if library unavailable
 ```
 
-### Security for `query_graph`
+### Security for `query_sql`
 
 - Read-only SQLite connection (`mode=ro`)
 - Pattern-based validation (forbidden keywords: ATTACH, INSERT, UPDATE, DELETE, etc.)

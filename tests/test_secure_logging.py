@@ -488,13 +488,13 @@ class TestL7BugFix:
         // When: Sanitizing the response
         // Then: Each field is processed exactly once (no double counting)
 
-        NOTE: Using query_graph for duplicate processing test.
+        NOTE: Using query_sql for duplicate processing test.
         """
         from src.mcp.response_sanitizer import ResponseSanitizer
 
         sanitizer = ResponseSanitizer()
 
-        # Use schema-valid response structure for 'query_graph' tool
+        # Use schema-valid response structure for 'query_sql' tool
         response = {
             "ok": True,
             "rows": [
@@ -507,7 +507,7 @@ class TestL7BugFix:
             "elapsed_ms": 5,
         }
 
-        result = sanitizer.sanitize_response(response, "query_graph")
+        result = sanitizer.sanitize_response(response, "query_sql")
 
         # Response should be processed without errors
         assert result.sanitized_response["ok"] is True
@@ -525,7 +525,7 @@ class TestL7BugFix:
 
         sanitizer = ResponseSanitizer()
 
-        # Use schema-valid response structure for 'query_graph' tool
+        # Use schema-valid response structure for 'query_sql' tool
         response = {
             "ok": True,
             "rows": [
@@ -537,7 +537,7 @@ class TestL7BugFix:
             "elapsed_ms": 5,
         }
 
-        result = sanitizer.sanitize_response(response, "query_graph")
+        result = sanitizer.sanitize_response(response, "query_sql")
 
         # Response should be processed
         assert result.sanitized_response["ok"] is True

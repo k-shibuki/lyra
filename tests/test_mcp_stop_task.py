@@ -417,6 +417,83 @@ class TestStopTaskImmediateMode:
         assert row["finished_at"] is not None
 
 
+class TestStopTaskFullMode:
+    """Tests for stop_task with mode=full."""
+
+    @pytest.mark.asyncio
+    async def test_full_mode_cancels_all_jobs(self, test_database: Database) -> None:
+        """
+        TC-ST-FULL-01: mode=full cancels both queued and running jobs.
+
+        // Given: Task with both queued and running jobs
+        // When: stop_task(mode=full)
+        // Then: All jobs are cancelled
+        """
+        from src.mcp.tools.task import handle_stop_task as _handle_stop_task
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_full_01", "Test task", "exploring"),
+        )
+
+        # Add queued and running jobs
+        now = datetime.now(UTC).isoformat()
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_full_01_queued",
+                "task_full_01",
+                "search_queue",
+                50,
+                "network_client",
+                "queued",
+                json.dumps({"query": "queued query", "options": {}}),
+                now,
+            ),
+        )
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json, queued_at, started_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "s_full_01_running",
+                "task_full_01",
+                "search_queue",
+                50,
+                "network_client",
+                "running",
+                json.dumps({"query": "running query", "options": {}}),
+                now,
+                now,
+            ),
+        )
+
+        result = await _handle_stop_task(
+            {
+                "task_id": "task_full_01",
+                "mode": "full",
+            }
+        )
+
+        assert result["ok"] is True
+        assert result["mode"] == "full"
+
+        # Verify all jobs are cancelled
+        rows = await db.fetch_all(
+            "SELECT state FROM jobs WHERE task_id = ? AND kind = 'search_queue'",
+            ("task_full_01",),
+        )
+        for row in rows:
+            assert row["state"] == "cancelled"
+
+
 class TestStopTaskEmptyQueue:
     """Tests for stop_task with empty queue."""
 
@@ -468,6 +545,7 @@ class TestStopTaskToolDefinition:
         assert stop_task_tool.inputSchema["properties"]["mode"]["enum"] == [
             "graceful",
             "immediate",
+            "full",
         ]
         assert stop_task_tool.inputSchema["properties"]["mode"]["default"] == "graceful"
 

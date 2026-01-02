@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 
 # IMPORTANT:
 # Import modules that may emit logs only AFTER logging is configured.
-from src.mcp.tools import auth, calibration, feedback, search, sql, task, vector
+from src.mcp.tools import auth, calibration, feedback, search, sql, task, vector, view
 
 # Create MCP server instance
 app = Server("lyra")
@@ -98,6 +98,9 @@ TOOLS = [
         name="create_task",
         title="Create Research Task",
         description="""Create a new research task to begin evidence collection.
+
+TYPICAL FLOW (high level):
+create_task → queue_searches → get_status(wait=30) → (vector_search / query_view / query_sql) → stop_task
 
 WORKFLOW: This is the first step. After creating a task, use queue_searches to add search queries.
 The same task_id accumulates data across multiple searches - design queries iteratively based on results.
@@ -275,10 +278,17 @@ WHEN TO STOP:
 - Time constraints require wrapping up
 
 MODES:
-- graceful: Wait for running searches to complete, then stop. Recommended for quality.
-- immediate: Cancel everything now. Use when budget exhausted or time critical.
+- graceful: Cancel queued searches, wait for running searches to complete (up to 30s timeout), then finalize.
+- immediate: Cancel all searches (queued + running) immediately, then finalize. Use when budget exhausted.
+- full: Cancel all searches AND wait for ML/NLI operations to fully drain. Use for complete shutdown.
 
-AFTER STOPPING: Use query_graph and vector_search tools to explore collected evidence.""",
+DB IMPACT (on stop):
+- tasks.status → 'completed' (or 'cancelled' if reason=user_cancelled)
+- jobs.state → 'cancelled' for queued jobs (all modes) and running jobs (immediate/full modes)
+- intervention_queue.status → 'cancelled' for pending auth items
+- Claims/fragments persisted during the task remain in DB for query_sql/vector_search.
+
+AFTER STOPPING: Use query_sql and vector_search tools to explore collected evidence.""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -294,9 +304,9 @@ AFTER STOPPING: Use query_graph and vector_search tools to explore collected evi
                 },
                 "mode": {
                     "type": "string",
-                    "enum": ["graceful", "immediate"],
+                    "enum": ["graceful", "immediate", "full"],
                     "default": "graceful",
-                    "description": "graceful=wait for running searches, immediate=cancel all",
+                    "description": "graceful=wait for running, immediate=cancel all, full=cancel all + drain ML",
                 },
             },
             "required": ["task_id"],
@@ -314,11 +324,13 @@ AFTER STOPPING: Use query_graph and vector_search tools to explore collected evi
     Tool(
         name="calibration_metrics",
         title="Calibration Metrics",
-        description="""View NLI model calibration statistics and evaluation history.
+        description="""View NLI model calibration statistics and evaluation history. (ADMIN TOOL)
 
 ACTIONS:
 - get_stats: Current calibration parameters and Brier scores per source model
 - get_evaluations: Historical evaluation records for trend analysis
+
+Most research workflows do NOT need this tool unless you are actively diagnosing NLI quality.
 
 For collecting ground-truth corrections, use feedback(action=edge_correct).
 For rolling back to previous calibration, use calibration_rollback (separate tool for safety).""",
@@ -355,7 +367,7 @@ For rolling back to previous calibration, use calibration_rollback (separate too
     Tool(
         name="calibration_rollback",
         title="Rollback Calibration",
-        description="""Rollback NLI calibration parameters to a previous version. DESTRUCTIVE operation.
+        description="""Rollback NLI calibration parameters to a previous version. DESTRUCTIVE operation. (ADMIN TOOL)
 
 USE CASES:
 - Brier score degraded after recalibration
@@ -393,11 +405,16 @@ Always provide a reason for audit trail.""",
     # 4. Evidence Graph Exploration (2 tools)
     # ============================================================
     Tool(
-        name="query_graph",
-        title="Query Evidence Graph (SQL)",
+        name="query_sql",
+        title="Execute SQL Query",
         description="""Execute read-only SQL against the Evidence Graph database.
 
 This tool is intended for incremental graph exploration without context overflow.
+
+CHOOSING TOOLS:
+- Use list_views + query_view for common analysis queries (predefined, safe templates).
+- Use vector_search first if you need to discover relevant IDs by meaning.
+- Use query_sql for custom/ad-hoc queries not covered by templates.
 
 SCHEMA HINTS (task_id column availability):
 - claims: HAS task_id (primary task-scoped table)
@@ -452,7 +469,7 @@ SECURITY:
             },
             "required": ["sql"],
         },
-        outputSchema=_load_schema("query_graph"),
+        outputSchema=_load_schema("query_sql"),
         annotations=ToolAnnotations(
             readOnlyHint=True,
             destructiveHint=False,
@@ -464,7 +481,9 @@ SECURITY:
         title="Semantic Vector Search",
         description="""Semantic similarity search over fragments/claims using persisted embeddings.
 
-Use this before query_graph when you don't know which IDs/tables to look at.""",
+Use this before query_sql when you don't know which IDs/tables to look at.
+
+NOTE: If there are zero embeddings for the given target/task, this returns ok=false (hard error).""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -500,6 +519,74 @@ Use this before query_graph when you don't know which IDs/tables to look at.""",
             "additionalProperties": False,
         },
         outputSchema=_load_schema("vector_search"),
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
+    ),
+    Tool(
+        name="query_view",
+        title="Execute SQL View Template",
+        description="""Execute a predefined SQL view template.
+
+Use list_views first to see available templates. Views are predefined analysis queries
+for common evidence graph exploration patterns.
+
+AVAILABLE VIEWS:
+- v_claim_evidence_summary: Per-claim support/refute counts
+- v_contradictions: Claims with conflicting evidence
+- v_unsupported_claims: Claims without support
+- v_evidence_chain: Full evidence chain to sources
+- v_hub_pages: High-connectivity citation hubs
+- v_citation_flow: Citation relationships
+- v_evidence_timeline: Evidence by publication year
+- v_emerging_consensus: Claims gaining recent support
+- v_outdated_evidence: Older evidence needing review
+
+Use query_sql for custom queries not covered by templates.""",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "view_name": {
+                    "type": "string",
+                    "description": "View template name (e.g., v_contradictions). Use list_views to see available views.",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID for scoping (required for most views)",
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Additional template parameters (view-specific)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 50,
+                    "maximum": 200,
+                    "description": "Maximum rows to return",
+                },
+            },
+            "required": ["view_name"],
+        },
+        outputSchema=_load_schema("query_view"),
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
+    ),
+    Tool(
+        name="list_views",
+        title="List SQL View Templates",
+        description="""List all available SQL view templates for evidence graph analysis.
+
+Returns view names and descriptions. Use query_view to execute a template.""",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+        outputSchema=_load_schema("list_views"),
         annotations=ToolAnnotations(
             readOnlyHint=True,
             destructiveHint=False,
@@ -612,6 +699,11 @@ Session cookies are captured and reused for future requests to that domain.""",
 
 3 LEVELS, 6 ACTIONS:
 
+QUICK GUIDE:
+- Use edge_correct when an evidence relation label is wrong (most common).
+- Use claim_reject/claim_restore when an extracted claim is invalid/irrelevant.
+- Use domain_* only when a whole source domain should be blocked/unblocked.
+
 DOMAIN LEVEL - Block/unblock sources:
 - domain_block: Block a domain (e.g., low-quality site). Requires reason.
 - domain_unblock: Unblock a previously blocked domain. Requires reason.
@@ -627,7 +719,7 @@ EDGE LEVEL - Correct NLI classifications:
 
 EDGE_CORRECT DETAILS:
 When you find an edge with wrong NLI classification (e.g., marked 'neutral' but actually 'supports'):
-1. Get edge_id from query_graph or vector_search results
+1. Get edge_id from query_sql or vector_search results
 2. Call feedback(action=edge_correct, edge_id=..., correct_relation='supports')
 3. Edge confidence is set to 1.0 (human certainty) and claim confidence recalculates""",
         inputSchema={
@@ -651,11 +743,11 @@ When you find an edge with wrong NLI classification (e.g., marked 'neutral' but 
                 },
                 "claim_id": {
                     "type": "string",
-                    "description": "For claim_reject/claim_restore. Get from query_graph results (claims table)",
+                    "description": "For claim_reject/claim_restore. Get from query_sql results (claims table)",
                 },
                 "edge_id": {
                     "type": "string",
-                    "description": "For edge_correct. Get from query_graph results (edges table)",
+                    "description": "For edge_correct. Get from query_sql results (edges table)",
                 },
                 "correct_relation": {
                     "type": "string",
@@ -761,8 +853,10 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         "calibration_metrics": calibration.handle_calibration_metrics,
         "calibration_rollback": calibration.handle_calibration_rollback,
         # Evidence Graph Exploration
-        "query_graph": sql.handle_query_graph,
+        "query_sql": sql.handle_query_sql,
         "vector_search": vector.handle_vector_search,
+        "query_view": view.handle_query_view,
+        "list_views": view.handle_list_views,
         # Authentication Queue
         "get_auth_queue": auth.handle_get_auth_queue,
         "resolve_auth": auth.handle_resolve_auth,

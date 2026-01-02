@@ -1,5 +1,5 @@
 """
-Debug script: Evidence Graph exploration flow (query_graph + vector_search + views).
+Debug script: Evidence Graph exploration flow (query_sql + vector_search + views).
 
 Run:
   ./.venv/bin/python tests/scripts/debug_evidence_graph_exploration_flow.py
@@ -24,7 +24,7 @@ async def _main() -> None:
     from src.utils.config import get_settings
 
     tool_names = [t.name for t in TOOLS]
-    assert "query_graph" in tool_names, f"query_graph missing from TOOLS: {tool_names}"
+    assert "query_sql" in tool_names, f"query_sql missing from TOOLS: {tool_names}"
     assert "vector_search" in tool_names, f"vector_search missing from TOOLS: {tool_names}"
 
     settings = get_settings()
@@ -55,7 +55,14 @@ async def _main() -> None:
         )
         await db.execute(
             "INSERT INTO fragments (id, page_id, fragment_type, text_content, heading_context, is_relevant) VALUES (?, ?, ?, ?, ?, ?)",
-            (frag_id, page_id, "paragraph", "Metformin reduces cardiovascular events.", "Results", 1),
+            (
+                frag_id,
+                page_id,
+                "paragraph",
+                "Metformin reduces cardiovascular events.",
+                "Results",
+                1,
+            ),
         )
         await db.execute(
             "INSERT INTO claims (id, task_id, claim_text, llm_claim_confidence) VALUES (?, ?, ?, ?)",
@@ -71,10 +78,10 @@ async def _main() -> None:
         await persist_embedding("claim", claim_id, [0.9, 0.1, 0.0], model_id=model_id)
 
         # ------------------------------------------------------------
-        # query_graph: view query + include_schema wiring
+        # query_sql: view query + include_schema wiring
         # ------------------------------------------------------------
         q1 = await call_tool(
-            "query_graph",
+            "query_sql",
             {
                 "sql": f"SELECT claim_id, support_count, refute_count FROM v_claim_evidence_summary WHERE task_id = '{task_id}'",
                 "options": {"limit": 10, "include_schema": True},
@@ -87,13 +94,13 @@ async def _main() -> None:
         assert "claims" in table_names, table_names
         assert "embeddings" in table_names, table_names
 
-        # query_graph: security guard (PRAGMA forbidden)
-        q2 = await call_tool("query_graph", {"sql": "PRAGMA table_info(claims)"})
+        # query_sql: security guard (PRAGMA forbidden)
+        q2 = await call_tool("query_sql", {"sql": "PRAGMA table_info(claims)"})
         assert q2["ok"] is False and q2.get("error"), q2
 
-        # query_graph: DoS-ish query should be interrupted by timeout/VM steps
+        # query_sql: DoS-ish query should be interrupted by timeout/VM steps
         q3 = await call_tool(
-            "query_graph",
+            "query_sql",
             {
                 "sql": "WITH RECURSIVE cnt(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM cnt WHERE x < 1000000) SELECT count(*) AS c FROM cnt",
                 "options": {"timeout_ms": 100, "max_vm_steps": 20000, "limit": 1},
@@ -111,7 +118,12 @@ async def _main() -> None:
 
             v1 = await call_tool(
                 "vector_search",
-                {"query": "cardiovascular events", "target": "claims", "task_id": task_id, "top_k": 5},
+                {
+                    "query": "cardiovascular events",
+                    "target": "claims",
+                    "task_id": task_id,
+                    "top_k": 5,
+                },
             )
             assert v1["ok"] is True, v1
             assert v1["results"], v1
@@ -153,5 +165,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

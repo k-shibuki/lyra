@@ -3,7 +3,7 @@
 Per ADR-0003: MCP over CLI / REST API.
 
 Tests the full data flow between MCP tools:
-- create_task → search → get_status → query_graph/vector_search → stop_task
+- create_task → search → get_status → query_sql/vector_search → stop_task
 
 ## Test Perspectives Table
 

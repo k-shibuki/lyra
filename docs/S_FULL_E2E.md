@@ -162,7 +162,7 @@ resolve_auth(action="complete", domain="...")
 
 ```
 # 矛盾するエビデンスを確認
-query_graph(sql="SELECT * FROM v_contradictions ORDER BY controversy_score DESC LIMIT 10")
+query_sql(sql="SELECT * FROM v_contradictions ORDER BY controversy_score DESC LIMIT 10")
 
 # セマンティック検索で関連クレームを探索
 vector_search(query="DPP-4 cardiovascular safety", target="claims", task_id=task_id)
@@ -174,7 +174,7 @@ get_status(task_id)
 
 **Step 6: レポート構成（Cursor AI）**
 
-Cursor AIが `query_graph`/`vector_search` で取得した素材を統合してレポートを作成（ADR-0002）。
+Cursor AIが `query_sql`/`vector_search` で取得した素材を統合してレポートを作成（ADR-0002）。
 
 **Step 7: タスク完了**
 
@@ -205,11 +205,11 @@ stop_task(task_id, reason="completed")
 
 | 項目 | 記録方法 |
 |------|----------|
-| Evidence Graph | `query_graph` でSQLクエリ（例: `SELECT * FROM edges WHERE ...`） |
+| Evidence Graph | `query_sql` でSQLクエリ（例: `SELECT * FROM edges WHERE ...`） |
 | 検索クエリ履歴 | `get_status` の `searches` |
 | メトリクス | `get_status` の `metrics`, `budget`, `evidence_summary` |
-| NLI判定結果 | `query_graph` で edges テーブルをクエリ |
-| 認証キュー履歴 | `query_graph` で intervention_queue テーブルをクエリ |
+| NLI判定結果 | `query_sql` で edges テーブルをクエリ |
+| 認証キュー履歴 | `query_sql` で intervention_queue テーブルをクエリ |
 
 ---
 

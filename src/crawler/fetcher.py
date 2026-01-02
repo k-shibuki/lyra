@@ -820,25 +820,41 @@ async def _fetch_url_impl(
         # Store page record and update cache if successful
         if result is not None and result.ok:
             # Update pages table and capture page_id for fragment linking
-            page_id = await db.insert(
-                "pages",
-                {
-                    "url": url,
-                    "final_url": result.final_url,
-                    "domain": domain,
-                    "fetch_method": result.method,
-                    "http_status": result.status,
-                    "content_hash": result.content_hash,
-                    "html_path": result.html_path,
-                    "warc_path": result.warc_path,
-                    "screenshot_path": result.screenshot_path,
-                    "etag": result.etag,
-                    "last_modified": result.last_modified,
-                    "headers_json": json.dumps(result.headers) if result.headers else None,
-                    "cause_id": trace.id,
-                },
-                or_replace=True,
+            # Use UPDATE for existing URLs to preserve page_id (prevents orphan edges)
+            page_data = {
+                "final_url": result.final_url,
+                "domain": domain,
+                "fetch_method": result.method,
+                "http_status": result.status,
+                "content_hash": result.content_hash,
+                "html_path": result.html_path,
+                "warc_path": result.warc_path,
+                "screenshot_path": result.screenshot_path,
+                "etag": result.etag,
+                "last_modified": result.last_modified,
+                "headers_json": json.dumps(result.headers) if result.headers else None,
+                "cause_id": trace.id,
+            }
+
+            # Check if page already exists (e.g., placeholder from citation graph)
+            existing_page = await db.fetch_one(
+                "SELECT id FROM pages WHERE url = ?", (url,)
             )
+
+            if existing_page:
+                # UPDATE existing page, preserving page_id for edge integrity
+                page_id = existing_page["id"]
+                await db.update("pages", page_data, "id = ?", (page_id,))
+                logger.debug(
+                    "Updated existing page",
+                    url=url[:80],
+                    page_id=page_id,
+                )
+            else:
+                # INSERT new page
+                page_data["url"] = url
+                page_id = await db.insert("pages", page_data)
+
             if result is not None:
                 result.page_id = page_id
 

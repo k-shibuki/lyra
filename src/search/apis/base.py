@@ -4,10 +4,14 @@ Base class for academic API clients.
 Per ADR-0013: Worker Resource Contention Control, all academic API
 clients use a global rate limiter to enforce per-provider QPS limits
 across all worker instances.
+
+Per E2E fix: Retry-aware slot release pattern - release slot before
+backoff wait to allow other workers to proceed.
 """
 
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 
 import httpx
@@ -80,10 +84,14 @@ class BaseAcademicClient(ABC):
         return self._session
 
     async def search(self, query: str, limit: int = 10) -> AcademicSearchResult:
-        """Search for papers with global rate limiting.
+        """Search for papers with global rate limiting and retry-aware slot release.
 
         This method enforces per-provider QPS and concurrency limits
         per ADR-0013: Worker Resource Contention Control.
+
+        Key improvement (E2E fix): Releases slot before backoff wait to allow
+        other workers to proceed, preventing 60s timeout deadlocks when multiple
+        workers compete for max_parallel=1 APIs like Semantic Scholar.
 
         Args:
             query: Search query
@@ -93,13 +101,66 @@ class BaseAcademicClient(ABC):
             AcademicSearchResult
         """
         from src.search.apis.rate_limiter import get_academic_rate_limiter
+        from src.utils.api_retry import ACADEMIC_API_POLICY
+        from src.utils.backoff import calculate_backoff
 
         limiter = get_academic_rate_limiter()
-        await limiter.acquire(self.name)
-        try:
-            return await self._search_impl(query, limit)
-        finally:
-            limiter.release(self.name)
+        max_retries = ACADEMIC_API_POLICY.max_retries
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries + 1):
+            await limiter.acquire(self.name)
+            retry_delay: float | None = None
+            try:
+                result = await self._search_impl(query, limit)
+                limiter.report_success(self.name)
+                return result
+            except Exception as e:
+                last_error = e
+
+                # Check if retryable HTTP error
+                status_code: int | None = None
+                if isinstance(e, httpx.HTTPStatusError):
+                    status_code = e.response.status_code
+                elif hasattr(e, "response") and hasattr(e.response, "status_code"):
+                    status_code = e.response.status_code
+
+                # Report 429 to trigger adaptive backoff
+                if status_code == 429:
+                    await limiter.report_429(self.name)
+
+                # Check if retryable (429 or 5xx)
+                is_retryable = (
+                    status_code in ACADEMIC_API_POLICY.retryable_status_codes
+                    if status_code
+                    else False
+                )
+
+                if not is_retryable or attempt >= max_retries:
+                    # Not retryable or exhausted retries - re-raise
+                    raise
+
+                # Backoff wait (without holding slot - key improvement)
+                retry_delay = calculate_backoff(attempt, ACADEMIC_API_POLICY.backoff)
+                logger.info(
+                    "Retrying search after releasing slot",
+                    provider=self.name,
+                    attempt=attempt + 1,
+                    max_retries=max_retries,
+                    delay_seconds=round(retry_delay, 2),
+                    status_code=status_code,
+                )
+            finally:
+                # Always release slot (success or failure) to avoid deadlocks where
+                # a provider's effective_max_parallel is exhausted permanently.
+                limiter.release(self.name)
+
+            # Backoff wait (outside the acquired slot)
+            if retry_delay is not None:
+                await asyncio.sleep(retry_delay)
+
+        # Should not reach here, but handle edge case
+        raise last_error or RuntimeError(f"Search failed after {max_retries + 1} attempts")
 
     @abstractmethod
     async def _search_impl(self, query: str, limit: int = 10) -> AcademicSearchResult:

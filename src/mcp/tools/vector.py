@@ -118,6 +118,23 @@ async def handle_vector_search(args: dict[str, Any]) -> dict[str, Any]:
                 )
             total_searched = count_result["cnt"] if count_result else 0
 
+            # Return error if no embeddings exist for target
+            # This indicates embeddings were not generated (e.g., ML server connection failure)
+            if total_searched == 0:
+                target_desc = f"{target}" + (f" for task {task_id}" if task_id else "")
+                logger.warning(
+                    "No embeddings found for vector_search",
+                    target=target,
+                    task_id=task_id,
+                    model_id=model_id,
+                )
+                return {
+                    "ok": False,
+                    "results": [],
+                    "total_searched": 0,
+                    "error": f"No embeddings found for {target_desc}. Embedding generation may have failed.",
+                }
+
             return {
                 "ok": True,
                 "results": results,

@@ -165,7 +165,7 @@ class SearchProviderOptions(BaseModel):
     limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results per page")
     serp_page: int = Field(default=1, ge=1, description="SERP page number (pagination)")
     serp_max_pages: int = Field(
-        default=1,
+        default=2,
         ge=1,
         le=10,
         description="Maximum SERP pages to fetch for pagination",

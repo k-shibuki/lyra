@@ -27,6 +27,16 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Default timeout for acquiring rate limit slots (seconds).
+# Designed for thoroughness over speed: Academic APIs are the primary source
+# for structured, high-quality references. We wait longer to ensure comprehensive
+# coverage rather than fail fast.
+#
+# Previous value (30s) caused many API calls to timeout and lose results.
+# New value (300s) aligns with pipeline timeout, ensuring we collect as many
+# academic references as possible within the overall time budget.
+DEFAULT_SLOT_ACQUIRE_TIMEOUT_SECONDS = 300.0
+
 
 @dataclass
 class ProviderRateLimitConfig:
@@ -182,7 +192,7 @@ class AcademicAPIRateLimiter:
                 max_parallel=config.max_parallel,
             )
 
-    async def acquire(self, provider: str, timeout: float = 60.0) -> None:
+    async def acquire(self, provider: str, timeout: float | None = None) -> None:
         """Acquire rate limit slot for a provider.
 
         Blocks until:
@@ -192,8 +202,17 @@ class AcademicAPIRateLimiter:
         Args:
             provider: API provider name (e.g., "semantic_scholar", "openalex")
             timeout: Maximum time to wait for a slot (seconds).
+                If None, uses DEFAULT_SLOT_ACQUIRE_TIMEOUT_SECONDS (30s).
+                This is intentionally shorter than pipeline timeout to allow
+                fallback to other sources when an API is rate-limited.
         """
         await self._ensure_provider_initialized(provider)
+
+        # Use short default timeout to avoid blocking pipeline (P0 fix)
+        # Previous behavior used cursor_idle_timeout_seconds (300s), which caused
+        # SERP results to never be fetched when Academic API was rate-limited.
+        if timeout is None:
+            timeout = DEFAULT_SLOT_ACQUIRE_TIMEOUT_SECONDS
 
         # Check for recovery before acquiring (ADR-0015)
         await self._maybe_recover(provider)

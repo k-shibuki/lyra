@@ -424,6 +424,57 @@ class SearchQueueWorkerManager:
 
         return cancelled_count
 
+    async def wait_for_task_jobs_to_complete(self, task_id: str, timeout: float = 30.0) -> int:
+        """Wait for all running search jobs for a task to complete.
+
+        Used by stop_task(mode=graceful) to wait for running jobs to finish naturally.
+        Does NOT cancel the jobs, just waits for them.
+
+        Args:
+            task_id: The research task ID whose jobs to wait for.
+            timeout: Maximum time to wait in seconds.
+
+        Returns:
+            Number of jobs that were waited on.
+        """
+        jobs_to_wait: list[tuple[str, asyncio.Task[Any]]] = []
+
+        # Find all jobs for this task
+        for search_id, (job_task_id, job_task) in list(self._running_jobs.items()):
+            if job_task_id == task_id and not job_task.done():
+                jobs_to_wait.append((search_id, job_task))
+
+        if not jobs_to_wait:
+            return 0
+
+        logger.info(
+            "Waiting for running jobs to complete",
+            task_id=task_id,
+            job_count=len(jobs_to_wait),
+            timeout=timeout,
+        )
+
+        # Wait for jobs to complete (with timeout)
+        tasks_to_wait = [job_task for _, job_task in jobs_to_wait]
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*tasks_to_wait, return_exceptions=True),
+                timeout=timeout,
+            )
+            logger.info(
+                "All running jobs completed",
+                task_id=task_id,
+                job_count=len(jobs_to_wait),
+            )
+        except TimeoutError:
+            logger.warning(
+                "Timeout waiting for jobs to complete (will proceed with finalization)",
+                task_id=task_id,
+                pending_count=len([t for t in tasks_to_wait if not t.done()]),
+            )
+
+        return len(jobs_to_wait)
+
     async def start(self) -> None:
         """Start all search queue workers."""
         if self._started:

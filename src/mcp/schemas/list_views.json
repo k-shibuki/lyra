@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lyra:mcp:list_views",
+  "title": "list_views Response",
+  "description": "Response schema for list_views tool (list available SQL view templates)",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "views": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "View template name"
+          },
+          "description": {
+            "type": "string",
+            "description": "View description"
+          }
+        },
+        "required": ["name", "description"]
+      }
+    },
+    "count": {
+      "type": "integer",
+      "description": "Number of available views"
+    }
+  },
+  "required": ["ok", "views", "count"]
+}
+

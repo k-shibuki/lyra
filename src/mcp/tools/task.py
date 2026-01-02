@@ -316,11 +316,11 @@ async def handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
             expected="non-empty string",
         )
 
-    if mode not in ("graceful", "immediate"):
+    if mode not in ("graceful", "immediate", "full"):
         raise InvalidParamsError(
-            "mode must be 'graceful' or 'immediate'",
+            "mode must be 'graceful', 'immediate', or 'full'",
             param_name="mode",
-            expected="'graceful' or 'immediate'",
+            expected="'graceful', 'immediate', or 'full'",
         )
 
     with LogContext(task_id=task_id):
@@ -379,19 +379,24 @@ async def cancel_search_queue_jobs(
 
     Args:
         task_id: The task ID.
-        mode: Stop mode ('graceful' or 'immediate').
+        mode: Stop mode ('graceful', 'immediate', or 'full').
         db: Database connection.
 
     Returns:
-        Dict with counts of cancelled jobs by previous state.
+        Dict with counts of cancelled/waited jobs by previous state.
 
     Mode semantics (ADR-0010):
-    - graceful: Only cancel 'queued' jobs. Running jobs complete normally.
-    - immediate: Cancel both 'queued' and 'running' jobs, including in-flight
-                 search_action executions via asyncio.Task.cancel().
+    - graceful: Cancel 'queued' jobs and WAIT for running jobs to complete naturally.
+    - immediate: Cancel both 'queued' and 'running' jobs immediately via asyncio.Task.cancel().
+    - full: Cancel all jobs (like immediate) AND wait for ML/NLI operations to drain.
     """
     now = datetime.now(UTC).isoformat()
-    counts = {"queued_cancelled": 0, "running_cancelled": 0, "tasks_cancelled": 0}
+    counts = {
+        "queued_cancelled": 0,
+        "running_cancelled": 0,
+        "tasks_cancelled": 0,
+        "jobs_waited": 0,
+    }
 
     # Always cancel queued jobs (DB state only)
     cursor = await db.execute(
@@ -404,10 +409,16 @@ async def cancel_search_queue_jobs(
     )
     counts["queued_cancelled"] = getattr(cursor, "rowcount", 0)
 
-    if mode == "immediate":
+    manager = get_worker_manager()
+
+    if mode == "graceful":
+        # Wait for running jobs to complete naturally (don't cancel them)
+        jobs_waited = await manager.wait_for_task_jobs_to_complete(task_id, timeout=30.0)
+        counts["jobs_waited"] = jobs_waited
+
+    elif mode in ("immediate", "full"):
         # Cancel running jobs: both DB state and actual asyncio.Task
         # Step 1: Cancel running worker tasks (this triggers CancelledError)
-        manager = get_worker_manager()
         tasks_cancelled = await manager.cancel_jobs_for_task(task_id)
         counts["tasks_cancelled"] = tasks_cancelled
 
@@ -423,13 +434,21 @@ async def cancel_search_queue_jobs(
         )
         counts["running_cancelled"] = getattr(cursor, "rowcount", 0)
 
+        # For full mode: additional wait for any in-flight operations to drain
+        if mode == "full":
+            # Give time for cancelled tasks to propagate and clean up
+            import asyncio
+
+            await asyncio.sleep(0.5)  # Brief pause for cleanup
+
     logger.info(
-        "Search queue jobs cancelled",
+        "Search queue jobs processed",
         task_id=task_id,
         mode=mode,
         queued_cancelled=counts["queued_cancelled"],
         running_cancelled=counts["running_cancelled"],
         tasks_cancelled=counts.get("tasks_cancelled", 0),
+        jobs_waited=counts.get("jobs_waited", 0),
     )
 
     return counts

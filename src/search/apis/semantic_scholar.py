@@ -55,7 +55,10 @@ class SemanticScholarClient(BaseAcademicClient):
 
         try:
             data = await retry_api_call(
-                _search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                _search,
+                policy=ACADEMIC_API_POLICY,
+                rate_limiter_provider=self.name,
+                max_consecutive_429=3,  # E2E fix: early fail for OpenAlex fallback
             )
             papers = [self._parse_paper(p) for p in data.get("data", [])]
 
@@ -71,7 +74,16 @@ class SemanticScholarClient(BaseAcademicClient):
                 source_api="semantic_scholar",
             )
         except Exception as e:
-            logger.error("Semantic Scholar search failed", query=query, error=str(e))
+            # Log as warning (not error) for 429 early-fail (expected behavior for fallback)
+            from src.utils.api_retry import APIRetryError
+
+            if isinstance(e, APIRetryError) and e.last_status == 429:
+                logger.warning(
+                    "Semantic Scholar rate limited, falling back to OpenAlex only",
+                    query=query[:50],
+                )
+            else:
+                logger.error("Semantic Scholar search failed", query=query, error=str(e))
             return AcademicSearchResult(
                 papers=[], total_count=0, next_cursor=None, source_api="semantic_scholar"
             )

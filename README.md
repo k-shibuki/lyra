@@ -176,7 +176,7 @@ The MCP client (Cursor AI, Claude Desktop) provides frontier reasoning for strat
    - NLI stance detection (supports/refutes/neutral)
    - Evidence graph construction
 3. **Iterative Refinement**: MCP client reviews metrics via `get_status`, designs follow-up queries
-4. **Evidence Exploration**: `query_graph` (SQL) and `vector_search` (semantic) enable granular evidence graph exploration
+4. **Evidence Exploration**: `query_sql` (SQL) and `vector_search` (semantic) enable granular evidence graph exploration
 
 ### Key Modules
 
@@ -493,7 +493,7 @@ get_status(task_id="task_abc123", wait=10)
 # }
 
 # 4. Explore evidence graph with SQL
-query_graph(sql="SELECT * FROM v_contradictions ORDER BY controversy_score DESC LIMIT 10")
+query_sql(sql="SELECT * FROM v_contradictions ORDER BY controversy_score DESC LIMIT 10")
 # Returns: {"ok": true, "rows": [...], "row_count": 10}
 
 # 5. Semantic search for related claims
