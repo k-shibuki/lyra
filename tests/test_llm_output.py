@@ -544,7 +544,9 @@ class TestParseAndValidate:
         assert validated[0].fact == "Fixed"
 
     @pytest.mark.asyncio
-    async def test_parse_and_validate_final_failure_records_db(self, test_database: Database) -> None:
+    async def test_parse_and_validate_final_failure_records_db(
+        self, test_database: Database
+    ) -> None:
         """TC-P-05: parse_and_validate records failure to DB and returns None."""
         # Given: No retry function and an invalid response
         # When: Parsing and validating
@@ -572,7 +574,9 @@ class TestParseAndValidate:
         assert rows[-1]["retry_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_parse_and_validate_retry_call_failure_records_db(self, test_database: Database) -> None:
+    async def test_parse_and_validate_retry_call_failure_records_db(
+        self, test_database: Database
+    ) -> None:
         """TC-P-06: parse_and_validate records DB row if retry call itself fails."""
         # Given: Invalid response and a retry function that raises RuntimeError
         error_msg = "retry failed"
@@ -637,7 +641,9 @@ class TestParseAndValidate:
         assert rows[-1]["retry_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_parse_and_validate_type_mismatch_triggers_retry(self, test_database: Database) -> None:
+    async def test_parse_and_validate_type_mismatch_triggers_retry(
+        self, test_database: Database
+    ) -> None:
         """TC-P-08: parse_and_validate triggers retry when single object received.
 
         Behavior: When expect_array=True and LLM returns a single object:
@@ -674,7 +680,9 @@ class TestParseAndValidate:
         assert validated[0].fact == "retry fact text"
 
     @pytest.mark.asyncio
-    async def test_parse_and_validate_task_id_context_propagation(self, test_database: Database) -> None:
+    async def test_parse_and_validate_task_id_context_propagation(
+        self, test_database: Database
+    ) -> None:
         """TC-P-09: parse_and_validate propagates task_id and context to DB record."""
         # Given: Create a task first (for foreign key constraint)
         task_id = "test_task_123"

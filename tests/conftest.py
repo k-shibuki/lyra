@@ -126,12 +126,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
+from _pytest.config import Config
+from _pytest.main import Session
+from _pytest.nodes import Item
 
 if TYPE_CHECKING:
-    from _pytest.config import Config
     from _pytest.fixtures import FixtureRequest
-    from _pytest.main import Session
-    from _pytest.nodes import Item
 
     from src.storage.database import Database
     from src.utils.config import Settings
@@ -546,7 +546,7 @@ def mock_settings() -> Settings:
         NLIConfig,
         NotificationConfig,
         QualityConfig,
-        RerankerConfig,
+        RankingConfig,
         SearchConfig,
         Settings,
         StorageConfig,
@@ -570,7 +570,7 @@ def mock_settings() -> Settings:
         crawler=CrawlerConfig(),
         llm=LLMConfig(),
         embedding=EmbeddingConfig(),
-        reranker=RerankerConfig(top_k=10),
+        ranking=RankingConfig(),
         task_limits=TaskLimitsConfig(),
         tor=TorConfig(enabled=False),
         browser=BrowserConfig(),

@@ -118,7 +118,6 @@ CREATE TABLE IF NOT EXISTS fragments (
     -- Scores
     bm25_score REAL,
     embed_score REAL,
-    rerank_score REAL,
     -- Relevance
     is_relevant BOOLEAN,
     relevance_reason TEXT,
@@ -304,7 +303,7 @@ CREATE INDEX IF NOT EXISTS idx_lastmile_usage_engine_date ON lastmile_usage(engi
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     task_id TEXT,
-    kind TEXT NOT NULL,  -- serp, fetch, extract, embed, rerank, llm_fast, llm_slow, nli
+    kind TEXT NOT NULL,  -- serp, fetch, extract, embed, llm_fast, llm_slow, nli
     priority INTEGER DEFAULT 50,  -- Lower = higher priority
     slot TEXT NOT NULL,  -- gpu, browser_headful, network_client, cpu_nlp
     state TEXT DEFAULT 'pending',  -- pending, queued, running, completed, failed, cancelled
@@ -355,16 +354,19 @@ CREATE TABLE IF NOT EXISTS cache_fetch (
 );
 CREATE INDEX IF NOT EXISTS idx_cache_fetch_expires ON cache_fetch(expires_at);
 
--- Embedding Cache
-CREATE TABLE IF NOT EXISTS cache_embed (
-    text_hash TEXT PRIMARY KEY,  -- SHA256 of text
-    model_id TEXT NOT NULL,
-    embedding_blob BLOB NOT NULL,  -- Binary embedding
+-- Embeddings (persistent, replaces cache_embed)
+CREATE TABLE IF NOT EXISTS embeddings (
+    id TEXT PRIMARY KEY,
+    target_type TEXT NOT NULL,  -- 'fragment' | 'claim'
+    target_id TEXT NOT NULL,
+    model_id TEXT NOT NULL,     -- 'BAAI/bge-m3'
+    embedding_blob BLOB NOT NULL,
+    dimension INTEGER NOT NULL,  -- 768
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME,
-    hit_count INTEGER DEFAULT 0
+    UNIQUE(target_type, target_id, model_id)
 );
-CREATE INDEX IF NOT EXISTS idx_cache_embed_expires ON cache_embed(expires_at);
+CREATE INDEX IF NOT EXISTS idx_embeddings_target ON embeddings(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_embeddings_type ON embeddings(target_type);
 
 -- ============================================================
 -- Logging & Audit
@@ -843,4 +845,405 @@ SELECT
          ELSE 0 END as llm_time_ratio
 FROM tasks t
 LEFT JOIN task_metrics tm ON t.id = tm.task_id;
+
+-- ============================================================
+-- Evidence Graph Exploration Views (ADR: Sd_EVIDENCE_GRAPH_EXPLORATION)
+-- ============================================================
+
+-- 1) Claim evidence aggregation (task-scoped via claims.task_id)
+CREATE VIEW IF NOT EXISTS v_claim_evidence_summary AS
+SELECT
+    c.task_id,
+    c.id AS claim_id,
+    c.claim_text,
+    SUM(CASE WHEN e.relation = 'supports' THEN 1 ELSE 0 END) AS support_count,
+    SUM(CASE WHEN e.relation = 'refutes' THEN 1 ELSE 0 END) AS refute_count,
+    SUM(CASE WHEN e.relation = 'neutral' THEN 1 ELSE 0 END) AS neutral_count,
+    COUNT(e.id) AS evidence_count,
+    MAX(COALESCE(e.nli_edge_confidence, 0.0)) AS max_nli_edge_confidence,
+    AVG(COALESCE(e.nli_edge_confidence, 0.0)) AS avg_nli_edge_confidence
+FROM claims c
+LEFT JOIN edges e
+  ON e.target_type = 'claim'
+ AND e.target_id = c.id
+ AND e.source_type = 'fragment'
+GROUP BY c.task_id, c.id;
+
+-- 2) Contradicting claims (supports + refutes)
+CREATE VIEW IF NOT EXISTS v_contradictions AS
+SELECT
+    s.task_id,
+    s.claim_id,
+    s.claim_text,
+    s.support_count,
+    s.refute_count,
+    s.neutral_count,
+    s.evidence_count,
+    CASE
+      WHEN s.evidence_count <= 0 THEN 0.0
+      ELSE (MIN(s.support_count, s.refute_count) * 1.0) / s.evidence_count
+    END AS controversy_score
+FROM v_claim_evidence_summary s
+WHERE s.support_count > 0
+  AND s.refute_count > 0;
+
+-- 3) Claims with no evidence edges
+CREATE VIEW IF NOT EXISTS v_unsupported_claims AS
+SELECT
+    s.task_id,
+    s.claim_id,
+    s.claim_text,
+    s.evidence_count
+FROM v_claim_evidence_summary s
+WHERE s.evidence_count = 0;
+
+-- 4) Evidence chain (fragment -> claim with page provenance)
+CREATE VIEW IF NOT EXISTS v_evidence_chain AS
+SELECT
+    c.task_id,
+    e.id AS edge_id,
+    e.relation,
+    e.nli_edge_confidence,
+    f.id AS fragment_id,
+    f.heading_context,
+    p.id AS page_id,
+    p.url,
+    p.domain,
+    c.id AS claim_id,
+    c.claim_text
+FROM edges e
+JOIN claims c
+  ON e.target_type = 'claim'
+ AND e.target_id = c.id
+JOIN fragments f
+  ON e.source_type = 'fragment'
+ AND e.source_id = f.id
+JOIN pages p
+  ON f.page_id = p.id
+WHERE e.source_type = 'fragment'
+  AND e.target_type = 'claim';
+
+-- 5) Hub pages (pages that support many claims) + citation counts
+CREATE VIEW IF NOT EXISTS v_hub_pages AS
+WITH page_claims AS (
+  SELECT
+      c.task_id,
+      p.id AS page_id,
+      p.url,
+      p.title,
+      p.domain,
+      COUNT(DISTINCT c.id) AS claims_supported
+  FROM edges e
+  JOIN claims c
+    ON e.target_type = 'claim'
+   AND e.target_id = c.id
+  JOIN fragments f
+    ON e.source_type = 'fragment'
+   AND e.source_id = f.id
+  JOIN pages p
+    ON f.page_id = p.id
+  WHERE e.relation = 'supports'
+  GROUP BY c.task_id, p.id
+),
+page_out AS (
+  SELECT e.source_id AS page_id, COUNT(*) AS citation_count
+  FROM edges e
+  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
+  GROUP BY e.source_id
+),
+page_in AS (
+  SELECT e.target_id AS page_id, COUNT(*) AS cited_by_count
+  FROM edges e
+  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
+  GROUP BY e.target_id
+)
+SELECT
+    pc.task_id,
+    pc.page_id,
+    pc.url,
+    pc.title,
+    pc.domain,
+    pc.claims_supported,
+    COALESCE(po.citation_count, 0) AS citation_count,
+    COALESCE(pi.cited_by_count, 0) AS cited_by_count
+FROM page_claims pc
+LEFT JOIN page_out po ON po.page_id = pc.page_id
+LEFT JOIN page_in pi ON pi.page_id = pc.page_id;
+
+-- 6) Citation flow (page -> page)
+CREATE VIEW IF NOT EXISTS v_citation_flow AS
+SELECT
+    e.source_id AS citing_page_id,
+    e.target_id AS cited_page_id,
+    e.citation_source,
+    e.created_at
+FROM edges e
+WHERE e.relation = 'cites'
+  AND e.source_type = 'page'
+  AND e.target_type = 'page';
+
+-- 7) Mutual citation pairs (lightweight "cluster" signal)
+CREATE VIEW IF NOT EXISTS v_citation_clusters AS
+SELECT
+    e1.source_id AS page_a,
+    e1.target_id AS page_b,
+    1 AS is_mutual
+FROM edges e1
+JOIN edges e2
+  ON e2.source_id = e1.target_id
+ AND e2.target_id = e1.source_id
+WHERE e1.relation = 'cites'
+  AND e2.relation = 'cites'
+  AND e1.source_type = 'page'
+  AND e1.target_type = 'page'
+  AND e2.source_type = 'page'
+  AND e2.target_type = 'page';
+
+-- 8) Orphan sources (evidence pages with zero inbound citations)
+CREATE VIEW IF NOT EXISTS v_orphan_sources AS
+WITH evidence_pages AS (
+  SELECT DISTINCT
+      c.task_id,
+      p.id AS page_id,
+      p.url,
+      p.title,
+      p.domain
+  FROM edges e
+  JOIN claims c
+    ON e.target_type = 'claim'
+   AND e.target_id = c.id
+  JOIN fragments f
+    ON e.source_type = 'fragment'
+   AND e.source_id = f.id
+  JOIN pages p
+    ON f.page_id = p.id
+  WHERE e.source_type = 'fragment'
+    AND e.target_type = 'claim'
+),
+inbound AS (
+  SELECT e.target_id AS page_id, COUNT(*) AS cited_by_count
+  FROM edges e
+  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
+  GROUP BY e.target_id
+)
+SELECT
+    ep.task_id,
+    ep.page_id,
+    ep.url,
+    ep.title,
+    ep.domain,
+    COALESCE(i.cited_by_count, 0) AS cited_by_count
+FROM evidence_pages ep
+LEFT JOIN inbound i ON i.page_id = ep.page_id
+WHERE COALESCE(i.cited_by_count, 0) = 0;
+
+-- Helper CTE: evidence rows with extracted publication year (nullable)
+-- NOTE: Uses JSON1 if available; invalid JSON yields NULL.
+CREATE VIEW IF NOT EXISTS v__evidence_with_year AS
+SELECT
+    c.task_id,
+    c.id AS claim_id,
+    c.claim_text,
+    e.relation,
+    f.id AS fragment_id,
+    p.id AS page_id,
+    p.domain,
+    CASE
+      WHEN p.paper_metadata IS NOT NULL AND json_valid(p.paper_metadata)
+        THEN CAST(json_extract(p.paper_metadata, '$.year') AS INTEGER)
+      ELSE NULL
+    END AS year
+FROM edges e
+JOIN claims c
+  ON e.target_type = 'claim'
+ AND e.target_id = c.id
+JOIN fragments f
+  ON e.source_type = 'fragment'
+ AND e.source_id = f.id
+JOIN pages p
+  ON f.page_id = p.id
+WHERE e.source_type = 'fragment'
+  AND e.target_type = 'claim';
+
+-- 9) Evidence timeline (by year)
+CREATE VIEW IF NOT EXISTS v_evidence_timeline AS
+SELECT
+    task_id,
+    year,
+    COUNT(DISTINCT fragment_id) AS fragment_count,
+    COUNT(DISTINCT claim_id) AS claim_count
+FROM v__evidence_with_year
+GROUP BY task_id, year;
+
+-- 10) Claim temporal support (supports only)
+CREATE VIEW IF NOT EXISTS v_claim_temporal_support AS
+SELECT
+    task_id,
+    claim_id,
+    claim_text,
+    MIN(year) AS earliest_year,
+    MAX(year) AS latest_year,
+    CASE
+      WHEN MIN(year) IS NULL OR MAX(year) IS NULL THEN NULL
+      ELSE (MAX(year) - MIN(year))
+    END AS year_span
+FROM v__evidence_with_year
+WHERE relation = 'supports'
+GROUP BY task_id, claim_id;
+
+-- 11) Emerging consensus (more recent support than older support)
+CREATE VIEW IF NOT EXISTS v_emerging_consensus AS
+WITH y AS (
+  SELECT
+      task_id,
+      claim_id,
+      claim_text,
+      CASE WHEN year IS NOT NULL AND year >= (CAST(strftime('%Y','now') AS INTEGER) - 2) THEN 1 ELSE 0 END AS is_recent,
+      relation
+  FROM v__evidence_with_year
+  WHERE relation = 'supports'
+)
+SELECT
+    task_id,
+    claim_id,
+    claim_text,
+    SUM(CASE WHEN is_recent = 1 THEN 1 ELSE 0 END) AS recent_support_count,
+    SUM(CASE WHEN is_recent = 0 THEN 1 ELSE 0 END) AS older_support_count,
+    (SUM(CASE WHEN is_recent = 1 THEN 1 ELSE 0 END) - SUM(CASE WHEN is_recent = 0 THEN 1 ELSE 0 END)) AS support_trend
+FROM y
+GROUP BY task_id, claim_id;
+
+-- 12) Outdated evidence (newest support year far in the past)
+CREATE VIEW IF NOT EXISTS v_outdated_evidence AS
+WITH support_years AS (
+  SELECT task_id, claim_id, claim_text, MAX(year) AS newest_evidence_year
+  FROM v__evidence_with_year
+  WHERE relation = 'supports'
+  GROUP BY task_id, claim_id
+)
+SELECT
+    task_id,
+    claim_id,
+    claim_text,
+    newest_evidence_year,
+    CASE
+      WHEN newest_evidence_year IS NULL THEN NULL
+      ELSE (CAST(strftime('%Y','now') AS INTEGER) - newest_evidence_year)
+    END AS years_since_update
+FROM support_years;
+
+-- 13) Source authority (simple composite score)
+CREATE VIEW IF NOT EXISTS v_source_authority AS
+WITH base AS (
+  SELECT
+      h.task_id,
+      h.page_id,
+      h.url,
+      h.title,
+      h.domain,
+      h.claims_supported,
+      h.citation_count,
+      h.cited_by_count,
+      CASE
+        WHEN p.paper_metadata IS NOT NULL AND json_valid(p.paper_metadata)
+          THEN CAST(json_extract(p.paper_metadata, '$.year') AS INTEGER)
+        ELSE NULL
+      END AS year
+  FROM v_hub_pages h
+  JOIN pages p ON p.id = h.page_id
+)
+SELECT
+    task_id,
+    page_id,
+    url,
+    title,
+    domain,
+    year,
+    claims_supported,
+    citation_count,
+    cited_by_count,
+    (claims_supported * 1.0) + (cited_by_count * 0.5) + (citation_count * 0.2) AS authority_score
+FROM base;
+
+-- 14) Controversy by era (bucket by decade using newest evidence year)
+CREATE VIEW IF NOT EXISTS v_controversy_by_era AS
+WITH c AS (
+  SELECT
+      v.task_id,
+      v.claim_id,
+      v.claim_text,
+      v.controversy_score,
+      MAX(y.year) AS newest_year
+  FROM v_contradictions v
+  LEFT JOIN v__evidence_with_year y
+    ON y.task_id = v.task_id AND y.claim_id = v.claim_id
+  GROUP BY v.task_id, v.claim_id
+)
+SELECT
+    task_id,
+    CASE
+      WHEN newest_year IS NULL THEN NULL
+      ELSE (newest_year / 10) * 10
+    END AS decade,
+    COUNT(*) AS controversial_claims,
+    AVG(controversy_score) AS avg_controversy_score
+FROM c
+GROUP BY task_id, decade;
+
+-- 15) Citation age gap (citing year - cited year)
+CREATE VIEW IF NOT EXISTS v_citation_age_gap AS
+WITH years AS (
+  SELECT
+      e.source_id AS citing_page_id,
+      e.target_id AS cited_page_id,
+      CASE
+        WHEN p1.paper_metadata IS NOT NULL AND json_valid(p1.paper_metadata)
+          THEN CAST(json_extract(p1.paper_metadata, '$.year') AS INTEGER)
+        ELSE NULL
+      END AS citing_year,
+      CASE
+        WHEN p2.paper_metadata IS NOT NULL AND json_valid(p2.paper_metadata)
+          THEN CAST(json_extract(p2.paper_metadata, '$.year') AS INTEGER)
+        ELSE NULL
+      END AS cited_year
+  FROM edges e
+  JOIN pages p1 ON p1.id = e.source_id
+  JOIN pages p2 ON p2.id = e.target_id
+  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
+)
+SELECT
+    citing_page_id,
+    cited_page_id,
+    citing_year,
+    cited_year,
+    CASE
+      WHEN citing_year IS NULL OR cited_year IS NULL THEN NULL
+      ELSE (citing_year - cited_year)
+    END AS age_gap
+FROM years;
+
+-- 16) Evidence freshness (avg age and recent support/refutation flags)
+CREATE VIEW IF NOT EXISTS v_evidence_freshness AS
+WITH cur AS (
+  SELECT CAST(strftime('%Y','now') AS INTEGER) AS current_year
+),
+e AS (
+  SELECT
+      task_id,
+      claim_id,
+      claim_text,
+      relation,
+      year
+  FROM v__evidence_with_year
+  WHERE year IS NOT NULL
+)
+SELECT
+    e.task_id,
+    e.claim_id,
+    e.claim_text,
+    AVG(cur.current_year - e.year) AS avg_evidence_age,
+    MAX(CASE WHEN e.relation = 'supports' AND e.year >= (cur.current_year - 2) THEN 1 ELSE 0 END) AS has_recent_support,
+    MAX(CASE WHEN e.relation = 'refutes' AND e.year >= (cur.current_year - 2) THEN 1 ELSE 0 END) AS has_recent_refutation
+FROM e, cur
+GROUP BY e.task_id, e.claim_id;
 

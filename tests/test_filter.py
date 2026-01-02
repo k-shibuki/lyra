@@ -207,81 +207,6 @@ class TestEmbeddingRanker:
             assert all(-1 <= s <= 1 for s in scores)
 
 
-class TestReranker:
-    """Tests for Reranker class."""
-
-    def test_reranker_init(self) -> None:
-        """Test Reranker initialization."""
-        from src.filter.ranking import Reranker
-
-        reranker = Reranker()
-
-        assert reranker._model is None
-
-    @pytest.mark.asyncio
-    async def test_rerank_returns_sorted_results(self) -> None:
-        """Test rerank returns results sorted by score."""
-        from unittest.mock import patch
-
-        import numpy as np
-
-        from src.filter.ranking import Reranker
-
-        reranker = Reranker()
-
-        # Mock model
-        mock_model = MagicMock()
-        mock_model.predict.return_value = np.array([0.5, 0.9, 0.3])
-        model_attr = "_model"
-        setattr(reranker, model_attr, mock_model)
-
-        # Ensure local mode (not remote)
-        with patch.object(reranker._settings.ml, "use_remote", False):
-            results = await reranker.rerank(
-                "test query",
-                ["doc1", "doc2", "doc3"],
-                top_k=3,
-            )
-
-            # Should be sorted by score descending
-            assert results[0][0] == 1  # doc2 (score 0.9)
-            assert results[1][0] == 0  # doc1 (score 0.5)
-            assert results[2][0] == 2  # doc3 (score 0.3)
-
-            assert results[0][1] == pytest.approx(0.9)
-            assert results[1][1] == pytest.approx(0.5)
-            assert results[2][1] == pytest.approx(0.3)
-
-    @pytest.mark.asyncio
-    async def test_rerank_respects_top_k(self) -> None:
-        """Test rerank respects top_k parameter."""
-        from unittest.mock import patch
-
-        import numpy as np
-
-        from src.filter.ranking import Reranker
-
-        reranker = Reranker()
-
-        mock_model = MagicMock()
-        mock_model.predict.return_value = np.array([0.5, 0.9, 0.3, 0.7, 0.1])
-        model_attr = "_model"
-        setattr(reranker, model_attr, mock_model)
-
-        # Ensure local mode (not remote)
-        with patch.object(reranker._settings.ml, "use_remote", False):
-            results = await reranker.rerank(
-                "query",
-                ["d1", "d2", "d3", "d4", "d5"],
-                top_k=2,
-            )
-
-            assert len(results) == 2
-            # Top 2 by score
-            assert results[0][0] == 1  # d2 (0.9)
-            assert results[1][0] == 3  # d4 (0.7)
-
-
 class TestRankCandidates:
     """Tests for rank_candidates function."""
 
@@ -310,25 +235,22 @@ class TestRankCandidates:
         mock_embed = MagicMock()
         mock_embed.get_scores = AsyncMock(return_value=[0.9, 0.2, 0.8, 0.4, 0.7])
 
-        mock_rerank = MagicMock()
-        mock_rerank.rerank = AsyncMock(return_value=[(0, 0.95), (2, 0.85)])
-
         with patch.object(ranking, "_bm25_ranker", mock_bm25):
             with patch.object(ranking, "_embedding_ranker", mock_embed):
-                with patch.object(ranking, "_reranker", mock_rerank):
-                    results = await ranking.rank_candidates(
-                        "AI in healthcare",
-                        sample_passages,
-                        top_k=2,
-                    )
+                results = await ranking.rank_candidates(
+                    "AI in healthcare",
+                    sample_passages,
+                    top_k=2,
+                )
 
-        # Should return top_k results
-        assert len(results) == 2
+        # With Kneedle cutoff, results depend on score distribution
+        # At minimum 3 results (min_results default), at most len(sample_passages)
+        assert 3 <= len(results) <= len(sample_passages)
 
         # Results should have all score fields
         assert "score_bm25" in results[0]
         assert "score_embed" in results[0]
-        assert "score_rerank" in results[0]
+        assert "final_score" in results[0]
         assert "final_rank" in results[0]
 
     @pytest.mark.asyncio
@@ -346,17 +268,13 @@ class TestRankCandidates:
         mock_embed = MagicMock()
         mock_embed.get_scores = AsyncMock(return_value=[0.5] * 5)
 
-        mock_rerank = MagicMock()
-        mock_rerank.rerank = AsyncMock(return_value=[(0, 0.9)])
-
         with patch.object(ranking, "_bm25_ranker", mock_bm25):
             with patch.object(ranking, "_embedding_ranker", mock_embed):
-                with patch.object(ranking, "_reranker", mock_rerank):
-                    results = await ranking.rank_candidates(
-                        "query",
-                        sample_passages,
-                        top_k=1,
-                    )
+                results = await ranking.rank_candidates(
+                    "query",
+                    sample_passages,
+                    top_k=1,
+                )
 
         # Original passage data should be preserved
         assert "id" in results[0]

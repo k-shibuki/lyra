@@ -24,8 +24,6 @@ class ModelPaths(TypedDict):
 
     embedding: str
     embedding_name: str
-    reranker: str
-    reranker_name: str
     nli: str
     nli_name: str
 
@@ -35,6 +33,34 @@ DEFAULT_MODEL_PATHS_FILE = "/app/models/model_paths.json"
 
 # Cached model paths
 _model_paths: ModelPaths | None = None
+
+
+def _transform_host_to_container_path(path: str) -> str:
+    """Transform host path to container path if needed.
+
+    When models are downloaded on the host, paths are host-absolute
+    (e.g., /home/user/lyra/models/huggingface/hub/...).
+    In the container, models are mounted at /app/models/huggingface/.
+
+    Args:
+        path: Path string (may be host or container path)
+
+    Returns:
+        Container-relative path under /app/models/
+    """
+    # Look for the huggingface/hub pattern in the path
+    # This is the common structure for HuggingFace cached models
+    markers = ["huggingface/hub/", "models/huggingface/hub/"]
+    for marker in markers:
+        if marker in path:
+            # Extract everything from 'hub/' onwards
+            hub_index = path.find("hub/")
+            if hub_index != -1:
+                relative_part = path[hub_index:]  # "hub/models--BAAI--bge-m3/..."
+                return str(MODELS_BASE_DIR / "huggingface" / relative_part)
+
+    # If no transformation needed, return as-is
+    return path
 
 
 def _validate_and_sanitize_path(path: str, path_name: str) -> str:
@@ -51,6 +77,9 @@ def _validate_and_sanitize_path(path: str, path_name: str) -> str:
         ValueError: If path is invalid or outside allowed directory
     """
     try:
+        # Transform host paths to container paths
+        path = _transform_host_to_container_path(path)
+
         # Convert to Path and resolve to absolute path
         path_obj = Path(path).resolve()
 
@@ -104,8 +133,6 @@ def get_model_paths() -> ModelPaths | None:
         validated_paths: ModelPaths = {
             "embedding": _validate_and_sanitize_path(raw_paths["embedding"], "embedding"),
             "embedding_name": raw_paths["embedding_name"],
-            "reranker": _validate_and_sanitize_path(raw_paths["reranker"], "reranker"),
-            "reranker_name": raw_paths["reranker_name"],
             "nli": _validate_and_sanitize_path(raw_paths["nli"], "nli"),
             "nli_name": raw_paths["nli_name"],
         }
@@ -135,18 +162,6 @@ def get_embedding_path() -> str:
     if paths and "embedding" in paths:
         return paths["embedding"]
     return os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
-
-
-def get_reranker_path() -> str:
-    """Get reranker model path or name.
-
-    Returns:
-        Local path if available (validated), otherwise model name from env
-    """
-    paths = get_model_paths()
-    if paths and "reranker" in paths:
-        return paths["reranker"]
-    return os.environ.get("LYRA_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 
 
 def get_nli_path() -> str:

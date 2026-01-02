@@ -747,7 +747,7 @@ class SearchExecutor:
                         is_novel=is_novel,
                     )
 
-                    # Persist fragment to DB for get_materials()
+                    # Persist fragment to DB for query_graph/vector_search
                     fragment_id = f"f_{uuid.uuid4().hex[:8]}"
                     page_id = fetch_result.get("page_id", f"p_{uuid.uuid4().hex[:8]}")
                     await self._persist_fragment(
@@ -774,7 +774,7 @@ class SearchExecutor:
                             self.state.record_claim(search_id)
                             result.new_claims.append(claim)
 
-                            # Persist claim to DB for get_materials()
+                            # Persist claim to DB for query_graph/vector_search
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
                                 claim_id=claim_id,
@@ -796,7 +796,7 @@ class SearchExecutor:
                                 }
                             )
 
-                            # Persist snippet as claim for get_materials()
+                            # Persist snippet as claim for query_graph/vector_search
                             claim_id = f"c_{uuid.uuid4().hex[:8]}"
                             await self._persist_claim(
                                 claim_id=claim_id,
@@ -892,10 +892,10 @@ class SearchExecutor:
         is_primary: bool,
     ) -> None:
         """
-        Persist fragment to database for get_materials() retrieval.
+        Persist fragment to database for query_graph/vector_search retrieval.
 
         Fragments must be persisted to DB; memory-only tracking causes
-        get_materials() to return empty results.
+        query tools to return empty results.
 
         Args:
             fragment_id: Unique fragment identifier.
@@ -931,6 +931,18 @@ class SearchExecutor:
                     f"primary_source={is_primary}; url={source_url[:100]}",  # Store metadata in relevance_reason
                 ),
             )
+
+            # Persist embedding for semantic search (best-effort; core pipeline already relies on embeddings).
+            if text.strip():
+                from src.ml_client import get_ml_client
+                from src.storage.vector_store import persist_embedding
+                from src.utils.config import get_settings
+
+                settings = get_settings()
+                model_id = settings.embedding.model_name
+                ml_client = get_ml_client()
+                emb = (await ml_client.embed([text]))[0]
+                await persist_embedding("fragment", fragment_id, emb, model_id=model_id)
         except Exception as e:
             logger.debug(
                 "Failed to persist fragment",
@@ -947,10 +959,10 @@ class SearchExecutor:
         source_fragment_id: str,
     ) -> None:
         """
-        Persist claim to database for get_materials() retrieval.
+        Persist claim to database for query_graph/vector_search retrieval.
 
         Claims must be persisted to DB; memory-only tracking causes
-        get_materials() to return empty results.
+        query tools to return empty results.
 
         Args:
             claim_id: Unique claim identifier.
@@ -983,6 +995,18 @@ class SearchExecutor:
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
+
+            # Persist claim embedding for semantic search
+            if claim_text.strip():
+                from src.ml_client import get_ml_client
+                from src.storage.vector_store import persist_embedding
+                from src.utils.config import get_settings
+
+                settings = get_settings()
+                model_id = settings.embedding.model_name
+                ml_client = get_ml_client()
+                emb = (await ml_client.embed([claim_text]))[0]
+                await persist_embedding("claim", claim_id, emb, model_id=model_id)
 
             # Run NLI for (fragment -> claim) and persist edge with nli_edge_confidence.
             #

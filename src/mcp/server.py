@@ -2,7 +2,7 @@
 MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
-Provides 10 MCP tools per ADR-0010 async architecture:
+Provides MCP tools per ADR-0010 async architecture:
 - Removed: search (replaced by queue_searches), notify_user, wait_for_user
 - Added: queue_searches (ADR-0010)
 - Modified: get_status (long polling with wait parameter)
@@ -17,12 +17,15 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, ToolAnnotations
 
 from mcp.server import Server
-from src.mcp.tools import auth, calibration, feedback, materials, search, task
 from src.storage.database import close_database, get_database
 from src.utils.logging import ensure_logging_configured, get_logger
 
 ensure_logging_configured()
 logger = get_logger(__name__)
+
+# IMPORTANT:
+# Import modules that may emit logs only AFTER logging is configured.
+from src.mcp.tools import auth, calibration, feedback, search, sql, task, vector
 
 # Create MCP server instance
 app = Server("lyra")
@@ -47,7 +50,7 @@ def _load_schema(name: str) -> dict[str, Any]:
 
 
 # ============================================================
-# Tool Definitions (10 tools per ADR-0010 async architecture)
+# Tool Definitions
 # ============================================================
 
 # Common _lyra_meta schema for all outputSchema definitions
@@ -275,7 +278,7 @@ MODES:
 - graceful: Wait for running searches to complete, then stop. Recommended for quality.
 - immediate: Cancel everything now. Use when budget exhausted or time critical.
 
-AFTER STOPPING: Use get_materials to retrieve collected evidence for report composition.""",
+AFTER STOPPING: Use query_graph and vector_search tools to explore collected evidence.""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -306,82 +309,7 @@ AFTER STOPPING: Use get_materials to retrieve collected evidence for report comp
         ),
     ),
     # ============================================================
-    # 3. Materials (1 tool)
-    # ============================================================
-    Tool(
-        name="get_materials",
-        title="Get Report Materials",
-        description="""Get structured research materials for report composition. You compose the final report.
-
-WHAT YOU RECEIVE:
-- claims: Verified assertions with confidence scores and NLI classification
-- fragments: Source excerpts with citations for inline quotes
-- evidence_graph: Claim-evidence relationships (optional, for visualization)
-
-BAYESIAN CONFIDENCE MODEL:
-  α = 1 + Σ(supports_confidence)    -- pseudo-count for supporting evidence
-  β = 1 + Σ(refutes_confidence)     -- pseudo-count for refuting evidence
-  confidence = α / (α + β)          -- posterior mean (0.5 = no evidence)
-  uncertainty = sqrt(αβ / ((α+β)² × (α+β+1)))  -- posterior stddev
-  controversy = 2 × min(α-1, β-1) / (α + β - 2)  -- 0=one-sided, 1=balanced conflict
-
-USING CLAIMS FOR REPORT STRUCTURE:
-- confidence near 0.5 with low uncertainty = insufficient evidence
-- confidence near 0.5 with high controversy = genuinely debated topic
-- has_refutation: True if any refuting evidence exists - address in balanced reporting
-
-NLI CLASSIFICATION (on evidence edges):
-- supports: Evidence supports the claim
-- refutes: Evidence contradicts the claim
-- neutral: Evidence is related but neither supports nor refutes
-
-EVIDENCE GRAPH USES (when include_graph=true):
-- Visualize claim-evidence relationships
-- Build citation networks (which sources cite which)
-- Temporal analysis (use evidence[].source_year and evidence_years)
-- Identify key sources that support multiple claims
-
-CORRECTING ERRORS: Use feedback(action=edge_correct, edge_id=...) to fix wrong NLI labels.""",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "Task ID to get materials from",
-                },
-                "options": {
-                    "type": "object",
-                    "properties": {
-                        "include_graph": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "Include evidence graph for visualization. Adds nodes/edges data.",
-                        },
-                        "include_citations": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "Include citation network (source_pages, citations, hub_pages).",
-                        },
-                        "format": {
-                            "type": "string",
-                            "enum": ["structured", "narrative"],
-                            "default": "structured",
-                            "description": "Output format. 'structured' for programmatic use, 'narrative' for prose.",
-                        },
-                    },
-                },
-            },
-            "required": ["task_id"],
-        },
-        outputSchema=_load_schema("get_materials"),
-        annotations=ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-        ),
-    ),
-    # ============================================================
-    # 4. Calibration (2 tools)
+    # 3. Calibration (2 tools)
     # ============================================================
     Tool(
         name="calibration_metrics",
@@ -459,6 +387,123 @@ Always provide a reason for audit trail.""",
             readOnlyHint=False,
             destructiveHint=True,
             idempotentHint=False,
+        ),
+    ),
+    # ============================================================
+    # 4. Evidence Graph Exploration (2 tools)
+    # ============================================================
+    Tool(
+        name="query_graph",
+        title="Query Evidence Graph (SQL)",
+        description="""Execute read-only SQL against the Evidence Graph database.
+
+This tool is intended for incremental graph exploration without context overflow.
+
+SCHEMA HINTS (task_id column availability):
+- claims: HAS task_id (primary task-scoped table)
+- queries: HAS task_id
+- pages: NO task_id (URL-based deduplication, global scope)
+- fragments: NO task_id (linked via page_id → pages)
+- edges: NO task_id (use JOINs with claims for task filtering)
+
+To filter task-scoped data, start with claims/queries tables or use JOINs.
+Use options.include_schema=true to get full schema snapshot.
+
+SECURITY:
+- Read-only only (no INSERT/UPDATE/DELETE/DDL)
+- Single statement only
+- Timeouts and strict output limits are enforced""",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "sql": {
+                    "type": "string",
+                    "description": "Read-only SQL query (single statement). Example: SELECT * FROM claims WHERE task_id = '...' LIMIT 10",
+                },
+                "options": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "default": 50,
+                            "maximum": 200,
+                            "description": "Maximum rows to return (safety limit for output size)",
+                        },
+                        "timeout_ms": {
+                            "type": "integer",
+                            "default": 300,
+                            "maximum": 2000,
+                            "description": "Hard timeout to interrupt long-running queries",
+                        },
+                        "max_vm_steps": {
+                            "type": "integer",
+                            "default": 500000,
+                            "maximum": 5000000,
+                            "description": "SQLite VM instruction budget (DoS guard)",
+                        },
+                        "include_schema": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Return a safe schema snapshot (tables/columns only)",
+                        },
+                    },
+                },
+            },
+            "required": ["sql"],
+        },
+        outputSchema=_load_schema("query_graph"),
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+        ),
+    ),
+    Tool(
+        name="vector_search",
+        title="Semantic Vector Search",
+        description="""Semantic similarity search over fragments/claims using persisted embeddings.
+
+Use this before query_graph when you don't know which IDs/tables to look at.""",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural language query for semantic search",
+                },
+                "target": {
+                    "type": "string",
+                    "enum": ["fragments", "claims"],
+                    "default": "claims",
+                    "description": "Table to search",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "Optional task scope (recommended for claims)",
+                },
+                "top_k": {
+                    "type": "integer",
+                    "default": 10,
+                    "maximum": 50,
+                    "description": "Number of results to return",
+                },
+                "min_similarity": {
+                    "type": "number",
+                    "default": 0.5,
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Minimum cosine similarity threshold",
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+        outputSchema=_load_schema("vector_search"),
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
         ),
     ),
     # ============================================================
@@ -582,7 +627,7 @@ EDGE LEVEL - Correct NLI classifications:
 
 EDGE_CORRECT DETAILS:
 When you find an edge with wrong NLI classification (e.g., marked 'neutral' but actually 'supports'):
-1. Get edge_id from get_materials evidence data
+1. Get edge_id from query_graph or vector_search results
 2. Call feedback(action=edge_correct, edge_id=..., correct_relation='supports')
 3. Edge confidence is set to 1.0 (human certainty) and claim confidence recalculates""",
         inputSchema={
@@ -606,11 +651,11 @@ When you find an edge with wrong NLI classification (e.g., marked 'neutral' but 
                 },
                 "claim_id": {
                     "type": "string",
-                    "description": "For claim_reject/claim_restore. Get from get_materials claims[].id",
+                    "description": "For claim_reject/claim_restore. Get from query_graph results (claims table)",
                 },
                 "edge_id": {
                     "type": "string",
-                    "description": "For edge_correct. Get from get_materials claims[].evidence[].edge_id",
+                    "description": "For edge_correct. Get from query_graph results (edges table)",
                 },
                 "correct_relation": {
                     "type": "string",
@@ -712,11 +757,12 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Research Execution (search removed per ADR-0010, use queue_searches)
         "queue_searches": search.handle_queue_searches,
         "stop_task": task.handle_stop_task,
-        # Materials
-        "get_materials": materials.handle_get_materials,
         # Calibration (ADR-0012: renamed from calibrate/calibrate_rollback)
         "calibration_metrics": calibration.handle_calibration_metrics,
         "calibration_rollback": calibration.handle_calibration_rollback,
+        # Evidence Graph Exploration
+        "query_graph": sql.handle_query_graph,
+        "vector_search": vector.handle_vector_search,
         # Authentication Queue
         "get_auth_queue": auth.handle_get_auth_queue,
         "resolve_auth": auth.handle_resolve_auth,
@@ -738,7 +784,7 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
 
 async def run_server() -> None:
     """Run the MCP server."""
-    logger.info("Starting Lyra MCP server (10 tools)")
+    logger.info("Starting Lyra MCP server", tool_count=len(TOOLS))
 
     # Initialize database
     await get_database()

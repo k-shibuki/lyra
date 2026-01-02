@@ -207,11 +207,13 @@ class LLMConfig(BaseModel):
     """LLM configuration.
 
     Per ADR-0004: Single 3B model for all LLM tasks.
-    VRAM budget (8GB) accommodates 3B (~2.5GB) + embedding (~1GB) + reranker (~1GB) + NLI (~0.5GB).
+    VRAM budget (8GB) accommodates 3B (~2.5GB) + embedding (~1GB) + NLI (~0.5GB).
     """
 
     ollama_host: str = "http://localhost:11434"
-    model: str = "qwen2.5:3b"  # Single model for all tasks
+    model: str = Field(
+        default_factory=lambda: os.environ.get("LYRA_LLM__MODEL", "qwen2.5:3b")
+    )  # Single model for all tasks
     model_context: int = 4096
     temperature: float = 0.3
     gpu_layers: int = -1
@@ -225,31 +227,46 @@ class LLMConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     """Embedding configuration."""
 
-    model_name: str = "BAAI/bge-m3"
+    model_name: str = Field(
+        default_factory=lambda: os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
+    )
     onnx_path: str = "models/bge-m3"
     batch_size: int = 8
     max_length: int = 512
 
 
-class RerankerConfig(BaseModel):
-    """Reranker configuration."""
+class KneedleCutoffConfig(BaseModel):
+    """Kneedle algorithm configuration for dynamic cutoff."""
 
-    model_name: str = "BAAI/bge-reranker-v2-m3"
-    onnx_path: str = "models/bge-reranker-v2-m3"
-    top_k: int = 100
-    max_top_k: int = 150
+    enabled: bool = True
+    min_results: int = 3
+    max_results: int = 50
+    sensitivity: float = 1.0  # Kneedle S parameter
+
+
+class RankingConfig(BaseModel):
+    """Ranking configuration."""
+
+    bm25_top_k: int = 150  # Top candidates from BM25 for embedding ranking
+    embedding_weight: float = 0.7
+    bm25_weight: float = 0.3
+    kneedle_cutoff: KneedleCutoffConfig = Field(default_factory=KneedleCutoffConfig)
 
 
 class NLIConfig(BaseModel):
     """NLI configuration."""
 
-    model: str = "cross-encoder/nli-deberta-v3-small"
+    model: str = Field(
+        default_factory=lambda: os.environ.get(
+            "LYRA_ML__NLI_MODEL", "cross-encoder/nli-deberta-v3-small"
+        )
+    )
 
 
 class MLServerConfig(BaseModel):
     """ML Server configuration.
 
-    ML models (embedding, reranker, NLI) run in a separate container
+    ML models (embedding, NLI) run in a separate container
     on the internal network (lyra-internal) for security isolation.
     """
 
@@ -509,7 +526,7 @@ class Settings(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     ml: MLServerConfig = Field(default_factory=MLServerConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
-    reranker: RerankerConfig = Field(default_factory=RerankerConfig)
+    ranking: RankingConfig = Field(default_factory=RankingConfig)
     nli: NLIConfig = Field(default_factory=NLIConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     notification: NotificationConfig = Field(default_factory=NotificationConfig)

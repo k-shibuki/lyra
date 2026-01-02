@@ -236,7 +236,7 @@ class ReportGenerator:
             JOIN queries q ON s.query_id = q.id
             WHERE q.task_id = ?
               AND f.is_relevant = 1
-            ORDER BY f.rerank_score DESC
+            ORDER BY f.embed_score DESC
             LIMIT 100
             """,
             (task_id,),
@@ -348,7 +348,7 @@ class ReportGenerator:
         lines.append("This report was generated using the following methods:")
         lines.append("")
         lines.append("1. Comprehensive information gathering using multiple search engines")
-        lines.append("2. Multi-stage relevance evaluation using BM25, embeddings, and reranking")
+        lines.append("2. Multi-stage relevance evaluation using BM25 and embeddings")
         lines.append("3. Fact and claim extraction using local LLM")
         lines.append("4. Position determination and contradiction detection using NLI models")
         lines.append("")
@@ -813,7 +813,7 @@ async def get_report_materials(
             LEFT JOIN serp_items s ON p.url = s.url
             LEFT JOIN queries q ON s.query_id = q.id
             WHERE q.task_id = ? AND f.is_relevant = 1
-            ORDER BY f.rerank_score DESC
+            ORDER BY f.embed_score DESC
             LIMIT 200
             """,
             (task_id,),

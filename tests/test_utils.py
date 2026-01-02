@@ -181,14 +181,23 @@ class TestLoadYamlConfig:
 
     def test_load_yaml_config_missing_file(self) -> None:
         """Test loading config when file doesn't exist."""
+        import src.utils.config as config_module
         from src.utils.config import _load_yaml_config
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_dir = Path(tmpdir)
+        # Clear the local overrides cache to ensure test isolation
+        original_cache = config_module._local_overrides_cache
+        config_module._local_overrides_cache = None
 
-            config = _load_yaml_config(config_dir)
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                config_dir = Path(tmpdir)
 
-            assert config == {}
+                config = _load_yaml_config(config_dir)
+
+                assert config == {}
+        finally:
+            # Restore cache state
+            config_module._local_overrides_cache = original_cache
 
 
 class TestApplyEnvOverrides:

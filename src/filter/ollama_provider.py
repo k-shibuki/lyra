@@ -60,7 +60,6 @@ class OllamaProvider(BaseLLMProvider):
         await provider.close()
     """
 
-    DEFAULT_MODEL = "qwen2.5:3b"  # Single model per ADR-0004
     DEFAULT_EMBED_MODEL = "nomic-embed-text"
 
     def __init__(
@@ -91,7 +90,7 @@ class OllamaProvider(BaseLLMProvider):
             self._host = f"{settings.general.proxy_url}/ollama"
             logger.debug("Using proxy for Ollama", proxy_url=self._host)
 
-        self._model = model or settings.llm.model or self.DEFAULT_MODEL
+        self._model = model or settings.llm.model
         self._embed_model = embed_model or self.DEFAULT_EMBED_MODEL
         self._timeout = timeout
         self._default_temperature = settings.llm.temperature

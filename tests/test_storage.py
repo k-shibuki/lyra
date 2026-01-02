@@ -58,7 +58,7 @@ class TestDatabase:
             "jobs",
             "cache_serp",
             "cache_fetch",
-            "cache_embed",
+            "embeddings",
             "event_log",
             "intervention_log",
         }

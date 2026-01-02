@@ -1,8 +1,8 @@
 """
 Passage ranking for Lyra.
-Multi-stage ranking: BM25 → Embeddings → Reranker.
+Multi-stage ranking: BM25 → Embeddings → Dynamic Cutoff (Kneedle).
 
-When ml.use_remote=True, embedding and reranking are performed
+When ml.use_remote=True, embedding is performed
 via HTTP calls to the lyra-ml container on internal network.
 """
 
@@ -222,97 +222,65 @@ class EmbeddingRanker:
         return scores
 
 
-class Reranker:
-    """Cross-encoder reranker for final ranking.
+def kneedle_cutoff(
+    ranked: list[dict[str, Any]],
+    min_results: int = 3,
+    max_results: int = 50,
+    sensitivity: float = 1.0,
+) -> list[dict[str, Any]]:
+    """Kneedle algorithm for adaptive cutoff.
 
-    Supports both local and remote (ML server) execution based on ml.use_remote setting.
+    Detects the "knee" (point of maximum curvature) in the score curve
+    and cuts off results after that point.
+
+    Args:
+        ranked: List of dicts with 'final_score' key, sorted by score descending.
+        min_results: Minimum number of results to return.
+        max_results: Maximum number of results to consider.
+        sensitivity: Kneedle sensitivity parameter (default 1.0).
+
+    Returns:
+        Cutoff list of ranked results.
     """
+    if len(ranked) <= min_results:
+        return ranked
 
-    def __init__(self) -> None:
-        self._model = None
-        self._settings = get_settings()
+    try:
+        from kneed import KneeLocator
 
-    async def _ensure_model(self) -> None:
-        """Ensure reranker model is loaded (local mode only)."""
-        if self._settings.ml.use_remote:
-            return  # No local model needed
+        # Extract scores up to max_results
+        scores = [p["final_score"] for p in ranked[:max_results]]
+        x = list(range(len(scores)))
 
-        if self._model is not None:
-            return
+        if len(scores) < 2:
+            return ranked[:min_results]
 
-        try:
-            from sentence_transformers import CrossEncoder
+        # Find knee point
+        kneedle = KneeLocator(
+            x,
+            scores,
+            curve="convex",
+            direction="decreasing",
+            S=sensitivity,
+        )
 
-            model_name = self._settings.reranker.model_name
+        cutoff = kneedle.knee if kneedle.knee else len(scores)
+        cutoff = max(cutoff, min_results)
 
-            self._model = CrossEncoder(model_name, device="cuda")
-            logger.info("Reranker model loaded on GPU", model=model_name)
+        return ranked[:cutoff]
 
-        except Exception as e:
-            logger.error("Failed to load reranker model", error=str(e))
-            raise
-
-    async def rerank(
-        self,
-        query: str,
-        documents: list[str],
-        top_k: int | None = None,
-    ) -> list[tuple[int, float]]:
-        """Rerank documents by relevance to query.
-
-        Args:
-            query: Query text.
-            documents: List of document texts.
-            top_k: Number of top results to return.
-
-        Returns:
-            List of (index, score) tuples sorted by score descending.
-        """
-        if not documents:
-            return []
-
-        if top_k is None:
-            top_k = self._settings.reranker.top_k
-
-        # Use remote ML server if configured
-        if self._settings.ml.use_remote:
-            return await self._rerank_remote(query, documents, top_k)
-
-        return await self._rerank_local(query, documents, top_k)
-
-    async def _rerank_remote(
-        self, query: str, documents: list[str], top_k: int
-    ) -> list[tuple[int, float]]:
-        """Rerank via ML server."""
-        from src.ml_client import get_ml_client
-
-        client = get_ml_client()
-        return await client.rerank(query, documents, top_k)
-
-    async def _rerank_local(
-        self, query: str, documents: list[str], top_k: int
-    ) -> list[tuple[int, float]]:
-        """Rerank using local model."""
-        await self._ensure_model()
-        assert self._model is not None  # Guaranteed by _ensure_model
-
-        # Prepare pairs
-        pairs = [(query, doc) for doc in documents]
-
-        # Get scores
-        scores = self._model.predict(pairs, show_progress_bar=False)
-
-        # Sort by score
-        indexed_scores = list(enumerate(scores))
-        indexed_scores.sort(key=lambda x: x[1], reverse=True)
-
-        return [(idx, float(score)) for idx, score in indexed_scores[:top_k]]
+    except ImportError:
+        # Fallback: return top min_results if kneed not available
+        logger.warning("kneed library not available, using min_results cutoff")
+        return ranked[:min_results]
+    except Exception as e:
+        logger.warning("Kneedle cutoff failed, using min_results", error=str(e))
+        return ranked[:min_results]
 
 
 # Global ranker instances
 _bm25_ranker: BM25Ranker | None = None
 _embedding_ranker: EmbeddingRanker | None = None
-_reranker: Reranker | None = None
 
 
 async def rank_candidates(
@@ -324,30 +292,29 @@ async def rank_candidates(
 
     Stage 1: BM25 for fast filtering
     Stage 2: Embeddings for semantic similarity
-    Stage 3: Reranker for precision
+    Stage 3: Dynamic cutoff (Kneedle algorithm)
 
     Args:
         query: Search query.
         passages: List of passage dicts with 'id' and 'text'.
-        top_k: Number of top results to return.
+        top_k: Number of top results to return (deprecated, kept for compatibility).
 
     Returns:
         List of passage dicts with scores added.
     """
-    global _bm25_ranker, _embedding_ranker, _reranker
+    global _bm25_ranker, _embedding_ranker
 
     if not passages:
         return []
 
     settings = get_settings()
+    ranking_config = settings.ranking
 
     # Initialize rankers
     if _bm25_ranker is None:
         _bm25_ranker = BM25Ranker()
     if _embedding_ranker is None:
         _embedding_ranker = EmbeddingRanker()
-    if _reranker is None:
-        _reranker = Reranker()
 
     # Extract texts
     texts = [p["text"] for p in passages]
@@ -357,7 +324,7 @@ async def rank_candidates(
     bm25_scores = _bm25_ranker.get_scores(query)
 
     # Get top candidates for embedding ranking
-    bm25_top_k = min(len(passages), settings.reranker.max_top_k)
+    bm25_top_k = min(len(passages), ranking_config.bm25_top_k)
     bm25_ranked = sorted(
         enumerate(bm25_scores),
         key=lambda x: x[1],
@@ -375,28 +342,22 @@ async def rank_candidates(
     for i, (orig_idx, bm25_score) in enumerate(bm25_ranked):
         embed_score = embed_scores[i]
         # Weighted combination
-        combined_score = 0.3 * bm25_score + 0.7 * embed_score
+        combined_score = (
+            ranking_config.bm25_weight * bm25_score + ranking_config.embedding_weight * embed_score
+        )
         combined.append((orig_idx, bm25_score, embed_score, combined_score))
 
-    # Sort by combined score and get top candidates for reranking
+    # Sort by combined score
     combined.sort(key=lambda x: x[3], reverse=True)
-    rerank_candidates = combined[: settings.reranker.top_k]
 
-    # Stage 3: Reranker
-    rerank_texts = [texts[idx] for idx, _, _, _ in rerank_candidates]
-    reranked = await _reranker.rerank(query, rerank_texts, top_k=top_k)
-
-    # Build final results with category weight adjustment
+    # Build results with category weight adjustment
     results = []
-    for rank_idx, (rerank_pos, rerank_score) in enumerate(reranked):
-        orig_idx, bm25_score, embed_score, _ = rerank_candidates[rerank_pos]
-
+    for orig_idx, bm25_score, embed_score, combined_score in combined:
         passage = passages[orig_idx].copy()
         passage["score_bm25"] = bm25_score
         passage["score_embed"] = embed_score
-        passage["score_rerank"] = float(rerank_score)
 
-        # Stage 4: Apply category weight adjustment
+        # Apply category weight adjustment
         url = passage.get("url") or passage.get("page_url") or ""
         category_weight = 1.0  # Default weight
         if url:
@@ -409,13 +370,23 @@ async def rank_candidates(
                 pass
 
         passage["category_weight"] = category_weight
-        passage["final_score"] = float(rerank_score) * category_weight
-        passage["final_rank"] = rank_idx + 1
+        passage["final_score"] = combined_score * category_weight
 
         results.append(passage)
 
-    # Re-sort by final_score (after category weight adjustment)
-    results.sort(key=lambda x: x["final_score"], reverse=True)
+    # Stage 3: Dynamic cutoff (Kneedle algorithm)
+    if ranking_config.kneedle_cutoff.enabled:
+        results = kneedle_cutoff(
+            results,
+            min_results=ranking_config.kneedle_cutoff.min_results,
+            max_results=ranking_config.kneedle_cutoff.max_results,
+            sensitivity=ranking_config.kneedle_cutoff.sensitivity,
+        )
+    else:
+        # Fallback: use top_k if Kneedle disabled
+        results = results[:top_k]
+
+    # Set final ranks
     for rank_idx, passage in enumerate(results):
         passage["final_rank"] = rank_idx + 1
 

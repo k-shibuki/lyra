@@ -37,34 +37,6 @@ class EmbedResponse(BaseModel):
 
 
 # =============================================================================
-# Reranking
-# =============================================================================
-
-
-class RerankRequest(BaseModel):
-    """Reranking request."""
-
-    query: str = Field(..., description="Query text")
-    documents: list[str] = Field(..., description="Documents to rerank")
-    top_k: int = Field(default=10, ge=1, le=200)
-
-
-class RerankResult(BaseModel):
-    """Single rerank result."""
-
-    index: int
-    score: float
-
-
-class RerankResponse(BaseModel):
-    """Reranking response."""
-
-    ok: bool = True
-    results: list[RerankResult] = Field(default_factory=list)
-    error: str | None = None
-
-
-# =============================================================================
 # NLI (Natural Language Inference)
 # =============================================================================
 

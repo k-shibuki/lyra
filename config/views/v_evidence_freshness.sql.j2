@@ -1,0 +1,9 @@
+-- Evidence freshness per claim (average age + recent flags)
+SELECT *
+FROM v_evidence_freshness
+{% if task_id %}
+WHERE task_id = '{{ task_id }}'
+{% endif %}
+ORDER BY avg_evidence_age ASC
+
+

@@ -10,7 +10,6 @@ the proxy server (localhost:8080). This is the production-like validation
 method that tests:
 
 - Embedding generation (bge-m3)
-- Reranking (bge-reranker-v2-m3)
 - NLI inference (nli-deberta-v3-small)
 - Offline mode operation (no HuggingFace API calls)
 
@@ -89,34 +88,6 @@ class TestMLServerE2E:
         assert all(isinstance(v, float) for v in result[0])
 
     @pytest.mark.asyncio
-    async def test_rerank_e2e(self, ml_client: MLClient) -> None:
-        """
-        Given: ML Server container is running with reranker model loaded
-        When: rerank() is called with query and documents
-        Then: Returns ranked results as list[tuple[int, float]]
-        """
-        # When
-        query = "machine learning"
-        documents = [
-            "Machine learning is a subset of artificial intelligence.",
-            "The weather today is sunny.",
-            "Deep learning uses neural networks.",
-        ]
-        result = await ml_client.rerank(query, documents, top_k=2)
-
-        # Then - result is list[tuple[int, float]] (index, score)
-        assert result is not None
-        assert isinstance(result, list)
-        assert len(result) == 2
-        # Each result is (index, score) tuple
-        for idx, score in result:
-            assert isinstance(idx, int)
-            assert isinstance(score, float)
-        # Results should be sorted by score descending
-        scores = [score for idx, score in result]
-        assert scores[0] >= scores[1]
-
-    @pytest.mark.asyncio
     async def test_nli_e2e(self, ml_client: MLClient) -> None:
         """
         Given: ML Server container is running with NLI model loaded
@@ -162,16 +133,11 @@ class TestMLServerE2E:
         texts = ["Test text"]
         embeddings = await ml_client.embed(texts)
 
-        query = "test"
-        documents = ["test document"]
-        rerank_results = await ml_client.rerank(query, documents)
-
         pairs = [{"pair_id": "1", "premise": "Test premise", "hypothesis": "Test hypothesis"}]
         nli_results = await ml_client.nli(pairs)
 
         # Then - All requests should succeed
         assert embeddings is not None
-        assert rerank_results is not None
         assert nli_results is not None
 
     @pytest.mark.asyncio

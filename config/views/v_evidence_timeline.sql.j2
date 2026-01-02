@@ -1,0 +1,9 @@
+-- Evidence distribution by publication year (nullable year)
+SELECT *
+FROM v_evidence_timeline
+{% if task_id %}
+WHERE task_id = '{{ task_id }}'
+{% endif %}
+ORDER BY year DESC
+
+

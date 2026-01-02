@@ -2,7 +2,7 @@
 Filtering and evaluation module for Lyra.
 
 Includes:
-- Multi-stage ranking (BM25, embedding, reranking)
+- Multi-stage ranking (BM25, embedding with dynamic cutoff)
 - LLM extraction
 - NLI judgment
 - Claim decomposition

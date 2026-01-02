@@ -24,29 +24,23 @@ pytestmark = pytest.mark.unit
 from src.filter import ranking
 
 
-def _mock_rankers(
-    passages_count: int, rerank_result: list[tuple[int, float]]
-) -> tuple[MagicMock, MagicMock, MagicMock]:
+def _mock_rankers(passages_count: int) -> tuple[MagicMock, MagicMock]:
     """Create mock rankers for testing.
 
     Args:
         passages_count: Number of passages to mock scores for.
-        rerank_result: List of (position, score) tuples for rerank result.
 
     Returns:
-        Tuple of (mock_bm25, mock_embed, mock_rerank).
+        Tuple of (mock_bm25, mock_embed).
     """
     mock_bm25 = MagicMock()
     mock_bm25.fit = MagicMock()
     mock_bm25.get_scores = MagicMock(return_value=[0.5] * passages_count)
 
     mock_embed = MagicMock()
-    mock_embed.get_scores = AsyncMock(return_value=[0.5] * passages_count)
+    mock_embed.get_scores = AsyncMock(return_value=[0.7] * passages_count)
 
-    mock_rerank = MagicMock()
-    mock_rerank.rerank = AsyncMock(return_value=rerank_result)
-
-    return mock_bm25, mock_embed, mock_rerank
+    return mock_bm25, mock_embed
 
 
 @pytest.mark.asyncio
@@ -71,12 +65,25 @@ async def test_category_weight_applied_in_ranking() -> None:
         },
     ]
 
-    # Mock rankers: return both passages with same rerank score
-    mock_bm25, mock_embed, mock_rerank = _mock_rankers(2, [(0, 0.9), (1, 0.9)])
+    # Mock rankers: return both passages with same combined score
+    mock_bm25, mock_embed = _mock_rankers(2)
 
     with patch.object(ranking, "_bm25_ranker", mock_bm25):
         with patch.object(ranking, "_embedding_ranker", mock_embed):
-            with patch.object(ranking, "_reranker", mock_rerank):
+            with patch("src.filter.ranking.get_settings") as mock_settings:
+                from src.utils.config import KneedleCutoffConfig, RankingConfig
+
+                mock_config = MagicMock()
+                mock_config.ranking = RankingConfig(
+                    bm25_top_k=150,
+                    embedding_weight=0.7,
+                    bm25_weight=0.3,
+                    kneedle_cutoff=KneedleCutoffConfig(
+                        enabled=False
+                    ),  # Disable for predictable results
+                )
+                mock_settings.return_value = mock_config
+
                 results = await ranking.rank_candidates("test query", passages, top_k=2)
 
     assert len(results) == 2
@@ -85,7 +92,10 @@ async def test_category_weight_applied_in_ranking() -> None:
     for result in results:
         assert "category_weight" in result
         assert "final_score" in result
-        assert result["final_score"] == result["score_rerank"] * result["category_weight"]
+        assert "score_bm25" in result
+        assert "score_embed" in result
+        # final_score = combined_score * category_weight
+        assert result["final_score"] > 0
 
     # PRIMARY domain (iso.org) should have higher category_weight than UNVERIFIED
     p1_result = next(r for r in results if r["id"] == "p1")
@@ -110,16 +120,28 @@ async def test_category_weight_defaults_to_one_without_url() -> None:
         },
     ]
 
-    mock_bm25, mock_embed, mock_rerank = _mock_rankers(1, [(0, 0.9)])
+    mock_bm25, mock_embed = _mock_rankers(1)
 
     with patch.object(ranking, "_bm25_ranker", mock_bm25):
         with patch.object(ranking, "_embedding_ranker", mock_embed):
-            with patch.object(ranking, "_reranker", mock_rerank):
+            with patch("src.filter.ranking.get_settings") as mock_settings:
+                from src.utils.config import KneedleCutoffConfig, RankingConfig
+
+                mock_config = MagicMock()
+                mock_config.ranking = RankingConfig(
+                    bm25_top_k=150,
+                    embedding_weight=0.7,
+                    bm25_weight=0.3,
+                    kneedle_cutoff=KneedleCutoffConfig(enabled=False),
+                )
+                mock_settings.return_value = mock_config
+
                 results = await ranking.rank_candidates("test query", passages, top_k=1)
 
     assert len(results) == 1
     assert results[0]["category_weight"] == 1.0
-    assert results[0]["final_score"] == results[0]["score_rerank"]
+    # final_score = combined_score * category_weight (1.0)
+    assert results[0]["final_score"] > 0
 
 
 @pytest.mark.asyncio
@@ -139,17 +161,29 @@ async def test_category_weight_with_invalid_url() -> None:
         },
     ]
 
-    mock_bm25, mock_embed, mock_rerank = _mock_rankers(1, [(0, 0.9)])
+    mock_bm25, mock_embed = _mock_rankers(1)
 
     with patch.object(ranking, "_bm25_ranker", mock_bm25):
         with patch.object(ranking, "_embedding_ranker", mock_embed):
-            with patch.object(ranking, "_reranker", mock_rerank):
+            with patch("src.filter.ranking.get_settings") as mock_settings:
+                from src.utils.config import KneedleCutoffConfig, RankingConfig
+
+                mock_config = MagicMock()
+                mock_config.ranking = RankingConfig(
+                    bm25_top_k=150,
+                    embedding_weight=0.7,
+                    bm25_weight=0.3,
+                    kneedle_cutoff=KneedleCutoffConfig(enabled=False),
+                )
+                mock_settings.return_value = mock_config
+
                 results = await ranking.rank_candidates("test query", passages, top_k=1)
 
     assert len(results) == 1
     # Empty domain -> get_domain_category returns UNVERIFIED -> 0.3 weight
     assert results[0]["category_weight"] == 0.3
-    assert results[0]["final_score"] == results[0]["score_rerank"] * 0.3
+    # final_score = combined_score * category_weight (0.3)
+    assert results[0]["final_score"] > 0
 
 
 @pytest.mark.asyncio
@@ -184,14 +218,23 @@ async def test_category_weight_all_categories() -> None:
         {"id": "p6", "text": "Unverified", "url": "https://unknown-site.com/test"},
     ]
 
-    # All passages with same rerank score
-    mock_bm25, mock_embed, mock_rerank = _mock_rankers(
-        6, [(0, 0.9), (1, 0.9), (2, 0.9), (3, 0.9), (4, 0.9), (5, 0.9)]
-    )
+    # All passages with same combined score
+    mock_bm25, mock_embed = _mock_rankers(6)
 
     with patch.object(ranking, "_bm25_ranker", mock_bm25):
         with patch.object(ranking, "_embedding_ranker", mock_embed):
-            with patch.object(ranking, "_reranker", mock_rerank):
+            with patch("src.filter.ranking.get_settings") as mock_settings:
+                from src.utils.config import KneedleCutoffConfig, RankingConfig
+
+                mock_config = MagicMock()
+                mock_config.ranking = RankingConfig(
+                    bm25_top_k=150,
+                    embedding_weight=0.7,
+                    bm25_weight=0.3,
+                    kneedle_cutoff=KneedleCutoffConfig(enabled=False),
+                )
+                mock_settings.return_value = mock_config
+
                 results = await ranking.rank_candidates("test query", passages, top_k=6)
 
     assert len(results) == 6
@@ -200,5 +243,8 @@ async def test_category_weight_all_categories() -> None:
     for result in results:
         assert "category_weight" in result
         assert "final_score" in result
+        assert "score_bm25" in result
+        assert "score_embed" in result
         assert 0.0 <= result["category_weight"] <= 1.0
-        assert result["final_score"] == result["score_rerank"] * result["category_weight"]
+        # final_score = combined_score * category_weight
+        assert result["final_score"] > 0

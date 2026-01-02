@@ -228,4 +228,6 @@ cd "${PROJECT_DIR}"
 
 # Restore stdout for JSON-RPC protocol before launching the server.
 exec 1>&3 3>&-
-exec uv run python -m src.mcp.server
+# IMPORTANT: Do not use `uv run` here. `uv` may print informational logs to stdout,
+# which breaks the JSON-RPC stdio protocol expected by MCP clients.
+exec python -m src.mcp.server

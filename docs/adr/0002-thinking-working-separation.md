@@ -105,9 +105,9 @@ Exploration proceeds in an MCP client-driven loop:
 7. stop_task(task_id)
    └─ Lyra: Records final state to DB
 
-8. get_materials(task_id)
-   └─ Lyra: Provides materials (claims, fragments, graph)
-   └─ MCP Client: Structures and writes report
+8. query_graph(sql="SELECT * FROM v_contradictions ...") / vector_search(query="...", target="claims")
+   └─ Lyra: Provides granular access to evidence graph via SQL and semantic search (per ADR-0017)
+   └─ MCP Client: Explores graph iteratively, structures and writes report
 ```
 
 ### Concrete Example

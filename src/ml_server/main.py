@@ -1,6 +1,6 @@
 """
 Lyra ML Server - FastAPI Application.
-Provides embedding, reranking, and NLI inference endpoints.
+Provides embedding and NLI inference endpoints.
 SECURITY: Runs on internal-only network (lyra-internal).
 """
 
@@ -12,7 +12,6 @@ from fastapi import FastAPI, HTTPException
 
 from src.ml_server.embedding import get_embedding_service
 from src.ml_server.nli import get_nli_service
-from src.ml_server.reranker import get_reranker_service
 from src.ml_server.schemas import (
     EmbedRequest,
     EmbedResponse,
@@ -20,9 +19,6 @@ from src.ml_server.schemas import (
     NLIRequest,
     NLIResponse,
     NLIResult,
-    RerankRequest,
-    RerankResponse,
-    RerankResult,
 )
 
 logger = structlog.get_logger(__name__)
@@ -39,7 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(
     title="Lyra ML Server",
-    description="Internal ML inference server for embedding, reranking, and NLI",
+    description="Internal ML inference server for embedding and NLI",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -54,14 +50,12 @@ app = FastAPI(
 async def health_check() -> HealthResponse:
     """Health check endpoint."""
     embedding_service = get_embedding_service()
-    reranker_service = get_reranker_service()
     nli_service = get_nli_service()
 
     return HealthResponse(
         status="ok",
         models_loaded={
             "embedding": embedding_service.is_loaded,
-            "reranker": reranker_service.is_loaded,
             "nli": nli_service.is_loaded,
         },
     )
@@ -93,46 +87,6 @@ async def embed(request: EmbedRequest) -> EmbedResponse:
     except Exception as e:
         logger.error("Embedding error", error=str(e))
         return EmbedResponse(ok=False, embeddings=[], error=str(e))
-
-
-# =============================================================================
-# Reranking
-# =============================================================================
-
-
-@app.post("/rerank", response_model=RerankResponse)
-async def rerank(request: RerankRequest) -> RerankResponse:
-    """Rerank documents by relevance to query.
-
-    Args:
-        request: RerankRequest containing query, documents, and top_k.
-
-    Returns:
-        RerankResponse with sorted (index, score) pairs by relevance.
-    """
-    try:
-        service = get_reranker_service()
-        results = await service.rerank(
-            query=request.query,
-            documents=request.documents,
-            top_k=request.top_k,
-        )
-
-        logger.info(
-            "Reranking completed",
-            query_len=len(request.query),
-            doc_count=len(request.documents),
-            top_k=request.top_k,
-        )
-
-        return RerankResponse(
-            ok=True,
-            results=[RerankResult(index=idx, score=score) for idx, score in results],
-        )
-
-    except Exception as e:
-        logger.error("Reranking error", error=str(e))
-        return RerankResponse(ok=False, results=[], error=str(e))
 
 
 # =============================================================================
@@ -191,11 +145,9 @@ async def warmup() -> dict:
     """Warmup endpoint to preload all models."""
     try:
         embedding_service = get_embedding_service()
-        reranker_service = get_reranker_service()
         nli_service = get_nli_service()
 
         await embedding_service.load()
-        await reranker_service.load()
         await nli_service.load()
 
         logger.info("All models warmed up")

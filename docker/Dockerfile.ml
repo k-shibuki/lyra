@@ -1,23 +1,18 @@
 # Lyra ML Server Container
-# Provides embedding, reranking, and NLI inference via FastAPI
+# Provides embedding and NLI inference via FastAPI
 # SECURITY: Runs on internal-only network (lyra-internal)
 #
-# Models are downloaded at build time for:
-# - Zero-config deployment (no additional setup needed)
-# - Security (container doesn't need internet access at runtime)
-# - Fast startup (models already present)
+# Models are downloaded to host filesystem (models/huggingface/) and mounted
+# at runtime for persistence and faster rebuilds.
 #
-# Model paths are saved to /app/models/model_paths.json for
-# true offline loading (no HuggingFace API calls at runtime).
-#
-# To update models: edit .env and run make dev-rebuild
+# To download models: make setup-ml-models
+# To update models: edit .env and run make setup-ml-models
 
 ARG PYTHON_IMAGE=python:3.14-slim-bookworm
 ARG TORCH_BACKEND=cu124
 
 # Model versions (from .env via build args)
 ARG LYRA_ML__EMBEDDING_MODEL=BAAI/bge-m3
-ARG LYRA_ML__RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 ARG LYRA_ML__NLI_MODEL=cross-encoder/nli-deberta-v3-small
 
 FROM ${PYTHON_IMAGE} AS builder
@@ -27,7 +22,6 @@ ARG TORCH_BACKEND=cu124
 
 # Model versions (from .env via build args)
 ARG LYRA_ML__EMBEDDING_MODEL=BAAI/bge-m3
-ARG LYRA_ML__RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 ARG LYRA_ML__NLI_MODEL=cross-encoder/nli-deberta-v3-small
 
 # Install uv (from official image)
@@ -50,7 +44,6 @@ ENV VIRTUAL_ENV=/opt/venv \
     HF_HOME=/app/models/huggingface \
     LYRA_ML__MODEL_PATHS_FILE=/app/models/model_paths.json \
     LYRA_ML__EMBEDDING_MODEL=${LYRA_ML__EMBEDDING_MODEL} \
-    LYRA_ML__RERANKER_MODEL=${LYRA_ML__RERANKER_MODEL} \
     LYRA_ML__NLI_MODEL=${LYRA_ML__NLI_MODEL} \
     UV_TORCH_BACKEND=${TORCH_BACKEND}
 
@@ -70,12 +63,8 @@ RUN uv sync --frozen --no-dev --extra ml --active --no-editable --no-install-pro
 RUN python -c "import torch; print('torch', torch.__version__); print('cuda available:', torch.cuda.is_available() if hasattr(torch.cuda, 'is_available') else 'N/A')" || \
     echo "Warning: torch verification failed, but continuing build"
 
-# Download models at build time (online)
-RUN mkdir -p /app/models
-COPY scripts/download_models.py /app/scripts/
-RUN python /app/scripts/download_models.py && \
-    test -f /app/models/model_paths.json || (echo "ERROR: model_paths.json not created" && exit 1) && \
-    echo "Model paths file created successfully"
+# Create models directory (models are mounted from host at runtime)
+RUN mkdir -p /app/models/huggingface
 
 # Install the project itself into the venv (non-editable)
 COPY src /app/src
@@ -101,8 +90,8 @@ ENV VIRTUAL_ENV=/opt/venv \
     TRANSFORMERS_OFFLINE=1
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --from=builder /app/models /app/models
 COPY --from=builder /app/src /app/src
+# Note: /app/models is mounted from host at runtime (see podman-compose.yml)
 
 ENV PYTHONPATH=/app
 

@@ -232,6 +232,12 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "blocked_domains": blocked_domains,  # Added for transparency
                 "domain_overrides": domain_overrides,  #
             }
+
+            # Add evidence_summary when status is completed
+            if status == "completed":
+                evidence_summary = await _get_evidence_summary(db, task_id)
+                response["evidence_summary"] = evidence_summary
+
             return attach_meta(response, create_minimal_meta())
         else:
             # No exploration state - return minimal info
@@ -279,6 +285,12 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "blocked_domains": blocked_domains,  # Added for transparency
                 "domain_overrides": domain_overrides,  #
             }
+
+            # Add evidence_summary when status is completed
+            if db_status == "completed":
+                evidence_summary = await _get_evidence_summary(db, task_id)
+                response["evidence_summary"] = evidence_summary
+
             return attach_meta(response, create_minimal_meta())
 
 
@@ -454,3 +466,92 @@ async def cancel_auth_queue_for_task(task_id: str, db: Any) -> int:
         )
 
     return cancelled_count
+
+
+async def _get_evidence_summary(db: Any, task_id: str) -> dict[str, Any]:
+    """Get evidence summary statistics for completed task.
+
+    Args:
+        db: Database connection.
+        task_id: Task ID.
+
+    Returns:
+        Evidence summary dict with counts and top domains.
+    """
+    # Count claims
+    claims_row = await db.fetch_one(
+        "SELECT COUNT(*) as cnt FROM claims WHERE task_id = ?",
+        (task_id,),
+    )
+    total_claims = claims_row["cnt"] if claims_row else 0
+
+    # Count fragments (via edges linked to task's claims)
+    fragments_row = await db.fetch_one(
+        """
+        SELECT COUNT(DISTINCT f.id) as cnt
+        FROM fragments f
+        JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+        JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+        WHERE c.task_id = ?
+        """,
+        (task_id,),
+    )
+    total_fragments = fragments_row["cnt"] if fragments_row else 0
+
+    # Count pages (via fragments)
+    pages_row = await db.fetch_one(
+        """
+        SELECT COUNT(DISTINCT p.id) as cnt
+        FROM pages p
+        JOIN fragments f ON f.page_id = p.id
+        JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+        JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+        WHERE c.task_id = ?
+        """,
+        (task_id,),
+    )
+    total_pages = pages_row["cnt"] if pages_row else 0
+
+    # Count edges by relation
+    edges_row = await db.fetch_one(
+        """
+        SELECT
+            COUNT(CASE WHEN e.relation = 'supports' THEN 1 END) as supporting,
+            COUNT(CASE WHEN e.relation = 'refutes' THEN 1 END) as refuting,
+            COUNT(CASE WHEN e.relation = 'neutral' THEN 1 END) as neutral
+        FROM edges e
+        JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+        WHERE c.task_id = ?
+        """,
+        (task_id,),
+    )
+    supporting_edges = edges_row["supporting"] if edges_row else 0
+    refuting_edges = edges_row["refuting"] if edges_row else 0
+    neutral_edges = edges_row["neutral"] if edges_row else 0
+
+    # Get top domains
+    domains_rows = await db.fetch_all(
+        """
+        SELECT p.domain, COUNT(DISTINCT p.id) as page_count
+        FROM pages p
+        JOIN fragments f ON f.page_id = p.id
+        JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+        JOIN claims c ON e.target_id = c.id AND e.target_type = 'claim'
+        WHERE c.task_id = ?
+        GROUP BY p.domain
+        ORDER BY page_count DESC
+        LIMIT 10
+        """,
+        (task_id,),
+    )
+    top_domains = [row["domain"] for row in domains_rows]
+
+    return {
+        "total_claims": total_claims,
+        "total_fragments": total_fragments,
+        "total_pages": total_pages,
+        "supporting_edges": supporting_edges,
+        "refuting_edges": refuting_edges,
+        "neutral_edges": neutral_edges,
+        "top_domains": top_domains,
+    }

@@ -386,11 +386,29 @@ class TestGetStatusStatusMapping:
         mock_state = MagicMock()
         mock_state.get_status = AsyncMock(return_value=mock_exploration)
 
+        # Mock _get_evidence_summary to avoid DB calls for count queries
+        mock_evidence_summary = {
+            "total_claims": 10,
+            "total_fragments": 20,
+            "total_pages": 5,
+            "supporting_edges": 15,
+            "refuting_edges": 3,
+            "neutral_edges": 2,
+            "top_domains": ["example.com"],
+        }
+
         with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
-                result = await _handle_get_status({"task_id": "task_test"})
+                with patch(
+                    "src.mcp.tools.task._get_evidence_summary",
+                    new=AsyncMock(return_value=mock_evidence_summary),
+                ):
+                    result = await _handle_get_status({"task_id": "task_test"})
 
         assert result["status"] == expected_status
+        # When completed, evidence_summary should be present
+        if expected_status == "completed":
+            assert "evidence_summary" in result
 
 
 class TestGetStatusToolDefinition:

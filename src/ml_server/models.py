@@ -25,33 +25,6 @@ class EmbedResponse(BaseModel):
 
 
 # ============================================================
-# Reranker Models
-# ============================================================
-
-
-class RerankRequest(BaseModel):
-    """Request model for reranking."""
-
-    query: str = Field(..., description="Query text")
-    documents: list[str] = Field(..., description="List of documents to rerank")
-    top_k: int = Field(default=10, ge=1, le=100, description="Number of top results to return")
-
-
-class RerankResult(BaseModel):
-    """Single rerank result."""
-
-    index: int = Field(..., description="Original document index")
-    score: float = Field(..., description="Relevance score")
-
-
-class RerankResponse(BaseModel):
-    """Response model for reranking."""
-
-    results: list[RerankResult] = Field(..., description="Ranked results")
-    model: str = Field(..., description="Model name used")
-
-
-# ============================================================
 # NLI Models
 # ============================================================
 

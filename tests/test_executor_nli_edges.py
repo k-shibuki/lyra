@@ -42,8 +42,13 @@ async def test_executor_persist_claim_wires_nli_supports() -> None:
     mock_db.execute = AsyncMock()
     mock_db.fetch_one = AsyncMock(return_value={"text_content": "premise text" * 50})
 
+    mock_ml_client = AsyncMock()
+    mock_ml_client.embed = AsyncMock(return_value=[[0.1] * 768])
+
     with (
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
+        patch("src.ml_client.get_ml_client", return_value=mock_ml_client),
+        patch("src.storage.vector_store.persist_embedding", AsyncMock()),
         patch(
             "src.filter.nli.nli_judge",
             AsyncMock(return_value=[{"stance": "supports", "nli_edge_confidence": 0.91}]),
@@ -90,8 +95,13 @@ async def test_executor_persist_claim_wires_nli_refutes() -> None:
     mock_db.execute = AsyncMock()
     mock_db.fetch_one = AsyncMock(return_value={"text_content": "premise"})
 
+    mock_ml_client = AsyncMock()
+    mock_ml_client.embed = AsyncMock(return_value=[[0.1] * 768])
+
     with (
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
+        patch("src.ml_client.get_ml_client", return_value=mock_ml_client),
+        patch("src.storage.vector_store.persist_embedding", AsyncMock()),
         patch(
             "src.filter.nli.nli_judge",
             AsyncMock(return_value=[{"stance": "refutes", "nli_edge_confidence": 0.80}]),
@@ -125,8 +135,13 @@ async def test_executor_persist_claim_sanitizes_invalid_stance_to_neutral() -> N
     mock_db.execute = AsyncMock()
     mock_db.fetch_one = AsyncMock(return_value={"text_content": "premise"})
 
+    mock_ml_client = AsyncMock()
+    mock_ml_client.embed = AsyncMock(return_value=[[0.1] * 768])
+
     with (
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
+        patch("src.ml_client.get_ml_client", return_value=mock_ml_client),
+        patch("src.storage.vector_store.persist_embedding", AsyncMock()),
         patch(
             "src.filter.nli.nli_judge",
             AsyncMock(return_value=[{"stance": "entailment", "nli_edge_confidence": 0.99}]),
@@ -159,8 +174,13 @@ async def test_executor_persist_claim_nli_failure_does_not_skip_edge_persist() -
     mock_db.execute = AsyncMock()
     mock_db.fetch_one = AsyncMock(return_value={"text_content": "premise"})
 
+    mock_ml_client = AsyncMock()
+    mock_ml_client.embed = AsyncMock(return_value=[[0.1] * 768])
+
     with (
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
+        patch("src.ml_client.get_ml_client", return_value=mock_ml_client),
+        patch("src.storage.vector_store.persist_embedding", AsyncMock()),
         patch("src.filter.nli.nli_judge", AsyncMock(side_effect=RuntimeError("nli down"))),
         patch("src.filter.evidence_graph.add_claim_evidence", AsyncMock()) as add_claim_evidence,
     ):
@@ -191,8 +211,13 @@ async def test_executor_persist_claim_uses_fallback_premise_when_fragment_missin
     mock_db.execute = AsyncMock()
     mock_db.fetch_one = AsyncMock(return_value=None)  # fragment not found
 
+    mock_ml_client = AsyncMock()
+    mock_ml_client.embed = AsyncMock(return_value=[[0.1] * 768])
+
     with (
         patch("src.research.executor.get_database", AsyncMock(return_value=mock_db)),
+        patch("src.ml_client.get_ml_client", return_value=mock_ml_client),
+        patch("src.storage.vector_store.persist_embedding", AsyncMock()),
         patch(
             "src.filter.nli.nli_judge",
             AsyncMock(return_value=[{"stance": "supports", "nli_edge_confidence": 0.55}]),

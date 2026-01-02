@@ -1,0 +1,9 @@
+-- Fragment -> Claim evidence chain with provenance
+SELECT *
+FROM v_evidence_chain
+{% if task_id %}
+WHERE task_id = '{{ task_id }}'
+{% endif %}
+ORDER BY nli_edge_confidence DESC
+
+

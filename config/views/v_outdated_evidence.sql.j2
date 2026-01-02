@@ -1,0 +1,9 @@
+-- Claims whose newest supporting evidence is old (years_since_update)
+SELECT *
+FROM v_outdated_evidence
+{% if task_id %}
+WHERE task_id = '{{ task_id }}'
+{% endif %}
+ORDER BY years_since_update DESC
+
+

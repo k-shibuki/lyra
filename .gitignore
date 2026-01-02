@@ -40,6 +40,10 @@ env/
 data/
 logs/
 models/
+# ML Models (downloaded, not committed)
+# Note: models/ already covers all subdirectories, but explicit for clarity
+models/huggingface/
+models/model_paths.json
 
 # Database
 *.db
@@ -51,10 +55,24 @@ models/
 *.warc
 *.warc.gz
 
-# Screenshots
+# Screenshots (runtime-generated, not documentation images)
+# Note: data/ is already ignored above, so data/screenshots/ is covered
+# Ignore all images by default (runtime screenshots, etc.)
 *.png
 *.jpg
 *.jpeg
+*.gif
+# But allow images in docs/ and paper/ directories (documentation)
+!docs/**/*.png
+!docs/**/*.jpg
+!docs/**/*.jpeg
+!docs/**/*.gif
+!docs/**/*.svg
+!paper/**/*.png
+!paper/**/*.jpg
+!paper/**/*.jpeg
+!paper/**/*.gif
+!paper/**/*.svg
 
 # Environment files
 .env
@@ -76,12 +94,20 @@ id_ecdsa.pub
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
 # Temporary files
 *.tmp
 *.temp
 *.bak
+*.orig
+*.rej
 
 # Test artifacts
 .coverage
@@ -95,8 +121,23 @@ htmlcov/
 # mypy
 .mypy_cache/
 
+# uv (package manager)
+.uv/
+.uvcache/
+
+# ruff (linter cache)
+.ruff_cache/
+
+# hatchling (build cache)
+.hatch/
+
+# Playwright (browser cache)
+.playwright/
+
 # Podman/Docker
 # Don't ignore compose files, but ignore runtime data
+*.log
+*.log.*
 
 .cursorignore
 
@@ -110,3 +151,15 @@ debug/search_html/
 
 # Private documentation (not for public repository)
 docs/private/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Coverage reports (already covered, but explicit)
+coverage.xml
+*.cover
+.hypothesis/
+
+# Profiling data
+*.prof
+*.lprof

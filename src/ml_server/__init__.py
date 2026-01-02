@@ -1,5 +1,5 @@
 """
 Lyra ML Server.
-Provides embedding, reranking, and NLI inference via FastAPI.
+Provides embedding and NLI inference via FastAPI.
 SECURITY: Runs on internal-only network (lyra-internal).
 """

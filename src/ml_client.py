@@ -30,13 +30,6 @@ class EmbeddingError(MLClientError):
         super().__init__(message, operation="embedding")
 
 
-class RerankingError(MLClientError):
-    """Raised when reranking operation fails."""
-
-    def __init__(self, message: str):
-        super().__init__(message, operation="reranking")
-
-
 class NLIError(MLClientError):
     """Raised when NLI operation fails."""
 
@@ -175,39 +168,6 @@ class MLClient:
             raise EmbeddingError(f"Embedding failed: {error}")
 
         return cast(list[list[float]], response.get("embeddings", []))
-
-    async def rerank(
-        self,
-        query: str,
-        documents: list[str],
-        top_k: int = 10,
-    ) -> list[tuple[int, float]]:
-        """Rerank documents by relevance to query.
-
-        Args:
-            query: Query text.
-            documents: Documents to rerank.
-            top_k: Number of top results.
-
-        Returns:
-            List of (index, score) tuples sorted by score descending.
-        """
-        if not documents:
-            return []
-
-        response = await self._request_with_retry(
-            "POST",
-            "/rerank",
-            json={"query": query, "documents": documents, "top_k": top_k},
-        )
-
-        if not response.get("ok"):
-            error = response.get("error", "Unknown error")
-            logger.error("Reranking failed", error=error)
-            raise RerankingError(f"Reranking failed: {error}")
-
-        results = response.get("results", [])
-        return [(r["index"], r["score"]) for r in results]
 
     async def nli(
         self,

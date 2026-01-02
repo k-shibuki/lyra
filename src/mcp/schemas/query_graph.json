@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lyra:mcp:query_graph",
+  "title": "query_graph Response",
+  "description": "Response schema for query_graph tool (read-only SQL execution)",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "row_count": {
+      "type": "integer"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "True if limit was applied"
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "description": "Query execution time (ms)"
+    },
+    "schema": {
+      "type": ["object", "null"],
+      "description": "Only present when options.include_schema=true",
+      "properties": {
+        "tables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": ["ok", "rows", "row_count", "columns", "truncated", "elapsed_ms"]
+}
+

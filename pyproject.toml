@@ -49,6 +49,7 @@ mcp = [
     # Text Processing & Search
     "rank-bm25>=0.2.2",
     "tldextract>=5.1.0",
+    "kneed>=0.8.0",  # Kneedle algorithm for dynamic cutoff
     # Graph
     "networkx>=3.2.0",
     # HTTP Client (for proxy calls)
@@ -57,6 +58,8 @@ mcp = [
     "warcio>=1.7.4",
     # Similarity (for deduplication)
     "datasketch>=1.6.0",
+    # Model download (for make setup-ml-models)
+    "huggingface_hub>=0.20.0",
 ]
 
 # ML Server (embedding, reranking, NLI inference)

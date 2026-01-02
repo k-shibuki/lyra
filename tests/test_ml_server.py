@@ -136,8 +136,6 @@ class TestModelPaths:
         model_paths_data = {
             "embedding": "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test",
             "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
             "nli": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
             "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
@@ -154,10 +152,6 @@ class TestModelPaths:
         assert result is not None
         assert (
             result["embedding"] == "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test"
-        )
-        assert (
-            result["reranker"]
-            == "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test"
         )
         assert (
             result["nli"]
@@ -213,8 +207,6 @@ class TestModelPaths:
         model_paths_data = {
             "embedding": "/app/models/embedding/model",
             "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/reranker/model",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
             "nli": "/app/models/nli/model",
             "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
@@ -254,35 +246,6 @@ class TestModelPaths:
         # Then
         assert result == "custom/embedding-model"
 
-    def test_get_reranker_path_with_local_paths(self, tmp_path: Path) -> None:
-        """
-        Given: model_paths.json exists with reranker path
-        When: get_reranker_path() is called
-        Then: Returns the local reranker path (validated)
-        """
-        # Given
-        # Use a path within /app/models for validation
-        # All required keys must be present for validation to succeed
-        model_paths_data = {
-            "embedding": "/app/models/embedding/model",
-            "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/reranker/model",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
-            "nli": "/app/models/nli/model",
-            "nli_name": "cross-encoder/nli-deberta-v3-small",
-        }
-        json_file = tmp_path / "model_paths.json"
-        json_file.write_text(json.dumps(model_paths_data))
-
-        # When
-        with patch.dict(os.environ, {"LYRA_ML__MODEL_PATHS_FILE": str(json_file)}):
-            from src.ml_server.model_paths import get_reranker_path
-
-            result = get_reranker_path()
-
-        # Then
-        assert result == "/app/models/reranker/model"
-
     def test_get_nli_path_with_local_paths(self, tmp_path: Path) -> None:
         """
         Given: model_paths.json exists with NLI path
@@ -295,8 +258,6 @@ class TestModelPaths:
         model_paths_data = {
             "embedding": "/app/models/embedding/model",
             "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/reranker/model",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
             "nli": "/app/models/nli/model",
             "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
@@ -323,8 +284,6 @@ class TestModelPaths:
         model_paths_data = {
             "embedding": "/app/models/huggingface/hub/models--BAAI--bge-m3/snapshots/test",
             "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/huggingface/hub/models--BAAI--bge-reranker-v2-m3/snapshots/test",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
             "nli": "/app/models/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/snapshots/test",
             "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
@@ -368,8 +327,6 @@ class TestModelPaths:
         model_paths_data = {
             "embedding": "/app/models/../../etc/passwd",
             "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/reranker/model",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
             "nli": "/app/models/nli/model",
             "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
@@ -395,8 +352,6 @@ class TestModelPaths:
         model_paths_data = {
             "embedding": "/etc/passwd",
             "embedding_name": "BAAI/bge-m3",
-            "reranker": "/app/models/reranker/model",
-            "reranker_name": "BAAI/bge-reranker-v2-m3",
             "nli": "/app/models/nli/model",
             "nli_name": "cross-encoder/nli-deberta-v3-small",
         }
@@ -520,111 +475,6 @@ class TestEmbeddingService:
                         await service.encode(["test text"])
 
                     assert "Model loading failed" in str(exc_info.value)
-
-
-# =============================================================================
-# reranker.py Tests
-# =============================================================================
-
-
-class TestRerankerService:
-    """Tests for RerankerService."""
-
-    def test_is_loaded_false_initially(self) -> None:
-        """
-        Given: A new RerankerService instance
-        When: is_loaded is checked
-        Then: Returns False
-        """
-        # Given/When
-        from src.ml_server.reranker import RerankerService
-
-        service = RerankerService()
-
-        # Then
-        assert service.is_loaded is False
-
-    @pytest.mark.asyncio
-    async def test_rerank_empty_documents(self) -> None:
-        """
-        Given: A RerankerService instance
-        When: rerank() is called with empty documents
-        Then: Returns an empty list without loading the model
-        """
-        # Given
-        from src.ml_server.reranker import RerankerService
-
-        service = RerankerService()
-
-        # When
-        result = await service.rerank(query="test query", documents=[])
-
-        # Then
-        assert result == []
-        assert service.is_loaded is False
-
-    @requires_sentence_transformers
-    @pytest.mark.asyncio
-    async def test_rerank_with_mock_model(self) -> None:
-        """
-        Given: RerankerService with mocked CrossEncoder
-        When: rerank() is called
-        Then: Returns ranked results
-        """
-        # Given
-        import numpy as np
-
-        from src.ml_server.reranker import RerankerService
-
-        mock_model = MagicMock()
-        # Scores for 3 documents
-        mock_model.predict.return_value = np.array([0.5, 0.9, 0.3])
-
-        service = RerankerService()
-
-        with patch("sentence_transformers.CrossEncoder", return_value=mock_model):
-            with patch("src.ml_server.reranker.get_reranker_path", return_value="/mock/path"):
-                with patch("src.ml_server.reranker.is_using_local_paths", return_value=True):
-                    # When
-                    result = await service.rerank(
-                        query="query", documents=["doc1", "doc2", "doc3"], top_k=2
-                    )
-
-        # Then
-        assert len(result) == 2
-        # Results should be sorted by score descending
-        assert result[0][0] == 1  # doc2 has highest score
-        assert result[0][1] == pytest.approx(0.9)
-        assert result[1][0] == 0  # doc1 has second highest score
-        assert result[1][1] == pytest.approx(0.5)
-
-    @requires_sentence_transformers
-    @pytest.mark.asyncio
-    async def test_rerank_model_load_failure(self) -> None:
-        """
-        Given: RerankerService with CrossEncoder that raises exception
-        When: rerank() is called
-        Then: Raises exception with error message
-        """
-        # Given
-        from src.ml_server.reranker import RerankerService
-
-        service = RerankerService()
-
-        with patch(
-            "sentence_transformers.CrossEncoder",
-            side_effect=RuntimeError("Reranker model loading failed"),
-        ):
-            with patch(
-                "src.ml_server.reranker.get_reranker_path",
-                return_value="/nonexistent/path",
-            ):
-                with patch("src.ml_server.reranker.is_using_local_paths", return_value=True):
-                    # When/Then
-                    with pytest.raises(RuntimeError) as exc_info:
-                        await service.rerank(query="test", documents=["doc1"])
-
-                    assert "Reranker model loading failed" in str(exc_info.value)
 
 
 # =============================================================================
@@ -851,18 +701,6 @@ class TestMLServerAPI:
         """
         # When
         response = client.post("/embed", json={})
-
-        # Then
-        assert response.status_code == 422  # Validation error
-
-    def test_rerank_endpoint_validation(self, client: TestClient) -> None:
-        """
-        Given: ML Server is running
-        When: POST /rerank is called without required fields
-        Then: Returns validation error
-        """
-        # When
-        response = client.post("/rerank", json={})
 
         # Then
         assert response.status_code == 422  # Validation error

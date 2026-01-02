@@ -35,7 +35,6 @@ class JobKind(str, Enum):
     FETCH = "fetch"
     EXTRACT = "extract"
     EMBED = "embed"
-    RERANK = "rerank"
     LLM = "llm"  # Single LLM job type (per ADR-0004)
     NLI = "nli"
     SEARCH_QUEUE = "search_queue"  # Async search queue (per ADR-0010)
@@ -68,7 +67,6 @@ KIND_TO_SLOT = {
     JobKind.FETCH: Slot.NETWORK_CLIENT,
     JobKind.EXTRACT: Slot.CPU_NLP,
     JobKind.EMBED: Slot.GPU,
-    JobKind.RERANK: Slot.GPU,
     JobKind.LLM: Slot.GPU,  # Single LLM slot (per ADR-0004)
     JobKind.NLI: Slot.CPU_NLP,
     JobKind.SEARCH_QUEUE: Slot.NETWORK_CLIENT,  # Async search queue (per ADR-0010)
@@ -80,7 +78,6 @@ KIND_PRIORITY = {
     JobKind.FETCH: 20,
     JobKind.EXTRACT: 30,
     JobKind.EMBED: 40,
-    JobKind.RERANK: 50,
     JobKind.LLM: 60,  # Single LLM priority (per ADR-0004)
     JobKind.NLI: 35,
     JobKind.SEARCH_QUEUE: 25,  # Between FETCH and EXTRACT (per ADR-0010)
@@ -518,11 +515,6 @@ class JobScheduler:
             ranker = get_embedding_ranker()
             embeddings = await ranker.encode(input_data.get("texts", []))
             return {"embeddings": embeddings}
-
-        elif kind == JobKind.RERANK:
-            from src.filter.ranking import rank_candidates
-
-            return {"results": await rank_candidates(**input_data)}
 
         elif kind == JobKind.LLM:
             from src.filter.llm import llm_extract

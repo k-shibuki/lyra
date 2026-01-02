@@ -25,7 +25,7 @@ Lyra is an open-source toolkit for AI-collaborative desktop research. It exposes
 
 **What this means in practice**: When you ask Cursor AI or Claude Desktop to "research drug X safety", the AI decides *what* to search and designs queries—then calls Lyra's `search` tool to execute them. Lyra fetches pages, extracts claims, detects supporting/refuting evidence, and returns structured results. The AI never sees raw HTML or manages rate limits; Lyra handles mechanical execution while the AI focuses on reasoning.
 
-This **thinking-working separation** keeps the AI's context clean for strategic decisions while offloading compute-intensive ML tasks (embedding, NLI, reranking) to Lyra's local runtime.
+This **thinking-working separation** keeps the AI's context clean for strategic decisions while offloading compute-intensive ML tasks (embedding, NLI) to Lyra's local runtime.
 
 **MCP Compatibility**: Lyra is protocol-compliant and works with any MCP client—[Cursor AI](https://cursor.sh/), [Claude Desktop](https://claude.ai/desktop), [Zed Editor](https://zed.dev/), or other MCP-enabled tools. The "thinking" side requires Claude/GPT-4-class reasoning capability.
 
@@ -35,7 +35,6 @@ This **thinking-working separation** keeps the AI's context clean for strategic 
 |-----------|-------|---------|---------|
 | Local LLM | Qwen2.5-3B (Ollama) | Qwen Research* | Fact/claim extraction, quality assessment |
 | Embedding | bge-m3 | MIT | Semantic similarity for candidate ranking |
-| Reranker | bge-reranker-v2-m3 | Apache-2.0 | Cross-encoder reranking of search results |
 | NLI | DeBERTa-v3 | Apache-2.0 | Stance detection (supports/refutes/neutral) |
 
 *\*Qwen2.5-3B uses the Qwen Research License (non-commercial). See [Model Licenses](#model-licenses) for alternatives.*
@@ -159,7 +158,7 @@ The MCP client (Cursor AI, Claude Desktop) provides frontier reasoning for strat
 │  │  │ (Research)   │    │  ┌────────┐ ┌────────┐ ┌─────┐  │    │   │
 │  │  └──────────────┘    │  │ Ollama │ │ML Server│ │ Tor │  │    │   │
 │  │                       │  │(LLM)   │ │(Embed/ │ │     │  │    │   │
-│  │                       │  │        │ │Rerank) │ │     │  │    │   │
+│  │                       │  │        │ │  NLI)  │ │     │  │    │   │
 │  │                       │  └────────┘ └────────┘ └─────┘  │    │   │
 │  │                       └──────────────────────────────────┘    │   │
 │  └───────────────────────────────────────────────────────────────┘   │
@@ -177,20 +176,20 @@ The MCP client (Cursor AI, Claude Desktop) provides frontier reasoning for strat
    - NLI stance detection (supports/refutes/neutral)
    - Evidence graph construction
 3. **Iterative Refinement**: MCP client reviews metrics via `get_status`, designs follow-up queries
-4. **Materials Export**: `get_materials` returns claims, fragments, and evidence graph for report composition
+4. **Evidence Exploration**: `query_graph` (SQL) and `vector_search` (semantic) enable granular evidence graph exploration
 
 ### Key Modules
 
 | Module | Location | Responsibility |
 |--------|----------|----------------|
-| **MCP Server** | `src/mcp/` | 10 tools for MCP client integration (per ADR-0010 async architecture) |
+| **MCP Server** | `src/mcp/` | 11 tools for MCP client integration (per ADR-0010 async architecture) |
 | **Search Providers** | `src/search/` | Multi-engine search, academic APIs |
 | **Citation Filter** | `src/search/citation_filter.py` | 2-stage relevance filtering (embedding + LLM) for citation tracking |
 | **Crawler** | `src/crawler/` | Browser automation, HTTP fetching, session management |
 | **Filter** | `src/filter/` | LLM extraction, NLI analysis, ranking |
 | **Research Pipeline** | `src/research/` | Orchestration, state management |
 | **Storage** | `src/storage/` | SQLite database, migrations |
-| **ML Server** | `src/ml_server/` | Embedding (bge-m3), reranking, NLI models |
+| **ML Server** | `src/ml_server/` | Embedding (bge-m3), NLI models |
 
 ---
 
@@ -282,7 +281,7 @@ Sources are classified by institutional category for **ranking adjustment only**
 |----------|----------------|-------|
 | RAM | 64GB host, 32GB WSL2 | Lower limits not yet determined |
 | GPU | NVIDIA RTX 4060 Laptop (8GB VRAM) | **Required** (no CPU fallback) |
-| Storage | ~25 GB | ML image (~18GB) + Ollama models (~5GB) + data |
+| Storage | ~25 GB | ML image (~3GB) + models on host (~1.4GB) + Ollama models (~5GB) + data |
 
 The default `podman-compose.yml` expects GPU access via CDI. **CPU-only operation is not supported.**
 
@@ -301,7 +300,7 @@ make setup              # Install MCP server dependencies
 # 3. Configure and start services
 cp .env.example .env
 make dev-build          # Build containers (first time or after changes)
-make dev-up             # Start containers (requires dev-build first)
+make dev-up             # Start containers (auto-downloads models if needed)
 make doctor-chrome-fix  # Fix WSL2 networking if needed
 make chrome-start       # Start Chrome with CDP
 
@@ -320,6 +319,7 @@ All operations are available via `make`. Run `make help` for the full list.
 | `make setup` | Install dependencies with uv (MCP extras) |
 | `make setup-full` | Install all dependencies (full development) |
 | `make setup-dev` | Install development dependencies |
+| `make setup-ml-models` | Download ML models to host (embedding + NLI) |
 
 **Development Environment:**
 
@@ -488,14 +488,19 @@ get_status(task_id="task_abc123", wait=10)
 #   "queue": {"depth": 1, "running": 1, "items": [...]},
 #   "budget": {"remaining_percent": 45},
 #   "blocked_domains": [...],
-#   "idle_seconds": 12.5
+#   "idle_seconds": 12.5,
+#   "evidence_summary": {"total_claims": 42, "total_fragments": 87, ...}  # when completed
 # }
 
-# 4. Retrieve materials for report composition
-get_materials(task_id="task_abc123", include_graph=True)
-# Returns: {"claims": [...], "fragments": [...], "evidence_graph": {...}}
+# 4. Explore evidence graph with SQL
+query_graph(sql="SELECT * FROM v_contradictions ORDER BY controversy_score DESC LIMIT 10")
+# Returns: {"ok": true, "rows": [...], "row_count": 10}
 
-# 5. Finalize task
+# 5. Semantic search for related claims
+vector_search(query="cardiovascular safety concerns", target="claims", task_id="task_abc123")
+# Returns: {"ok": true, "results": [{"id": "c_123", "similarity": 0.89, "text_preview": "..."}]}
+
+# 6. Finalize task
 stop_task(task_id="task_abc123", reason="completed")
 ```
 
@@ -829,16 +834,46 @@ Lyra depends on external ML models with their own licenses:
 | Qwen2.5-3B | Qwen Research License | ❌ No | [Hugging Face](https://huggingface.co/Qwen/Qwen2.5-3B) |
 | Qwen2.5-7B | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/Qwen/Qwen2.5-7B) |
 | bge-m3 | MIT | ✅ Yes | [Hugging Face](https://huggingface.co/BAAI/bge-m3) |
-| bge-reranker-v2-m3 | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/BAAI/bge-reranker-v2-m3) |
 | nli-deberta-v3-small | Apache-2.0 | ✅ Yes | [Hugging Face](https://huggingface.co/cross-encoder/nli-deberta-v3-small) |
 
-**Note**: The default LLM (Qwen2.5-3B) uses a research-only license. For commercial use, configure an alternative model in `config/settings.yaml`:
+**Note**: The default LLM (Qwen2.5-3B) uses a research-only license. For commercial use, configure an alternative model in `.env`:
 
-```yaml
-llm:
-  model: "qwen2.5:7b"    # Apache-2.0, commercial OK
+```bash
+# .env
+LYRA_LLM__MODEL=qwen2.5:7b    # Apache-2.0, commercial OK
   # or
-  model: "llama3.2:3b"   # Llama License, commercial OK
+LYRA_LLM__MODEL=llama3.2:3b   # Llama License, commercial OK
+```
+
+Then restart containers:
+```bash
+make dev-down
+make dev-up  # Auto-pulls new Ollama model
+```
+
+### Changing Models
+
+All model names are configured in `.env` (Single Source of Truth). To change models:
+
+1. Edit `.env`:
+   ```bash
+   # LLM (Ollama)
+   LYRA_LLM__MODEL=qwen2.5:7b
+   
+   # ML Server (HuggingFace)
+   LYRA_ML__EMBEDDING_MODEL=BAAI/bge-m3
+   LYRA_ML__NLI_MODEL=cross-encoder/nli-deberta-v3-base
+   ```
+
+2. Download new models (if ML models changed):
+   ```bash
+   make setup-ml-models
+   ```
+
+3. Restart containers:
+   ```bash
+   make dev-down
+   make dev-up  # Auto-pulls Ollama model, mounts ML models from host
 ```
 
 ---

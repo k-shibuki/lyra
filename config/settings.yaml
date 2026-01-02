@@ -210,7 +210,8 @@ llm:
   
   # LLM model for extraction tasks
   # 3B: lighter, 7B: better instruction following for complex prompts
-  model: "qwen2.5:3b"
+  # Set via LYRA_LLM__MODEL in .env (Single Source of Truth)
+  # model: "qwen2.5:3b"
   model_context: 4096
   
   # Temperature
@@ -221,21 +222,32 @@ llm:
 
 # === Embedding Settings ===
 embedding:
-  model_name: "BAAI/bge-m3"
+  # Set via LYRA_ML__EMBEDDING_MODEL in .env (Single Source of Truth)
+  # model_name: "BAAI/bge-m3"
   onnx_path: "models/bge-m3"
   batch_size: 8  # Micro-batch for VRAM
   max_length: 512
 
-# === Reranker Settings ===
-reranker:
-  model_name: "BAAI/bge-reranker-v2-m3"
-  onnx_path: "models/bge-reranker-v2-m3"
-  top_k: 100  # 100-150
-  max_top_k: 150
+# === Ranking Settings ===
+ranking:
+  # Stage 1: BM25
+  bm25_top_k: 150  # Top candidates from BM25 for embedding ranking
+  
+  # Stage 2: Embedding
+  embedding_weight: 0.7
+  bm25_weight: 0.3
+  
+  # Dynamic cutoff (Stage 3: replaces Reranker)
+  kneedle_cutoff:
+    enabled: true
+    min_results: 3
+    max_results: 50
+    sensitivity: 1.0  # Kneedle S parameter
 
 # === NLI Settings ===
 nli:
-  model: "cross-encoder/nli-deberta-v3-small"
+  # Set via LYRA_ML__NLI_MODEL in .env (Single Source of Truth)
+  # model: "cross-encoder/nli-deberta-v3-small"
 
 # === Storage Settings ===
 storage:

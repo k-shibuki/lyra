@@ -110,7 +110,13 @@ description: |
 
   IMPORTANT: This is read-only. No INSERT/UPDATE/DELETE allowed.
 
-  SCHEMA HINT: Use get_status(include_schema=true) to see table definitions.
+  LYRA NOTE (L7): This tool MUST have a JSON schema (src/mcp/schemas/query_graph.json).
+  Without a schema, Lyra's ResponseSanitizer may pass responses through unsanitized,
+  defeating L7 allowlist filtering.
+
+  SCHEMA HINT (Lyra-compatible):
+  - Option A (recommended): query_graph(..., options.include_schema=true) to return a safe schema snapshot.
+  - Option B: rely on config/views/*.sql.j2 templates (predefined analysis queries) rather than ad-hoc introspection SQL.
 
 inputSchema:
   type: object
@@ -122,11 +128,29 @@ inputSchema:
         - "SELECT * FROM claims WHERE task_id = 'xxx' LIMIT 10"
         - "SELECT c.*, e.relation FROM claims c JOIN edges e ON c.id = e.source_id"
         - "SELECT * FROM pages WHERE paper_metadata IS NOT NULL"
-    limit:
-      type: integer
-      default: 50
-      maximum: 200
-      description: Maximum rows to return (safety limit)
+    options:
+      type: object
+      additionalProperties: false
+      properties:
+        limit:
+          type: integer
+          default: 50
+          maximum: 200
+          description: Maximum rows to return (safety limit for output size)
+        timeout_ms:
+          type: integer
+          default: 300
+          maximum: 2000
+          description: Hard timeout to interrupt long-running queries (DoS guard)
+        max_vm_steps:
+          type: integer
+          default: 500000
+          maximum: 5000000
+          description: SQLite VM instruction budget (DoS guard, works with progress handler)
+        include_schema:
+          type: boolean
+          default: false
+          description: Return a safe schema snapshot (tables/columns only), without using PRAGMA from user SQL.
   required: [sql]
 
 outputSchema:
@@ -137,41 +161,90 @@ outputSchema:
     row_count: { type: integer }
     columns: { type: array, items: { type: string } }
     truncated: { type: boolean, description: "True if limit was applied" }
+    elapsed_ms: { type: integer, description: "Query execution time (ms)" }
+    schema:
+      type: [object, "null"]
+      description: "Only present when options.include_schema=true"
+      properties:
+        tables:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              columns: { type: array, items: { type: string } }
+            additionalProperties: false
+      additionalProperties: false
     error: { type: string }
 ```
 
-**セキュリティ対策**（シングルユーザーだが任意コード実行は防止）:
+**セキュリティ対策（Lyraの実装に合う形に強化）**:
+
+本プロジェクトは `aiosqlite` を使用しており、MCPサーバは「長時間処理の自爆（DoS）」「ファイルシステム覗き見（ATTACH）」「拡張ロード（load_extension）」を最優先で潰す。
+
+**方針（推奨順）**:
+1. **Read-only接続**: `file:...mode=ro`（最重要）
+2. **SQLite authorizer**: 危険オペレーションを機械的に拒否（正規表現より堅牢）
+3. **progress handler**: VM命令数/経過時間で中断（巨大JOIN等のDoS対策）
+4. **単一ステートメント制約**: `;` を含む複文を拒否（複数実行・インジェクション面の縮小）
+5. **保険の正規表現**: `ATTACH/DETACH/load_extension/PRAGMA/DDL/DML` を拒否（ログにも出しやすい）
 
 ```python
 import re
 import sqlite3
+import time
 
-# Read-only接続（最重要）
-conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-
-# 危険なステートメントを拒否
 FORBIDDEN_PATTERNS = [
-    r"\bATTACH\b",         # 外部DBアタッチ → ファイルシステムアクセス
+    r"\bATTACH\b",         # file system access via attach
     r"\bDETACH\b",
-    r"\bload_extension\b", # 共有ライブラリロード → 任意コード実行
-    r"\bCREATE\b",         # DDL
-    r"\bDROP\b",
-    r"\bALTER\b",
-    r"\bINSERT\b",         # DML
-    r"\bUPDATE\b",
-    r"\bDELETE\b",
-    r"\bREPLACE\b",
-    r"\bPRAGMA\b",         # 設定変更
+    r"\bload_extension\b", # arbitrary code execution
+    r"\bCREATE\b", r"\bDROP\b", r"\bALTER\b",  # DDL
+    r"\bINSERT\b", r"\bUPDATE\b", r"\bDELETE\b", r"\bREPLACE\b",  # DML
+    r"\bPRAGMA\b",         # avoid toggling query_only/trusted_schema/etc from user SQL
 ]
 
-def validate_sql(sql: str) -> bool:
-    """SQLクエリの安全性を検証"""
-    sql_upper = sql.upper()
+def validate_sql_text(sql: str) -> None:
+    """Reject obvious-dangerous SQL patterns and multi-statement payloads."""
+    if ";" in sql.strip().rstrip(";"):
+        raise ValueError("Multiple statements are not allowed")
     for pattern in FORBIDDEN_PATTERNS:
-        if re.search(pattern, sql_upper, re.IGNORECASE):
-            return False
-    return True
+        if re.search(pattern, sql, re.IGNORECASE):
+            raise ValueError(f"Forbidden SQL keyword detected: {pattern}")
+
+def install_sqlite_guards(conn: sqlite3.Connection, *, timeout_ms: int, max_vm_steps: int) -> None:
+    """Install authorizer + progress handler to prevent DoS / file access."""
+    deadline = time.time() + (timeout_ms / 1000)
+
+    def authorizer(action_code, param1, param2, dbname, source):
+        """
+        Pseudocode (Lyra):
+        - Use SQLite authorizer callback to block risky operations at the engine level.
+        - Deny: ATTACH/DETACH, PRAGMA, DDL/DML, transactions/savepoints, and any extension loading.
+        - Allow: READ/SELECT on existing tables only.
+        """
+        # NOTE: action_code is an int defined by SQLite (not by Python).
+        # Implementation should map known action codes (SQLITE_ATTACH, SQLITE_DETACH, SQLITE_PRAGMA, ...)
+        # to deny/allow sets. Default should be DENY for unknown codes.
+        #
+        # return sqlite3.SQLITE_DENY  # for denied operations
+        # return sqlite3.SQLITE_OK    # for allowed operations
+        return sqlite3.SQLITE_OK  # placeholder (describe deny/allow above; implement in code)
+
+    def progress_handler():
+        if time.time() >= deadline:
+            return 1  # non-zero => interrupt
+        return 0
+
+    conn.set_authorizer(authorizer)
+    conn.set_progress_handler(progress_handler, max(1000, max_vm_steps // 1000))
+
+# Read-only connect (critical)
+conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+install_sqlite_guards(conn, timeout_ms=300, max_vm_steps=500000)
 ```
+
+**実装メモ（Lyraに合わせる）**:
+- MCPサーバはasyncで動くため、実装は `sqlite3.connect()` の直呼びではなく、`aiosqlite.connect("file:...mode=ro", uri=True)` を使い、必要なら内部コネクションに対して `set_authorizer` / `set_progress_handler` を設定する（イベントループをブロックしない）。
 
 **脅威モデル**（シングルユーザー環境）:
 
@@ -179,19 +252,22 @@ def validate_sql(sql: str) -> bool:
 |------|--------|------|
 | 任意コード実行 | `load_extension()`で共有ライブラリロード | 正規表現で拒否 + Read-only接続 |
 | ファイルシステムアクセス | `ATTACH DATABASE '/etc/passwd'` | ATTACH禁止 + Read-only |
-| DoS（自爆） | 巨大CROSS JOINでメモリ枯渇 | LIMIT強制 + タイムアウト |
+| DoS（自爆） | 巨大CROSS JOIN/再帰CTEでCPU/メモリ枯渇 | progress handler（timeout/VM steps）+ 出力行数limit |
 
 #### 4.2.2 `vector_search` - ベクトル検索ツール
 
 ```yaml
 name: vector_search
 description: |
-  Semantic similarity search over fragments/claims/pages using embeddings.
+  Semantic similarity search over fragments/claims using embeddings.
   Use BEFORE query_graph to find relevant content by meaning, not keywords.
 
   WORKFLOW:
   1. vector_search(query="...", target="fragments") → get relevant IDs
   2. query_graph(sql="SELECT * FROM fragments WHERE id IN (...)") → get full data
+
+  LYRA NOTE (L7): This tool MUST have a JSON schema (src/mcp/schemas/vector_search.json),
+  otherwise responses may bypass allowlist sanitization.
 
 inputSchema:
   type: object
@@ -201,15 +277,17 @@ inputSchema:
       description: Natural language query for semantic search
     target:
       type: string
-      enum: [fragments, claims, pages]
-      default: fragments
-      description: Table to search
+      enum: [fragments, claims]
+      default: claims
+      description: |
+        Table to search.
+        Lyra product fit suggests claims-first (see §4.4.2). Fragments are follow-ups.
     task_id:
       type: string
       description: |
         Optional. Scope search to specific task.
-        - fragments/claims: filter by task
-        - pages: ignored (pages are global)
+        - claims: recommended (claims are task-scoped)
+        - fragments: optional (task scoping can be done via SQL join/CTE; see §4.4.2.1)
     top_k:
       type: integer
       default: 10
@@ -472,17 +550,71 @@ kneed = ">=0.8.0"
 
 **特性**: 意味が似たテキストは、ベクトルも近くなる（コサイン類似度が高い）
 
-#### 4.4.2 何をどこに埋め込むか
+#### 4.4.2 何をどこに埋め込むか（決定版）
 
 | 対象 | テキスト | タイミング | task紐づき |
 |------|----------|-----------|-----------|
-| fragment | 抽出したテキスト断片 | ランキング時 | あり（page → query → task） |
-| claim | 抽出した主張 | Claim抽出時 | あり（claims.task_id） |
-| page | 論文abstract等 | 引用追跡時 | **なし（グローバル）** |
+| fragment | 抽出したテキスト断片 | 生成/保存時（extract） | task_idは直接は持たない（taskから辿れる） |
+| claim | 抽出した主張 | Claim抽出時 | **task固有（claims.task_id）** |
 
-**紐づきの違い**:
-- `fragment` / `claim`: 特定の検索クエリ・タスクに依存。同じテキストでも別タスクなら別embedding
-- `page`: 論文のabstractは普遍的。複数タスクで共有可能
+#### 4.4.2.1 スコープ定義（Task / Search / Global）
+
+Lyraには「Task（研究タスク）」の中に複数の「Search（= `queries` 行。検索クエリ実行の単位）」が存在する。
+ただしEmbeddingは **Search単位ではなく、DB上の“エンティティ（claim/fragment）”単位**で行うのが自然である。
+（`pages` はEvidence Graph/Citationの原典テーブルとして保持するが、本提案では埋め込み対象にしない）
+
+| DBエンティティ | 現状スキーマ上のキー | スコープ（現状の意味論） | 補足 |
+|---|---|---|---|
+| claim | `claims.id` + `claims.task_id` | **task固有** | Claimは task の成果物（Evidence Graphの最小単位） |
+| page | `pages.url`（UNIQUE） / `pages.id` | **グローバル寄り** | 同一URLは再利用され得る（キャッシュ/重複排除の前提） |
+| fragment | `fragments.id`（task_idは持たない） | **ページ由来でグローバルだが、taskから辿れる** | task_idが無いので、taskスコープ探索は `claim(task_id)`→`edges`→`fragments` で実現している |
+
+**重要な注意（提案書で明確化すべき点）**:
+- `fragments` は **task_idを持たない**。ただしLyraでは task は `claims.task_id` を起点に `edges` を辿って fragment に到達できる。
+  そのため「taskスコープの fragment embedding 集合」は、SQLのJOIN/CTEで抽出できる（下記）。
+
+**紐づきの考え方（提案）**:
+- Embeddingベクトルは「text × model」で決まるため、原理的にはtaskに依存しない。
+- 本提案では **page埋込は行わない**（pageは原典であり、必要時にURL/メタデータを参照すれば足りる）。
+- 本提案では **claim + fragment の2対象を最初から実装**する（段階分割はしない）。
+- `embeddings` テーブル自体には **task_idを持たせない**。taskスコープの切り出しはSQLで行う。
+
+**例: taskスコープで fragment embeddings を切り出す（JOIN/CTE）**:
+
+```sql
+-- task内で参照されているfragment集合を作り、その集合に属するembeddingだけを取得
+WITH task_fragments AS (
+  SELECT DISTINCT e.source_id AS fragment_id
+  FROM edges e
+  JOIN claims c
+    ON e.target_type = 'claim'
+   AND e.target_id = c.id
+  WHERE e.source_type = 'fragment'
+    AND c.task_id = :task_id
+)
+SELECT emb.target_id, emb.embedding_blob
+FROM embeddings emb
+JOIN task_fragments tf
+  ON emb.target_type = 'fragment'
+ AND emb.target_id = tf.fragment_id
+WHERE emb.model_id = :model_id;
+```
+
+**例: taskスコープで claim embeddings を切り出す**:
+
+```sql
+SELECT emb.target_id, emb.embedding_blob
+FROM embeddings emb
+JOIN claims c
+  ON emb.target_type = 'claim'
+ AND emb.target_id = c.id
+WHERE c.task_id = :task_id
+  AND emb.model_id = :model_id;
+```
+
+**埋め込み対象（決定）**:
+- **claim + fragment の2対象のみ**
+- page は埋め込み対象にしない（原典は query_graph で参照すれば足りる）
 
 #### 4.4.3 ベクトル検索で何ができるか
 
@@ -549,9 +681,8 @@ query_graph(sql="SELECT f.*, p.url FROM fragments f
 -- cache_embed を置き換え（キャッシュではなく永続データ）
 CREATE TABLE IF NOT EXISTS embeddings (
     id TEXT PRIMARY KEY,
-    target_type TEXT NOT NULL,  -- 'fragment' | 'claim' | 'page'
-    target_id TEXT NOT NULL,    -- fragments.id | claims.id | pages.id
-    task_id TEXT,               -- fragment/claim: 紐づくtask, page: NULL
+    target_type TEXT NOT NULL,  -- 'fragment' | 'claim'
+    target_id TEXT NOT NULL,    -- fragments.id | claims.id
     model_id TEXT NOT NULL,     -- 'BAAI/bge-m3'
     embedding_blob BLOB NOT NULL,
     dimension INTEGER NOT NULL,  -- 768
@@ -559,25 +690,22 @@ CREATE TABLE IF NOT EXISTS embeddings (
     UNIQUE(target_type, target_id, model_id)
 );
 CREATE INDEX IF NOT EXISTS idx_embeddings_target ON embeddings(target_type, target_id);
-CREATE INDEX IF NOT EXISTS idx_embeddings_task ON embeddings(task_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_type ON embeddings(target_type);
 
 -- 旧 cache_embed は削除
 DROP TABLE IF EXISTS cache_embed;
 ```
 
-**task_id の扱い**:
-- `fragment`: page経由で間接的にtaskに紐づくが、検索効率のため直接task_idを保持
-- `claim`: claims.task_id をそのまま使用
-- `page`: NULL（グローバル、複数taskで共有）
+**task_id の扱い（決定）**:
+- `embeddings` には `task_id` を持たせない
+- taskスコープは `claims.task_id` と `edges` のJOIN（上記CTE）で切り出す
 
 #### 4.4.7 永続化タイミング
 
 | タイミング | 処理 |
 |-----------|------|
-| ランキング時 | fragments の embedding を永続化 |
-| 引用追跡時 | pages（論文abstract）の embedding を永続化 |
 | Claim抽出時 | claims の embedding を永続化 |
+| Fragment生成/保存時 | fragments の embedding を永続化 |
 
 #### 4.4.8 ベクトル検索の実装
 
@@ -586,7 +714,7 @@ DROP TABLE IF EXISTS cache_embed;
 
 async def vector_search(
     query: str,
-    target_type: str,  # 'fragment' | 'claim' | 'page'
+    target_type: str,  # 'fragment' | 'claim'
     task_id: str | None = None,
     top_k: int = 10,
     min_similarity: float = 0.5,
@@ -611,20 +739,33 @@ async def vector_search(
                CASE
                  WHEN e.target_type = 'fragment' THEN f.text_content
                  WHEN e.target_type = 'claim' THEN c.claim_text
-                 WHEN e.target_type = 'page' THEN p.paper_metadata
                END as text_content
         FROM embeddings e
         LEFT JOIN fragments f ON e.target_type = 'fragment' AND e.target_id = f.id
         LEFT JOIN claims c ON e.target_type = 'claim' AND e.target_id = c.id
-        LEFT JOIN pages p ON e.target_type = 'page' AND e.target_id = p.id
         WHERE e.target_type = ?
     """
     params = [target_type]
 
-    # task_idでフィルタ（page以外）
-    if task_id and target_type != 'page':
-        sql += " AND e.task_id = ?"
+    # task_idでフィルタ（embeddingsにtask_idは持たせない。JOIN/CTEで絞る）
+    if task_id and target_type == "claim":
+        sql += " AND c.task_id = ?"
         params.append(task_id)
+    elif task_id and target_type == "fragment":
+        sql = f"""
+        WITH task_fragments AS (
+          SELECT DISTINCT e2.source_id AS fragment_id
+          FROM edges e2
+          JOIN claims c2
+            ON e2.target_type = 'claim'
+           AND e2.target_id = c2.id
+          WHERE e2.source_type = 'fragment'
+            AND c2.task_id = ?
+        )
+        {sql}
+        AND e.target_id IN (SELECT fragment_id FROM task_fragments)
+        """
+        params = [task_id, *params]
 
     rows = await db.fetch_all(sql, params)
 

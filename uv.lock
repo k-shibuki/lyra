@@ -834,6 +834,19 @@ wheels = [
 ]
 
 [[package]]
+name = "kneed"
+version = "0.8.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ba/0f/958e27a378042e0366dfea8baab4a53121cb37c114117666051390cd7bb8/kneed-0.8.5.tar.gz", hash = "sha256:a4847ac4f1d04852fea278d5de7aa8bfdc3beb7fbca4a182fec0f0efee43f4b1", size = 12783, upload-time = "2023-07-09T01:51:08.93Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/1b/7e726d8616e813007874468c61790099ba21493e0ea07561b7d9fc53151c/kneed-0.8.5-py3-none-any.whl", hash = "sha256:2f3fbd4e9bd808e65052841448702c41ea64d5fc78735cbfc97ab25f08bd9815", size = 10290, upload-time = "2023-07-09T01:51:07.548Z" },
+]
+
+[[package]]
 name = "librt"
 version = "0.7.5"
 source = { registry = "https://pypi.org/simple" }
@@ -969,6 +982,7 @@ full = [
     { name = "ipython" },
     { name = "jinja2" },
     { name = "justext" },
+    { name = "kneed" },
     { name = "mcp" },
     { name = "mypy" },
     { name = "networkx" },
@@ -1000,7 +1014,9 @@ mcp = [
     { name = "curl-cffi" },
     { name = "datasketch" },
     { name = "httpx" },
+    { name = "huggingface-hub" },
     { name = "jinja2" },
+    { name = "kneed" },
     { name = "mcp" },
     { name = "networkx" },
     { name = "playwright" },
@@ -1051,10 +1067,12 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'ml'", specifier = ">=0.109.0" },
     { name = "httpx", marker = "extra == 'mcp'", specifier = ">=0.26.0" },
     { name = "httpx", marker = "extra == 'ml'", specifier = ">=0.26.0" },
+    { name = "huggingface-hub", marker = "extra == 'mcp'", specifier = ">=0.20.0" },
     { name = "huggingface-hub", marker = "extra == 'ml'", specifier = ">=0.20.0" },
     { name = "ipython", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "jinja2", marker = "extra == 'mcp'", specifier = ">=3.1.0" },
     { name = "justext", marker = "extra == 'extraction'", specifier = ">=3.0.0" },
+    { name = "kneed", marker = "extra == 'mcp'", specifier = ">=0.8.0" },
     { name = "lyra", extras = ["mcp", "ml", "browser", "extraction", "tor", "dev", "test"], marker = "extra == 'full'" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.7.0" },

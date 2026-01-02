@@ -36,6 +36,13 @@ setup-full: ## Install all dependencies (full development)
 setup-ml: ## Install ML dependencies
 	uv sync --frozen --extra ml
 
+setup-ml-models: ## Download ML models to host (embedding + NLI)
+	@echo "Downloading ML models to models/huggingface/..."
+	@mkdir -p models/huggingface
+	HF_HOME=$(PWD)/models/huggingface \
+	LYRA_ML__MODEL_PATHS_FILE=$(PWD)/models/model_paths.json \
+	uv run python scripts/download_models.py
+
 setup-dev: ## Install development dependencies
 	uv sync --frozen --group dev
 
@@ -69,6 +76,21 @@ dev-rebuild: ## Rebuild containers (no cache)
 
 dev-clean: ## Remove containers and images
 	@$(SCRIPTS)/dev.sh clean
+
+# =============================================================================
+# OLLAMA MODEL MANAGEMENT
+# =============================================================================
+
+ollama-pull: ## Pull Ollama model (default: qwen2.5:3b, MODEL= to override)
+	@podman network connect lyra_lyra-net lyra-ollama 2>/dev/null || true
+	@podman exec lyra-ollama ollama pull $(or $(MODEL),qwen2.5:3b)
+	@podman network disconnect lyra_lyra-net lyra-ollama 2>/dev/null || true
+
+ollama-list: ## List available Ollama models
+	@podman exec lyra-ollama ollama list
+
+ollama-status: ## Show Ollama model status
+	@podman exec lyra-ollama ollama list 2>/dev/null || echo "Ollama container not running"
 
 # =============================================================================
 # MCP SERVER
@@ -248,6 +270,10 @@ help: ## Show this help
 	@echo ""
 	@echo "Chrome:"
 	@grep -E '^chrome[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Ollama:"
+	@grep -E '^ollama[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Testing:"

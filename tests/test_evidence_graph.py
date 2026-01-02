@@ -3147,9 +3147,7 @@ class TestEvidenceSourceDerived:
         assert stats["edge_counts"]["evidence_source"] == 0
 
     @pytest.mark.asyncio
-    async def test_fragment_null_page_id_no_evidence_source(
-        self, test_database: Database
-    ) -> None:
+    async def test_fragment_null_page_id_no_evidence_source(self, test_database: Database) -> None:
         """TC-ES-B-03: Fragment with NULL page_id creates no EVIDENCE_SOURCE.
 
         // Given: Fragment with NULL page_id linked to claim

@@ -1,40 +1,40 @@
 #!/usr/bin/env python3
 """
 Download ML models for Lyra.
-This script is run during Docker build to include models in the image.
+This script downloads models to the host filesystem for persistence.
 
 Models can be updated by:
 1. Setting environment variables in .env (recommended):
    - LYRA_ML__EMBEDDING_MODEL
-   - LYRA_ML__RERANKER_MODEL
    - LYRA_ML__NLI_MODEL
-2. Or editing the MODEL_* variables below directly
-3. Then running: make dev-rebuild
+2. Then running: make setup-ml-models
 
 Default models:
 - BAAI/bge-m3 (embedding, ~1.2GB)
-- BAAI/bge-reranker-v2-m3 (reranker, ~1.2GB)
 - cross-encoder/nli-deberta-v3-small (NLI, ~200MB)
 
 IMPORTANT: Models are downloaded using huggingface_hub.snapshot_download()
-and the local paths are saved to /app/models/model_paths.json for
+and the local paths are saved to models/model_paths.json for
 offline loading.
 """
 
 import json
 import os
 import sys
+from pathlib import Path
 
-# Model names - edit these to update models
+# Model names - edit these to update models (or use .env)
 MODEL_EMBEDDING = os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
-MODEL_RERANKER = os.environ.get("LYRA_ML__RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 MODEL_NLI = os.environ.get(
     "LYRA_ML__NLI_MODEL", "cross-encoder/nli-deberta-v3-small"
 )
 
-# Output path for model paths JSON
+# Output path for model paths JSON (host-relative)
+SCRIPT_DIR = Path(__file__).parent.resolve()
+DEFAULT_MODELS_DIR = SCRIPT_DIR.parent / "models"
 MODEL_PATHS_FILE = os.environ.get(
-    "LYRA_ML__MODEL_PATHS_FILE", "/app/models/model_paths.json"
+    "LYRA_ML__MODEL_PATHS_FILE",
+    str(DEFAULT_MODELS_DIR / "model_paths.json")
 )
 
 
@@ -53,6 +53,12 @@ def download_model(repo_id: str, model_type: str) -> str:
     from huggingface_hub import snapshot_download
 
     print(f"  Downloading {model_type}: {repo_id}")
+
+    # Use HF_HOME if set, otherwise default to models/huggingface
+    hf_home = os.environ.get("HF_HOME")
+    if not hf_home:
+        hf_home = str(DEFAULT_MODELS_DIR / "huggingface")
+        os.environ["HF_HOME"] = hf_home
 
     # Check if offline mode is enabled
     offline_mode = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
@@ -73,10 +79,10 @@ def download_model(repo_id: str, model_type: str) -> str:
             raise
 
     # Online mode: download or get from cache
+    # HF_HOME is set above, so models will be cached there
     local_path = snapshot_download(
         repo_id=repo_id,
-        # Use default cache dir (HF_HOME/hub)
-        # This ensures consistency with HuggingFace's caching
+        # Use HF_HOME/hub as cache dir
     )
 
     print(f"  Done: {repo_id}")
@@ -85,13 +91,27 @@ def download_model(repo_id: str, model_type: str) -> str:
     return local_path
 
 
-def verify_model_loads(model_paths: dict) -> None:
+def verify_model_loads(model_paths: dict) -> bool:
     """Verify that all models can be loaded from local paths.
 
     Args:
         model_paths: Dictionary of model type to local path
+
+    Returns:
+        True if verification passed, False if skipped (dependencies not available)
     """
     import os
+
+    # Check if ML dependencies are available (they won't be on host)
+    try:
+        from sentence_transformers import SentenceTransformer
+        from transformers import pipeline
+    except ImportError:
+        print("\n" + "=" * 60)
+        print("Skipping model verification (ML dependencies not installed)")
+        print("Models will be verified when loaded in the container.")
+        print("=" * 60)
+        return False
 
     print("\n" + "=" * 60)
     print("Verifying models load correctly from local paths")
@@ -102,30 +122,19 @@ def verify_model_loads(model_paths: dict) -> None:
     local_only = offline_mode
 
     # Embedding
-    print("\n[Verify 1/3] Loading embedding model...")
-    from sentence_transformers import SentenceTransformer
-
+    print("\n[Verify 1/2] Loading embedding model...")
     SentenceTransformer(model_paths["embedding"], local_files_only=local_only)
     print("  OK: Embedding model loads successfully")
 
-    # Reranker
-    print("\n[Verify 2/3] Loading reranker model...")
-    from sentence_transformers import CrossEncoder
-
-    # CrossEncoder doesn't have local_files_only param, but respects HF_HUB_OFFLINE
-    CrossEncoder(model_paths["reranker"])
-    print("  OK: Reranker model loads successfully")
-
     # NLI
-    print("\n[Verify 3/3] Loading NLI model...")
-    from transformers import pipeline
-
+    print("\n[Verify 2/2] Loading NLI model...")
     pipeline(
         "text-classification",
         model=model_paths["nli"],
         local_files_only=local_only,
     )
     print("  OK: NLI model loads successfully")
+    return True
 
 
 def main():
@@ -136,22 +145,14 @@ def main():
     model_paths = {}
 
     # Download embedding model
-    print("\n[1/3] Embedding model")
+    print("\n[1/2] Embedding model")
     model_paths["embedding"] = download_model(MODEL_EMBEDDING, "embedding")
     model_paths["embedding_name"] = MODEL_EMBEDDING
 
-    # Download reranker model
-    print("\n[2/3] Reranker model")
-    model_paths["reranker"] = download_model(MODEL_RERANKER, "reranker")
-    model_paths["reranker_name"] = MODEL_RERANKER
-
     # Download NLI model
-    print("\n[3/3] NLI model")
+    print("\n[2/2] NLI model")
     model_paths["nli"] = download_model(MODEL_NLI, "NLI")
     model_paths["nli_name"] = MODEL_NLI
-
-    # Verify models load correctly
-    verify_model_loads(model_paths)
 
     # Save model paths to JSON file
     print("\n" + "=" * 60)
@@ -166,8 +167,14 @@ def main():
     print("\nModel paths content:")
     print(json.dumps(model_paths, indent=2))
 
+    # Verify models load correctly (skipped if ML dependencies not available)
+    verified = verify_model_loads(model_paths)
+
     print("\n" + "=" * 60)
-    print("All models downloaded and verified successfully!")
+    if verified:
+        print("All models downloaded and verified successfully!")
+    else:
+        print("All models downloaded successfully!")
     print("=" * 60)
 
 

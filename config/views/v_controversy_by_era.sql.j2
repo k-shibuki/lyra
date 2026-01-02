@@ -1,0 +1,9 @@
+-- Controversy metrics grouped by decade (based on newest evidence year)
+SELECT *
+FROM v_controversy_by_era
+{% if task_id %}
+WHERE task_id = '{{ task_id }}'
+{% endif %}
+ORDER BY decade DESC
+
+
