@@ -245,9 +245,8 @@ ranking:
     sensitivity: 1.0  # Kneedle S parameter
 
 # === NLI Settings ===
-nli:
-  # Set via LYRA_ML__NLI_MODEL in .env (Single Source of Truth)
-  # model: "cross-encoder/nli-deberta-v3-small"
+# Model name set via LYRA_ML__NLI_MODEL in .env (Single Source of Truth)
+# nli section removed - defaults from NLIConfig will be used
 
 # === Storage Settings ===
 storage:
