@@ -336,7 +336,7 @@ outputSchema:
 |----------|----------|------------|
 | `v_hub_pages` | 複数Claimを支持する中核ソース | page_id, title, domain, claims_supported, citation_count |
 | `v_citation_flow` | 引用関係の方向性 | citing_page_id, cited_page_id, citation_source, created_at |
-| `v_citation_clusters` | Bibliographic coupling（同じ論文に引用されるペア） | page_a, page_a_title, page_b, page_b_title, coupling_strength |
+| `v_bibliographic_coupling` | Bibliographic coupling（同じ論文に引用されるペア） | page_a, page_a_title, page_b, page_b_title, coupling_strength |
 | `v_citation_chains` | 引用連鎖（A→B→C経路） | citing_page, citing_title, intermediate_page, intermediate_title, cited_page, cited_title |
 | `v_orphan_sources` | 引用されていない孤立ソース | page_id, title, domain, claims_supported |
 

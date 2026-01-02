@@ -66,7 +66,7 @@ def _get_view_description(view_name: str) -> str:
         "v_evidence_chain": "Full evidence chain from claims through fragments to sources",
         "v_hub_pages": "High-connectivity pages (citation hubs)",
         "v_citation_flow": "Citation relationships between pages",
-        "v_citation_clusters": "Bibliographic coupling - papers cited by the same papers",
+        "v_bibliographic_coupling": "Bibliographic coupling: papers cited by the same papers (coupling strength = shared citers)",
         "v_citation_chains": "Citation chains showing A→B→C paths through literature",
         "v_orphan_sources": "Pages with no outgoing citations",
         "v_evidence_timeline": "Evidence organized by publication year",

@@ -141,7 +141,7 @@ async def _main() -> None:
             "v_evidence_chain",
             "v_hub_pages",
             "v_citation_flow",
-            "v_citation_clusters",
+            "v_bibliographic_coupling",
             "v_orphan_sources",
             "v_evidence_timeline",
             "v_claim_temporal_support",
