@@ -77,4 +77,3 @@ make test-e2e
 ## Related rules
 
 - `@.cursor/rules/test-strategy.mdc`
-- `@.cursor/rules/code-execution.mdc`

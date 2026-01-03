@@ -102,7 +102,3 @@ Candidate interpretation:
 - **Proposed YAML patch**: minimal, explicit
 - **Files changed**: list
 - **Verification**: E2E results
-
-## Related rules
-
-- `@.cursor/rules/code-execution.mdc`

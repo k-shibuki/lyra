@@ -644,14 +644,14 @@ class TestAcquireTimeoutConfig:
             effective_max_parallel=1, config_max_parallel=1
         )
 
-            # When: First acquire succeeds
-            await limiter.acquire("test_provider", timeout=None)
-            limiter._active_counts["test_provider"] = 1  # Simulate slot taken
+        # When: First acquire succeeds
+        await limiter.acquire("test_provider", timeout=None)
+        limiter._active_counts["test_provider"] = 1  # Simulate slot taken
 
         # When: Second acquire should timeout quickly (not using 300s pipeline timeout)
         # We test with explicit short timeout to verify the mechanism works
-            with pytest.raises(TimeoutError):
-                await limiter.acquire("test_provider", timeout=0.01)
+        with pytest.raises(TimeoutError):
+            await limiter.acquire("test_provider", timeout=0.01)
 
         # Cleanup
         limiter._active_counts["test_provider"] = 0

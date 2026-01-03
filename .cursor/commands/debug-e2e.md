@@ -89,7 +89,7 @@ Aggregate ERROR/WARNING from `logs/lyra_*.log` and `.cursor/debug.log`:
 ```bash
 make doctor          # Health check
 make chrome-start    # CDP connection
-make dev-up          # Containers
+make up              # Containers
 make mcp             # MCP Server
 ```
 
@@ -108,9 +108,9 @@ make mcp-logs-grep PATTERN="error"   # Search
 | Phase | Goal | Check |
 |-------|------|-------|
 | A. Environment | MCP/Chrome/DB running | `make doctor`, `make chrome-diagnose` |
-| B. Queue | Task → Jobs → Worker | `jobs` table, `make dev-logs-f` |
+| B. Queue | Task → Jobs → Worker | `jobs` table, `make logs-f` |
 | C. Fetch | SERP → fetch → extract | `intervention_queue`, `fragments` table |
-| D. NLI | Fragment-Claim judgment | `make dev-status`, `claims`/`edges` table |
+| D. NLI | Fragment-Claim judgment | `make status`, `claims`/`edges` table |
 | E. Materials | `get_materials` returns graph | `claims` with task_id filter |
 
 ---
@@ -135,7 +135,7 @@ SELECT e.* FROM edges e LEFT JOIN fragments f ON e.fragment_id = f.id WHERE f.id
 
 ## E2E checklist
 
-1. `make doctor` → `make chrome-start` → `make dev-up` → `make mcp`
+1. `make doctor` → `make chrome-start` → `make up` → `make mcp`
 2. `create_task` → `queue_searches` → `get_status(wait=30)`
 3. If auth needed: `get_auth_queue` → `resolve_auth`
 4. `get_materials(include_graph=true)` → validate graph
@@ -219,4 +219,4 @@ After debugging, search and remove all `#region agent log` blocks.
 
 ## Related
 
-`@.cursor/rules/debug-e2e.mdc` | `@.cursor/rules/code-execution.mdc`
+`@.cursor/rules/debug-e2e.mdc`

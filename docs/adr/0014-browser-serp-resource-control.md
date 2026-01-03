@@ -3,9 +3,6 @@
 ## Date
 2025-12-25
 
-## Status
-Accepted (2025-12-25: TabPool + EngineRateLimiter implemented)
-
 ## Context
 
 ADR-0010 specifies that `SearchQueueWorker` processes searches with 2 parallel workers. Browser SERP fetching has the following **local resource contention**:

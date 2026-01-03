@@ -67,6 +67,5 @@ Use multiple signals (don't rely on one):
 
 ## Related rules
 
-- `@.cursor/rules/code-execution.mdc`
 - `@.cursor/rules/refactoring.mdc` (when restructuring requires doc alignment)
 - `@.cursor/rules/integration-design.mdc` (when changes affect cross-module contracts / data flow docs)

@@ -12,12 +12,12 @@
 #
 # Script Dependencies:
 #   common.sh  <- (base, no dependencies)
-#   dev.sh     <- common.sh, podman-compose
+#   dev.sh     <- common.sh, podman-compose or docker compose
 #   chrome.sh  <- common.sh, curl, (WSL: powershell.exe)
 #   test.sh    <- common.sh, pytest, uv
 #   mcp.sh     <- common.sh, dev.sh, uv, playwright
 
-.PHONY: help setup test lint format clean
+.PHONY: help setup test lint format clean up down build rebuild logs logs-f shell status clean-containers
 .DEFAULT_GOAL := help
 
 SHELL := /bin/bash
@@ -47,50 +47,61 @@ setup-dev: ## Install development dependencies
 	uv sync --frozen --group dev
 
 # =============================================================================
-# DEVELOPMENT ENVIRONMENT
+# CONTAINERS
 # =============================================================================
 
-dev-up: ## Start containers (requires dev-build first)
-	@$(SCRIPTS)/dev.sh up
+up: ## Start Lyra (auto: uv, .env, build if needed)
+	@$(SCRIPTS)/up.sh
 
-dev-down: ## Stop development containers
+down: ## Stop containers
 	@$(SCRIPTS)/dev.sh down
 
-dev-shell: ## Enter development shell in container
-	@$(SCRIPTS)/dev.sh shell
-
-dev-logs: ## Show container logs (tail)
-	@$(SCRIPTS)/dev.sh logs
-
-dev-logs-f: ## Follow container logs
-	@$(SCRIPTS)/dev.sh logs -f
-
-dev-status: ## Show container status
-	@$(SCRIPTS)/dev.sh status
-
-dev-build: ## Build containers
+build: ## Build containers
 	@$(SCRIPTS)/dev.sh build
 
-dev-rebuild: ## Rebuild containers (no cache)
+rebuild: ## Rebuild containers (no cache)
 	@$(SCRIPTS)/dev.sh rebuild
 
-dev-clean: ## Remove containers and images
+logs: ## Show logs (SERVICE=proxy|ollama|ml|tor)
+	@$(SCRIPTS)/dev.sh logs $(SERVICE)
+
+logs-f: ## Follow logs (SERVICE=proxy|ollama|ml|tor)
+	@$(SCRIPTS)/dev.sh logs -f $(SERVICE)
+
+shell: ## Enter container shell (default: proxy)
+	@$(SCRIPTS)/dev.sh shell
+
+status: ## Show container status
+	@$(SCRIPTS)/dev.sh status
+
+clean-containers: ## Remove containers and images
 	@$(SCRIPTS)/dev.sh clean
+
+# dev-* aliases for backward compatibility
+dev-up: up
+dev-down: down
+dev-build: build
+dev-rebuild: rebuild
+dev-logs: logs
+dev-logs-f: logs-f
+dev-shell: shell
+dev-status: status
+dev-clean: clean-containers
 
 # =============================================================================
 # OLLAMA MODEL MANAGEMENT
 # =============================================================================
 
 ollama-pull: ## Pull Ollama model (default: qwen2.5:3b, MODEL= to override)
-	@podman network connect lyra_lyra-net lyra-ollama 2>/dev/null || true
-	@podman exec lyra-ollama ollama pull $(or $(MODEL),qwen2.5:3b)
-	@podman network disconnect lyra_lyra-net lyra-ollama 2>/dev/null || true
+	@podman network connect lyra_lyra-net ollama 2>/dev/null || true
+	@podman exec ollama ollama pull $(or $(MODEL),qwen2.5:3b)
+	@podman network disconnect lyra_lyra-net ollama 2>/dev/null || true
 
 ollama-list: ## List available Ollama models
-	@podman exec lyra-ollama ollama list
+	@podman exec ollama ollama list
 
 ollama-status: ## Show Ollama model status
-	@podman exec lyra-ollama ollama list 2>/dev/null || echo "Ollama container not running"
+	@podman exec ollama ollama list 2>/dev/null || echo "Ollama container not running"
 
 # =============================================================================
 # MCP SERVER
@@ -236,7 +247,7 @@ clean: ## Clean temporary files
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	rm -rf .pytest_cache .mypy_cache .ruff_cache 2>/dev/null || true
 
-clean-all: clean dev-clean ## Clean everything including containers
+clean-all: clean clean-containers ## Clean everything including containers
 	rm -rf .venv 2>/dev/null || true
 
 # =============================================================================
@@ -252,12 +263,12 @@ help: ## Show this help
 	@echo "  Set LYRA_OUTPUT_JSON=true for JSON output (AI agents)"
 	@echo "  Example: LYRA_OUTPUT_JSON=true make lint"
 	@echo ""
-	@echo "Setup:"
-	@grep -E '^setup[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@echo "Quick Start:"
+	@grep -E '^(up|down|build|logs|shell|status):.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Development:"
-	@grep -E '^dev-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@echo "Setup:"
+	@grep -E '^setup[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "MCP:"

@@ -84,7 +84,6 @@ feature/phase-{N}-{M}-{short-description}
 
 ## Related rules
 
-- `@.cursor/rules/code-execution.mdc`
 - `@.cursor/rules/integration-design.mdc`
 - `@.cursor/rules/test-strategy.mdc`
 - `@.cursor/rules/quality-check.mdc`

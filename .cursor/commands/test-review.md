@@ -48,4 +48,3 @@ Review tests against `@.cursor/rules/test-strategy.mdc` and improve them until t
 ## Related rules
 
 - `@.cursor/rules/test-strategy.mdc`
-- `@.cursor/rules/code-execution.mdc`

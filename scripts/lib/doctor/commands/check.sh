@@ -105,17 +105,19 @@ cmd_check() {
     fi
     if check_dir "${VENV_DIR}"; then
         if check_python_version "${VENV_DIR}/bin/python"; then
+            local py_version
+            py_version=$("${VENV_DIR}/bin/python" -V 2>&1 | awk '{print $2}' || echo "unknown")
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-                echo "  ✓ .venv exists (Python 3.14)"
+                echo "  ✓ .venv exists (Python $py_version)"
             fi
         else
             local py_version
             py_version=$("${VENV_DIR}/bin/python" -V 2>&1 | awk '{print $2}' || echo "unknown")
             if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
                 json_parts+=("$(json_kv "python_version" "$py_version")")
-                json_parts+=("$(json_kv "python_version_issue" "expected_3.14")")
+                json_parts+=("$(json_kv "python_version_issue" "expected_3.13+")")
             else
-                echo "  ⚠ .venv exists but Python version is $py_version (expected 3.14.*)"
+                echo "  ⚠ .venv exists but Python version is $py_version (expected 3.13+)"
                 echo "    -> Recreate: rm -rf .venv && make setup"
             fi
             ((warnings++)) || true
@@ -130,40 +132,41 @@ cmd_check() {
         ((issues++)) || true
     fi
     
-    # Check 5: Container runtime
+    # Check 5: Container runtime (podman or docker)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
         echo "[5/10] Container runtime..."
     fi
-    if check_command podman; then
-        if check_command podman-compose; then
+    if check_command podman && check_command podman-compose; then
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            echo "  ✓ podman and podman-compose found"
+        fi
+    elif check_command docker; then
+        # Check for docker compose (V2) or docker-compose (V1)
+        if docker compose version &> /dev/null; then
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-                echo "  ✓ podman and podman-compose found"
+                echo "  ✓ docker and docker compose found"
+            fi
+        elif check_command docker-compose; then
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+                echo "  ✓ docker and docker-compose found"
             fi
         else
             if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
-                json_parts+=("$(json_kv "podman_compose" "missing")")
+                json_parts+=("$(json_kv "docker_compose" "missing")")
             else
-                echo "  ✗ podman-compose not found"
-                echo "    -> Install: sudo apt install podman-compose"
+                echo "  ✗ docker found but compose not available"
+                echo "    -> Install: sudo apt install docker-compose-plugin"
             fi
             ((issues++)) || true
         fi
-    elif check_command docker; then
-        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
-            json_parts+=("$(json_kv "container_runtime" "docker_only")")
-            json_parts+=("$(json_kv "container_runtime_issue" "podman_required")")
-        else
-            echo "  ⚠ docker found but podman is required for dev commands"
-            echo "    -> Install: sudo apt install podman podman-compose"
-        fi
-        ((warnings++)) || true
     else
         if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
             json_parts+=("$(json_kv "container_runtime" "missing")")
         else
-            echo "  ✗ No container runtime found (podman recommended)"
+            echo "  ✗ No container runtime found"
             echo "    -> Install: sudo apt install podman podman-compose"
+            echo "    -> Or: sudo apt install docker.io docker-compose-plugin"
         fi
         ((issues++)) || true
     fi
@@ -187,7 +190,7 @@ cmd_check() {
             json_parts+=("$(json_kv "gpu" "missing")")
         else
             echo "  ✗ nvidia-smi not found"
-            echo "    -> Required for container GPU passthrough (lyra-ml, lyra-ollama)"
+            echo "    -> Required for container GPU passthrough (ml, ollama)"
             echo "    -> Install NVIDIA drivers and nvidia-container-toolkit"
             echo "    -> Then: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
         fi
@@ -219,7 +222,7 @@ cmd_check() {
         else
             echo "  ✗ Only ${available_gb}GB available (25GB required)"
             echo "    -> ML image (~18GB) + Ollama models (~5GB) + data"
-            echo "    -> Free up disk space before running make dev-build"
+            echo "    -> Free up disk space before running make build"
         fi
         ((issues++)) || true
     fi
@@ -362,6 +365,11 @@ cmd_check() {
             if (( warnings > 0 )); then
                 echo "  ($warnings warning(s))"
             fi
+            echo ""
+            echo "Quick fix:"
+            echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+            echo "  sudo apt install -y podman podman-compose nvidia-container-toolkit"
+            echo "  sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
             echo ""
             echo "Next steps:"
             echo "  1. Fix the issues listed above"

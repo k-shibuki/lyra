@@ -29,7 +29,3 @@ Constraints:
 - **Merged branch**: name + merge result (success/conflicts)
 - **Changed files**: list (if available)
 - **Notes**: any conflicts and how they were resolved (if applicable)
-
-## Related rules
-
-- `@.cursor/rules/code-execution.mdc`

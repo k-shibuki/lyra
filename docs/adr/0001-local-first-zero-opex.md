@@ -32,7 +32,7 @@ Specifically:
 2. **Vector Search**: Local embedding models + SQLite FTS
 3. **Web Crawling**: Playwright (local execution)
 4. **Data Storage**: SQLite (local file)
-5. **ML Inference**: lyra-ml container for embedding/NLI (reranker removed per ADR-0017)
+5. **ML Inference**: ml container for embedding/NLI (reranker removed per ADR-0017)
 
 ### GPU Requirements
 
@@ -41,7 +41,7 @@ Specifically:
 | Component | GPU Requirement | Reason |
 |-----------|-----------------|--------|
 | Ollama (LLM) | Required | Practical inference speed |
-| lyra-ml (Embedding/NLI) | Required | Batch processing performance |
+| ml (Embedding/NLI) | Required | Batch processing performance |
 
 CPU-only operation is not supported. Mocks are used during testing (see ADR-0009).
 

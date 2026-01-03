@@ -149,37 +149,7 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | QLoRA | Ultra-lightweight | Quality degradation risk | Future consideration |
 | **MCP Tooling** | UI integration | Long processing, GPU contention, manual verification difficulty | **Rejected** |
 
-## Implementation Status
-
-**Note**: LoRA training functionality described in this ADR is planned for **Phase R (Future)**.
-See `docs/T_LORA.md` for detailed task list.
-
-### Current State (Implemented)
-- `feedback(edge_correct)` accumulates NLI correction samples in `nli_corrections` table
-- `src/utils/nli_calibration.py` provides probability calibration primitives (Platt Scaling / Temperature Scaling) and rollback-ready history.
-- `calibration_rollback` tool enables parameter rollback
-
-**Implementation note (as of PR #50)**:
-- NLI inference (`src/filter/nli.py`) applies calibration and persists results as `edges.nli_edge_confidence`.
-- Calibration is now wired into the NLI prediction path (Platt Scaling or Temperature Scaling).
-- LLM extraction confidence is stored separately as `claims.llm_claim_confidence` and is NOT used in Bayesian updates.
-
-### Prerequisites (Phase 6)
-To start LoRA training, the following are required:
-- 100+ samples accumulated in `nli_corrections` table
-- `feedback` tool in operational use
-
-### Planned (Not Implemented)
-
-| Task | Content | Status |
-|------|---------|:------:|
-| R.1.x | PEFT/LoRA library integration | Not started |
-| R.2.x | Training script creation | Not started |
-| R.3.x | Adapter version management | Not started |
-| R.4.x | Testing and validation | Not started |
-
 ## References
-- `docs/T_LORA.md` - LoRA fine-tuning detailed design
 - `src/utils/nli_calibration.py` - Probability calibration implementation
 - `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations` tables
 - `src/mcp/server.py` - `calibration_metrics`, `calibration_rollback` MCP tools

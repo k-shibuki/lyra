@@ -401,6 +401,9 @@ class TestPlatformDetection:
 
     def test_detect_linux(self) -> None:
         """Test detection of Linux platform."""
+        # Given: A pure Linux system (no WSL, no DISPLAY)
+        # When: detect_platform is called
+        # Then: Platform.LINUX is returned
         with patch("platform.system", return_value="Linux"):
             with patch("builtins.open", side_effect=FileNotFoundError()):
                 with patch("platform.release", return_value="5.15.0-generic"):
@@ -409,6 +412,9 @@ class TestPlatformDetection:
 
     def test_detect_wsl_via_proc_version(self) -> None:
         """Test detection of WSL via /proc/version."""
+        # Given: WSL2 environment
+        # When: detect_platform is called
+        # Then: Platform.WSL is returned
         mock_file = MagicMock()
         mock_file.read.return_value = "Linux version 5.15.0-microsoft-standard-WSL2"
         mock_file.__enter__ = MagicMock(return_value=mock_file)
@@ -421,6 +427,9 @@ class TestPlatformDetection:
 
     def test_detect_wsl_via_release(self) -> None:
         """Test detection of WSL via platform release when /proc/version fails."""
+        # Given: WSL2 where /proc/version is not readable
+        # When: detect_platform is called
+        # Then: Platform.WSL is returned
         with patch("platform.system", return_value="Linux"):
             with patch("builtins.open", side_effect=PermissionError()):
                 with patch("platform.release", return_value="5.15.0-microsoft-standard-WSL2"):
@@ -429,29 +438,44 @@ class TestPlatformDetection:
 
     def test_detect_windows(self) -> None:
         """Test detection of Windows platform."""
+        # Given: A Windows system
+        # When: detect_platform is called
+        # Then: Platform.WINDOWS is returned
         with patch("platform.system", return_value="Windows"):
             result = detect_platform()
             assert result == Platform.WINDOWS
 
     def test_detect_macos(self) -> None:
         """Test detection of macOS platform."""
+        # Given: A macOS system
+        # When: detect_platform is called
+        # Then: Platform.MACOS is returned
         with patch("platform.system", return_value="Darwin"):
             result = detect_platform()
             assert result == Platform.MACOS
 
     def test_detect_unknown(self) -> None:
         """Test detection of unknown platform."""
+        # Given: An unknown platform (FreeBSD)
+        # When: detect_platform is called
+        # Then: Platform.UNKNOWN is returned
         with patch("platform.system", return_value="FreeBSD"):
             result = detect_platform()
             assert result == Platform.UNKNOWN
 
     def test_is_wsl_true(self) -> None:
         """Test is_wsl returns True on WSL."""
+        # Given: Running on WSL platform
+        # When: is_wsl is called
+        # Then: True is returned
         with patch("src.utils.notification_provider.detect_platform", return_value=Platform.WSL):
             assert is_wsl() is True
 
     def test_is_wsl_false(self) -> None:
         """Test is_wsl returns False on non-WSL platforms."""
+        # Given: Running on Linux (not WSL)
+        # When: is_wsl is called
+        # Then: False is returned
         with patch("src.utils.notification_provider.detect_platform", return_value=Platform.LINUX):
             assert is_wsl() is False
 

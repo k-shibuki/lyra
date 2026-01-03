@@ -44,6 +44,5 @@ Implement the selected task (code changes only; no tests in this step).
 
 ## Related rules
 
-- `@.cursor/rules/code-execution.mdc`
 - `@.cursor/rules/refactoring.mdc`
 - `@.cursor/rules/integration-design.mdc` (when changes span module boundaries / contracts)

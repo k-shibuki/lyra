@@ -35,10 +35,10 @@ detect_container() {
         fi
     fi
 
-    # Detect if running in ML container (lyra-ml has FastAPI and ML libs)
-    # Other containers: lyra (main), lyra-ollama (LLM), lyra-tor (proxy)
+    # Detect if running in ML container (ml has FastAPI and ML libs)
+    # Other containers: proxy (main), ollama (LLM), tor (proxy)
     IS_ML_CONTAINER=false
-    if [[ "$IN_CONTAINER" == "true" ]] && [[ "$CURRENT_CONTAINER_NAME" == "lyra-ml" ]]; then
+    if [[ "$IN_CONTAINER" == "true" ]] && [[ "$CURRENT_CONTAINER_NAME" == "ml" ]]; then
         IS_ML_CONTAINER=true
     fi
 

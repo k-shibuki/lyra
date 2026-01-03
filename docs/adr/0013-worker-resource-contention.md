@@ -3,9 +3,6 @@
 ## Date
 2025-12-24
 
-## Status
-Accepted (2025-12-25: Implementation complete)
-
 ## Context
 
 ADR-0010 specifies that `SearchQueueWorker` processes searches with 2 parallel workers. However, resources used internally by search processing have **different concurrency constraints**:
@@ -222,16 +219,8 @@ def get_academic_client(name: str) -> BaseAcademicClient:
 - Loses parallelism benefits
 - Browser SERP and academic API can run in parallel without issues
 
-## Implementation Status
-
-**Status**: ✅ Implemented (2025-12-25)
-
-- `src/search/apis/rate_limiter.py`: `AcademicAPIRateLimiter` implemented
-- `src/search/apis/base.py`: `BaseAcademicClient` integrated
-- `config/academic_apis.yaml`: rate_limit settings added
-
 ## Related
 
 - [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - Foundation for worker parallel execution
 - [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Browser SERP resource control (TabPool: max_tabs=2)
-- [ADR-0006: 8-Layer Security Model](0006-8-layer-security-model.md) - Stealth requirements
+- [ADR-0006: 8-Layer Security Model](0006-eight-layer-security-model.md) - Stealth requirements

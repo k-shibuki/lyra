@@ -42,7 +42,7 @@ require_host_execution() {
         echo "ERROR: ${script_name} must be run on host, not inside container."
         echo ""
         echo "${script_name} ${reason}."
-        echo "Run from WSL terminal, not from 'make dev-shell' or 'podman exec'."
+        echo "Run from WSL terminal, not from 'make shell' or 'podman exec'."
     fi
     
     if [[ "$mode" == "exit" ]]; then

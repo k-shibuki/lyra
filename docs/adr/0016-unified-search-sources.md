@@ -3,9 +3,6 @@
 ## Date
 2025-12-26
 
-## Status
-Accepted
-
 ## Context
 
 The previous search pipeline classified queries as "academic" or "general" (`is_academic` flag) and routed differently:
@@ -125,14 +122,6 @@ Uses `CanonicalPaperIndex` (introduced in ADR-0008):
 **Rejection Reason**:
 - Ordering introduces delay
 - Parallel is simpler and faster
-
-## Implementation Status
-
-**Status**: ✅ Implemented (2025-12-26)
-
-- `src/research/pipeline.py`: Unified search flow implementation complete
-- `tests/test_research.py`: `TestUnifiedDualSourceSearch` test class added
-- Debug instrumentation (agent log) removed
 
 ## Related
 

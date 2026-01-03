@@ -34,7 +34,7 @@ cmd_up() {
         echo "  - Tor SOCKS: localhost:9050"
         echo "  - Lyra: Running in container"
         echo ""
-        echo "To enter the development shell: make dev-shell"
+        echo "To enter the development shell: make shell"
     fi
 }
 
@@ -44,7 +44,7 @@ cmd_up() {
 # connect to external network for model download, then disconnect.
 ensure_ollama_model() {
     local model="${LYRA_LLM__MODEL:-qwen2.5:3b}"
-    local ollama_container="lyra-ollama"
+    local ollama_container="ollama"
     local external_network="lyra_lyra-net"
     local max_retries=30
     local retry_interval=2
@@ -162,7 +162,7 @@ cmd_mcp() {
 cmd_research() {
     local query="$1"
     if [ -z "$query" ]; then
-        output_error "$EXIT_USAGE" "Query argument required" "usage=make dev-shell"
+        output_error "$EXIT_USAGE" "Query argument required" "usage=make shell"
     fi
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         log_info "Running research: $query"

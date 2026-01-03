@@ -1,7 +1,8 @@
 #!/bin/bash
-# Lyra Development Environment (Podman)
+# Lyra Development Environment (Podman/Docker)
 #
-# Manages the Podman-based development environment for Lyra.
+# Manages the container-based development environment for Lyra.
+# Supports both Podman (preferred) and Docker.
 #
 # Usage: ./scripts/dev.sh [command]
 
@@ -58,17 +59,17 @@ ACTION="${1:-help}"
 # CONTAINER GUARD
 # =============================================================================
 
-require_host_execution "dev.sh" "manages Podman containers from the host"
+require_host_execution "dev.sh" "manages containers from the host"
 
 # =============================================================================
 # DEPENDENCY CHECK
 # =============================================================================
 
 # Verify required commands (exit mode for JSON output support)
-require_podman_compose "exit"
+require_compose "exit"
 
 # shellcheck disable=SC2034
-COMPOSE="podman-compose"
+COMPOSE=$(get_compose_cmd)
 
 # =============================================================================
 # LOAD REMAINING DEV MODULES

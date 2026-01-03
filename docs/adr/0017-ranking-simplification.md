@@ -1,8 +1,7 @@
 # ADR-0017: Ranking Simplification and Evidence Graph Exploration Interface
 
-## Status
-
-Accepted
+## Date
+2025-12-27
 
 ## Context
 
@@ -145,7 +144,6 @@ ranking:
 
 ## References
 
-- [Evidence Graph Exploration Design Doc](../Sd_EVIDENCE_GRAPH_EXPLORATION.md)
 - ADR-0001: Local-First Zero-Opex Architecture
 - ADR-0005: Evidence Graph Structure
 

@@ -1,7 +1,7 @@
 # ADR-0002: Thinking-Working Separation
 
 ## Date
-2025-11-01
+2025-11-01 (Updated: 2026-01-03)
 
 ## Context
 
@@ -21,6 +21,43 @@ Problems with the single-model approach:
 Meanwhile, local small models (3B-7B):
 - Can perform mechanical tasks (extraction, classification) with high accuracy
 - Struggle with complex reasoning and planning
+
+### Three-Layer Collaboration Model
+
+This architecture extends to a three-layer collaboration model encompassing Lyra, AI, and human researchers:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Human (Researcher)                                         │
+│  ─────────────────────────────────────────────────────────  │
+│  • Primary source deep reading                              │
+│  • Critical evaluation of evidence quality                  │
+│  • Final judgment and interpretation                        │
+│  • Domain expertise application                             │
+└─────────────────────────────────────────────────────────────┘
+                              ▲ Structured evidence + sources
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│  MCP Client (Claude Desktop / Cline / etc.)                 │
+│  ─────────────────────────────────────────────────────────  │
+│  • Research plan formulation                                │
+│  • Exploration strategy decisions                           │
+│  • Result interpretation and synthesis                      │
+│  • User interaction                                         │
+└─────────────────────────────────────────────────────────────┘
+                              ▲ MCP Protocol
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│  Lyra (MCP Server)                                          │
+│  ─────────────────────────────────────────────────────────  │
+│  • Source discovery and organization                        │
+│  • Text extraction and structuring                          │
+│  • NLI judgment (SUPPORTS/REFUTES/NEUTRAL)                  │
+│  • Data persistence                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key principle**: Lyra is a *navigation tool*, not a reading tool. It identifies and organizes relevant sources; detailed analysis of primary sources is part of the researcher's tool-assisted workflow.
 
 ## Decision
 

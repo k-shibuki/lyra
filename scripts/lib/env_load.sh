@@ -1,12 +1,29 @@
 #!/bin/bash
 # Lyra shell - environment loading and common constants (with .env overrides)
 
+# Function: ensure_env_file
+# Description: Create .env from .env.example if not exists
+# Returns:
+#   0: Always (creates file if needed)
+ensure_env_file() {
+    local env_file="${PROJECT_DIR}/.env"
+    local example="${PROJECT_DIR}/.env.example"
+    
+    if [[ ! -f "$env_file" ]] && [[ -f "$example" ]]; then
+        cp "$example" "$env_file"
+        chmod 600 "$env_file"
+        log_info "Created .env from .env.example"
+    fi
+}
+
 # Function: load_env
 # Description: Load environment variables from .env file with security checks
 # Returns:
 #   0: Successfully loaded .env file
 #   1: .env file not found or error loading
 load_env() {
+    ensure_env_file
+    
     local env_file="${PROJECT_DIR}/.env"
     if [ -f "$env_file" ]; then
         # Check file permissions (warn if world-readable)
@@ -37,7 +54,7 @@ load_env() {
 export CHROME_PORT="${LYRA_BROWSER__CHROME_PORT:-9222}"
 
 # Container settings
-export CONTAINER_NAME="${LYRA_SCRIPT__CONTAINER_NAME:-lyra}"
+export CONTAINER_NAME="${LYRA_SCRIPT__CONTAINER_NAME:-proxy}"
 
 # Timeouts (seconds)
 export CONTAINER_TIMEOUT="${LYRA_SCRIPT__CONTAINER_TIMEOUT:-30}"

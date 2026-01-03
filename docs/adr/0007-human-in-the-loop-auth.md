@@ -1,7 +1,7 @@
 # ADR-0007: Human-in-the-Loop Authentication
 
 ## Date
-2025-11-25 (Updated: 2025-12-25)
+2025-11-25 (Updated: 2026-01-03)
 
 ## Context
 
@@ -29,7 +29,7 @@ Additionally, ADR-0001 (Zero OpEx) constraints prohibit paid CAPTCHA solving ser
 
 **Delegate authentication to the user and reuse authenticated sessions (Human-in-the-Loop approach).**
 
-### Architecture (Phase 4 Integrated Version)
+### Architecture
 
 ```mermaid
 sequenceDiagram
@@ -92,6 +92,20 @@ CREATE TABLE intervention_queue (
 - Default: 3 hours after `queued_at` (configurable via `TaskLimitsConfig.auth_queue_ttl_hours`)
 - Expiration handling: `cleanup_expired()` updates `status='expired'` (periodic execution not implemented; run manually as needed)
 
+**auth_type Values**:
+| Type | Description | Detection Method | Effort |
+|------|-------------|------------------|--------|
+| `cloudflare` | Cloudflare browser verification | `cf-browser-verification`, `_cf_chl_opt` elements | Low |
+| `js_challenge` | JavaScript challenge (e.g., "Just a moment") | Title + Cloudflare combination | Low |
+| `turnstile` | Cloudflare Turnstile widget | `cf-turnstile` class, Turnstile script URL | Medium |
+| `captcha` | Generic CAPTCHA | `data-sitekey` attribute | High |
+| `recaptcha` | Google reCAPTCHA | `g-recaptcha` class, `grecaptcha.execute` | High |
+| `hcaptcha` | hCaptcha | `h-captcha` class, hCaptcha iframe | High |
+| `login` | Login/authentication wall | Password field + login form context | High |
+| `cookie_consent` | Cookie consent banner | Cookie consent library markers + accept button | Low |
+
+Detection is implemented in `src/crawler/challenge_detector.py` with priority: CAPTCHA > Login > Cookie consent.
+
 ### User Workflow
 
 1. **Search Queue Execution**: Multiple searches run in parallel in the background
@@ -119,6 +133,18 @@ CREATE TABLE intervention_queue (
 | Queue Empty | Search queue becomes empty | Efficient batch processing |
 
 Notifications are batched to avoid frequent user interruptions.
+
+### Notification System
+
+The notification system supports multiple platforms with automatic detection:
+
+| Platform | Provider | Detection |
+|----------|----------|-----------|
+| Pure Linux | `LinuxNotifyProvider` (notify-send) | `platform.system() == "Linux"` without WSL markers |
+| WSL2 | `WSLBridgeProvider` (PowerShell) | WSL markers in `/proc/version` or `platform.release()` |
+| Windows | `WindowsToastProvider` | `platform.system() == "Windows"` |
+
+WSL2 uses PowerShell bridging to display Windows notifications, ensuring visibility regardless of WSLg availability or user's active desktop.
 
 ### CAPTCHA Handling
 
@@ -170,7 +196,10 @@ The `resolve_auth` MCP tool supports 3 granularity levels:
 
 ## References
 - `src/storage/schema.sql` - `intervention_queue` table (auth queue)
-- `src/utils/notification.py` - `InterventionQueue`, `BatchNotificationManager`
+- `src/utils/intervention_queue.py` - `InterventionQueue`
+- `src/utils/batch_notification.py` - `BatchNotificationManager`
+- `src/utils/notification_provider.py` - Platform detection, notification providers
+- `src/crawler/challenge_detector.py` - Authentication challenge detection
 - `src/mcp/server.py` - `get_auth_queue`, `resolve_auth` MCP tools
 - `src/search/tab_pool.py` - TabPool, auto-backoff
 - ADR-0001: Local-First / Zero OpEx

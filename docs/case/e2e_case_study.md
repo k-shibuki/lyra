@@ -1,4 +1,4 @@
-# S_FULL_E2E: フルE2Eケーススタディ設計
+# FULL_E2E: フルE2Eケーススタディ設計
 
 ## 概要
 
@@ -81,8 +81,8 @@ for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?
 # 環境確認
 make doctor
 
-# Lyra環境の起動（コンテナビルドが未済なら先に make dev-build）
-make dev-up
+# Lyra環境の起動（初回は自動でビルド）
+make up
 
 # Chrome CDPの起動
 make chrome-start

@@ -1,6 +1,6 @@
-# LoRA ファインチューニング設計書
+# LoRA adaptor
 
-> **Status**: DESIGN PROPOSAL（未実装）
+> **Status**: DESIGN PROPOSAL
 >
 > **Related ADRs**:
 > - [ADR-0011: LoRA Fine-tuning Strategy](adr/0011-lora-fine-tuning.md) - LoRA採用決定、MCPツール化却下
@@ -118,7 +118,7 @@ NLIモデル（DeBERTa-v3-xsmall/small）は事前学習済みモデルであり
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     ML Server (lyra-ml)                  │
+│                     ML Server (ml)                       │
 │                                                          │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │              NLI Model (DeBERTa-v3)              │  │
@@ -140,7 +140,7 @@ NLIモデル（DeBERTa-v3-xsmall/small）は事前学習済みモデルであり
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     ML Server (lyra-ml)                  │
+│                     ML Server (ml)                       │
 │                                                          │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │              NLI Model (DeBERTa-v3)              │  │

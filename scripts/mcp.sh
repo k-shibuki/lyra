@@ -196,7 +196,7 @@ if ! check_container_running; then
         log_info "Container ready." >&2
     else
         log_error "Container failed to start within ${CONTAINER_TIMEOUT}s" >&2
-        log_info "Check logs: make dev-logs" >&2
+        log_info "Check logs: make logs" >&2
         exit 1
     fi
 fi

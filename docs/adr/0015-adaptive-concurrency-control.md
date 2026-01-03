@@ -3,9 +3,6 @@
 ## Date
 2025-12-25
 
-## Status
-Accepted (2025-12-25: Policy approved, foundation implemented)
-
 ## Context
 
 Lyra processes multiple jobs in parallel via `SearchQueueWorker` (ADR-0010). External/shared resources within the search pipeline have different constraints, requiring attention when increasing worker count or internal fan-out.
@@ -77,29 +74,6 @@ Bot detection and CAPTCHAs cannot be prevented by rate limiting. Depends on engi
 - Academic APIs use "**global control (Acquire) before each request**" not "retry" as mandatory (ADR-0013)
 - Browser SERP introduces TabPool(max_tabs=1) first, eliminates Page contention, then increases parallelism (ADR-0014)
 - Auto-backoff observation signals reuse existing metrics (`HTTP_ERROR_429_RATE`, `CAPTCHA_RATE`, etc.), adding API/SERP measurement points
-
-## Implementation Status
-
-**Status**: ✅ Implementation Complete (2025-12-25)
-
-### Phase 4.C.1: Config-driven ✅
-- [x] `config/settings.yaml` `concurrency` section added
-- [x] `src/utils/config.py` `ConcurrencyConfig` added
-- [x] Worker count and max_tabs loaded from config
-- [x] Tests added (`test_concurrency_config.py`, `test_concurrency_wiring.py`)
-
-### Phase 4.C.2: Auto-backoff ✅
-- [x] `AcademicAPIRateLimiter` backoff feature added (429 detection → effective_max_parallel decrease, recovery after stability)
-- [x] `TabPool` backoff feature added (report_captcha/report_403 → effective_max_tabs decrease, manual reset only)
-- [x] `get_stats()` returns backoff state
-- [x] Tests added (`test_academic_rate_limiter_backoff.py`, `test_tab_pool.py::TestTabPoolBackoff`)
-
-### Phase 4.C.3: max_tabs>1 Validation Prep
-- [ ] Observation script creation (future task)
-- [x] Validation procedure documented
-
-### Test Results
-- 42 tests passed (config + backoff + wiring)
 
 ## Related
 

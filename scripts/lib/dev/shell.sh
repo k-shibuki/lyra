@@ -13,7 +13,7 @@ start_dev_shell() {
     log_info "Entering development shell..."
     
     # Build dev image (base stage only, no GPU packages)
-    podman build -t lyra-dev:latest -f docker/Dockerfile --target base .
+    podman build -t lyra-dev:latest -f containers/Dockerfile --target base .
     
     # Load environment from .env if exists, otherwise use defaults
     local env_opts=""
@@ -34,13 +34,13 @@ start_dev_shell() {
     # Cleanup function to ensure container is removed on exit/error
     cleanup_dev_container() {
         # shellcheck disable=SC2317
-        podman rm -f lyra-dev 2>/dev/null || true
+        podman rm -f dev-shell 2>/dev/null || true
     }
     trap cleanup_dev_container EXIT
     
     # Remove existing container if exists
     # shellcheck disable=SC2317
-    podman rm -f lyra-dev 2>/dev/null || true
+    podman rm -f dev-shell 2>/dev/null || true
     
     # Create container with primary network
     # Note: Podman doesn't support multiple --network flags in a single run command,
@@ -54,14 +54,14 @@ start_dev_shell() {
         -v "${PROJECT_DIR}/tests:/app/tests:rw" \
         --network "$net_primary" \
         $env_opts \
-        --name lyra-dev \
+        --name dev-shell \
         lyra-dev:latest \
         /bin/bash
     
     # Connect to internal network for inference services (Ollama/ML)
-    podman network connect "$net_internal" lyra-dev
+    podman network connect "$net_internal" dev-shell
     
     # Start container interactively and attach
-    podman start -ai lyra-dev
+    podman start -ai dev-shell
 }
 

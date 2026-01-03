@@ -112,7 +112,3 @@ Pass this `run_id` to `make test-check RUN_ID=xxx`.
 2. **Fix immediately**: If your changes caused it, fix the regression
 3. **Fix pre-existing issues**: If the failure existed before your changes, fix it now
 4. **Document exceptions**: Only skip fixing if there's a documented technical blocker (e.g., external dependency issue), and create a follow-up task
-
-## Related rules
-
-- `@.cursor/rules/code-execution.mdc`

@@ -7,11 +7,15 @@
 #   0: Success, outputs command name ("podman" or "docker")
 #   1: No supported runtime found
 get_container_runtime_cmd() {
-    if command -v podman &> /dev/null; then
+    local force_runtime="${LYRA_COMPOSE_RUNTIME:-}"
+    
+    # Podman (if not forcing docker)
+    if [[ "$force_runtime" != "docker" ]] && command -v podman &> /dev/null; then
         echo "podman"
         return 0
     fi
-    if command -v docker &> /dev/null; then
+    # Docker (if not forcing podman)
+    if [[ "$force_runtime" != "podman" ]] && command -v docker &> /dev/null; then
         echo "docker"
         return 0
     fi

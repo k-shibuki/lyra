@@ -1,4 +1,192 @@
-"""Challenge page detection for URL fetcher."""
+"""Challenge page detection for URL fetcher.
+
+Provides detection functions for various authentication challenges:
+- CAPTCHA (reCAPTCHA, hCaptcha, Turnstile)
+- Cloudflare challenges (JS challenge, browser verification)
+- Login requirements
+- Cookie consent banners
+"""
+
+
+def _detect_login_required(content: str) -> bool:
+    """Detect if page requires login/authentication.
+
+    This function identifies login forms and authentication walls by looking for:
+    - Password input fields (strong indicator)
+    - Login form elements and containers
+    - Authentication-related text
+
+    Note: This function is conservative to avoid false positives on pages
+    that merely mention login or have sidebar login widgets.
+
+    Args:
+        content: Page HTML content.
+
+    Returns:
+        True if login requirement detected.
+    """
+    content_lower = content.lower()
+
+    # Strong indicators: password field is the primary signal
+    # Password input field is almost always present on login pages
+    password_indicators = [
+        'type="password"',
+        "type='password'",
+        'type=password',
+    ]
+
+    has_password_field = any(ind in content_lower for ind in password_indicators)
+
+    if not has_password_field:
+        # No password field = likely not a login page
+        return False
+
+    # With password field present, check for login-specific context
+    # to avoid false positives on pages with embedded login widgets
+    login_form_indicators = [
+        'id="login',
+        'class="login',
+        'name="login',
+        'id="signin',
+        'class="signin',
+        'action="/login',
+        'action="/signin',
+        'action="/auth',
+        # Japanese
+        'id="ログイン',
+        'class="ログイン',
+    ]
+
+    # Text indicators for login walls (main content, not sidebar)
+    login_wall_text = [
+        "please sign in",
+        "please log in",
+        "login required",
+        "sign in required",
+        "authentication required",
+        "you must be logged in",
+        "you need to log in",
+        "please login to continue",
+        "sign in to continue",
+        "ログインしてください",
+        "ログインが必要です",
+        "サインインしてください",
+        "会員登録が必要です",
+    ]
+
+    # Check for login form context
+    if any(ind in content_lower for ind in login_form_indicators):
+        return True
+
+    # Check for login wall text
+    if any(text in content_lower for text in login_wall_text):
+        return True
+
+    # Additional check: small page with password field is likely a login page
+    if len(content) < 50000 and has_password_field:
+        # Check for common login page title patterns
+        title_patterns = [
+            "<title>login",
+            "<title>log in",
+            "<title>sign in",
+            "<title>signin",
+            "<title>ログイン",
+            "<title>サインイン",
+        ]
+        if any(pattern in content_lower for pattern in title_patterns):
+            return True
+
+    return False
+
+
+def _detect_cookie_consent(content: str) -> bool:
+    """Detect if page shows a cookie consent banner/dialog.
+
+    Cookie consent banners (GDPR/CCPA compliance) are different from
+    authentication challenges. They typically don't block content access
+    but may overlay the page.
+
+    Args:
+        content: Page HTML content.
+
+    Returns:
+        True if cookie consent banner detected.
+    """
+    content_lower = content.lower()
+
+    # Cookie consent widget/library indicators
+    # These are specific library identifiers that indicate active consent dialogs
+    consent_library_indicators = [
+        "cookieconsent",  # Cookie Consent library
+        "cookie-consent",
+        "cookie_consent",
+        "onetrust",  # OneTrust consent manager
+        "cookiebot",  # Cookiebot
+        "cookie-notice",
+        "cookie-banner",
+        "cookie-policy-banner",
+        "gdpr-cookie",
+        "ccpa-notice",
+        "privacy-consent",
+        "consent-banner",
+        "consent-dialog",
+        "consent-modal",
+        # Class/ID patterns for consent overlays
+        'class="cc-',  # Cookie Consent library prefix
+        'id="cc-',
+        'class="cky-',  # CookieYes prefix
+        'id="cky-',
+    ]
+
+    if any(ind in content_lower for ind in consent_library_indicators):
+        return True
+
+    # Cookie consent text patterns (must be combined with button indicators)
+    consent_text_patterns = [
+        "we use cookies",
+        "this site uses cookies",
+        "this website uses cookies",
+        "accept cookies",
+        "accept all cookies",
+        "cookie settings",
+        "cookie preferences",
+        "manage cookies",
+        "customize cookies",
+        "reject all cookies",
+        "decline cookies",
+        # GDPR/CCPA specific
+        "gdpr compliance",
+        "privacy preferences",
+        "your privacy choices",
+        "do not sell my personal information",
+        # Japanese
+        "cookieを使用",
+        "クッキーを使用",
+        "cookie設定",
+        "クッキー設定",
+        "すべて許可",
+        "すべて拒否",
+    ]
+
+    # Button indicators that typically accompany consent dialogs
+    consent_button_patterns = [
+        "accept all",
+        "accept cookies",
+        "i agree",
+        "i accept",
+        "got it",
+        "ok, i agree",
+        "agree and proceed",
+        "同意する",
+        "許可する",
+        "受け入れる",
+    ]
+
+    # Need both text AND button pattern to reduce false positives
+    has_consent_text = any(text in content_lower for text in consent_text_patterns)
+    has_consent_button = any(btn in content_lower for btn in consent_button_patterns)
+
+    return has_consent_text and has_consent_button
 
 
 def _is_challenge_page(content: str, headers: dict) -> bool:
@@ -127,6 +315,49 @@ def _detect_challenge_type(content: str) -> str:
     return "cloudflare"  # Default for unidentified challenges
 
 
+def detect_auth_challenge(content: str, headers: dict | None = None) -> tuple[str | None, str]:
+    """Detect any authentication challenge in page content.
+
+    This is the main entry point for challenge detection. It checks for all
+    types of authentication challenges in priority order:
+    1. CAPTCHA/Cloudflare challenges (blocking)
+    2. Login requirements (blocking)
+    3. Cookie consent (non-blocking, but may overlay content)
+
+    Priority is important: CAPTCHA pages may contain login text (e.g., "sign in
+    after verification"), so CAPTCHA takes precedence.
+
+    Args:
+        content: Page HTML content.
+        headers: Optional HTTP response headers.
+
+    Returns:
+        Tuple of (challenge_type, effort_level).
+        challenge_type is None if no challenge detected.
+        challenge_type values: "turnstile", "hcaptcha", "recaptcha", "captcha",
+                              "cloudflare", "js_challenge", "login", "cookie_consent"
+        effort_level values: "low", "medium", "high"
+    """
+    if headers is None:
+        headers = {}
+
+    # Priority 1: CAPTCHA/Cloudflare challenges
+    if _is_challenge_page(content, headers):
+        challenge_type = _detect_challenge_type(content)
+        effort = _estimate_auth_effort(challenge_type)
+        return challenge_type, effort
+
+    # Priority 2: Login requirements
+    if _detect_login_required(content):
+        return "login", _estimate_auth_effort("login")
+
+    # Priority 3: Cookie consent (lowest priority as it's often non-blocking)
+    if _detect_cookie_consent(content):
+        return "cookie_consent", _estimate_auth_effort("cookie_consent")
+
+    return None, "low"
+
+
 def _estimate_auth_effort(challenge_type: str) -> str:
     """Estimate the effort required to complete authentication.
 
@@ -143,6 +374,7 @@ def _estimate_auth_effort(challenge_type: str) -> str:
         # Low: Usually auto-resolves or simple click
         "js_challenge": "low",
         "cloudflare": "low",  # Basic Cloudflare often auto-resolves
+        "cookie_consent": "low",  # Just a button click
         # Medium: Requires simple user interaction
         "turnstile": "medium",  # Usually just a click/checkbox
         # High: Requires significant user effort

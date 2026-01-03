@@ -5,7 +5,7 @@
 
 # Function to show help (defined early for use before dependency check)
 _show_help() {
-    echo "Lyra Development Environment (Podman)"
+    echo "Lyra Development Environment (Podman/Docker)"
     echo ""
     echo "Usage: ./scripts/dev.sh [global-options] [command]"
     echo ""
@@ -22,18 +22,21 @@ _show_help() {
     echo "  status    Show container status"
     echo "  clean     Remove containers and images"
     echo ""
+    echo "Services: proxy, ollama, ml, tor"
+    echo ""
     echo "Global Options:"
     echo "  --json        Output in JSON format (machine-readable)"
     echo "  --quiet, -q   Suppress non-essential output"
     echo ""
     echo "Examples:"
-    echo "  make dev-status              # Show container status"
-    echo "  make dev-up                  # Start containers"
+    echo "  make status              # Show container status"
+    echo "  make up                  # Start containers"
+    echo "  make logs SERVICE=ml     # Show ML server logs"
     echo ""
     echo "Exit Codes:"
     echo "  0   (EXIT_SUCCESS)     Operation successful"
     echo "  3   (EXIT_CONFIG)      Configuration error (.env missing)"
-    echo "  4   (EXIT_DEPENDENCY)  Missing dependency (podman/podman-compose)"
+    echo "  4   (EXIT_DEPENDENCY)  Missing dependency (podman/docker)"
     echo ""
 }
 

@@ -1,4 +1,4 @@
-# ADR-0006: 8-Layer Security Model
+# ADR-0006: eight-Layer Security Model
 
 ## Date
 2025-11-18

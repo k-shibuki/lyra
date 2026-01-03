@@ -74,4 +74,3 @@ Do **not** assume the phase; always confirm to prevent data loss.
 ## Related rules
 
 - `@.cursor/rules/integration-design.mdc`
-- `@.cursor/rules/code-execution.mdc`

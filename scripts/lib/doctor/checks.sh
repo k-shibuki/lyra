@@ -40,11 +40,11 @@ check_dir() {
 }
 
 # Function: check_python_version
-# Description: Check if Python version matches requirement (3.14.*)
+# Description: Check if Python version matches requirement (3.13+)
 # Arguments:
 #   $1: Python executable path (optional, defaults to .venv/bin/python)
 # Returns:
-#   0: Version matches
+#   0: Version matches (3.13 or higher)
 #   1: Version mismatch or check failed
 check_python_version() {
     local python_exe="${1:-${VENV_DIR}/bin/python}"
@@ -56,7 +56,8 @@ check_python_version() {
     local version
     version=$("$python_exe" -V 2>&1 | awk '{print $2}' || echo "")
     
-    if [[ "$version" =~ ^3\.14\. ]]; then
+    # Match Python 3.13+ (3.13, 3.14, 3.15, ..., 3.99)
+    if [[ "$version" =~ ^3\.(1[3-9]|[2-9][0-9])\. ]]; then
         return 0
     fi
     

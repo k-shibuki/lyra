@@ -26,7 +26,7 @@ cmd_run() {
     if [[ "$runtime" == "container" ]]; then
         if ! is_container_running_selected; then
             output_error "$EXIT_NOT_RUNNING" "Container '${CONTAINER_NAME_SELECTED}' is not running" \
-                "container=${CONTAINER_NAME_SELECTED}" "hint=make dev-up"
+                "container=${CONTAINER_NAME_SELECTED}" "hint=make up"
         fi
     else
         ensure_venv

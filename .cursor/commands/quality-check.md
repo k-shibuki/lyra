@@ -53,5 +53,4 @@ make quality
 
 ## Related rules
 
-- `@.cursor/rules/code-execution.mdc`
 - `@.cursor/rules/quality-check.mdc`

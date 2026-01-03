@@ -8,7 +8,7 @@
 # for better compatibility.
 
 # All lyra container names
-readonly LYRA_CONTAINERS=("lyra" "lyra-ml" "lyra-ollama" "lyra-tor")
+readonly LYRA_CONTAINERS=("proxy" "ml" "ollama" "tor")
 
 # Function: show_logs
 # Description: Show container logs with optional follow mode

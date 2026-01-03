@@ -53,7 +53,3 @@ git log origin/main..main --oneline
 - **Commits pushed**: list (or “none”)
 - **Pre-push checks**: warnings/trailing whitespace status
 - **Push result**: success/failure + error summary if failed
-
-## Related rules
-
-- `@.cursor/rules/code-execution.mdc`

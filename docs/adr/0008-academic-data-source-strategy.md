@@ -1,7 +1,7 @@
 # ADR-0008: Academic Data Source Strategy
 
 ## Date
-2025-11-28
+2025-11-28 (Updated: 2026-01-03)
 
 ## Context
 
@@ -48,6 +48,19 @@ Comparison of major academic data sources:
 | TL;DR | AI-generated summaries included |
 | API Quality | RESTful, well-documented |
 | Free Tier | 5,000 requests/5 minutes |
+
+### Abstract-Only Strategy
+
+Lyra retrieves abstracts rather than full text for academic papers. This is an intentional design choice:
+
+| Reason | Details |
+|--------|---------|
+| Context Window Efficiency | Full papers (5-20K words) would overwhelm LLM context; abstracts provide dense signal |
+| Attention Control | LLMs struggle to locate relevant passages in long documents |
+| Navigation vs Reading | Researchers naturally read important papers in full; Lyra's role is discovery |
+| API Availability | Abstracts are consistently available via S2/OpenAlex; full text requires publisher access |
+
+This aligns with ADR-0002's three-layer model: Lyra discovers, AI synthesizes, humans evaluate primary sources.
 
 ### OpenAlex Complementary Reasons
 

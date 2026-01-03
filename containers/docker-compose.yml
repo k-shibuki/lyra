@@ -1,0 +1,172 @@
+# Lyra Development Stack (Docker)
+# Usage: docker compose -p lyra -f containers/docker-compose.yml up -d
+
+services
+  # ============================================================
+  # Proxy - Bridge between WSL MCP Server and Internal Network
+  # ============================================================
+  # In hybrid mode, this container runs a proxy server that bridges
+  # the WSL-based MCP server to the internal network (Ollama/ML).
+  # ============================================================
+  proxy:
+    build:
+      context: ..
+      dockerfile: containers/Dockerfile
+      target: base  # Use base stage (no GPU packages) for development
+    container_name: proxy
+    env_file:
+      - ../.env
+    volumes:
+      # Mount source code for development (rw for editing)
+      - ../src:/app/src:rw
+      - ../config:/app/config:ro
+      - ../tests:/app/tests:rw
+      # Configuration files (for development)
+      - ../pyproject.toml:/app/pyproject.toml:ro
+      # Persist data
+      - ../data:/app/data:rw
+      - ../logs:/app/logs:rw
+      - ../models:/app/models:rw
+    environment:
+      # Fixed values only - all other settings in .env
+      - LYRA_ENV=development
+      # Proxy server targets (internal network hostnames)
+      - OLLAMA_TARGET_URL=http://ollama:11434
+      - ML_TARGET_URL=http://ml:8100
+    # Proxy port for WSL MCP server access (localhost only for security)
+    ports:
+      - "127.0.0.1:8080:8080"
+    # Run proxy server (enables hybrid WSL/container mode)
+    # For development shell access, use: docker exec -it proxy bash
+    command: ["uv", "run", "python", "-m", "src.proxy.server"]
+    stdin_open: true
+    tty: true
+    depends_on:
+      - tor
+      - ollama
+      - ml
+    networks:
+      - lyra-net
+      - lyra-internal  # Internal network for inference (Ollama/ML)
+    restart: unless-stopped
+
+  # ============================================================
+  # Tor - Anonymous Network
+  # ============================================================
+  tor:
+    image: docker.io/dperson/torproxy:latest
+    container_name: tor
+    environment:
+      - TOR_NewCircuitPeriod=30
+      - TOR_MaxCircuitDirtiness=600
+    ports:
+      - "9050:9050"  # SOCKS proxy
+      - "9051:9051"  # Control port
+    networks:
+      - lyra-net
+    restart: unless-stopped
+
+  # ============================================================
+  # Ollama - Local LLM Runtime (GPU)
+  # SECURITY: Isolated to internal network only
+  # - No host port exposure
+  # - No internet access (internal network only)
+  # - Accessible only from proxy container
+  # ============================================================
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      # Persist models
+      - ../models/ollama:/root/.ollama:rw
+    # SECURITY: No ports exposed to host
+    # ports:
+    #   - "11434:11434"  # REMOVED - no host access allowed
+    networks:
+      - lyra-internal  # Internal only - no internet access
+    restart: unless-stopped
+    # GPU support via Docker (requires nvidia-container-toolkit)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - OLLAMA_HOST=0.0.0.0
+
+  # ============================================================
+  # ML Server - Embedding/NLI (GPU)
+  # SECURITY: Isolated to internal network only
+  # - No host port exposure
+  # - No internet access (internal network only)
+  # - Accessible only from proxy container
+  # ============================================================
+  ml:
+    build:
+      context: ..
+      dockerfile: containers/Dockerfile.ml
+      target: gpu  # Use GPU variant
+      args:
+        # Model names from .env (downloaded to host via make setup-ml-models)
+        - LYRA_ML__EMBEDDING_MODEL=${LYRA_ML__EMBEDDING_MODEL:-BAAI/bge-m3}
+        - LYRA_ML__NLI_MODEL=${LYRA_ML__NLI_MODEL:-cross-encoder/nli-deberta-v3-small}
+    container_name: ml
+    env_file:
+      - ../.env
+    volumes:
+      # Mount ML server code for development
+      - ../src/ml_server:/app/src/ml_server:rw
+      # Persist ML models (embedding/NLI) to host for faster rebuilds
+      - ../models/huggingface:/app/models/huggingface:rw
+      - ../models/model_paths.json:/app/models/model_paths.json:ro
+    # SECURITY: No ports exposed to host
+    # ports:
+    #   - "8100:8100"  # REMOVED - no host access allowed
+    networks:
+      - lyra-internal  # Internal only - no internet access
+    restart: unless-stopped
+    # GPU support via Docker (shared with Ollama)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+
+  # ============================================================
+  # Redis - Cache (Optional)
+  # ============================================================
+  # redis:
+  #   image: docker.io/redis:7-alpine
+  #   container_name: redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - lyra-net
+  #   restart: unless-stopped
+
+networks:
+  # External-capable network for Tor, browser, etc.
+  lyra-net:
+    driver: bridge
+
+  # SECURITY: Internal-only network for inference (Ollama + ML)
+  # - internal: true prevents any external/internet access
+  # - Ollama and ML containers can only communicate with proxy on this network
+  # - Prevents prompt injection attacks from exfiltrating data
+  lyra-internal:
+    driver: bridge
+    internal: true
+
+# GPU support with Docker:
+# 1. Install nvidia-container-toolkit
+# 2. Configure: sudo nvidia-ctk runtime configure --runtime=docker
+# 3. Restart: sudo systemctl restart docker
+# 4. Start: docker compose -p lyra -f containers/docker-compose.yml up -d
+# 5. Verify: docker exec ollama nvidia-smi
