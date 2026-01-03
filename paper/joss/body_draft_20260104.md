@@ -60,7 +60,7 @@ Lyra is implemented in Python 3.13+ with an async architecture comprising 76,000
 
 Key components include:
 
-- **MCP Server** (`src/mcp/`): 10 tools for task management, search execution, evidence exploration, feedback collection, and calibration
+- **MCP Server** (`src/mcp/`): 13 tools for task management, search execution, evidence exploration, feedback collection, and calibration
 - **Evidence Graph** (`src/filter/evidence_graph.py`): NetworkX-based graph with SQLite persistence; Bayesian confidence via Beta distribution updating over NLI-weighted edges
 - **ML Server** (`src/ml_server/`): FastAPI service for embedding (BGE-M3), reranking, and NLI inference (DeBERTa-v3), running in network-isolated containers
 - **Async Search Queue** (`src/scheduler/`): Non-blocking search with parallel workers, long-polling status updates, and DOI-based deduplication across browser and academic API sources
