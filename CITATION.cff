@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Lyra: A Local-First MCP Toolkit for AI-Collaborative Desktop Research"
+version: 0.1.0
+date-released: 2025-12-28
+license: MIT
+url: "https://github.com/shibukik/lyra"
+repository-code: "https://github.com/shibukik/lyra"
+authors:
+  - family-names: Shibuki
+    given-names: Katsuya
+    orcid: "https://orcid.org/0000-0003-3570-5038"
+    affiliation: "Independent Researcher"
+keywords:
+  - academic research
+  - evidence graph
+  - natural language inference
+  - local-first
+  - Model Context Protocol
+  - MCP
+  - research automation
+abstract: >-
+  Lyra is an AI-powered academic research assistant that enables
+  transparent, traceable evidence collection with zero operational cost.
+  It implements the Model Context Protocol (MCP) to expose research
+  capabilities as structured tools, maintaining complete local data
+  sovereignty while leveraging frontier AI reasoning capabilities.
