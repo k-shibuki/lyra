@@ -3,39 +3,60 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 
-**AI-powered academic research assistant with full transparency and zero operational cost.**
+**MCP server that enables AI assistants to conduct research with traceable, high-quality evidence.**
 
-Lyra is an open-source MCP (Model Context Protocol) server that enables AI assistants to conduct desktop research with complete local data sovereignty. It separates "thinking" (strategic reasoning by cloud AI) from "working" (mechanical execution by Lyra), keeping research data entirely on your machine while leveraging frontier AI reasoning capabilities.
+Lyra is an open-source MCP (Model Context Protocol) server that provides AI assistants with structured, verifiable evidence for desktop research. By building an Evidence Graph with full source traceability, Lyra solves the fundamental problem of AI-assisted research: knowing where information comes from and how reliable it is.
 
 ## Statement of Need
 
-AI-assisted web research faces a fundamental tension: powerful reasoning models (GPT-4, Claude) are cloud-based, but transmitting research queries and collected evidence to external servers is unacceptable for sensitive domains.
+When AI assistants conduct web research, they face critical evidence quality problems:
 
-**Existing approaches force a choice:**
+| Problem | Impact |
+|---------|--------|
+| **Untraceable sources** | AI returns information without clear provenance |
+| **Contradictory evidence** | Conflicting claims are mixed without structure |
+| **No confidence metrics** | Impossible to assess reliability objectively |
 
-| Approach | Limitation |
-|----------|------------|
-| Cloud AI with web access | Queries and findings leave the machine |
-| Local-only tools | Sacrifice frontier reasoning capability |
-| Browser automation scripts | Require custom coding, no evidence tracking |
+**Lyra solves these by providing:**
 
-**Lyra resolves this by:**
+- **Evidence Graph**: Every claim links to source fragments and URLs with NLI stance detection
+- **Bayesian Confidence**: Automatic reliability scoring from accumulated evidence
+- **Incremental Exploration**: SQL and vector search for granular evidence access
+- **Local-First**: All ML processing on your machine (zero data exfiltration, zero operational cost)
 
-- **Evidence Graph**: Traceable claim-evidence relationships with NLI verification
-- **Local-first**: All ML processing on your machine (zero data exfiltration)
-- **Zero OpEx**: No recurring costs beyond hardware
-- **Full Transparency**: Every claim links back to its source fragments and URLs
+For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-This architecture specifically benefits healthcare researchers, legal/compliance teams, independent researchers, and security-conscious organizations.
+## Key Concepts
+
+### Three-Layer Collaboration
+
+Lyra implements a clear separation of responsibilities ([ADR-0002](docs/adr/0002-thinking-working-separation.md)):
+
+| Layer | Role |
+|-------|------|
+| **Human** | Primary source reading, final judgment, domain expertise |
+| **AI Client** | Research planning, query design, synthesis |
+| **Lyra** | Source discovery, extraction, NLI, persistence |
+
+**Key principle**: Lyra is a *navigation tool*. It discovers and organizes sources; detailed analysis is the researcher's role.
+
+### Evidence Graph
+
+Claims connect to evidence through a structured graph ([ADR-0005](docs/adr/0005-evidence-graph-structure.md)):
+
+```
+Claim (hypothesis) ← Fragment (SUPPORTS/REFUTES/NEUTRAL) ← Page ← URL
+```
+
+Each edge carries calibrated NLI confidence, and claims accumulate Bayesian confidence from evidence.
 
 ## Features
 
-- 🔍 **Multi-source Search**: Academic APIs (Semantic Scholar, OpenAlex) + web search engines
-- 🧠 **Evidence Extraction**: LLM-based claim extraction with NLI stance detection
-- 📊 **Evidence Graph**: SQLite-backed graph of claims, evidence, and sources with Bayesian confidence
-- 🔒 **Network Isolation**: ML containers have no internet access (security by design)
-- 🌐 **MCP Protocol**: Integrates with Cursor, Claude Desktop, Zed, and other MCP clients
-- 🔄 **Human-in-the-Loop**: Graceful CAPTCHA handling and feedback-driven improvement
+- 🔍 **Multi-source Search**: Academic APIs (Semantic Scholar, OpenAlex) + web engines
+- 🧠 **Evidence Extraction**: LLM claim extraction with NLI stance detection
+- 📊 **Evidence Graph**: SQLite-backed with Bayesian confidence
+- 🔒 **Network Isolation**: ML containers have no internet access ([ADR-0006](docs/adr/0006-eight-layer-security-model.md))
+- 🔄 **Human-in-the-Loop**: CAPTCHA handling and feedback-driven improvement ([ADR-0007](docs/adr/0007-human-in-the-loop-auth.md))
 
 ## Prerequisites
 
@@ -46,10 +67,12 @@ This architecture specifically benefits healthcare researchers, legal/compliance
 
 ```bash
 # WSL2/Linux
-sudo apt install -y curl git podman podman-compose  # or docker.io docker-compose-plugin
+sudo apt install -y curl git podman podman-compose
 sudo apt install -y nvidia-container-toolkit
 sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ```
+
+**Note**: CPU-only operation is not supported.
 
 ## Quick Start
 
@@ -59,116 +82,85 @@ make doctor   # Check environment
 make up       # Start (auto-build first time)
 ```
 
-## MCP Client Configuration
-
-### Cursor
+### MCP Client Configuration
 
 ```bash
-mkdir -p .cursor
-cp config/mcp-config.example.json .cursor/mcp.json
+# Cursor
+mkdir -p .cursor && cp config/mcp-config.example.json .cursor/mcp.json
 ```
 
-### Other MCP Clients
-
-Copy `config/mcp-config.example.json` to your MCP client's configuration location.
+For other clients, copy `config/mcp-config.example.json` to your client's config location.
 
 ## Usage Example
 
 ```python
-# In your MCP client (e.g., Cursor AI):
+# 1. Create task
+task = create_task(query="Efficacy of DPP-4 inhibitors for diabetes?")
 
-# 1. Create a research task
-create_task(query="What is the efficacy of DPP-4 inhibitors as add-on therapy for insulin-treated diabetes?")
-# → Returns task_id
-
-# 2. Queue search queries (designed by AI assistant)
-queue_searches(task_id, queries=[
-    "DPP-4 inhibitors efficacy meta-analysis HbA1c",
-    "DPP-4 inhibitors safety cardiovascular outcomes",
-    "sitagliptin add-on therapy insulin RCT"
+# 2. Queue searches (async execution)
+queue_searches(task_id=task.task_id, queries=[
+    "DPP-4 inhibitors efficacy meta-analysis",
+    "DPP-4 inhibitors cardiovascular safety",
+    "DPP-4 inhibitors limitations"  # Include refutation queries
 ])
 
-# 3. Monitor progress with long-polling
-get_status(task_id, wait=30)
-# → Returns search progress, metrics, evidence counts
+# 3. Monitor progress
+get_status(task_id=task.task_id, wait=30)
 
-# 4. Explore evidence graph
-vector_search(query="cardiovascular safety", target="claims", task_id=task_id)
-query_view(view_name="v_contradictions", task_id=task_id)
+# 4. Explore evidence
+vector_search(query="cardiovascular", target="claims", task_id=task.task_id)
+query_view(view_name="v_contradictions", task_id=task.task_id)
 
-# 5. Provide feedback to improve NLI accuracy
+# 5. Provide feedback
 feedback(action="edge_correct", edge_id="...", correct_relation="supports")
 ```
+
+## MCP Tools
+
+| Category | Tools |
+|----------|-------|
+| Task Management | `create_task`, `get_status`, `stop_task` |
+| Search | `queue_searches` |
+| Evidence Exploration | `query_sql`, `vector_search`, `query_view`, `list_views` |
+| Authentication | `get_auth_queue`, `resolve_auth` |
+| Feedback | `feedback` |
+| Calibration | `calibration_metrics`, `calibration_rollback` |
 
 ## Commands
 
 ```bash
-make up                  # Start (auto: uv, .env, build if needed)
-make down                # Stop containers
-make logs SERVICE=ollama # Specific service logs
-make shell               # Enter proxy container
-make mcp                 # Start MCP manually (debug)
-make doctor              # Check environment
-make help                # Show all commands
-```
-
-**Services**: `proxy`, `ollama`, `ml`, `tor`
-
-## Testing
-
-```bash
-make test      # Run all tests
-make test-cov  # With coverage report
-make lint      # Lint check
-make type      # Type check
-make check     # All quality checks
+make up       # Start services
+make down     # Stop services
+make doctor   # Check environment
+make test     # Run tests
+make help     # Show all commands
 ```
 
 ## Documentation
 
-- [Architecture Overview](docs/ARCHITECTURE.md)
-- [Architecture Decisions (ADR)](docs/adr/) - 17 design decision records
-- [Evidence Graph Structure](docs/adr/0005-evidence-graph-structure.md)
-- [Security Model](docs/adr/0006-eight-layer-security-model.md)
+- [Architecture Overview](docs/ARCHITECTURE.md) - System design and data flow
+- [ADR Index](docs/adr/) - 17 architecture decision records
+- [Contributing Guide](.github/CONTRIBUTING.md)
+- [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Contributor Covenant 3.0
 
-## Contributing
-
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines on how to contribute to Lyra.
-
-## Citation
-
-If you use Lyra in your research, please cite:
-
-```bibtex
-@software{lyra2025,
-  author = {Shibuki, Katsuya},
-  title = {Lyra: A Local-First MCP Toolkit for AI-Collaborative Desktop Research},
-  year = {2025},
-  url = {https://github.com/shibukik/lyra}
-}
-```
-
-See [CITATION.cff](CITATION.cff) for machine-readable citation information.
+Key ADRs:
+- [ADR-0002: Thinking-Working Separation](docs/adr/0002-thinking-working-separation.md)
+- [ADR-0005: Evidence Graph Structure](docs/adr/0005-evidence-graph-structure.md)
+- [ADR-0010: Async Search Queue](docs/adr/0010-async-search-queue.md)
 
 ## Limitations
 
-- **Platform Dependency**: WSL2/Linux with NVIDIA GPU required
-- **Designed for Navigation**: Lyra discovers and organizes sources; primary source analysis is part of researcher's tool-assisted workflow
-- **Content Scope**: Academic papers processed via abstracts only; web content limited to initial portions
-- **Chrome Dependency**: Browser automation requires Chrome installation
-- **Selector Maintenance**: Web scrapers may require updates when sites change
-- **NLI Accuracy**: General-purpose model may require domain adaptation for specialized fields
+- **Platform**: WSL2/Linux + NVIDIA GPU required
+- **Scope**: Navigation tool; primary source analysis is researcher's role
+- **Content**: Academic papers via abstracts; web content limited to initial portions
+- **NLI**: General-purpose model; domain adaptation via LoRA ([ADR-0011](docs/adr/0011-lora-fine-tuning.md))
 
-## Troubleshooting
+## Citation
 
-```bash
-make doctor           # Diagnose issues
-make logs SERVICE=ml  # Check ML server logs
-make mcp-logs         # Check MCP server logs
-```
+If you use Lyra in your research, please cite using [CITATION.cff](CITATION.cff).
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-Copyright (c) 2025 Katsuya Shibuki
+Copyright (c) 2026 Katsuya Shibuki

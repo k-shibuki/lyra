@@ -31,6 +31,8 @@ Thank you for your interest in contributing to Lyra! This document provides guid
 
 ## Code of Conduct
 
+This project follows the [Contributor Covenant Code of Conduct, version 3.0](https://www.contributor-covenant.org/version/3/0/code_of_conduct/). See [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) for the full text.
+
 We are committed to providing a welcoming and inclusive environment. Please be respectful and constructive in all interactions.
 
 ## Getting Started
@@ -128,7 +130,7 @@ uv run pytest -k "test_evidence_graph" -v
 
 ### Writing Tests
 
-Follow the test conventions in `.cursor/rules/test-conventions.mdc`:
+Follow the test conventions in `../.cursor/rules/test-conventions.mdc`:
 
 1. Create a **test perspectives table** before writing tests
 2. Use **Given/When/Then** comments
@@ -197,8 +199,8 @@ Understanding Lyra's architecture helps you contribute effectively:
 
 ### Key Documents
 
-- **[Architecture Overview](docs/ARCHITECTURE.md)**: System design and components
-- **[ADRs](docs/adr/)**: 17 Architecture Decision Records documenting design rationale
+- **[Architecture Overview](../docs/ARCHITECTURE.md)**: System design and components
+- **[ADRs](../docs/adr/)**: 17 Architecture Decision Records documenting design rationale
 
 ### Key Concepts
 
@@ -243,8 +245,8 @@ When reporting bugs:
 ## Questions?
 
 - Open a [GitHub Discussion](https://github.com/shibukik/lyra/discussions) for questions
-- Check the [ADRs](docs/adr/) for design rationale
-- Review [Architecture docs](docs/ARCHITECTURE.md) for system understanding
+- Check the [ADRs](../docs/adr/) for design rationale
+- Review [Architecture docs](../docs/ARCHITECTURE.md) for system understanding
 
 ---
 
