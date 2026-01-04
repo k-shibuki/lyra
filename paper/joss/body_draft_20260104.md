@@ -21,9 +21,55 @@ bibliography: paper.bib
 
 Lyra is an open-source server implementing the Model Context Protocol (MCP) that enables AI assistants to conduct desktop research with structured provenance designed for auditability. The software exposes research capabilities—web search, content extraction, natural language inference, and evidence graph construction—as structured tools that MCP-compatible AI clients can invoke directly.
 
-I designed Lyra around a **thinking-working separation** architecture. The MCP client handles strategic reasoning such as query design and synthesis, while Lyra executes mechanical tasks including search, extraction, and classification. Lyra functions as a navigation tool: it discovers and organizes relevant sources, while detailed analysis of primary sources remains the researcher's responsibility.
+I designed Lyra around a **thinking-working separation** architecture (Figure 1). The MCP client handles strategic reasoning such as query design and synthesis, while Lyra executes mechanical tasks including search, extraction, and classification. Lyra functions as a navigation tool: it discovers and organizes relevant sources, while detailed analysis of primary sources remains the researcher's responsibility.
 
-The software incorporates three machine learning components for local GPU inference: a 3B-parameter language model for claim extraction, BGE-M3 embeddings for semantic search, and a DeBERTa-based classifier for stance detection. Lyra constructs an **evidence graph** linking extracted claims to source fragments with structured provenance metadata. Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating over evidence edges weighted by Natural Language Inference (NLI) judgments (supports, refutes, or neutral), enabling transparent assessment of evidence quality.
+```mermaid
+flowchart TB
+    subgraph Human["Human (Researcher)"]
+        H1[Primary source analysis]
+        H2[Final judgment]
+    end
+    subgraph Client["MCP Client (AI Assistant)"]
+        C1[Query design]
+        C2[Strategy & synthesis]
+    end
+    subgraph Lyra["Lyra (MCP Server)"]
+        L1[Search & extraction]
+        L2[NLI classification]
+        L3[Evidence graph]
+    end
+    Human -->|Domain expertise| Client
+    Client -->|MCP tools| Lyra
+    Lyra -->|Structured evidence| Client
+    Client -->|Traceable sources| Human
+```
+**Figure 1.** Three-layer collaboration architecture. Strategic reasoning resides in the MCP client; Lyra executes mechanical tasks and maintains the evidence graph.
+
+The software incorporates three machine learning components for local GPU inference: a 3B-parameter language model for claim extraction, BGE-M3 embeddings for semantic search, and a DeBERTa-based classifier for stance detection. Lyra constructs an **evidence graph** linking extracted claims to source fragments with structured provenance metadata (Figure 2). Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating over evidence edges weighted by Natural Language Inference (NLI) judgments (supports, refutes, or neutral), enabling transparent assessment of evidence quality.
+
+```mermaid
+flowchart LR
+    subgraph Sources
+        P1[Page A]
+        P2[Page B]
+    end
+    subgraph Fragments
+        F1[Fragment 1]
+        F2[Fragment 2]
+        F3[Fragment 3]
+    end
+    subgraph Claims
+        C[Claim]
+    end
+    P1 --> F1
+    P1 --> F2
+    P2 --> F3
+    F1 -->|SUPPORTS\nconf: 0.85| C
+    F2 -->|REFUTES\nconf: 0.72| C
+    F3 -->|SUPPORTS\nconf: 0.91| C
+    C -.-|"Bayesian: β(2.76, 1.72)\nconf: 0.62 ± 0.21"| C
+```
+**Figure 2.** Evidence graph structure. Fragments extracted from pages link to claims with NLI stance labels. Bayesian confidence aggregates weighted evidence.
 
 # Statement of Need
 
