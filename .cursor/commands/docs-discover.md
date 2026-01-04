@@ -26,7 +26,7 @@ This command supports two modes depending on the stage:
 
 - Any docs you already know are relevant (`@docs/...`) (recommended)
 - ADRs (`@docs/adr/`) (recommended)
-- Design docs (`@docs/P_EVIDENCE_SYSTEM.md`, `@docs/Q_ASYNC_ARCHITECTURE.md`, `@docs/R_LORA.md`) (optional)
+- Design docs (`@docs/P_EVIDENCE_SYSTEM.md`, `@docs/Q_ASYNC_architecture.md`, `@docs/R_LORA.md`) (optional)
 - Optional: code context (`@src/...`) and/or diff summary (`git diff --stat` output)
 
 ## Discovery heuristics (how to find related docs)

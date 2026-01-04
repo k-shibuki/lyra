@@ -26,8 +26,31 @@ from src.crawler.sec_fetch import (
     generate_sec_fetch_headers,
 )
 from src.utils.logging import get_logger
+from src.utils.notification_provider import Platform, detect_platform
 
 logger = get_logger(__name__)
+
+
+# =============================================================================
+# Platform-specific Helpers
+# =============================================================================
+
+
+def _get_platform_user_agent() -> str:
+    """Get user agent string matching the current platform's Chrome."""
+    current_platform = detect_platform()
+    if current_platform == Platform.LINUX:
+        return (
+            "Mozilla/5.0 (X11; Linux x86_64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    # WSL, Windows - use Windows user agent
+    return (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
 
 
 # =============================================================================
@@ -429,8 +452,8 @@ class SessionTransferManager:
                 )
 
             # Get user agent from context (if available)
-            # Note: Playwright doesn't expose UA directly, use default
-            user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            # Note: Playwright doesn't expose UA directly, use platform-appropriate default
+            user_agent = _get_platform_user_agent()
 
             # Create session data
             session = SessionData(

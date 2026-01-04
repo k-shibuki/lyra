@@ -199,7 +199,7 @@ Understanding Lyra's architecture helps you contribute effectively:
 
 ### Key Documents
 
-- **[Architecture Overview](../docs/ARCHITECTURE.md)**: System design and components
+- **[Architecture Overview](../docs/architecture.md)**: System design and components
 - **[ADRs](../docs/adr/)**: 17 Architecture Decision Records documenting design rationale
 
 ### Key Concepts
@@ -246,7 +246,7 @@ When reporting bugs:
 
 - Open a [GitHub Discussion](https://github.com/shibukik/lyra/discussions) for questions
 - Check the [ADRs](../docs/adr/) for design rationale
-- Review [Architecture docs](../docs/ARCHITECTURE.md) for system understanding
+- Review [Architecture docs](../docs/architecture.md) for system understanding
 
 ---
 

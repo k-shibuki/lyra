@@ -1,10 +1,46 @@
 #!/bin/bash
 # Lyra shell - Compose utilities (Podman/Docker)
 
+# =============================================================================
+# GPU Detection
+# =============================================================================
+
+# Track if GPU warning has been shown (to avoid duplicate warnings)
+_GPU_WARNING_SHOWN="${_GPU_WARNING_SHOWN:-false}"
+
+# Function: detect_gpu
+# Description: Detect if NVIDIA GPU is available for container use
+# Returns:
+#   0: GPU is available
+#   1: GPU not available
+detect_gpu() {
+    # Check if nvidia-smi command exists and works
+    if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+# Function: _log_gpu_warning
+# Description: Log GPU warning once (internal helper)
+_log_gpu_warning() {
+    if [[ "$_GPU_WARNING_SHOWN" != "true" ]]; then
+        log_warn "GPU not detected. Running in CPU mode (inference will be significantly slower)."
+        log_warn "For GPU support, install nvidia-container-toolkit and run: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+        _GPU_WARNING_SHOWN=true
+        export _GPU_WARNING_SHOWN
+    fi
+}
+
+# =============================================================================
+# Compose Command
+# =============================================================================
+
 # Function: get_compose_cmd
 # Description: Get compose command with file path (podman-compose or docker compose)
+#              Automatically includes GPU overlay if nvidia-smi is detected
 # Returns:
-#   0: Success, outputs full command with -f flag
+#   0: Success, outputs full command with -f flag(s)
 #   1: No supported runtime found
 get_compose_cmd() {
     local compose_dir="${PROJECT_DIR}/containers"
@@ -14,9 +50,21 @@ get_compose_cmd() {
     # LYRA_COMPOSE_RUNTIME=docker or LYRA_COMPOSE_RUNTIME=podman
     local force_runtime="${LYRA_COMPOSE_RUNTIME:-}"
     
+    # Detect GPU availability
+    local gpu_available=false
+    if detect_gpu; then
+        gpu_available=true
+    else
+        _log_gpu_warning
+    fi
+    
     # Podman (if not forcing docker)
     if [[ "$force_runtime" != "docker" ]] && command -v podman-compose &> /dev/null; then
-        echo "podman-compose -p ${project_name} -f ${compose_dir}/podman-compose.yml"
+        local cmd="podman-compose -p ${project_name} -f ${compose_dir}/podman-compose.yml"
+        if [[ "$gpu_available" == "true" ]]; then
+            cmd="$cmd -f ${compose_dir}/podman-compose.gpu.yml"
+        fi
+        echo "$cmd"
         return 0
     fi
     
@@ -24,12 +72,20 @@ get_compose_cmd() {
     if [[ "$force_runtime" != "podman" ]] && command -v docker &> /dev/null; then
         # Docker Compose V2 (docker compose)
         if docker compose version &> /dev/null; then
-            echo "docker compose -p ${project_name} -f ${compose_dir}/docker-compose.yml"
+            local cmd="docker compose -p ${project_name} -f ${compose_dir}/docker-compose.yml"
+            if [[ "$gpu_available" == "true" ]]; then
+                cmd="$cmd -f ${compose_dir}/docker-compose.gpu.yml"
+            fi
+            echo "$cmd"
             return 0
         fi
         # Docker Compose V1 (docker-compose)
         if command -v docker-compose &> /dev/null; then
-            echo "docker-compose -p ${project_name} -f ${compose_dir}/docker-compose.yml"
+            local cmd="docker-compose -p ${project_name} -f ${compose_dir}/docker-compose.yml"
+            if [[ "$gpu_available" == "true" ]]; then
+                cmd="$cmd -f ${compose_dir}/docker-compose.gpu.yml"
+            fi
+            echo "$cmd"
             return 0
         fi
     fi

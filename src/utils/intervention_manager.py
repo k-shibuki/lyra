@@ -233,6 +233,7 @@ class InterventionManager:
         """Platform-specific window activation fallback.
 
         For WSL2 -> Windows Chrome, uses PowerShell to activate Chrome window.
+        For native Linux, uses xdotool to activate Chrome window.
         """
         system = platform.system()
 
@@ -276,6 +277,27 @@ class InterventionManager:
                 logger.debug("Chrome window activated via PowerShell")
             except Exception as e:
                 logger.debug("PowerShell window activation failed", error=str(e))
+
+        elif system == "Linux":
+            # Native Linux: try xdotool for window activation
+            # xdotool is commonly available on desktop Linux systems
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    "xdotool",
+                    "search",
+                    "--name",
+                    "Chrome",
+                    "windowactivate",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await asyncio.wait_for(process.wait(), timeout=5.0)
+                logger.debug("Chrome window activated via xdotool")
+            except FileNotFoundError:
+                # xdotool not installed - this is expected on servers
+                logger.debug("xdotool not found, window activation skipped")
+            except Exception as e:
+                logger.debug("xdotool window activation failed", error=str(e))
 
     async def send_toast(
         self,

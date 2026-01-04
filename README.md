@@ -25,7 +25,7 @@ When AI assistants conduct web research, they face critical evidence quality pro
 - **Incremental Exploration**: SQL and vector search for granular evidence access
 - **Local-First**: All ML processing on your machine (zero data exfiltration, zero operational cost)
 
-For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For detailed architecture, see [docs/architecture.md](docs/architecture.md).
 
 ## Key Concepts
 
@@ -61,19 +61,47 @@ Each edge carries calibrated NLI confidence, and claims accumulate Bayesian conf
 
 ## Prerequisites
 
-- **WSL2/Linux** with NVIDIA GPU (8GB+ VRAM)
+- **Linux** (WSL2 or Native Ubuntu 22.04+)
 - **Python 3.13+** (managed via `uv`)
-- **Podman** or **Docker** with GPU support
-- **Chrome** (for browser automation)
+- **Podman** or **Docker**
+- **Chrome/Chromium** (for browser automation)
+- **NVIDIA GPU** (recommended, optional - CPU fallback available)
+
+### WSL2 Setup
 
 ```bash
-# WSL2/Linux
 sudo apt install -y curl git podman podman-compose
+
+# GPU support (recommended)
 sudo apt install -y nvidia-container-toolkit
 sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ```
 
-**Note**: CPU-only operation is not supported.
+### Native Linux (Ubuntu) Setup
+
+```bash
+# Python 3.13 (if not available in your distro)
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt install -y python3.13 python3.13-venv
+
+# Core dependencies
+sudo apt install -y curl git podman podman-compose libcurl4-openssl-dev
+
+# Browser automation
+sudo apt install -y google-chrome-stable  # or chromium-browser
+
+# Desktop notifications (optional)
+sudo apt install -y libnotify-bin
+
+# Window activation for CAPTCHA handling (optional)
+sudo apt install -y xdotool
+
+# GPU support (optional but recommended for performance)
+sudo apt install -y nvidia-container-toolkit
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+```
+
+**GPU Auto-Detection**: Lyra automatically detects GPU availability at startup. If `nvidia-smi` is not found, it runs in CPU mode (slower inference, but fully functional).
 
 ## Quick Start
 
@@ -139,8 +167,8 @@ make help     # Show all commands
 
 ## Documentation
 
-- [Architecture Overview](docs/ARCHITECTURE.md) - System design and data flow
-- [MCP Tools Reference](docs/MCP_REFERENCE.md) - Tool descriptions and schemas
+- [Architecture Overview](docs/architecture.md) - System design and data flow
+- [MCP Tools Reference](docs/mcp_reference.md) - Tool descriptions and schemas
 - [ADR Index](docs/adr/) - 17 architecture decision records
 - [Contributing Guide](.github/CONTRIBUTING.md)
 - [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Contributor Covenant 3.0
@@ -152,10 +180,11 @@ Key ADRs:
 
 ## Limitations
 
-- **Platform**: WSL2/Linux + NVIDIA GPU required
+- **Platform**: Linux (WSL2 or Native Ubuntu); NVIDIA GPU recommended for performance
 - **Scope**: Navigation tool; primary source analysis is researcher's role
 - **Content**: Academic papers via abstracts; web content limited to initial portions
 - **NLI**: General-purpose model; domain adaptation via LoRA ([ADR-0011](docs/adr/0011-lora-fine-tuning.md))
+- **CPU Mode**: Functional but significantly slower inference (20-100x compared to GPU)
 
 ## Citation
 

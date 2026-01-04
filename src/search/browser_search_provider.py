@@ -45,6 +45,7 @@ from src.search.provider import (
 from src.search.search_api import transform_query_for_engine
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
+from src.utils.notification_provider import Platform, detect_platform
 from src.utils.policy_engine import get_policy_engine
 from src.utils.schemas import LastmileCheckResult
 
@@ -381,7 +382,15 @@ class BrowserSearchProvider(BaseSearchProvider):
                 raise
 
     def _get_user_agent(self) -> str:
-        """Get user agent string matching Windows Chrome."""
+        """Get user agent string matching the current platform's Chrome."""
+        current_platform = detect_platform()
+        if current_platform == Platform.LINUX:
+            return (
+                "Mozilla/5.0 (X11; Linux x86_64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            )
+        # WSL, Windows - use Windows user agent
         return (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "

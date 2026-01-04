@@ -1,8 +1,7 @@
 # Evaluation Protocol for Lyra Case Study
 
-**Version**: 0.3
+**Version**: 0.1
 **Created**: 2025-12-28
-**Updated**: 2025-12-29
 **Status**: Pre-registration draft (pending Zenodo DOI)
 **Authors**: Katsuya Shibuki (ORCID: 0000-0003-3570-5038)
 

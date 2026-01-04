@@ -1,0 +1,7 @@
+flowchart TB
+    Human["<b>Human</b><br/>Primary source analysis<br/>Final judgment"]
+    Client["<b>MCP Client</b><br/>Query design<br/>Strategy, synthesis"]
+    Lyra["<b>Lyra</b><br/>Search, extraction<br/>NLI, Evidence graph"]
+    Human <-->|Domain expertise| Client
+    Client <-->|MCP tools| Lyra
+

@@ -59,7 +59,7 @@ create_task → queue_searches → get_status(wait=30) → vector_search/query_v
 
 ## Related Documentation
 
-- [Architecture Overview](ARCHITECTURE.md)
+- [Architecture Overview](architecture.md)
 - [ADR-0002: Thinking-Working Separation](adr/0002-thinking-working-separation.md)
 - [ADR-0010: Async Search Queue](adr/0010-async-search-queue.md)
 - [ADR-0012: Feedback Tool Design](adr/0012-feedback-tool-design.md)

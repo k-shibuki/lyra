@@ -1,0 +1,20 @@
+# Lyra GPU Overlay (Podman)
+# Applied automatically when nvidia-smi is detected
+# Requires CDI: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+# Usage: podman-compose -f podman-compose.yml -f podman-compose.gpu.yml up -d
+
+version: "3.8"
+
+services:
+  ollama:
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+
+  ml:
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+

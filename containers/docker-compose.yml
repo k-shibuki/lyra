@@ -1,7 +1,7 @@
 # Lyra Development Stack (Docker)
 # Usage: docker compose -p lyra -f containers/docker-compose.yml up -d
 
-services
+services:
   # ============================================================
   # Proxy - Bridge between WSL MCP Server and Internal Network
   # ============================================================
@@ -67,11 +67,12 @@ services
     restart: unless-stopped
 
   # ============================================================
-  # Ollama - Local LLM Runtime (GPU)
+  # Ollama - Local LLM Runtime
   # SECURITY: Isolated to internal network only
   # - No host port exposure
   # - No internet access (internal network only)
   # - Accessible only from proxy container
+  # GPU: Auto-detected at runtime via docker-compose.gpu.yml overlay
   # ============================================================
   ollama:
     image: docker.io/ollama/ollama:latest
@@ -85,30 +86,22 @@ services
     networks:
       - lyra-internal  # Internal only - no internet access
     restart: unless-stopped
-    # GPU support via Docker (requires nvidia-container-toolkit)
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
       - OLLAMA_HOST=0.0.0.0
 
   # ============================================================
-  # ML Server - Embedding/NLI (GPU)
+  # ML Server - Embedding/NLI
   # SECURITY: Isolated to internal network only
   # - No host port exposure
   # - No internet access (internal network only)
   # - Accessible only from proxy container
+  # GPU: Auto-detected at runtime via docker-compose.gpu.yml overlay
   # ============================================================
   ml:
     build:
       context: ..
       dockerfile: containers/Dockerfile.ml
-      target: gpu  # Use GPU variant
+      target: gpu  # Use GPU variant (works on CPU too)
       args:
         # Model names from .env (downloaded to host via make setup-ml-models)
         - LYRA_ML__EMBEDDING_MODEL=${LYRA_ML__EMBEDDING_MODEL:-BAAI/bge-m3}
@@ -128,16 +121,6 @@ services
     networks:
       - lyra-internal  # Internal only - no internet access
     restart: unless-stopped
-    # GPU support via Docker (shared with Ollama)
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
 
   # ============================================================
   # Redis - Cache (Optional)
@@ -164,9 +147,11 @@ networks:
     driver: bridge
     internal: true
 
-# GPU support with Docker:
+# GPU support with Docker (auto-detected by scripts/lib/compose.sh):
 # 1. Install nvidia-container-toolkit
 # 2. Configure: sudo nvidia-ctk runtime configure --runtime=docker
 # 3. Restart: sudo systemctl restart docker
-# 4. Start: docker compose -p lyra -f containers/docker-compose.yml up -d
+# 4. Start: make up  (GPU is auto-detected and docker-compose.gpu.yml is applied)
 # 5. Verify: docker exec ollama nvidia-smi
+#
+# CPU-only mode: If nvidia-smi is not available, Lyra runs in CPU mode automatically.

@@ -59,10 +59,23 @@ detect_container() {
 #   - claude_code: Claude Code (Anthropic)
 #   - github_actions: GitHub Actions
 #   - generic_ci: Generic CI environment
+#   - headless: Headless environment (no display)
 #   - none: Not a cloud agent environment
+#
+# Override:
+#   Set LYRA_FORCE_LOCAL=true to force local mode (disables cloud agent detection)
+#   Useful for headless Linux servers that should still run E2E tests
 detect_cloud_agent() {
     IS_CLOUD_AGENT=false
     CLOUD_AGENT_TYPE="none"
+
+    # Explicit override: LYRA_FORCE_LOCAL=true forces local mode
+    # This is useful for headless Linux servers that should still run E2E tests
+    if [[ "${LYRA_FORCE_LOCAL:-}" == "true" ]]; then
+        export IS_CLOUD_AGENT
+        export CLOUD_AGENT_TYPE
+        return 0
+    fi
 
     # Cursor Cloud Agent detection
     # Cursor sets specific environment variables when running as cloud agent
@@ -91,6 +104,7 @@ detect_cloud_agent() {
     elif [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]] && [[ "$(detect_env)" != "wsl" ]]; then
         # In WSL, lack of DISPLAY is normal (uses Windows display)
         # In pure Linux without display, likely a server/cloud environment
+        # Use LYRA_FORCE_LOCAL=true to override this detection
         IS_CLOUD_AGENT=true
         CLOUD_AGENT_TYPE="headless"
     fi
