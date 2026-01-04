@@ -50,7 +50,17 @@ flowchart TB
 ```
 **Figure 1.** System architecture. The MCP server runs on the host; ML inference containers are network-isolated to prevent data exfiltration.
 
-The software incorporates three machine learning components for local GPU inference: a 3B-parameter language model for claim extraction, BGE-M3 embeddings for semantic search, and a DeBERTa-based classifier for stance detection. Lyra constructs an **evidence graph** linking extracted claims to source fragments with structured provenance metadata (Figure 2). Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating over evidence edges weighted by Natural Language Inference (NLI) judgments (supports, refutes, or neutral), enabling transparent assessment of evidence quality.
+```mermaid
+flowchart TB
+    Human["Human (Researcher)\n─────────────────\nPrimary source analysis\nFinal judgment"]
+    Client["MCP Client (AI)\n─────────────────\nQuery design\nStrategy & synthesis"]
+    Lyra["Lyra (MCP Server)\n─────────────────\nSearch & extraction\nNLI, Evidence graph"]
+    Human <-->|Domain expertise| Client
+    Client <-->|MCP tools| Lyra
+```
+**Figure 2.** Three-layer collaboration. Strategic reasoning resides in the MCP client; Lyra executes mechanical tasks. Primary source analysis remains the researcher's responsibility.
+
+The software incorporates three machine learning components for local GPU inference: a 3B-parameter language model for claim extraction, BGE-M3 embeddings for semantic search, and a DeBERTa-based classifier for stance detection. Lyra constructs an **evidence graph** linking extracted claims to source fragments with structured provenance metadata (Figure 3). Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating over evidence edges weighted by Natural Language Inference (NLI) judgments (supports, refutes, or neutral), enabling transparent assessment of evidence quality.
 
 ```mermaid
 flowchart LR
@@ -74,7 +84,7 @@ flowchart LR
     F3 -->|SUPPORTS\nconf: 0.91| C
     C -.-|"Bayesian: β(2.76, 1.72)\nconf: 0.62 ± 0.21"| C
 ```
-**Figure 2.** Evidence graph structure. Fragments extracted from pages link to claims with NLI stance labels. Bayesian confidence aggregates weighted evidence.
+**Figure 3.** Evidence graph structure. Fragments extracted from pages link to claims with NLI stance labels. Bayesian confidence aggregates weighted evidence.
 
 # Statement of Need
 
