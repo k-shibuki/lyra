@@ -139,6 +139,7 @@ make help     # Show all commands
 ## Documentation
 
 - [Architecture Overview](docs/ARCHITECTURE.md) - System design and data flow
+- [MCP Tools Reference](docs/MCP_REFERENCE.md) - Tool descriptions and schemas
 - [ADR Index](docs/adr/) - 17 architecture decision records
 - [Contributing Guide](.github/CONTRIBUTING.md)
 - [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Contributor Covenant 3.0
