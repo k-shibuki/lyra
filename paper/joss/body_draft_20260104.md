@@ -23,7 +23,7 @@ Lyra is an open-source server implementing the Model Context Protocol (MCP) that
 
 I designed Lyra around a **thinking-working separation** architecture. The MCP client handles strategic reasoning such as query design and synthesis, while Lyra executes mechanical tasks locally. This separation allows researchers to leverage frontier AI reasoning capabilities without transmitting research data to external servers.
 
-The software embeds three machine learning components for local GPU inference: a 3B-parameter language model for claim extraction, BGE-M3 embeddings for semantic search, and a DeBERTa-based classifier for stance detection. Lyra constructs an **evidence graph** linking extracted claims to source fragments with full provenance metadata. Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating over evidence edges weighted by Natural Language Inference (NLI) judgments (supports, refutes, or neutral), enabling transparent assessment of evidence quality.
+The software incorporates three machine learning components for local GPU inference: a 3B-parameter language model for claim extraction, BGE-M3 embeddings for semantic search, and a DeBERTa-based classifier for stance detection. Lyra constructs an **evidence graph** linking extracted claims to source fragments with full provenance metadata. Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating over evidence edges weighted by Natural Language Inference (NLI) judgments (supports, refutes, or neutral), enabling transparent assessment of evidence quality.
 
 # Statement of Need
 
