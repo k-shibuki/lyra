@@ -26,35 +26,37 @@ I designed Lyra around a **thinking-working separation** architecture (Figure 1)
 ```mermaid
 flowchart TB
     subgraph Host["WSL2/Linux Host"]
-        MCP["MCP Client\n(Claude Desktop, etc.)"]
-        Server["MCP Server\n+ Evidence Graph (SQLite)"]
+        MCP["MCP Client<br/>(Claude Desktop, etc.)"]
+        Server["MCP Server<br/>+ Evidence Graph"]
         Chrome["Chrome"]
     end
     subgraph Containers["Containers (Podman)"]
         subgraph lyra-internal["lyra-internal (isolated)"]
-            Ollama["ollama\nqwen2.5:3b"]
-            ML["ml\nBGE-M3, NLI"]
+            Ollama["ollama<br/>qwen2.5:3b"]
+            ML["ml<br/>BGE-M3, NLI"]
         end
         Proxy["proxy"]
         subgraph lyra-net["lyra-net"]
             Tor["tor"]
         end
     end
+    Internet((Internet))
     MCP <-->|stdio| Server
     Server --> Chrome
+    Chrome --> Internet
     Server <-->|HTTP| Proxy
     Proxy <--> Ollama
     Proxy <--> ML
     Proxy <--> Tor
-    Tor <-->|SOCKS| Internet((Internet))
+    Tor <-->|SOCKS| Internet
 ```
 **Figure 1.** System architecture. The MCP server runs on the host; ML inference containers are network-isolated to prevent data exfiltration.
 
 ```mermaid
 flowchart TB
-    Human["Human (Researcher)\n─────────────────\nPrimary source analysis\nFinal judgment"]
-    Client["MCP Client (AI)\n─────────────────\nQuery design\nStrategy & synthesis"]
-    Lyra["Lyra (MCP Server)\n─────────────────\nSearch & extraction\nNLI, Evidence graph"]
+    Human["<b>Human</b><br/>Primary source analysis<br/>Final judgment"]
+    Client["<b>MCP Client</b><br/>Query design<br/>Strategy, synthesis"]
+    Lyra["<b>Lyra</b><br/>Search, extraction<br/>NLI, Evidence graph"]
     Human <-->|Domain expertise| Client
     Client <-->|MCP tools| Lyra
 ```
@@ -79,10 +81,9 @@ flowchart LR
     P1 --> F1
     P1 --> F2
     P2 --> F3
-    F1 -->|SUPPORTS\nconf: 0.85| C
-    F2 -->|REFUTES\nconf: 0.72| C
-    F3 -->|SUPPORTS\nconf: 0.91| C
-    C -.-|"Bayesian: β(2.76, 1.72)\nconf: 0.62 ± 0.21"| C
+    F1 -->|"SUPPORTS (0.85)"| C
+    F2 -->|"REFUTES (0.72)"| C
+    F3 -->|"SUPPORTS (0.91)"| C
 ```
 **Figure 3.** Evidence graph structure. Fragments extracted from pages link to claims with NLI stance labels. Bayesian confidence aggregates weighted evidence.
 
