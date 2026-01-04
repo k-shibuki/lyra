@@ -25,25 +25,30 @@ I designed Lyra around a **thinking-working separation** architecture (Figure 1)
 
 ```mermaid
 flowchart TB
-    subgraph Human["Human (Researcher)"]
-        H1[Primary source analysis]
-        H2[Final judgment]
+    subgraph Host["WSL2/Linux Host"]
+        MCP["MCP Client\n(Claude Desktop, etc.)"]
+        Server["MCP Server\n+ Evidence Graph (SQLite)"]
+        Chrome["Chrome"]
     end
-    subgraph Client["MCP Client (AI Assistant)"]
-        C1[Query design]
-        C2[Strategy & synthesis]
+    subgraph Containers["Containers (Podman)"]
+        subgraph lyra-internal["lyra-internal (isolated)"]
+            Ollama["ollama\nqwen2.5:3b"]
+            ML["ml\nBGE-M3, NLI"]
+        end
+        Proxy["proxy"]
+        subgraph lyra-net["lyra-net"]
+            Tor["tor"]
+        end
     end
-    subgraph Lyra["Lyra (MCP Server)"]
-        L1[Search & extraction]
-        L2[NLI classification]
-        L3[Evidence graph]
-    end
-    Human -->|Domain expertise| Client
-    Client -->|MCP tools| Lyra
-    Lyra -->|Structured evidence| Client
-    Client -->|Traceable sources| Human
+    MCP <-->|stdio| Server
+    Server --> Chrome
+    Server <-->|HTTP| Proxy
+    Proxy <--> Ollama
+    Proxy <--> ML
+    Proxy <--> Tor
+    Tor <-->|SOCKS| Internet((Internet))
 ```
-**Figure 1.** Three-layer collaboration architecture. Strategic reasoning resides in the MCP client; Lyra executes mechanical tasks and maintains the evidence graph.
+**Figure 1.** System architecture. The MCP server runs on the host; ML inference containers are network-isolated to prevent data exfiltration.
 
 The software incorporates three machine learning components for local GPU inference: a 3B-parameter language model for claim extraction, BGE-M3 embeddings for semantic search, and a DeBERTa-based classifier for stance detection. Lyra constructs an **evidence graph** linking extracted claims to source fragments with structured provenance metadata (Figure 2). Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating over evidence edges weighted by Natural Language Inference (NLI) judgments (supports, refutes, or neutral), enabling transparent assessment of evidence quality.
 
