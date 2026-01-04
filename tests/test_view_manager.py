@@ -13,16 +13,20 @@ Tests for ViewManager.
 | TC-VM-A-02 | Invalid template syntax | Abnormal – syntax error | Raises TemplateError | - |
 """
 
+from pathlib import Path
+
 import pytest
 from jinja2 import Environment, FileSystemLoader
 from jinja2.exceptions import TemplateNotFound
+
+from src.storage.database import Database
 
 pytestmark = pytest.mark.unit
 
 from src.storage import view_manager
 
 
-def test_view_manager_render_with_task_id(tmp_path) -> None:
+def test_view_manager_render_with_task_id(tmp_path: Path) -> None:
     """
     TC-VM-N-01: Render template with task_id returns SQL with WHERE clause.
 
@@ -46,7 +50,7 @@ def test_view_manager_render_with_task_id(tmp_path) -> None:
     assert "WHERE task_id = 'task_123'" in sql
 
 
-def test_view_manager_render_without_task_id(tmp_path) -> None:
+def test_view_manager_render_without_task_id(tmp_path: Path) -> None:
     """
     TC-VM-N-02: Render template without task_id returns SQL without WHERE.
 
@@ -86,7 +90,7 @@ def test_view_manager_template_not_found() -> None:
 
 
 @pytest.mark.asyncio
-async def test_view_manager_query(test_database, tmp_path) -> None:
+async def test_view_manager_query(test_database: Database, tmp_path: Path) -> None:
     """
     TC-VM-N-03: Query template executes and returns results.
 
@@ -116,7 +120,7 @@ async def test_view_manager_query(test_database, tmp_path) -> None:
     assert results[0]["id"] == "task_1"
 
 
-def test_view_manager_list_views(tmp_path) -> None:
+def test_view_manager_list_views(tmp_path: Path) -> None:
     """
     TC-VM-N-04: List available views returns view names.
 

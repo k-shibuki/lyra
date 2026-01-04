@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/k-shibuki/lyra/actions/workflows/ci.yml/badge.svg)](https://github.com/k-shibuki/lyra/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 
 **MCP server that enables AI assistants to conduct research with traceable, high-quality evidence.**
 
@@ -61,8 +61,8 @@ Each edge carries calibrated NLI confidence, and claims accumulate Bayesian conf
 
 ## Prerequisites
 
-- **Linux** (WSL2 or Native Ubuntu 22.04+)
-- **Python 3.13+** (managed via `uv`)
+- **Linux** (WSL2 or Native Ubuntu Desktop 24.04 LTS)
+- **Python 3.14+** (managed via `uv`)
 - **Podman** or **Docker**
 - **Chrome/Chromium** (for browser automation)
 - **NVIDIA GPU** (recommended, optional - CPU fallback available)
@@ -80,9 +80,9 @@ sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ### Native Linux (Ubuntu) Setup
 
 ```bash
-# Python 3.13 (if not available in your distro)
+# Python 3.14 (if not available in your distro)
 sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt install -y python3.13 python3.13-venv
+sudo apt install -y python3.14 python3.14-venv
 
 # Core dependencies
 sudo apt install -y curl git podman podman-compose libcurl4-openssl-dev
@@ -180,7 +180,7 @@ Key ADRs:
 
 ## Limitations
 
-- **Platform**: Linux (WSL2 or Native Ubuntu); NVIDIA GPU recommended for performance
+- **Platform**: Linux (WSL2 or Native Ubuntu Desktop 24.04 LTS); NVIDIA GPU recommended for performance
 - **Scope**: Navigation tool; primary source analysis is researcher's role
 - **Content**: Academic papers via abstracts; web content limited to initial portions
 - **NLI**: General-purpose model; domain adaptation via LoRA ([ADR-0011](docs/adr/0011-lora-fine-tuning.md))

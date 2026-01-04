@@ -255,6 +255,10 @@ def kneedle_cutoff(
         if len(scores) < 2:
             return ranked[:min_results]
 
+        # If all scores are identical, no knee exists (avoids kneed normalization warning)
+        if max(scores) == min(scores):
+            return ranked[:min_results]
+
         # Find knee point
         kneedle = KneeLocator(
             x,

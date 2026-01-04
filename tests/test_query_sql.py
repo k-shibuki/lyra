@@ -28,6 +28,8 @@ Tests for query_sql MCP tool.
 
 import pytest
 
+from src.storage.database import Database
+
 pytestmark = pytest.mark.unit
 
 from src.mcp.errors import InvalidParamsError
@@ -35,7 +37,7 @@ from src.mcp.tools import sql
 
 
 @pytest.mark.asyncio
-async def test_query_sql_valid_select(test_database) -> None:
+async def test_query_sql_valid_select(test_database: Database) -> None:
     """
     TC-QS-N-01: Valid SELECT query returns rows successfully.
 
@@ -61,7 +63,7 @@ async def test_query_sql_valid_select(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_query_sql_with_limit(test_database) -> None:
+async def test_query_sql_with_limit(test_database: Database) -> None:
     """
     TC-QS-N-03: SELECT with LIMIT respects limit and sets truncated flag.
 
@@ -86,7 +88,7 @@ async def test_query_sql_with_limit(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_query_sql_include_schema(test_database) -> None:
+async def test_query_sql_include_schema(test_database: Database) -> None:
     """
     TC-QS-N-04: include_schema=true returns schema information.
 
@@ -316,7 +318,7 @@ async def test_query_sql_timeout_too_high() -> None:
 
 
 @pytest.mark.asyncio
-async def test_query_sql_invalid_sql_syntax(test_database) -> None:
+async def test_query_sql_invalid_sql_syntax(test_database: Database) -> None:
     """
     TC-QS-A-15: Invalid SQL syntax returns ok=False with error.
 

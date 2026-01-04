@@ -130,10 +130,11 @@ from _pytest.config import Config
 from _pytest.main import Session
 from _pytest.nodes import Item
 
+from src.storage.database import Database
+
 if TYPE_CHECKING:
     from _pytest.fixtures import FixtureRequest
 
-    from src.storage.database import Database
     from src.utils.config import Settings
 
 # Set test environment before importing anything else
@@ -511,7 +512,6 @@ async def test_database(temp_db_path: Path) -> AsyncGenerator[Database]:
     returns the test database instead of creating a new connection.
     """
     from src.storage import database as db_module
-    from src.storage.database import Database
 
     # Save and clear global to prevent interference from previous tests
     saved_global = db_module._db

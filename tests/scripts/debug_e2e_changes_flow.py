@@ -239,6 +239,7 @@ async def _main() -> None:
             "SELECT status FROM tasks WHERE id = ?",
             (task_id,),
         )
+        assert task_row is not None, f"Task {task_id} not found"
         assert task_row["status"] == "completed", f"Task status not updated: {task_row}"
         print("   ✓ Task status updated to 'completed'")
 

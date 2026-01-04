@@ -21,18 +21,15 @@ Tests for src/utils/config.py and src/utils/logging.py
 """
 
 import os
-
-import pytest
-
-# All tests in this module are unit tests (no external dependencies)
-pytestmark = pytest.mark.unit
-# E402: Intentionally import after pytestmark for test configuration
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 import yaml
+
+# All tests in this module are unit tests (no external dependencies)
+pytestmark = pytest.mark.unit
 
 
 class TestDeepMerge:

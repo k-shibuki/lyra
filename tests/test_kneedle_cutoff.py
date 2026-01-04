@@ -119,10 +119,17 @@ def test_kneedle_cutoff_import_error() -> None:
     ranked = [{"final_score": 1.0 - i * 0.1} for i in range(10)]
 
     import builtins
+    from typing import Any
 
     real_import = builtins.__import__
 
-    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+    def fake_import(
+        name: str,
+        globals: dict[str, Any] | None = None,
+        locals: dict[str, Any] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
         if name == "kneed":
             raise ImportError("kneed not available")
         return real_import(name, globals, locals, fromlist, level)

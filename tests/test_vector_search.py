@@ -22,6 +22,8 @@ Tests for vector_search MCP tool.
 
 import pytest
 
+from src.storage.database import Database
+
 pytestmark = pytest.mark.unit
 
 from unittest.mock import patch
@@ -31,7 +33,7 @@ from src.mcp.tools import vector
 
 
 @pytest.mark.asyncio
-async def test_vector_search_valid_query_claims(test_database) -> None:
+async def test_vector_search_valid_query_claims(test_database: Database) -> None:
     """
     TC-VS-N-01: Valid query with target=claims returns results.
 
@@ -76,7 +78,7 @@ async def test_vector_search_valid_query_claims(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_vector_search_valid_query_fragments(test_database) -> None:
+async def test_vector_search_valid_query_fragments(test_database: Database) -> None:
     """
     TC-VS-N-02: Valid query with target=fragments returns results.
 
@@ -119,7 +121,7 @@ async def test_vector_search_valid_query_fragments(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_vector_search_with_task_id(test_database) -> None:
+async def test_vector_search_with_task_id(test_database: Database) -> None:
     """
     TC-VS-N-03: Query with task_id filter returns only task-scoped results.
 
@@ -171,7 +173,7 @@ async def test_vector_search_with_task_id(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_vector_search_top_k(test_database) -> None:
+async def test_vector_search_top_k(test_database: Database) -> None:
     """
     TC-VS-N-04: top_k parameter respects limit.
 
@@ -218,7 +220,7 @@ async def test_vector_search_top_k(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_vector_search_min_similarity(test_database) -> None:
+async def test_vector_search_min_similarity(test_database: Database) -> None:
     """
     TC-VS-N-05: min_similarity parameter filters results.
 
@@ -379,7 +381,7 @@ async def test_vector_search_min_similarity_too_low() -> None:
 
 
 @pytest.mark.asyncio
-async def test_vector_search_zero_embeddings(test_database) -> None:
+async def test_vector_search_zero_embeddings(test_database: Database) -> None:
     """
     TC-VS-A-08: Zero embeddings returns ok=False with descriptive error.
 

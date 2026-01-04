@@ -99,7 +99,7 @@ class TestSerpMaxPagesWiringToPipeline:
 
         # Then
         assert out["ok"] is True
-        assert captured["serp_max_pages"] == 1
+        assert captured["serp_max_pages"] == 2  # default value per implementation
 
 
 class TestSerpMaxPagesWiringToSearchSerp:

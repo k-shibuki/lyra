@@ -57,6 +57,38 @@ class WebCitationDetectionConfig(BaseModel):
     create_placeholder_pages: bool = True
 
 
+class CitationFilterConfig(BaseModel):
+    """Citation relevance filtering configuration .
+
+    Design:
+    - Stage 0 uses metadata filter (min_citation_count threshold).
+    - Stage 1 uses Embedding similarity + impact_score (source-agnostic).
+    - Stage 2 uses LLM "evidence usefulness" score + Stage 1 signals.
+    - Impact score is calculated from Paper.citation_count (local normalization)
+      and is source-agnostic (works with Semantic Scholar, OpenAlex, etc.).
+    """
+
+    # Stage 0: metadata filter
+    min_citation_count: int = 0  # 0 = no threshold
+
+    # Stage 1: fast coarse filtering
+    stage1_top_k: int = 30
+    stage1_weight_embedding: float = 0.5
+    stage1_weight_impact: float = 0.5
+
+    # Stage 2: precise LLM evaluation
+    stage2_top_k: int = 10
+    stage2_weight_llm: float = 0.5
+    stage2_weight_embedding: float = 0.3
+    stage2_weight_impact: float = 0.2
+
+    # LLM prompt/input limits (to control cost)
+    max_source_abstract_chars: int = 1200
+    max_target_abstract_chars: int = 1200
+    llm_timeout_seconds: float = 60.0
+    llm_max_tokens: int = 16
+
+
 class SearchConfig(BaseModel):
     """Search configuration."""
 
@@ -88,38 +120,6 @@ class SearchConfig(BaseModel):
     web_citation_detection: WebCitationDetectionConfig = Field(
         default_factory=WebCitationDetectionConfig
     )
-
-
-class CitationFilterConfig(BaseModel):
-    """Citation relevance filtering configuration .
-
-    Design:
-    - Stage 0 uses metadata filter (min_citation_count threshold).
-    - Stage 1 uses Embedding similarity + impact_score (source-agnostic).
-    - Stage 2 uses LLM "evidence usefulness" score + Stage 1 signals.
-    - Impact score is calculated from Paper.citation_count (local normalization)
-      and is source-agnostic (works with Semantic Scholar, OpenAlex, etc.).
-    """
-
-    # Stage 0: metadata filter
-    min_citation_count: int = 0  # 0 = no threshold
-
-    # Stage 1: fast coarse filtering
-    stage1_top_k: int = 30
-    stage1_weight_embedding: float = 0.5
-    stage1_weight_impact: float = 0.5
-
-    # Stage 2: precise LLM evaluation
-    stage2_top_k: int = 10
-    stage2_weight_llm: float = 0.5
-    stage2_weight_embedding: float = 0.3
-    stage2_weight_impact: float = 0.2
-
-    # LLM prompt/input limits (to control cost)
-    max_source_abstract_chars: int = 1200
-    max_target_abstract_chars: int = 1200
-    llm_timeout_seconds: float = 60.0
-    llm_max_tokens: int = 16
 
 
 class CrawlerConfig(BaseModel):

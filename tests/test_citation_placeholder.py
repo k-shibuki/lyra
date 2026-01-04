@@ -163,9 +163,7 @@ class TestCitationPlaceholderCreation:
             assert paper_metadata["citation_count"] == 150
 
     @pytest.mark.asyncio
-    async def test_create_placeholder_no_doi_uses_oa_url(
-        self, sample_paper_no_doi: Paper
-    ) -> None:
+    async def test_create_placeholder_no_doi_uses_oa_url(self, sample_paper_no_doi: Paper) -> None:
         """
         TC-PH-B-01: Create placeholder for paper without DOI uses OA URL.
 
@@ -690,4 +688,3 @@ class TestCitationGraphPlaceholderIntegration:
             assert "s2:no_abstract" in paper_to_page_map
             assert paper_to_page_map["s2:no_abstract"] == "page_placeholder789"
             mock_create_placeholder.assert_called_once()
-

@@ -1400,9 +1400,7 @@ class SearchPipeline:
 
         try:
             # Check if page already exists by URL
-            existing = await db.fetch_one(
-                "SELECT id FROM pages WHERE url = ?", (reference_url,)
-            )
+            existing = await db.fetch_one("SELECT id FROM pages WHERE url = ?", (reference_url,))
             if existing and existing.get("id"):
                 page_id_existing = str(existing["id"])
                 logger.debug(
@@ -1416,10 +1414,14 @@ class SearchPipeline:
             paper_metadata = {
                 "doi": paper.doi,
                 "arxiv_id": paper.arxiv_id,
-                "authors": [
-                    {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
-                    for a in paper.authors
-                ] if paper.authors else [],
+                "authors": (
+                    [
+                        {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
+                        for a in paper.authors
+                    ]
+                    if paper.authors
+                    else []
+                ),
                 "year": paper.year,
                 "venue": paper.venue,
                 "citation_count": paper.citation_count,

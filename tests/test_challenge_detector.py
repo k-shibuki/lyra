@@ -340,7 +340,7 @@ class TestChallengeTypeDetection:
         # Given: A Cloudflare "Just a moment" page
         # When: _detect_challenge_type is called
         # Then: "js_challenge" is returned
-        html = '<html><title>Just a moment...</title><body>cloudflare</body></html>'
+        html = "<html><title>Just a moment...</title><body>cloudflare</body></html>"
         result = _detect_challenge_type(html)
         assert result == "js_challenge"
 
@@ -553,9 +553,7 @@ class TestDetectAuthChallenge:
         assert challenge_type == "login"
         assert effort == "high"
 
-    def test_detect_cookie_consent_lowest_priority(
-        self, cookie_consent_html: str
-    ) -> None:
+    def test_detect_cookie_consent_lowest_priority(self, cookie_consent_html: str) -> None:
         """Test cookie consent detection with lowest priority."""
         # Given: A page with only cookie consent
         # When: detect_auth_challenge is called
@@ -596,9 +594,7 @@ class TestDetectAuthChallenge:
         # When: detect_auth_challenge is called with headers
         # Then: Cloudflare challenge is detected
         headers = {"server": "cloudflare", "cf-ray": "abc123"}
-        challenge_type, effort = detect_auth_challenge(
-            cloudflare_challenge_html, headers
-        )
+        challenge_type, effort = detect_auth_challenge(cloudflare_challenge_html, headers)
         assert challenge_type == "cloudflare"
         assert effort == "low"
 
@@ -667,4 +663,3 @@ class TestEffortEstimation:
         # Then: "medium" is returned (default)
         result = _estimate_auth_effort("")
         assert result == "medium"
-

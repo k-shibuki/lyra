@@ -16,6 +16,8 @@ Tests for query_view and list_views MCP tools.
 
 import pytest
 
+from src.storage.database import Database
+
 pytestmark = pytest.mark.unit
 
 from src.mcp.errors import InvalidParamsError
@@ -23,7 +25,7 @@ from src.mcp.tools import view
 
 
 @pytest.mark.asyncio
-async def test_query_view_valid_call(test_database) -> None:
+async def test_query_view_valid_call(test_database: Database) -> None:
     """
     TC-QV-N-01: Valid view_name with task_id returns rows successfully.
 
@@ -92,7 +94,7 @@ async def test_list_views() -> None:
 
 
 @pytest.mark.asyncio
-async def test_query_view_with_limit(test_database) -> None:
+async def test_query_view_with_limit(test_database: Database) -> None:
     """
     TC-QV-N-03: View with limit option respects limit.
 

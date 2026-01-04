@@ -102,7 +102,7 @@ class TestMaxConsecutive429:
         # Given: Function with mixed error pattern
         call_count = 0
 
-        async def mixed_errors() -> dict[str, str]:
+        async def mixed_errors() -> dict[str, bool]:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -140,7 +140,7 @@ class TestMaxConsecutive429:
         # Given: Function that fails twice then succeeds
         call_count = 0
 
-        async def eventually_succeeds() -> dict[str, str]:
+        async def eventually_succeeds() -> dict[str, bool]:
             nonlocal call_count
             call_count += 1
             if call_count < 3:
@@ -217,7 +217,7 @@ class TestBaseSearchSlotRelease:
         from src.search.apis.rate_limiter import (
             AcademicAPIRateLimiter,
         )
-        from src.utils.schemas import AcademicSearchResult
+        from src.utils.schemas import AcademicSearchResult, Paper
 
         # Given: Mock client and limiter
         class TestClient(BaseAcademicClient):
@@ -237,13 +237,13 @@ class TestBaseSearchSlotRelease:
                     papers=[], total_count=0, next_cursor=None, source_api="test"
                 )
 
-            async def get_paper(self, paper_id: str):
+            async def get_paper(self, paper_id: str) -> Paper | None:
                 return None
 
-            async def get_references(self, paper_id: str):
+            async def get_references(self, paper_id: str) -> list[Paper]:
                 return []
 
-            async def get_citations(self, paper_id: str):
+            async def get_citations(self, paper_id: str) -> list[Paper]:
                 return []
 
         # Setup mock limiter to track release calls
@@ -277,7 +277,7 @@ class TestBaseSearchSlotRelease:
         """
         from src.search.apis.base import BaseAcademicClient
         from src.search.apis.rate_limiter import AcademicAPIRateLimiter
-        from src.utils.schemas import AcademicSearchResult
+        from src.utils.schemas import AcademicSearchResult, Paper
 
         class TestClient(BaseAcademicClient):
             def __init__(self) -> None:
@@ -298,13 +298,13 @@ class TestBaseSearchSlotRelease:
                     source_api="test",
                 )
 
-            async def get_paper(self, paper_id: str):
+            async def get_paper(self, paper_id: str) -> Paper | None:
                 return None
 
-            async def get_references(self, paper_id: str):
+            async def get_references(self, paper_id: str) -> list[Paper]:
                 return []
 
-            async def get_citations(self, paper_id: str):
+            async def get_citations(self, paper_id: str) -> list[Paper]:
                 return []
 
         mock_limiter = MagicMock(spec=AcademicAPIRateLimiter)
@@ -336,7 +336,7 @@ class TestBaseSearchSlotRelease:
         """
         from src.search.apis.base import BaseAcademicClient
         from src.search.apis.rate_limiter import AcademicAPIRateLimiter
-        from src.utils.schemas import AcademicSearchResult
+        from src.utils.schemas import AcademicSearchResult, Paper
 
         # Given: Client that succeeds immediately
         class TestClient(BaseAcademicClient):
@@ -350,13 +350,13 @@ class TestBaseSearchSlotRelease:
                     papers=[], total_count=5, next_cursor=None, source_api="test"
                 )
 
-            async def get_paper(self, paper_id: str):
+            async def get_paper(self, paper_id: str) -> Paper | None:
                 return None
 
-            async def get_references(self, paper_id: str):
+            async def get_references(self, paper_id: str) -> list[Paper]:
                 return []
 
-            async def get_citations(self, paper_id: str):
+            async def get_citations(self, paper_id: str) -> list[Paper]:
                 return []
 
         mock_limiter = MagicMock(spec=AcademicAPIRateLimiter)
@@ -391,7 +391,7 @@ class TestBaseSearchSlotRelease:
         """
         from src.search.apis.base import BaseAcademicClient
         from src.search.apis.rate_limiter import AcademicAPIRateLimiter
-        from src.utils.schemas import AcademicSearchResult
+        from src.utils.schemas import AcademicSearchResult, Paper
 
         # Given: Client that always returns 429
         class TestClient(BaseAcademicClient):
@@ -406,13 +406,13 @@ class TestBaseSearchSlotRelease:
                 response.status_code = 429
                 raise httpx.HTTPStatusError("Rate limited", request=request, response=response)
 
-            async def get_paper(self, paper_id: str):
+            async def get_paper(self, paper_id: str) -> Paper | None:
                 return None
 
-            async def get_references(self, paper_id: str):
+            async def get_references(self, paper_id: str) -> list[Paper]:
                 return []
 
-            async def get_citations(self, paper_id: str):
+            async def get_citations(self, paper_id: str) -> list[Paper]:
                 return []
 
         mock_limiter = MagicMock(spec=AcademicAPIRateLimiter)
@@ -465,7 +465,12 @@ class TestPipelineEmbeddingPersistence:
             abstract="This is a test abstract for embedding.",
             authors=[Author(name="Test Author", affiliation=None, orcid=None)],
             year=2024,
+            published_date=None,
             doi="10.1234/test.embed",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
 
@@ -480,7 +485,7 @@ class TestPipelineEmbeddingPersistence:
         mock_settings.embedding.model_name = "BAAI/bge-m3"
 
         pipeline = SearchPipeline.__new__(SearchPipeline)
-        pipeline._state = MagicMock()
+        pipeline.state = MagicMock()
 
         with (
             patch("src.research.pipeline.get_database") as mock_get_db,
@@ -496,7 +501,7 @@ class TestPipelineEmbeddingPersistence:
             mock_get_db.return_value = mock_db
 
             # Mock _extract_claims_from_abstract to do nothing
-            pipeline._extract_claims_from_abstract = AsyncMock(return_value=[])
+            pipeline._extract_claims_from_abstract = AsyncMock(return_value=[])  # type: ignore[method-assign]
 
             # When: Persist abstract as fragment
             await pipeline._persist_abstract_as_fragment(
@@ -535,9 +540,9 @@ class TestPipelineEmbeddingPersistence:
             "E2E fix missing: persist_embedding('claim', ...) not found in "
             "_extract_claims_from_abstract"
         )
-        assert "Embedding generation failed for claim" in source, (
-            "E2E fix missing: error handling for claim embedding not found"
-        )
+        assert (
+            "Embedding generation failed for claim" in source
+        ), "E2E fix missing: error handling for claim embedding not found"
 
     @pytest.mark.asyncio
     async def test_embedding_failure_continues_processing(self, test_database: str) -> None:
@@ -556,7 +561,12 @@ class TestPipelineEmbeddingPersistence:
             abstract="Test abstract",
             authors=[Author(name="Test Author", affiliation=None, orcid=None)],
             year=2024,
+            published_date=None,
             doi="10.1234/test.fail",
+            arxiv_id=None,
+            venue=None,
+            oa_url=None,
+            pdf_url=None,
             source_api="semantic_scholar",
         )
 
@@ -568,7 +578,7 @@ class TestPipelineEmbeddingPersistence:
         mock_settings.embedding.model_name = "BAAI/bge-m3"
 
         pipeline = SearchPipeline.__new__(SearchPipeline)
-        pipeline._state = MagicMock()
+        pipeline.state = MagicMock()
 
         with (
             patch("src.research.pipeline.get_database") as mock_get_db,
@@ -581,7 +591,7 @@ class TestPipelineEmbeddingPersistence:
             mock_db.complete_resource = AsyncMock()
             mock_get_db.return_value = mock_db
 
-            pipeline._extract_claims_from_abstract = AsyncMock(return_value=[])
+            pipeline._extract_claims_from_abstract = AsyncMock(return_value=[])  # type: ignore[method-assign]
 
             # When/Then: No exception raised despite embedding failure
             page_id, fragment_id = await pipeline._persist_abstract_as_fragment(

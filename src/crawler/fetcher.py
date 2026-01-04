@@ -837,9 +837,7 @@ async def _fetch_url_impl(
             }
 
             # Check if page already exists (e.g., placeholder from citation graph)
-            existing_page = await db.fetch_one(
-                "SELECT id FROM pages WHERE url = ?", (url,)
-            )
+            existing_page = await db.fetch_one("SELECT id FROM pages WHERE url = ?", (url,))
 
             if existing_page:
                 # UPDATE existing page, preserving page_id for edge integrity

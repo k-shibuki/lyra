@@ -32,7 +32,7 @@ def _detect_login_required(content: str) -> bool:
     password_indicators = [
         'type="password"',
         "type='password'",
-        'type=password',
+        "type=password",
     ]
 
     has_password_field = any(ind in content_lower for ind in password_indicators)

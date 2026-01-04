@@ -225,9 +225,9 @@ format-check: ## Check code formatting
 
 typecheck: ## Run type checker (mypy)
 ifeq ($(LYRA_OUTPUT_JSON),true)
-	uv run mypy --output json src/
+	uv run mypy --output json src/ tests/
 else
-	uv run mypy src/
+	uv run mypy src/ tests/
 endif
 
 jsonschema: ## Validate JSON Schema files
@@ -236,7 +236,7 @@ jsonschema: ## Validate JSON Schema files
 shellcheck: ## Run shellcheck on scripts
 	find scripts -name "*.sh" -type f | xargs shellcheck -x -e SC1091
 
-quality: lint typecheck jsonschema shellcheck ## Run all quality checks
+quality: lint format-check typecheck jsonschema shellcheck ## Run all quality checks
 
 # =============================================================================
 # CLEANUP

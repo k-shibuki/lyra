@@ -50,7 +50,7 @@ async def _main() -> None:
         # Create an executor instance without running its full init.
         from src.research.executor import SearchExecutor
 
-        ex = SearchExecutor.__new__(SearchExecutor)  # type: ignore[call-arg]
+        ex = SearchExecutor.__new__(SearchExecutor)
         ex.task_id = task_id
 
         # Patch ML + NLI so this script is deterministic and offline.
@@ -62,7 +62,7 @@ async def _main() -> None:
             ]
             mock_get_ml.return_value = mock_client
 
-            async def fake_nli_judge(pairs):
+            async def fake_nli_judge(pairs: list[dict[str, str]]) -> list[dict[str, object]]:
                 return [
                     {
                         "pair_id": pairs[0]["pair_id"],

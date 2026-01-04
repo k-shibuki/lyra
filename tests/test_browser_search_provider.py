@@ -1259,7 +1259,13 @@ class TestBrowserSearchProviderHumanBehavior:
                                 provider._page = mock_page
                                 provider._context = mock_context
 
-                                response = await provider.search("test query")
+                                # Use serp_max_pages=1 to ensure single page search
+                                from src.search.provider import SearchProviderOptions
+
+                                response = await provider.search(
+                                    "test query",
+                                    options=SearchProviderOptions(serp_max_pages=1),
+                                )
 
                                 # Verify human behavior was applied
                                 mock_simulate.assert_called_once()
@@ -1317,7 +1323,13 @@ class TestBrowserSearchProviderHumanBehavior:
                                 provider._page = mock_page
                                 provider._context = mock_context
 
-                                response = await provider.search("test query")
+                                # Use serp_max_pages=1 to ensure single page search
+                                from src.search.provider import SearchProviderOptions
+
+                                response = await provider.search(
+                                    "test query",
+                                    options=SearchProviderOptions(serp_max_pages=1),
+                                )
 
                                 # Verify simulate_reading was called but mouse movement was skipped
                                 mock_simulate.assert_called_once()
@@ -1375,7 +1387,13 @@ class TestBrowserSearchProviderHumanBehavior:
                                 provider._page = mock_page
                                 provider._context = mock_context
 
-                                response = await provider.search("test query")
+                                # Use serp_max_pages=1 to ensure single page search
+                                from src.search.provider import SearchProviderOptions
+
+                                response = await provider.search(
+                                    "test query",
+                                    options=SearchProviderOptions(serp_max_pages=1),
+                                )
 
                                 # Verify simulate_reading was called but mouse movement failed gracefully
                                 mock_simulate.assert_called_once()
@@ -1434,7 +1452,13 @@ class TestBrowserSearchProviderHumanBehavior:
                                 provider._page = mock_page
                                 provider._context = mock_context
 
-                                response = await provider.search("test query")
+                                # Use serp_max_pages=1 to ensure single page search
+                                from src.search.provider import SearchProviderOptions
+
+                                response = await provider.search(
+                                    "test query",
+                                    options=SearchProviderOptions(serp_max_pages=1),
+                                )
 
                                 # Verify simulate_reading was called but exception was handled gracefully
                                 mock_simulate.assert_called_once()

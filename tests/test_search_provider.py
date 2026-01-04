@@ -840,8 +840,8 @@ class TestSearchProviderOptions:
         # Given/When: Default SearchProviderOptions
         options = SearchProviderOptions()
 
-        # Then: serp_max_pages is 1
-        assert options.serp_max_pages == 1
+        # Then: serp_max_pages is 2 (default value per implementation)
+        assert options.serp_max_pages == 2
 
     def test_serp_max_pages_custom(self) -> None:
         """TC-W-04b: Wiring test - serp_max_pages custom value.

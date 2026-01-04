@@ -17,13 +17,15 @@ Tests for embedding persistence.
 
 import pytest
 
+from src.storage.database import Database
+
 pytestmark = pytest.mark.unit
 
 from src.storage import vector_store
 
 
 @pytest.mark.asyncio
-async def test_persist_fragment_embedding(test_database) -> None:
+async def test_persist_fragment_embedding(test_database: Database) -> None:
     """
     TC-EP-N-01: Persist fragment embedding saves to database.
 
@@ -55,7 +57,7 @@ async def test_persist_fragment_embedding(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_persist_claim_embedding(test_database) -> None:
+async def test_persist_claim_embedding(test_database: Database) -> None:
     """
     TC-EP-N-02: Persist claim embedding saves to database.
 
@@ -86,7 +88,7 @@ async def test_persist_claim_embedding(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_persist_duplicate_replaces(test_database) -> None:
+async def test_persist_duplicate_replaces(test_database: Database) -> None:
     """
     TC-EP-N-03: Duplicate embedding replaces existing entry.
 
@@ -121,7 +123,7 @@ async def test_persist_duplicate_replaces(test_database) -> None:
 
 
 @pytest.mark.asyncio
-async def test_persist_different_model(test_database) -> None:
+async def test_persist_different_model(test_database: Database) -> None:
     """
     TC-EP-N-04: Different model_id creates separate entry.
 
