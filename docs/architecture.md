@@ -62,9 +62,17 @@ Lyra is an AI-powered academic research assistant that runs as an MCP (Model Con
 | Service | Container | Network | Description |
 |---------|-----------|---------|-------------|
 | `proxy` | `proxy` | lyra-net, lyra-internal | HTTP bridge between host MCP server and internal services |
-| `ollama` | `ollama` | lyra-internal | Local LLM runtime (qwen2.5:3b). GPU-accelerated, network-isolated. |
-| `ml` | `ml` | lyra-internal | Embedding (bge-m3) and NLI inference. GPU-accelerated, network-isolated. |
+| `ollama` | `ollama` | lyra-internal | Local LLM runtime (qwen2.5:3b). GPU-accelerated when available, network-isolated. |
+| `ml` | `ml` | lyra-internal | Embedding (bge-m3) and NLI inference. GPU-accelerated when available, network-isolated. |
 | `tor` | `tor` | lyra-net | SOCKS proxy for anonymous web access |
+
+### GPU Auto-Detection
+
+Lyra automatically detects GPU availability at startup:
+- **GPU detected** (`nvidia-smi` available): GPU overlay files are applied, enabling CUDA acceleration
+- **No GPU**: Runs in CPU mode with a warning logged; fully functional but slower (20-100x)
+
+The compose scripts (`scripts/lib/compose.sh`) handle this automatically via overlay files (`podman-compose.gpu.yml` / `docker-compose.gpu.yml`).
 
 ### Networks
 
@@ -123,7 +131,7 @@ See [ADR-0006: Eight Layer Security Model](adr/0006-eight-layer-security-model.m
 
 Key points:
 - **Network Isolation**: Ollama/ML containers have no internet access
-- **GPU Isolation**: Shared via CDI/runtime, no direct host access
+- **GPU Isolation**: When GPU is available, shared via CDI/runtime with no direct host access
 - **Data Isolation**: Evidence graph is local-only
 - **Prompt Injection Defense**: Isolated inference prevents exfiltration
 
@@ -134,8 +142,10 @@ lyra/
 ├── containers/           # Container definitions
 │   ├── Dockerfile        # proxy container (custom)
 │   ├── Dockerfile.ml     # ml container (custom)
-│   ├── podman-compose.yml
-│   └── docker-compose.yml
+│   ├── podman-compose.yml        # Base compose (CPU mode)
+│   ├── podman-compose.gpu.yml    # GPU overlay (auto-applied when GPU detected)
+│   ├── docker-compose.yml        # Base compose (CPU mode)
+│   └── docker-compose.gpu.yml    # GPU overlay (auto-applied when GPU detected)
 │   # Note: ollama uses ollama/ollama:latest, tor uses dperson/torproxy:latest
 │   # (official images, no custom Dockerfile needed)
 ├── scripts/              # Shell scripts for operations

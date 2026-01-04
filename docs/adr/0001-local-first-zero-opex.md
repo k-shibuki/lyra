@@ -1,7 +1,7 @@
 # ADR-0001: Local-First Architecture / Zero OpEx
 
 ## Date
-2025-11-01 (Updated: 2025-12-25)
+2025-11-01 (Updated: 2026-01-04)
 
 ## Context
 
@@ -36,14 +36,16 @@ Specifically:
 
 ### GPU Requirements
 
-**NVIDIA GPU + CUDA environment is mandatory.**
+**NVIDIA GPU + CUDA environment is recommended but optional.**
 
 | Component | GPU Requirement | Reason |
 |-----------|-----------------|--------|
-| Ollama (LLM) | Required | Practical inference speed |
-| ml (Embedding/NLI) | Required | Batch processing performance |
+| Ollama (LLM) | Recommended | Practical inference speed (20-100x faster) |
+| ml (Embedding/NLI) | Recommended | Batch processing performance |
 
-CPU-only operation is not supported. Mocks are used during testing (see ADR-0009).
+**CPU Fallback**: Lyra automatically detects GPU availability at startup via `nvidia-smi`. When no GPU is detected, it runs in CPU mode with a warning logged. CPU mode is fully functional but significantly slower (suitable for testing or low-volume use).
+
+**GPU Auto-Detection**: The compose scripts (`scripts/lib/compose.sh`) automatically apply GPU overlay files (`podman-compose.gpu.yml` / `docker-compose.gpu.yml`) when `nvidia-smi` is available. No manual configuration required.
 
 ### Exceptions (Permitted External Communication)
 - Academic APIs (Semantic Scholar, OpenAlex): Free with relaxed rate limits
@@ -65,7 +67,7 @@ CPU-only operation is not supported. Mocks are used during testing (see ADR-0009
 - **Long-term Stability**: Unaffected by external service discontinuation
 
 ### Negative
-- **GPU Required**: NVIDIA GPU + CUDA environment necessary
+- **GPU Recommended**: NVIDIA GPU + CUDA for practical speed (CPU fallback available but 20-100x slower)
 - **Model Quality Constraints**: GPT-4/Claude-level reasoning not achievable
 - **Storage Consumption**: Model files require tens of GB
 
@@ -80,7 +82,7 @@ CPU-only operation is not supported. Mocks are used during testing (see ADR-0009
 | OpenAI API | High quality, easy | Monthly cost, external data transmission | Rejected |
 | Hybrid (Local+API) | Flexible | Incurs cost, increases complexity | Rejected |
 | Self-hosted Cloud | Scalable | Infrastructure operation costs | Rejected |
-| CPU Support | Runs without GPU | Impractical speed | Rejected |
+| CPU-Only Default | Runs without GPU | 20-100x slower | Rejected (GPU recommended, CPU fallback supported) |
 
 ## References
 - Ollama: https://ollama.ai
