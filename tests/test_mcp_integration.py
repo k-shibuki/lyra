@@ -13,7 +13,6 @@ Tests the full data flow between MCP tools:
 | TC-I-03 | Task with no exploration data | Boundary – empty | get_status returns empty searches | Minimal case |
 """
 
-import json
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -210,24 +209,32 @@ class TestMCPToolDataConsistency:
             ),
         )
 
-        # Create claim
+        # Create claim (provenance tracked via origin edge, not JSON column)
         claim_id = f"c_{uuid.uuid4().hex[:8]}"
         await db.execute(
             """INSERT INTO claims (id, task_id, claim_text, claim_type,
-               llm_claim_confidence, source_fragment_ids, verification_notes, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+               llm_claim_confidence, verification_notes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
             (
                 claim_id,
                 task_id,
                 "Verified claim from exploration",
                 "fact",
                 0.9,
-                json.dumps([frag_id]),
                 "source_url=https://source.gov/data",
             ),
         )
 
-        # Create edge
+        # Create origin edge (provenance)
+        origin_edge_id = f"e_{uuid.uuid4().hex[:8]}"
+        await db.execute(
+            """INSERT INTO edges (id, source_type, source_id, target_type,
+               target_id, relation, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (origin_edge_id, "fragment", frag_id, "claim", claim_id, "origin"),
+        )
+
+        # Create supports edge (NLI evidence)
         edge_id = f"e_{uuid.uuid4().hex[:8]}"
         await db.execute(
             """INSERT INTO edges (id, source_type, source_id, target_type,

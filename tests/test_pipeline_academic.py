@@ -188,6 +188,67 @@ class TestAbstractOnlyStrategy:
             mock_db_instance.complete_resource.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_persist_abstract_records_claim_metrics(
+        self, sample_paper_with_abstract: Paper
+    ) -> None:
+        """
+        TC-N-Acad-01: Academic abstract claim extraction updates ExplorationState claim counters.
+
+        // Given: Paper with abstract and LLM returns 2 claims
+        // When: _persist_abstract_as_fragment() is called
+        // Then: ExplorationState metrics.total_claims increments and claims are inserted to DB
+        """
+        # Given
+        state = ExplorationState(task_id="test_task")
+        pipeline = SearchPipeline(task_id="test_task", state=state)
+
+        mock_llm_result = {
+            "ok": True,
+            "claims": [
+                {"claim": "Claim A", "type": "fact", "confidence": 0.9},
+                {"claim": "Claim B", "type": "fact", "confidence": 0.8},
+            ],
+        }
+
+        # When / Then
+        with patch("src.research.pipeline.get_database") as mock_get_db:
+            mock_db_instance = AsyncMock()
+            mock_get_db.return_value = mock_db_instance
+            mock_db_instance.insert = AsyncMock(return_value="test_id")
+            mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+            mock_db_instance.complete_resource = AsyncMock()
+
+            # Patch external dependencies to keep this test fast & deterministic
+            with patch("src.filter.llm.llm_extract", new=AsyncMock(return_value=mock_llm_result)):
+                with patch(
+                    "src.filter.nli.nli_judge",
+                    new=AsyncMock(
+                        return_value=[
+                            {"stance": "supports", "nli_edge_confidence": 0.9},
+                        ]
+                    ),
+                ):
+                    with patch("src.storage.vector_store.persist_embedding", new=AsyncMock()):
+                        mock_ml_client = MagicMock()
+                        mock_ml_client.embed = AsyncMock(return_value=[[0.0]])
+                        with patch("src.ml_client.get_ml_client", return_value=mock_ml_client):
+                            await pipeline._persist_abstract_as_fragment(
+                                paper=sample_paper_with_abstract,
+                                task_id="test_task",
+                                search_id="test_search",
+                            )
+
+        # Then: state claim counter updated (via record_claim)
+        status = await state.get_status()
+        assert status["metrics"]["total_claims"] == 2
+
+        # Then: claims were inserted into DB (wiring)
+        claim_inserts = [
+            c for c in mock_db_instance.insert.call_args_list if c[0] and c[0][0] == "claims"
+        ]
+        assert len(claim_inserts) == 2
+
+    @pytest.mark.asyncio
     async def test_persist_abstract_existing_resource_returns_fragment_id(
         self, sample_paper_with_abstract: Paper
     ) -> None:
