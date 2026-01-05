@@ -147,12 +147,40 @@ class TestGetStatusWithExplorationState:
         mock_db = AsyncMock()
         mock_db.fetch_one.return_value = mock_task
 
+        # Mock queue/pending_auth cursors
+        cursor_queue = AsyncMock()
+        cursor_queue.fetchall.return_value = []
+        cursor_pending_count = AsyncMock()
+        cursor_pending_count.fetchone.return_value = (0,)
+        cursor_pending_rows = AsyncMock()
+        cursor_pending_rows.fetchall.return_value = []
+
+        mock_db.execute.side_effect = [
+            cursor_queue,
+            cursor_pending_count,
+            cursor_pending_rows,
+        ]
+
         mock_state = MagicMock()
         mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
 
+        # Mock get_metrics_from_db to return expected values
+        mock_metrics = {
+            "total_searches": 2,
+            "satisfied_count": 0,
+            "total_pages": 25,
+            "total_fragments": 11,
+            "total_claims": 5,
+            "elapsed_seconds": 300,
+        }
+
         with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
-                result = await _handle_get_status({"task_id": "task_abc123"})
+                with patch(
+                    "src.mcp.tools.task.get_metrics_from_db",
+                    new=AsyncMock(return_value=mock_metrics),
+                ):
+                    result = await _handle_get_status({"task_id": "task_abc123"})
 
         assert result["ok"] is True
         assert result["task_id"] == "task_abc123"
@@ -162,6 +190,68 @@ class TestGetStatusWithExplorationState:
         assert result["metrics"]["total_searches"] == 2
         assert result["metrics"]["satisfied_count"] == 1
         assert result["budget"]["budget_pages_used"] == 25
+
+    @pytest.mark.asyncio
+    async def test_db_only_overrides_total_counts(
+        self, mock_task: dict[str, Any], mock_exploration_status: dict[str, Any]
+    ) -> None:
+        """
+        TC-N-DB-01: db_only overrides total_* counts from DB even when ExplorationState exists.
+
+        // Given: ExplorationState reports total_claims=0 (stale), but DB has claims/pages/fragments
+        // When: Calling get_status
+        // Then: total_* metrics reflect DB counts (db_only)
+        """
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
+
+        # Given: ExplorationState has stale totals
+        mock_exploration_status["metrics"]["total_pages"] = 0
+        mock_exploration_status["metrics"]["total_fragments"] = 0
+        mock_exploration_status["metrics"]["total_claims"] = 0
+
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+
+        # Mock queue/pending_auth cursors
+        cursor_queue = AsyncMock()
+        cursor_queue.fetchall.return_value = []
+        cursor_pending_count = AsyncMock()
+        cursor_pending_count.fetchone.return_value = (0,)
+        cursor_pending_rows = AsyncMock()
+        cursor_pending_rows.fetchall.return_value = []
+
+        mock_db.execute.side_effect = [
+            cursor_queue,
+            cursor_pending_count,
+            cursor_pending_rows,
+        ]
+
+        mock_state = MagicMock()
+        mock_state.get_status = AsyncMock(return_value=mock_exploration_status)
+
+        # Mock get_metrics_from_db to return DB values that differ from ExplorationState
+        mock_metrics = {
+            "total_searches": 2,
+            "satisfied_count": 0,
+            "total_pages": 3,
+            "total_fragments": 5,
+            "total_claims": 7,
+            "elapsed_seconds": 300,
+        }
+
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
+                with patch(
+                    "src.mcp.tools.task.get_metrics_from_db",
+                    new=AsyncMock(return_value=mock_metrics),
+                ):
+                    result = await _handle_get_status({"task_id": "task_abc123"})
+
+        # Then: totals come from DB counts (db_only)
+        assert result["metrics"]["total_searches"] == 2
+        assert result["metrics"]["total_pages"] == 3
+        assert result["metrics"]["total_fragments"] == 5
+        assert result["metrics"]["total_claims"] == 7
 
     @pytest.mark.asyncio
     async def test_search_field_mapping(
@@ -348,7 +438,7 @@ class TestGetStatusStatusMapping:
         [
             ("exploring", "exploring"),
             ("paused", "paused"),
-            ("completed", "completed"),
+            ("completed", "paused"),  # deprecated: 'completed' maps to 'paused' (resumable)
             ("failed", "failed"),
             ("pending", "exploring"),
         ],
@@ -749,3 +839,162 @@ class TestGetStatusBlockedDomains:
         assert "domain_unblock_risk" in blocked
         assert blocked["domain_block_reason"] == "high_rejection_rate"
         assert blocked["domain_unblock_risk"] == "low"
+
+
+class TestGetStatusJobsSummary:
+    """Tests for jobs summary in get_status response (ADR-0016)."""
+
+    @pytest.fixture
+    def mock_task(self) -> dict[str, Any]:
+        """Create mock task data."""
+        return {
+            "id": "task_jobs_test",
+            "query": "Test research question",
+            "status": "exploring",
+            "created_at": "2024-01-15T10:00:00Z",
+            "updated_at": "2024-01-15T10:30:00Z",
+        }
+
+    @pytest.mark.asyncio
+    async def test_jobs_summary_in_response(self, mock_task: dict[str, Any]) -> None:
+        """
+        TC-JS-01: get_status includes jobs summary.
+
+        // Given: Task with multiple job types
+        // When: Calling get_status
+        // Then: Response includes jobs field with summary
+        """
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
+
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+
+        # Mock various helper functions
+        mock_jobs_summary = {
+            "total_queued": 2,
+            "total_running": 1,
+            "total_completed": 5,
+            "total_failed": 0,
+            "by_kind": {
+                "search_queue": {"queued": 1, "running": 0, "completed": 3},
+                "verify_nli": {"queued": 1, "running": 1, "completed": 2},
+            },
+        }
+
+        mock_metrics = {
+            "total_searches": 3,
+            "satisfied_count": 0,
+            "total_pages": 10,
+            "total_fragments": 25,
+            "total_claims": 15,
+            "elapsed_seconds": 120,
+        }
+
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch(
+                "src.mcp.tools.task.get_exploration_state", side_effect=KeyError("No state")
+            ):
+                with patch(
+                    "src.mcp.tools.task.get_task_jobs_summary",
+                    new=AsyncMock(return_value=mock_jobs_summary),
+                ):
+                    with patch(
+                        "src.mcp.tools.task.get_metrics_from_db",
+                        new=AsyncMock(return_value=mock_metrics),
+                    ):
+                        with patch(
+                            "src.mcp.tools.task.get_search_queue_status",
+                            new=AsyncMock(return_value={"depth": 0, "running": 0, "items": []}),
+                        ):
+                            with patch(
+                                "src.mcp.tools.task.get_pending_auth_info",
+                                new=AsyncMock(
+                                    return_value={
+                                        "awaiting_auth_jobs": 0,
+                                        "pending_captchas": 0,
+                                        "domains": [],
+                                    }
+                                ),
+                            ):
+                                with patch(
+                                    "src.mcp.tools.task.get_domain_overrides",
+                                    new=AsyncMock(return_value=[]),
+                                ):
+                                    result = await _handle_get_status({"task_id": "task_jobs_test"})
+
+        assert result["ok"] is True
+        assert "jobs" in result
+        assert result["jobs"]["total_queued"] == 2
+        assert result["jobs"]["total_running"] == 1
+        assert result["jobs"]["total_completed"] == 5
+        assert "by_kind" in result["jobs"]
+        assert "search_queue" in result["jobs"]["by_kind"]
+        assert "verify_nli" in result["jobs"]["by_kind"]
+
+    @pytest.mark.asyncio
+    async def test_jobs_summary_with_citation_graph(self, mock_task: dict[str, Any]) -> None:
+        """
+        TC-JS-02: jobs summary includes citation_graph kind.
+
+        // Given: Task with citation_graph jobs
+        // When: Calling get_status
+        // Then: jobs.by_kind includes citation_graph
+        """
+        from src.mcp.tools.task import handle_get_status as _handle_get_status
+
+        mock_db = AsyncMock()
+        mock_db.fetch_one.return_value = mock_task
+
+        mock_jobs_summary = {
+            "total_queued": 1,
+            "total_running": 0,
+            "total_completed": 1,
+            "total_failed": 0,
+            "by_kind": {
+                "citation_graph": {"queued": 1, "running": 0, "completed": 1},
+            },
+        }
+
+        mock_metrics = {
+            "total_searches": 1,
+            "satisfied_count": 0,
+            "total_pages": 5,
+            "total_fragments": 10,
+            "total_claims": 5,
+            "elapsed_seconds": 60,
+        }
+
+        with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
+            with patch(
+                "src.mcp.tools.task.get_exploration_state", side_effect=KeyError("No state")
+            ):
+                with patch(
+                    "src.mcp.tools.task.get_task_jobs_summary",
+                    new=AsyncMock(return_value=mock_jobs_summary),
+                ):
+                    with patch(
+                        "src.mcp.tools.task.get_metrics_from_db",
+                        new=AsyncMock(return_value=mock_metrics),
+                    ):
+                        with patch(
+                            "src.mcp.tools.task.get_search_queue_status",
+                            new=AsyncMock(return_value={"depth": 0, "running": 0, "items": []}),
+                        ):
+                            with patch(
+                                "src.mcp.tools.task.get_pending_auth_info",
+                                new=AsyncMock(
+                                    return_value={
+                                        "awaiting_auth_jobs": 0,
+                                        "pending_captchas": 0,
+                                        "domains": [],
+                                    }
+                                ),
+                            ):
+                                with patch(
+                                    "src.mcp.tools.task.get_domain_overrides",
+                                    new=AsyncMock(return_value=[]),
+                                ):
+                                    result = await _handle_get_status({"task_id": "task_jobs_test"})
+
+        assert result["ok"] is True
+        assert "citation_graph" in result["jobs"]["by_kind"]

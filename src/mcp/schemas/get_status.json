@@ -159,6 +159,33 @@
         "required": ["rule_id", "domain_pattern", "decision", "reason", "updated_at"],
         "additionalProperties": false
       }
+    },
+    "jobs": {
+      "type": "object",
+      "description": "All job kinds summary for task (ADR-0016: VERIFY_NLI, CITATION_GRAPH visibility).",
+      "properties": {
+        "total_queued": {"type": "integer", "description": "Total queued jobs across all kinds"},
+        "total_running": {"type": "integer", "description": "Total running jobs across all kinds"},
+        "total_completed": {"type": "integer", "description": "Total completed jobs across all kinds"},
+        "total_failed": {"type": "integer", "description": "Total failed jobs across all kinds"},
+        "by_kind": {
+          "type": "object",
+          "description": "Breakdown by job kind (search_queue, verify_nli, citation_graph, etc.)",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "queued": {"type": "integer"},
+              "running": {"type": "integer"},
+              "completed": {"type": "integer"},
+              "failed": {"type": "integer"},
+              "cancelled": {"type": "integer"},
+              "awaiting_auth": {"type": "integer"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

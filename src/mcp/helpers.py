@@ -86,31 +86,54 @@ async def get_metrics_from_db(db: Any, task_id: str) -> dict[str, Any]:
         row = await cursor.fetchone()
         total_searches = row[0] if row else 0
 
-        # Count pages via serp_items (pages don't have task_id directly)
+        # Count pages for a task.
+        #
+        # There are 2 task-linking paths:
+        # 1) SERP path: queries(task_id) -> serp_items(query_id, url) -> pages(url)
+        # 2) Academic API path: resource_index(task_id, page_id, status='completed') -> pages(id)
         cursor = await db.execute(
             """
-            SELECT COUNT(DISTINCT p.id)
+            SELECT COUNT(DISTINCT page_id) FROM (
+                SELECT p.id AS page_id
             FROM pages p
             JOIN serp_items si ON p.url = si.url
             JOIN queries q ON si.query_id = q.id
             WHERE q.task_id = ?
+                UNION
+                SELECT ri.page_id AS page_id
+                FROM resource_index ri
+                WHERE ri.task_id = ?
+                  AND ri.status = 'completed'
+                  AND ri.page_id IS NOT NULL
+            )
             """,
-            (task_id,),
+            (task_id, task_id),
         )
         row = await cursor.fetchone()
         total_pages = row[0] if row else 0
 
-        # Count fragments via pages → serp_items → queries
+        # Count fragments for a task via task-linked pages (SERP + Academic API).
         cursor = await db.execute(
             """
             SELECT COUNT(DISTINCT f.id)
             FROM fragments f
-            JOIN pages p ON f.page_id = p.id
+            WHERE f.page_id IN (
+                SELECT page_id FROM (
+                    SELECT p.id AS page_id
+                    FROM pages p
             JOIN serp_items si ON p.url = si.url
             JOIN queries q ON si.query_id = q.id
             WHERE q.task_id = ?
+                    UNION
+                    SELECT ri.page_id AS page_id
+                    FROM resource_index ri
+                    WHERE ri.task_id = ?
+                      AND ri.status = 'completed'
+                      AND ri.page_id IS NOT NULL
+                )
+            )
             """,
-            (task_id,),
+            (task_id, task_id),
         )
         row = await cursor.fetchone()
         total_fragments = row[0] if row else 0
@@ -242,6 +265,84 @@ async def get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
             "depth": 0,
             "running": 0,
             "items": [],
+        }
+
+
+async def get_task_jobs_summary(db: Any, task_id: str) -> dict[str, Any]:
+    """Get summary of all job kinds for a task.
+
+    Returns aggregated counts by kind and state for visibility into
+    VERIFY_NLI, CITATION_GRAPH, and other job types.
+
+    Per ADR-0016: Expose all job kinds in get_status for transparency.
+
+    Args:
+        db: Database connection.
+        task_id: Task ID.
+
+    Returns:
+        Jobs summary dict with by_kind breakdown.
+    """
+    try:
+        cursor = await db.execute(
+            """
+            SELECT kind, state, COUNT(*) as count
+            FROM jobs
+            WHERE task_id = ?
+            GROUP BY kind, state
+            ORDER BY kind, state
+            """,
+            (task_id,),
+        )
+        rows = await cursor.fetchall()
+
+        # Initialize summary structure
+        by_kind: dict[str, dict[str, int]] = {}
+
+        for row in rows:
+            if isinstance(row, dict):
+                kind = row["kind"]
+                state = row["state"]
+                count = row["count"]
+            else:
+                kind = row[0]
+                state = row[1]
+                count = row[2]
+
+            if kind not in by_kind:
+                by_kind[kind] = {
+                    "queued": 0,
+                    "running": 0,
+                    "completed": 0,
+                    "failed": 0,
+                    "cancelled": 0,
+                    "awaiting_auth": 0,
+                }
+
+            if state in by_kind[kind]:
+                by_kind[kind][state] = count
+
+        # Calculate totals
+        total_queued = sum(k.get("queued", 0) for k in by_kind.values())
+        total_running = sum(k.get("running", 0) for k in by_kind.values())
+        total_completed = sum(k.get("completed", 0) for k in by_kind.values())
+        total_failed = sum(k.get("failed", 0) for k in by_kind.values())
+
+        return {
+            "total_queued": total_queued,
+            "total_running": total_running,
+            "total_completed": total_completed,
+            "total_failed": total_failed,
+            "by_kind": by_kind,
+        }
+    except Exception as e:
+        logger.warning("Failed to get task jobs summary", error=str(e))
+        return {
+            "total_queued": 0,
+            "total_running": 0,
+            "total_completed": 0,
+            "total_failed": 0,
+            "by_kind": {},
         }
 
 

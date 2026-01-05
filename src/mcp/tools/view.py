@@ -77,6 +77,7 @@ def _get_view_description(view_name: str) -> str:
         "v_controversy_by_era": "How controversy evolved over time",
         "v_citation_age_gap": "Gap between citing and cited publication years",
         "v_evidence_freshness": "Recency of evidence supporting claims",
+        "v_claim_origins": "Claim provenance: which fragment/page each claim was extracted from",
     }
     return descriptions.get(view_name, "")
 
