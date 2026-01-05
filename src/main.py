@@ -49,98 +49,6 @@ async def shutdown() -> None:
     logger.info("Lyra shutdown complete")
 
 
-async def run_research(query: str) -> None:
-    """Run a research task.
-
-    Args:
-        query: Research query.
-    """
-    from src.crawler.fetcher import fetch_url
-    from src.extractor.content import extract_content
-    from src.filter.ranking import rank_candidates
-    from src.report.generator import generate_report
-    from src.search import search_serp
-    from src.storage.database import get_database
-
-    logger = get_logger(__name__)
-
-    # Create task
-    db = await get_database()
-    task_id = await db.create_task(query)
-
-    logger.info("Research task created", task_id=task_id, query=query)
-
-    try:
-        # Update status to running
-        await db.update_task_status(task_id, "running")
-
-        # : Search
-        logger.info(": Searching...")
-        results = await search_serp(query, task_id=task_id, limit=20)
-        logger.info(f"Found {len(results)} search results")
-
-        # : Fetch top results
-        logger.info(": Fetching pages...")
-        pages = []
-        for result in results[:10]:
-            url = result.get("url")
-            if url:
-                fetch_result = await fetch_url(
-                    url,
-                    context={"referer": "https://www.google.com/"},
-                    task_id=task_id,
-                )
-                if fetch_result.get("ok"):
-                    pages.append(
-                        {
-                            "url": url,
-                            "html_path": fetch_result.get("html_path"),
-                        }
-                    )
-
-        logger.info(f"Fetched {len(pages)} pages")
-
-        # : Extract content
-        logger.info(": Extracting content...")
-        passages = []
-        for page in pages:
-            if page.get("html_path"):
-                extract_result = await extract_content(
-                    input_path=page["html_path"],
-                )
-                if extract_result.get("ok"):
-                    for i, frag in enumerate(extract_result.get("fragments", [])):
-                        passages.append(
-                            {
-                                "id": f"{page['url']}_{i}",
-                                "text": frag.get("text", ""),
-                                "source_url": page["url"],
-                            }
-                        )
-
-        logger.info(f"Extracted {len(passages)} passages")
-
-        # : Rank passages
-        if passages:
-            logger.info(": Ranking passages...")
-            ranked = await rank_candidates(query, passages[:100], top_k=20)
-            logger.info(f"Ranked {len(ranked)} passages")
-
-        # : Generate report
-        logger.info(": Generating report...")
-        report_result = await generate_report(task_id)
-
-        if report_result.get("ok"):
-            logger.info("Report generated", filepath=report_result.get("filepath"))
-        else:
-            logger.error("Report generation failed", error=report_result.get("error"))
-
-    except Exception as e:
-        logger.error("Research task failed", task_id=task_id, error=str(e))
-        await db.update_task_status(task_id, "failed", error_message=str(e))
-        raise
-
-
 def main() -> None:
     """Main entry point."""
     import argparse
@@ -148,14 +56,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Lyra - Local Yielding Research Aide")
     parser.add_argument(
         "command",
-        choices=["init", "research", "mcp"],
+        choices=["init", "mcp"],
         help="Command to run",
-    )
-    parser.add_argument(
-        "--query",
-        "-q",
-        type=str,
-        help="Research query (for 'research' command)",
     )
 
     args = parser.parse_args()
@@ -166,12 +68,6 @@ def main() -> None:
         try:
             if args.command == "init":
                 print("Lyra initialized successfully.")
-
-            elif args.command == "research":
-                if not args.query:
-                    print("Error: --query is required for research command")
-                    return
-                await run_research(args.query)
 
             elif args.command == "mcp":
                 from src.mcp.server import run_server

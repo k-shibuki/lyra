@@ -19,7 +19,7 @@ from typing import Any
 from src.filter.llm import generate_with_provider
 from src.filter.llm_output import parse_and_validate
 from src.filter.llm_schemas import DenseSummaryOutput, InitialSummaryOutput
-from src.report.generator import generate_deep_link
+from src.report.links import generate_deep_link
 from src.utils.config import get_settings
 from src.utils.logging import get_logger
 from src.utils.prompt_manager import render_prompt
