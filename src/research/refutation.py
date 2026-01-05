@@ -21,9 +21,6 @@ from src.utils.logging import LogContext, get_logger
 
 logger = get_logger(__name__)
 
-# Confidence reduction when no refutation is found
-NO_REFUTATION_CONFIDENCE_DECAY = 0.05
-
 
 @dataclass
 class RefutationResult:
@@ -100,7 +97,7 @@ class RefutationExecutor:
         with LogContext(task_id=self.task_id, claim_id=claim_id):
             # Get claim text from database
             claim = await self._db.fetch_one(
-                "SELECT claim_text, llm_claim_confidence FROM claims WHERE id = ?",
+                "SELECT claim_text FROM claims WHERE id = ?",
                 (claim_id,),
             )
 
@@ -109,7 +106,6 @@ class RefutationExecutor:
                 return result
 
             claim_text = claim.get("claim_text", "")
-            current_confidence = claim.get("llm_claim_confidence", 1.0)
 
             logger.info("Executing refutation for claim", claim_text=claim_text[:50])
 
@@ -124,26 +120,14 @@ class RefutationExecutor:
 
             result.refutations_found = len(result.refutation_details)
 
-            # Adjust confidence
-            if result.refutations_found == 0:
-                # No refutation found - decay confidence (ADR-0010)
-                result.confidence_adjustment = -NO_REFUTATION_CONFIDENCE_DECAY
-                new_confidence = max(0, current_confidence + result.confidence_adjustment)
-
-                await self._db.execute(
-                    "UPDATE claims SET llm_claim_confidence = ? WHERE id = ?",
-                    (new_confidence, claim_id),
-                )
-
-                logger.info(
-                    "No refutation found, confidence decayed",
-                    claim_id=claim_id,
-                    adjustment=result.confidence_adjustment,
-                )
-            else:
-                # Refutation found - record in evidence graph
+            # Record refutation edges in evidence graph (ADR-0005)
+            # Truth confidence is derived from edges via Bayesian calculation,
+            # NOT by mutating llm_claim_confidence (which is extraction quality).
+            if result.refutations_found > 0:
                 for ref in result.refutation_details:
                     await self._record_refutation_edge(claim_id, ref)
+            else:
+                logger.info("No refutation found", claim_id=claim_id)
 
             return result
 
@@ -183,12 +167,13 @@ class RefutationExecutor:
             result.refutations_found = len(result.refutation_details)
 
             # Update search refutation status
+            # confidence_adjustment is no longer used - truth confidence is
+            # derived from edges via Bayesian calculation (ADR-0005).
             if result.refutations_found > 0:
                 search_state.refutation_status = "found"
                 search_state.refutation_count = result.refutations_found
             else:
                 search_state.refutation_status = "not_found"
-                result.confidence_adjustment = -NO_REFUTATION_CONFIDENCE_DECAY
 
             return result
 
@@ -352,7 +337,13 @@ class RefutationExecutor:
         claim_id: str,
         refutation: dict[str, Any],
     ) -> None:
-        """Record refutation edge in evidence graph."""
+        """Record refutation edge in evidence graph.
+
+        Creates page and fragment records for the refuting source, then
+        creates an edge from fragment to claim. This ensures proper graph
+        integrity for v_evidence_chain and other views that JOIN on fragment_id.
+        """
+        import hashlib
         import uuid
         from urllib.parse import urlparse
 
@@ -361,15 +352,26 @@ class RefutationExecutor:
         await self._ensure_db()
         assert self._db is not None  # Guaranteed by _ensure_db
 
-        edge_id = f"edge_{uuid.uuid4().hex[:8]}"
-
-        # Derive domain category from source URL domain (for ranking adjustment)
         source_url = refutation.get("source_url", "")
+        refuting_passage = refutation.get("refuting_passage", "")
+        source_title = refutation.get("source_title", "")
+
+        if not source_url:
+            logger.warning("Refutation missing source_url, skipping edge creation")
+            return
+
+        # Derive domain from URL
+        domain = ""
+        try:
+            parsed = urlparse(source_url)
+            domain = parsed.netloc.lower()
+        except Exception:
+            pass
+
+        # Derive domain category for ranking adjustment
         source_domain_category: str | None = None
-        if source_url:
+        if domain:
             try:
-                parsed = urlparse(source_url)
-                domain = parsed.netloc.lower()
                 source_domain_category = get_domain_category(domain).value
             except Exception:
                 pass
@@ -388,32 +390,97 @@ class RefutationExecutor:
                         verification_notes.split("source_url=")[1].split(";")[0].strip()
                     )
                     parsed = urlparse(claim_source_url)
-                    domain = parsed.netloc.lower()
-                    target_domain_category = get_domain_category(domain).value
+                    claim_domain = parsed.netloc.lower()
+                    target_domain_category = get_domain_category(claim_domain).value
         except Exception:
             pass
 
-        await self._db.execute(
-            """
-            INSERT INTO edges (id, source_type, source_id, target_type, target_id,
-                             relation, nli_label, nli_edge_confidence,
-                             source_domain_category, target_domain_category)
-            VALUES (?, 'fragment', ?, 'claim', ?, 'refutes', 'refutes', ?, ?, ?)
-            """,
-            (
-                edge_id,
-                refutation.get("source_url", "unknown"),
-                claim_id,
-                refutation.get("nli_edge_confidence", 0),
-                source_domain_category,
-                target_domain_category,
-            ),
+        # Step 1: Create or get page for refutation source
+        page_id = f"p_{uuid.uuid4().hex[:8]}"
+        try:
+            # Check if page exists
+            existing_page = await self._db.fetch_one(
+                "SELECT id FROM pages WHERE url = ?", (source_url,)
+            )
+            if existing_page:
+                page_id = existing_page["id"]
+            else:
+                await self._db.execute(
+                    """
+                    INSERT OR IGNORE INTO pages (id, url, domain, title, page_type, fetched_at)
+                    VALUES (?, ?, ?, ?, 'refutation_source', datetime('now'))
+                    """,
+                    (page_id, source_url, domain, source_title[:200] if source_title else None),
+                )
+        except Exception as e:
+            logger.warning(
+                "Failed to create page for refutation source",
+                url=source_url[:50],
+                error=str(e),
+            )
+            return
+
+        # Step 2: Create fragment for refuting passage
+        fragment_id = f"f_{uuid.uuid4().hex[:8]}"
+        text_hash = (
+            hashlib.sha256(refuting_passage.encode()).hexdigest()[:16] if refuting_passage else None
         )
+        try:
+            await self._db.execute(
+                """
+                INSERT OR IGNORE INTO fragments
+                (id, page_id, fragment_type, text_content, text_hash, is_relevant, created_at)
+                VALUES (?, ?, 'refutation', ?, ?, 1, datetime('now'))
+                """,
+                (
+                    fragment_id,
+                    page_id,
+                    refuting_passage[:2000] if refuting_passage else "",
+                    text_hash,
+                ),
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to create fragment for refutation",
+                page_id=page_id,
+                error=str(e),
+            )
+            return
+
+        # Step 3: Create refutes edge from fragment to claim
+        edge_id = f"e_{uuid.uuid4().hex[:8]}"
+        try:
+            await self._db.execute(
+                """
+                INSERT INTO edges (id, source_type, source_id, target_type, target_id,
+                                 relation, nli_label, nli_edge_confidence,
+                                 source_domain_category, target_domain_category)
+                VALUES (?, 'fragment', ?, 'claim', ?, 'refutes', 'refutes', ?, ?, ?)
+                """,
+                (
+                    edge_id,
+                    fragment_id,  # Now using actual fragment_id, not URL
+                    claim_id,
+                    refutation.get("nli_edge_confidence", 0),
+                    source_domain_category,
+                    target_domain_category,
+                ),
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to create refutation edge",
+                claim_id=claim_id,
+                fragment_id=fragment_id,
+                error=str(e),
+            )
+            return
 
         logger.info(
             "Recorded refutation edge",
             claim_id=claim_id,
-            source_url=refutation.get("source_url", "")[:50],
+            fragment_id=fragment_id,
+            page_id=page_id,
+            source_url=source_url[:50],
             source_domain_category=source_domain_category,
             target_domain_category=target_domain_category,
         )

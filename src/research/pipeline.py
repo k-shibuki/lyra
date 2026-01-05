@@ -515,7 +515,7 @@ class SearchPipeline:
             await resolver.close()
             await academic_provider.close()
 
-    async def _process_citation_graph(
+    async def _persist_academic_abstracts_and_enqueue_citation_graph(
         self,
         search_id: str,
         query: str,
@@ -523,7 +523,10 @@ class SearchPipeline:
         options: PipelineSearchOptions,
         result: SearchPipelineResult,
     ) -> None:
-        """Process citation graph for papers with abstracts.
+        """Persist academic papers (Abstract Only) and enqueue citation graph job.
+
+        Per ADR-0016: Citation graph processing is deferred to a separate job.
+        This method only persists papers with abstracts synchronously.
 
         Args:
             search_id: Search ID
@@ -534,271 +537,112 @@ class SearchPipeline:
         """
         from src.filter.evidence_graph import (
             NodeType,
-            add_academic_page_with_citations,
             get_evidence_graph,
         )
-        from src.search.academic_provider import AcademicSearchProvider
-        from src.utils.config import get_settings
 
-        academic_provider = AcademicSearchProvider()
-        paper_to_page_map: dict[str, str] = {}
+        unique_entries = index.get_all_entries()
+        paper_ids_with_page: list[str] = []
 
-        try:
-            unique_entries = index.get_all_entries()
+        # : Process unique entries (Abstract Only strategy)
+        pages_created = 0
+        fragments_created = 0
 
-            # : Process unique entries (Abstract Only strategy)
-            pages_created = 0
-            fragments_created = 0
+        for entry in unique_entries:
+            if entry.paper and entry.paper.abstract:
+                # OA URL is already provided by S2/OpenAlex APIs
+                # No additional resolution needed
 
-            for entry in unique_entries:
-                if entry.paper and entry.paper.abstract:
-                    # OA URL is already provided by S2/OpenAlex APIs
-                    # No additional resolution needed
-
-                    # Abstract Only: Skip fetch, persist abstract directly
-                    try:
-                        page_id, fragment_id = await self._persist_abstract_as_fragment(
-                            paper=entry.paper,
-                            task_id=self.task_id,
-                            search_id=search_id,
-                            worker_id=options.worker_id,
-                        )
-                        # Skip counting if already processed (fragment_id is None)
-                        if fragment_id is not None:
-                            pages_created += 1
-                            fragments_created += 1
-
-                            # FIX: Update ExplorationState metrics for academic papers
-                            # Extract domain from paper URL
-                            paper_url = entry.paper.oa_url or (
-                                f"https://doi.org/{entry.paper.doi}" if entry.paper.doi else ""
-                            )
-                            paper_domain = self._extract_domain(paper_url)
-
-                            # Academic papers are always primary sources
-                            is_primary = True
-                            is_independent = paper_domain not in self._seen_domains
-                            if is_independent:
-                                self._seen_domains.add(paper_domain)
-
-                            # Record page fetch in ExplorationState
-                            self.state.record_page_fetch(
-                                search_id=search_id,
-                                domain=paper_domain,
-                                is_primary_source=is_primary,
-                                is_independent=is_independent,
-                            )
-
-                            # Record fragment in ExplorationState
-                            import hashlib
-
-                            fragment_hash = hashlib.sha256(
-                                entry.paper.abstract[:500].encode()
-                            ).hexdigest()[:16]
-                            is_novel = fragment_hash not in self._seen_fragment_hashes
-                            if is_novel:
-                                self._seen_fragment_hashes.add(fragment_hash)
-
-                            self.state.record_fragment(
-                                search_id=search_id,
-                                fragment_hash=fragment_hash,
-                                is_useful=True,  # Abstracts from academic APIs are always useful
-                                is_novel=is_novel,
-                            )
-
-                        # Track mapping for citation graph (only if page_id is valid)
-                        if page_id is not None:
-                            paper_to_page_map[entry.paper.id] = page_id
-
-                            # Add to evidence graph
-                            graph = await get_evidence_graph(self.task_id)
-                            graph.add_node(NodeType.PAGE, page_id)
-
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to persist abstract", error=str(e), paper_id=entry.paper.id
-                        )
-
-            # Update result stats
-            result.pages_fetched += pages_created
-            result.useful_fragments += fragments_created
-
-            # Citation graph integration
-            papers_with_abstracts = [
-                entry.paper
-                for entry in unique_entries
-                if entry.paper and entry.paper.abstract and entry.paper.id in paper_to_page_map
-            ]
-
-            settings = get_settings()
-            top_n = settings.search.citation_graph_top_n_papers
-            depth = settings.search.citation_graph_depth
-            direction = settings.search.citation_graph_direction
-
-            papers_with_abstracts = papers_with_abstracts[:top_n]
-
-            for paper in papers_with_abstracts:
+                # Abstract Only: Skip fetch, persist abstract directly
                 try:
-                    # Get citation graph
-                    related_papers, citations = await academic_provider.get_citation_graph(
-                        paper_id=paper.id,
-                        depth=depth,
-                        direction=direction,
+                    page_id, fragment_id = await self._persist_abstract_as_fragment(
+                        paper=entry.paper,
+                        task_id=self.task_id,
+                        search_id=search_id,
+                        worker_id=options.worker_id,
                     )
+                    # Skip counting if already processed (fragment_id is None)
+                    if fragment_id is not None:
+                        pages_created += 1
+                        fragments_created += 1
 
-                    # Relevance filtering + auto-persist top citations
-                    try:
-                        from src.search.citation_filter import filter_relevant_citations
-
-                        filtered = await filter_relevant_citations(
-                            query=query,
-                            source_paper=paper,
-                            candidate_papers=related_papers,
+                        # FIX: Update ExplorationState metrics for academic papers
+                        # Extract domain from paper URL
+                        paper_url = entry.paper.oa_url or (
+                            f"https://doi.org/{entry.paper.doi}" if entry.paper.doi else ""
                         )
-                    except Exception as e:
-                        logger.debug(
-                            "Citation relevance filtering failed; skipping persist",
-                            paper_id=paper.id,
-                            error=str(e),
-                        )
-                        filtered = []
+                        paper_domain = self._extract_domain(paper_url)
 
-                    # Persist relevant citation papers
-                    # Papers with abstracts: full persist (counts toward budget)
-                    # Papers without abstracts: placeholder only (for CITES edges, no budget impact)
-                    placeholders_created = 0
-                    for scored in filtered:
-                        rp = scored.paper
-                        if rp.id in paper_to_page_map:
-                            continue
+                        # Academic papers are always primary sources
+                        is_primary = True
+                        is_independent = paper_domain not in self._seen_domains
+                        if is_independent:
+                            self._seen_domains.add(paper_domain)
 
-                        if rp.abstract:
-                            # Full persist with abstract (counts toward budget)
-                            try:
-                                (
-                                    cited_page_id,
-                                    cited_fragment_id,
-                                ) = await self._persist_abstract_as_fragment(
-                                    paper=rp,
-                                    task_id=self.task_id,
-                                    search_id=search_id,
-                                    worker_id=options.worker_id,
-                                )
-                                # Only add to map if we got a valid page_id
-                                if cited_page_id:
-                                    paper_to_page_map[rp.id] = cited_page_id
-                                    graph = await get_evidence_graph(self.task_id)
-                                    graph.add_node(NodeType.PAGE, cited_page_id)
-
-                                    # Update ExplorationState metrics for citation papers
-                                    if cited_fragment_id is not None:
-                                        result.pages_fetched += 1
-                                        result.useful_fragments += 1
-
-                                        # Extract domain from paper URL
-                                        rp_url = rp.oa_url or (
-                                            f"https://doi.org/{rp.doi}" if rp.doi else ""
-                                        )
-                                        rp_domain = self._extract_domain(rp_url)
-
-                                        is_independent = rp_domain not in self._seen_domains
-                                        if is_independent:
-                                            self._seen_domains.add(rp_domain)
-
-                                        # Record page fetch in ExplorationState
-                                        self.state.record_page_fetch(
-                                            search_id=search_id,
-                                            domain=rp_domain,
-                                            is_primary_source=True,
-                                            is_independent=is_independent,
-                                        )
-
-                                        # Record fragment in ExplorationState
-                                        import hashlib
-
-                                        rp_hash = hashlib.sha256(
-                                            rp.abstract[:500].encode()
-                                        ).hexdigest()[:16]
-                                        rp_novel = rp_hash not in self._seen_fragment_hashes
-                                        if rp_novel:
-                                            self._seen_fragment_hashes.add(rp_hash)
-
-                                        self.state.record_fragment(
-                                            search_id=search_id,
-                                            fragment_hash=rp_hash,
-                                            is_useful=True,
-                                            is_novel=rp_novel,
-                                        )
-
-                            except Exception as e:
-                                logger.debug(
-                                    "Failed to persist citation paper",
-                                    paper_id=rp.id,
-                                    error=str(e),
-                                )
-                        else:
-                            # No abstract: create placeholder for CITES edge (no budget impact)
-                            try:
-                                placeholder_id = await self._create_citation_placeholder(
-                                    paper=rp,
-                                    task_id=self.task_id,
-                                )
-                                if placeholder_id:
-                                    paper_to_page_map[rp.id] = placeholder_id
-                                    graph = await get_evidence_graph(self.task_id)
-                                    graph.add_node(NodeType.PAGE, placeholder_id)
-                                    placeholders_created += 1
-                            except Exception as e:
-                                logger.debug(
-                                    "Failed to create citation placeholder",
-                                    paper_id=rp.id,
-                                    error=str(e),
-                                )
-
-                    # Look up page_id from mapping
-                    mapped_page_id = paper_to_page_map.get(paper.id)
-
-                    if mapped_page_id and citations:
-                        # Build paper_metadata
-                        paper_metadata = {
-                            "paper_id": paper.id,
-                            "doi": paper.doi,
-                            "arxiv_id": paper.arxiv_id,
-                            "authors": [
-                                {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
-                                for a in paper.authors
-                            ],
-                            "year": paper.year,
-                            "venue": paper.venue,
-                            "citation_count": paper.citation_count,
-                            "reference_count": paper.reference_count,
-                            "is_open_access": paper.is_open_access,
-                            "oa_url": paper.oa_url,
-                            "pdf_url": paper.pdf_url,
-                            "source_api": paper.source_api,
-                        }
-
-                        await add_academic_page_with_citations(
-                            page_id=mapped_page_id,
-                            paper_metadata=paper_metadata,
-                            citations=citations,
-                            task_id=self.task_id,
-                            paper_to_page_map=paper_to_page_map,
+                        # Record page fetch in ExplorationState
+                        self.state.record_page_fetch(
+                            search_id=search_id,
+                            domain=paper_domain,
+                            is_primary_source=is_primary,
+                            is_independent=is_independent,
                         )
 
-                        logger.debug(
-                            "Added citation graph",
-                            paper_id=paper.id,
-                            page_id=mapped_page_id,
-                            citation_count=len(citations),
-                            placeholders_created=placeholders_created,
+                        # Record fragment in ExplorationState
+                        import hashlib
+
+                        fragment_hash = hashlib.sha256(
+                            entry.paper.abstract[:500].encode()
+                        ).hexdigest()[:16]
+                        is_novel = fragment_hash not in self._seen_fragment_hashes
+                        if is_novel:
+                            self._seen_fragment_hashes.add(fragment_hash)
+
+                        self.state.record_fragment(
+                            search_id=search_id,
+                            fragment_hash=fragment_hash,
+                            is_useful=True,  # Abstracts from academic APIs are always useful
+                            is_novel=is_novel,
                         )
+
+                    # Track paper_id for citation graph job (only if page_id is valid)
+                    if page_id is not None:
+                        paper_ids_with_page.append(entry.paper.id)
+
+                        # Add to evidence graph
+                        graph = await get_evidence_graph(self.task_id)
+                        graph.add_node(NodeType.PAGE, page_id)
 
                 except Exception as e:
-                    logger.warning("Failed to get citation graph", paper_id=paper.id, error=str(e))
+                    logger.warning(
+                        "Failed to persist abstract", error=str(e), paper_id=entry.paper.id
+                    )
 
-        finally:
-            await academic_provider.close()
+        # Update result stats
+        result.pages_fetched += pages_created
+        result.useful_fragments += fragments_created
+
+        # Enqueue citation graph job (deferred processing per ADR-0016)
+        if paper_ids_with_page:
+            try:
+                from src.research.citation_graph import enqueue_citation_graph_job
+
+                await enqueue_citation_graph_job(
+                    task_id=self.task_id,
+                    search_id=search_id,
+                    query=query,
+                    paper_ids=paper_ids_with_page,
+                )
+                logger.info(
+                    "Enqueued citation graph job",
+                    task_id=self.task_id,
+                    search_id=search_id,
+                    paper_count=len(paper_ids_with_page),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to enqueue citation graph job",
+                    error=str(e),
+                    task_id=self.task_id,
+                )
 
     async def _execute_unified_search(
         self,
@@ -977,19 +821,16 @@ class SearchPipeline:
                 serp_only=stats["serp_only"],
             )
 
-            # -6: Process unique entries and citation graph (using common method)
-            await self._process_citation_graph(
-                search_id=search_id,
-                query=query,
-                index=index,
-                options=options,
-                result=result,
-            )
-
-            # For entries that need fetch (no abstract available), use SearchExecutor
-            # This includes: SERP-only entries, and entries with paper but no abstract
+            # -6: WEB FETCH FIRST (ADR-0016 update)
+            # Process entries that need fetch (no abstract available) BEFORE citation graph
+            # This ensures SERP-only entries (FDA.gov, Wikipedia, etc.) are fetched within timeout
             entries_needing_fetch = [e for e in unique_entries if e.needs_fetch]
             if entries_needing_fetch:
+                logger.info(
+                    "Web fetch first: processing SERP-only entries",
+                    count=len(entries_needing_fetch),
+                    query=query[:100],
+                )
                 # Save current stats before calling _execute_fetch_extract (it modifies result in-place)
                 pages_before = result.pages_fetched
                 fragments_before = result.useful_fragments
@@ -1003,6 +844,16 @@ class SearchPipeline:
                 # contains the new value that overwrote pages_before)
                 result.pages_fetched = pages_before + fetch_result.pages_fetched
                 result.useful_fragments = fragments_before + fetch_result.useful_fragments
+
+            # -7: Process academic papers and enqueue citation graph job
+            # This runs AFTER web fetch to ensure SERP-only entries are prioritized
+            await self._persist_academic_abstracts_and_enqueue_citation_graph(
+                search_id=search_id,
+                query=query,
+                index=index,
+                options=options,
+                result=result,
+            )
 
             return result
         finally:
@@ -1168,6 +1019,7 @@ class SearchPipeline:
             await self._extract_claims_from_abstract(
                 paper=paper,
                 task_id=task_id,
+                search_id=search_id,
                 fragment_id=fragment_id,
                 reference_url=reference_url,
             )
@@ -1195,6 +1047,7 @@ class SearchPipeline:
         self,
         paper: Paper,
         task_id: str,
+        search_id: str,
         fragment_id: str,
         reference_url: str,
     ) -> list[dict[str, Any]]:
@@ -1246,7 +1099,7 @@ class SearchPipeline:
                     claim_text = claim.get("claim", "")[:500]
                     llm_confidence = claim.get("confidence", 0.5)
 
-                    # Persist claim to DB
+                    # Persist claim to DB (provenance tracked via origin edge, not JSON column)
                     try:
                         await db.insert(
                             "claims",
@@ -1263,6 +1116,44 @@ class SearchPipeline:
                         )
                     except Exception:
                         raise
+
+                    # Create origin edge (provenance: which fragment this claim was extracted from)
+                    # Per ADR-0005, origin edges track provenance; supports/refutes are for cross-source verification.
+                    try:
+                        origin_edge_id = f"e_{uuid.uuid4().hex[:8]}"
+                        await db.insert(
+                            "edges",
+                            {
+                                "id": origin_edge_id,
+                                "source_type": "fragment",
+                                "source_id": fragment_id,
+                                "target_type": "claim",
+                                "target_id": claim_id,
+                                "relation": "origin",
+                            },
+                            auto_id=False,
+                            or_ignore=True,
+                        )
+                    except Exception as e:
+                        logger.debug(
+                            "Failed to create origin edge",
+                            claim_id=claim_id,
+                            fragment_id=fragment_id,
+                            error=str(e),
+                        )
+
+                    # Keep ExplorationState counters in sync with DB (db_only still uses DB for get_status,
+                    # but stop_task.finalize() uses state counters for its summary).
+                    try:
+                        self.state.record_claim(search_id)
+                    except Exception as e:
+                        logger.debug(
+                            "Failed to record claim in ExplorationState",
+                            task_id=task_id,
+                            search_id=search_id,
+                            claim_id=claim_id,
+                            error=str(e),
+                        )
 
                     # Persist claim embedding for semantic search (vector_search)
                     if claim_text.strip():
@@ -1284,55 +1175,6 @@ class SearchPipeline:
                                 claim_id=claim_id,
                                 error=str(e),
                             )
-
-                    # Create edge from fragment to claim (NLI evaluation)
-                    try:
-                        from src.filter.nli import nli_judge
-
-                        # nli_judge returns list[dict] directly (not wrapped in {"ok": ..., "results": ...})
-                        nli_results = await nli_judge(
-                            pairs=[
-                                {
-                                    "pair_id": f"{fragment_id}_{claim_id}",
-                                    "premise": paper.abstract[:1000],
-                                    "hypothesis": claim_text,
-                                }
-                            ]
-                        )
-
-                        if nli_results and len(nli_results) > 0:
-                            nli_item = nli_results[0]
-                            stance = nli_item.get("stance", "neutral")
-                            nli_confidence = nli_item.get("nli_edge_confidence", 0.5)
-
-                            # Sanitize stance (nli_judge returns "supports"/"refutes"/"neutral")
-                            if stance not in ("supports", "refutes", "neutral"):
-                                relation = "neutral"
-                            else:
-                                relation = stance
-
-                            edge_id = f"e_{uuid.uuid4().hex[:8]}"
-                            await db.insert(
-                                "edges",
-                                {
-                                    "id": edge_id,
-                                    "source_type": "fragment",
-                                    "source_id": fragment_id,
-                                    "target_type": "claim",
-                                    "target_id": claim_id,
-                                    "relation": relation,
-                                    "nli_label": stance,
-                                    "nli_edge_confidence": nli_confidence,
-                                },
-                                auto_id=False,
-                                or_ignore=True,
-                            )
-                    except Exception as e:
-                        logger.debug(
-                            "NLI evaluation failed for abstract claim",
-                            claim_id=claim_id,
-                            error=str(e),
-                        )
 
                     extracted_claims.append(
                         {
@@ -1722,33 +1564,39 @@ async def search_action(
 async def stop_task_action(
     task_id: str,
     state: ExplorationState,
-    reason: str = "completed",
+    reason: str = "session_completed",
     mode: str = "graceful",
 ) -> dict[str, Any]:
     """
     Unified API for stop_task action.
 
-    Finalizes exploration and returns summary. MCP handler delegates to this
+    Finalizes exploration session and returns summary. MCP handler delegates to this
     function (see ADR-0003, ADR-0010).
 
     Args:
         task_id: The task ID.
         state: The exploration state manager.
-        reason: Stop reason ("completed", "budget_exhausted", "user_cancelled").
+        reason: Stop reason:
+            - "session_completed" (default): Session ends, task is paused and resumable.
+            - "budget_exhausted": Budget depleted, task is paused and resumable.
+            - "user_cancelled": User explicitly cancelled, task is paused.
         mode: Stop mode ("graceful" or "immediate"). Controls how running
               search queue jobs are handled. The MCP handler cancels jobs
               in DB before calling this function.
 
     Returns:
-        Finalization result dict (summary, metrics, final status).
+        Finalization result dict with:
+        - final_status: "paused" (resumable) or "cancelled" (user explicit stop)
+        - summary: Search completion metrics
+        - is_resumable: Always True (task can be resumed with more searches)
     """
     with LogContext(task_id=task_id):
-        logger.info("Stopping task", reason=reason, mode=mode)
+        logger.info("Stopping task session", reason=reason, mode=mode)
 
-        # Finalize exploration
-        finalize_result = await state.finalize()
+        # Finalize exploration session (pass reason to determine final_status)
+        finalize_result = await state.finalize(reason=reason)
 
-        # Save final state
+        # Save final state (status = paused)
         await state.save_state()
 
         # Map to ADR-0003 schema
@@ -1759,11 +1607,13 @@ async def stop_task_action(
         return {
             "ok": True,
             "task_id": task_id,
-            "final_status": finalize_result.get("final_status", reason),
+            "final_status": finalize_result.get("final_status", "paused"),
+            "reason": reason,
             "summary": {
                 "total_searches": len(state._searches),
                 "satisfied_searches": summary.get("satisfied_searches", 0),
                 "total_claims": summary.get("total_claims", 0),
                 "primary_source_ratio": evidence_graph_summary.get("primary_source_ratio", 0.0),
             },
+            "is_resumable": finalize_result.get("is_resumable", True),
         }

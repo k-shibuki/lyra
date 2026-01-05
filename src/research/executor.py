@@ -984,19 +984,19 @@ class SearchExecutor:
             source_url: Source URL.
             source_fragment_id: Associated fragment ID.
         """
-        import json
+        import uuid as uuid_mod
 
         # Phase 1: Insert claim to DB
         try:
             db = await get_database()
 
-            # Insert claim (using schema-valid columns)
+            # Insert claim (provenance tracked via origin edge, not JSON column)
             await db.execute(
                 """
                 INSERT OR IGNORE INTO claims
                 (id, task_id, claim_text, claim_type, llm_claim_confidence,
-                 source_fragment_ids, claim_adoption_status, verification_notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                 claim_adoption_status, verification_notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
                 (
                     claim_id,
@@ -1004,8 +1004,7 @@ class SearchExecutor:
                     claim_text[:500],  # Truncate to reasonable length
                     "fact",
                     llm_claim_confidence,
-                    json.dumps([source_fragment_id]),  # JSON array
-                    "adopted",  # Default changed from 'pending'
+                    "adopted",
                     f"source_url={source_url[:200]}",  # Store URL in notes
                 ),
             )
@@ -1017,7 +1016,27 @@ class SearchExecutor:
             )
             return  # Cannot proceed without claim in DB
 
-        # Phase 2: Persist claim embedding (separate try-except for observability)
+        # Phase 2: Create origin edge (provenance: which fragment this claim was extracted from)
+        # Per ADR-0005, origin edges track provenance; supports/refutes are for cross-source verification.
+        try:
+            origin_edge_id = f"e_{uuid_mod.uuid4().hex[:8]}"
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO edges
+                (id, source_type, source_id, target_type, target_id, relation, created_at)
+                VALUES (?, 'fragment', ?, 'claim', ?, 'origin', datetime('now'))
+                """,
+                (origin_edge_id, source_fragment_id, claim_id),
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to create origin edge",
+                claim_id=claim_id,
+                fragment_id=source_fragment_id,
+                error=str(e),
+            )
+
+        # Phase 3: Persist claim embedding (separate try-except for observability)
         if claim_text.strip():
             try:
                 from src.ml_client import get_ml_client
@@ -1039,88 +1058,6 @@ class SearchExecutor:
                     error=str(e),
                     error_type=type(e).__name__,
                 )
-                # Continue with NLI processing - claim is already in DB
-
-        # Phase 3: Run NLI for (fragment -> claim) and persist edge with nli_edge_confidence.
-        #
-        # Note: We intentionally do NOT use LLM-extracted confidence as Bayesian input.
-        # The evidence edge should carry NLI confidence (edges.nli_edge_confidence).
-        try:
-            from urllib.parse import urlparse
-
-            from src.filter.evidence_graph import add_claim_evidence
-            from src.filter.nli import nli_judge
-            from src.utils.domain_policy import get_domain_category
-
-            # Determine domain category from source URL
-            source_domain_category: str | None = None
-            try:
-                parsed = urlparse(source_url)
-                domain = parsed.netloc.lower()
-                source_domain_category = get_domain_category(domain).value if domain else None
-            except Exception:
-                source_domain_category = None
-
-            # Target domain category is the same as source for claim origin (single-user mode)
-            target_domain_category: str | None = source_domain_category
-
-            # Fetch fragment text as premise (best-effort)
-            premise = ""
-            try:
-                frag_row = await db.fetch_one(
-                    "SELECT text_content FROM fragments WHERE id = ?",
-                    (source_fragment_id,),
-                )
-                if frag_row:
-                    premise = (frag_row.get("text_content") or "")[:800]
-            except Exception:
-                premise = ""
-
-            # Fallback premise if fragment text is unavailable
-            if not premise:
-                premise = (claim_text or "")[:800]
-
-            stance = "neutral"
-            nli_edge_conf = 0.0
-            try:
-                pairs = [
-                    {
-                        "pair_id": f"{source_fragment_id}:{claim_id}",
-                        "premise": premise,
-                        "hypothesis": (claim_text or "")[:300],
-                    }
-                ]
-                nli_results = await nli_judge(pairs=pairs)
-                if nli_results:
-                    stance = str(nli_results[0].get("stance", "neutral") or "neutral")
-                    nli_edge_conf = float(nli_results[0].get("nli_edge_confidence", 0.0) or 0.0)
-            except Exception:
-                # Keep neutral/0.0 on failure (no fabrication)
-                stance = "neutral"
-                nli_edge_conf = 0.0
-
-            # Sanitize stance
-            if stance not in ("supports", "refutes", "neutral"):
-                stance = "neutral"
-
-            # Persist edge (also updates in-memory EvidenceGraph)
-            await add_claim_evidence(
-                claim_id=claim_id,
-                fragment_id=source_fragment_id,
-                relation=stance,
-                nli_label=stance,
-                nli_edge_confidence=nli_edge_conf,
-                task_id=self.task_id,
-                source_domain_category=source_domain_category,
-                target_domain_category=target_domain_category,
-            )
-        except Exception as e:
-            logger.warning(
-                "Failed to process NLI for claim",
-                claim_id=claim_id,
-                source_fragment_id=source_fragment_id,
-                error=str(e),
-            )
 
     def generate_refutation_queries(self, base_query: str) -> list[str]:
         """

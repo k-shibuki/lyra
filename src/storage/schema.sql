@@ -129,6 +129,8 @@ CREATE INDEX IF NOT EXISTS idx_fragments_hash ON fragments(text_hash);
 CREATE INDEX IF NOT EXISTS idx_fragments_heading ON fragments(heading_context);
 
 -- Claims: Atomic claims extracted from fragments
+-- NOTE: Provenance (which fragment a claim was extracted from) is tracked via
+-- edges with relation='origin', not via a JSON column. See ADR-0005.
 CREATE TABLE IF NOT EXISTS claims (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL,
@@ -137,13 +139,9 @@ CREATE TABLE IF NOT EXISTS claims (
     granularity TEXT,  -- atomic, composite
     expected_polarity TEXT,  -- positive, negative, neutral
     llm_claim_confidence REAL,  -- LLM's self-reported extraction quality (NOT truth confidence)
-    source_fragment_ids TEXT,  -- JSON array
     claim_adoption_status TEXT DEFAULT 'adopted', -- Renamed, default changed from 'pending' 
-    claim_rejection_reason TEXT,  -- NEW: rejection reason (audit)
-    claim_rejected_at TEXT,  -- NEW: rejection timestamp
-    supporting_count INTEGER DEFAULT 0,
-    refuting_count INTEGER DEFAULT 0,
-    neutral_count INTEGER DEFAULT 0,
+    claim_rejection_reason TEXT,  -- rejection reason (audit)
+    claim_rejected_at TEXT,  -- rejection timestamp
     verification_notes TEXT,
     timeline_json TEXT,  -- First seen, updated, etc.
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -153,15 +151,19 @@ CREATE TABLE IF NOT EXISTS claims (
 CREATE INDEX IF NOT EXISTS idx_claims_task ON claims(task_id);
 
 -- Edges: Evidence graph edges
+-- relation types:
+--   origin: provenance (Fragment→Claim) - which fragment a claim was extracted from
+--   supports/refutes/neutral: NLI evidence (Fragment→Claim) - cross-source verification
+--   cites: citation (Page→Page) - academic citation relationships
 CREATE TABLE IF NOT EXISTS edges (
     id TEXT PRIMARY KEY,
     source_type TEXT NOT NULL,  -- claim, fragment, page
     source_id TEXT NOT NULL,
     target_type TEXT NOT NULL,
     target_id TEXT NOT NULL,
-    relation TEXT NOT NULL,  -- supports, refutes, cites, neutral
+    relation TEXT NOT NULL,  -- origin, supports, refutes, neutral, cites
     -- NOTE: legacy "confidence" column removed; use nli_edge_confidence for NLI-derived edges
-    nli_label TEXT,  -- From NLI model (supports/refutes/neutral)
+    nli_label TEXT,  -- From NLI model (supports/refutes/neutral); NULL for origin/cites
     nli_edge_confidence REAL,  -- NLI model output (calibrated); used in Bayesian update
     -- Academic / citation metadata
     -- citation_source is for CITES edges only (traceability; not used for filtering):
@@ -183,6 +185,14 @@ CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation);
 -- Index for efficient querying of contradiction relationships by domain categories
 CREATE INDEX IF NOT EXISTS idx_edges_domain_categories ON edges(relation, source_domain_category, target_domain_category);
+-- Partial unique index: prevent duplicate NLI edges for same (fragment, claim) pair.
+-- ADR-0005: Same fragment-claim pair is evaluated only once; DB enforces uniqueness.
+-- Only applies to NLI evidence edges (supports/refutes/neutral), not origin/cites.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_nli_unique
+    ON edges(source_type, source_id, target_type, target_id)
+    WHERE source_type = 'fragment'
+      AND target_type = 'claim'
+      AND relation IN ('supports', 'refutes', 'neutral');
 
 -- ============================================================
 -- Domain & Engine Management
@@ -851,22 +861,44 @@ LEFT JOIN task_metrics tm ON t.id = tm.task_id;
 -- ============================================================
 
 -- 1) Claim evidence aggregation (task-scoped via claims.task_id)
+-- Provides counts, NLI-weighted support/refute, and Bayesian posterior mean
+-- for truth confidence. ADR-0005: The true "truth confidence" is Bayesian-derived,
+-- not llm_claim_confidence (which is extraction quality).
+-- NOTE: Only NLI evidence edges (supports/refutes/neutral) are counted here.
+-- Provenance edges (origin) are excluded - use v_claim_origins for provenance.
 CREATE VIEW IF NOT EXISTS v_claim_evidence_summary AS
 SELECT
     c.task_id,
     c.id AS claim_id,
     c.claim_text,
+    -- Raw counts (for display / controversy score)
     SUM(CASE WHEN e.relation = 'supports' THEN 1 ELSE 0 END) AS support_count,
     SUM(CASE WHEN e.relation = 'refutes' THEN 1 ELSE 0 END) AS refute_count,
     SUM(CASE WHEN e.relation = 'neutral' THEN 1 ELSE 0 END) AS neutral_count,
     COUNT(e.id) AS evidence_count,
+    -- NLI confidence stats
     MAX(COALESCE(e.nli_edge_confidence, 0.0)) AS max_nli_edge_confidence,
-    AVG(COALESCE(e.nli_edge_confidence, 0.0)) AS avg_nli_edge_confidence
+    AVG(COALESCE(e.nli_edge_confidence, 0.0)) AS avg_nli_edge_confidence,
+    -- Weighted support/refute (sum of nli_edge_confidence per relation)
+    SUM(CASE WHEN e.relation = 'supports' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END) AS support_weight,
+    SUM(CASE WHEN e.relation = 'refutes' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END) AS refute_weight,
+    -- Bayesian posterior mean: (1 + support_weight) / ((1 + support_weight) + (1 + refute_weight))
+    -- Prior: Beta(1, 1) = uniform. Posterior: Beta(1 + support_weight, 1 + refute_weight)
+    -- See ADR-0005 for detailed derivation.
+    ROUND(
+        (1.0 + SUM(CASE WHEN e.relation = 'supports' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END)) /
+        (
+            (1.0 + SUM(CASE WHEN e.relation = 'supports' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END)) +
+            (1.0 + SUM(CASE WHEN e.relation = 'refutes' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END))
+        ),
+        4
+    ) AS bayesian_truth_confidence
 FROM claims c
 LEFT JOIN edges e
   ON e.target_type = 'claim'
  AND e.target_id = c.id
  AND e.source_type = 'fragment'
+ AND e.relation IN ('supports', 'refutes', 'neutral')  -- Exclude origin edges
 GROUP BY c.task_id, c.id;
 
 -- 2) Contradicting claims (supports + refutes)
@@ -897,7 +929,36 @@ SELECT
 FROM v_claim_evidence_summary s
 WHERE s.evidence_count = 0;
 
+-- 3b) Claim origins (provenance: which fragment/page a claim was extracted from)
+-- Use this view to trace where claims came from. Separate from NLI evidence.
+CREATE VIEW IF NOT EXISTS v_claim_origins AS
+SELECT
+    c.task_id,
+    c.id AS claim_id,
+    c.claim_text,
+    e.id AS origin_edge_id,
+    f.id AS fragment_id,
+    f.text_content AS fragment_text,
+    f.heading_context,
+    p.id AS page_id,
+    p.url,
+    p.domain,
+    p.title AS page_title,
+    e.created_at AS origin_created_at
+FROM claims c
+JOIN edges e
+  ON e.target_type = 'claim'
+ AND e.target_id = c.id
+ AND e.source_type = 'fragment'
+ AND e.relation = 'origin'
+JOIN fragments f
+  ON e.source_id = f.id
+JOIN pages p
+  ON f.page_id = p.id;
+
 -- 4) Evidence chain (fragment -> claim with page provenance)
+-- NOTE: Only NLI evidence edges (supports/refutes/neutral) are included.
+-- For provenance (origin), use v_claim_origins.
 CREATE VIEW IF NOT EXISTS v_evidence_chain AS
 SELECT
     c.task_id,
@@ -921,7 +982,8 @@ JOIN fragments f
 JOIN pages p
   ON f.page_id = p.id
 WHERE e.source_type = 'fragment'
-  AND e.target_type = 'claim';
+  AND e.target_type = 'claim'
+  AND e.relation IN ('supports', 'refutes', 'neutral');  -- Exclude origin
 
 -- 5) Hub pages (pages that support many claims) + citation counts
 CREATE VIEW IF NOT EXISTS v_hub_pages AS
@@ -983,6 +1045,7 @@ WHERE e.relation = 'cites'
   AND e.target_type = 'page';
 
 -- 7) Orphan sources (evidence pages with zero inbound citations)
+-- NOTE: Only NLI evidence edges (supports/refutes/neutral) are considered. Origin excluded.
 CREATE VIEW IF NOT EXISTS v_orphan_sources AS
 WITH evidence_pages AS (
   SELECT DISTINCT
@@ -1002,6 +1065,7 @@ WITH evidence_pages AS (
     ON f.page_id = p.id
   WHERE e.source_type = 'fragment'
     AND e.target_type = 'claim'
+    AND e.relation IN ('supports', 'refutes', 'neutral')  -- Exclude origin
 ),
 inbound AS (
   SELECT e.target_id AS page_id, COUNT(*) AS cited_by_count
@@ -1022,6 +1086,7 @@ WHERE COALESCE(i.cited_by_count, 0) = 0;
 
 -- Helper CTE: evidence rows with extracted publication year (nullable)
 -- NOTE: Uses JSON1 if available; invalid JSON yields NULL.
+-- Only NLI evidence edges (supports/refutes/neutral) are included. Origin excluded.
 CREATE VIEW IF NOT EXISTS v__evidence_with_year AS
 SELECT
     c.task_id,
@@ -1046,7 +1111,8 @@ JOIN fragments f
 JOIN pages p
   ON f.page_id = p.id
 WHERE e.source_type = 'fragment'
-  AND e.target_type = 'claim';
+  AND e.target_type = 'claim'
+  AND e.relation IN ('supports', 'refutes', 'neutral');  -- Exclude origin
 
 -- 9) Evidence timeline (by year)
 CREATE VIEW IF NOT EXISTS v_evidence_timeline AS

@@ -32,6 +32,7 @@ class RelationType(str, Enum):
     REFUTES = "refutes"
     CITES = "cites"
     NEUTRAL = "neutral"
+    ORIGIN = "origin"  # Provenance (Fragment→Claim): which fragment a claim was extracted from
     EVIDENCE_SOURCE = "evidence_source"  # Claim→Page derived edge (Phase 2)
 
 
@@ -940,6 +941,7 @@ class EvidenceGraph:
             RelationType.REFUTES.value: 0,
             RelationType.CITES.value: 0,
             RelationType.NEUTRAL.value: 0,
+            RelationType.ORIGIN.value: 0,
             RelationType.EVIDENCE_SOURCE.value: 0,
         }
 
@@ -1378,15 +1380,17 @@ class EvidenceGraph:
             # D) Derive EVIDENCE_SOURCE edges (Claim→Page) from fragment→claim edges
             #    - For each fragment→claim edge, look up fragment's page_id
             #    - Create claim→page EVIDENCE_SOURCE edge (deduplicated, in-memory only)
+            #    - Include origin edges for provenance traceability (ADR-0005)
             derived_pairs: set[tuple[str, str]] = set()  # (claim_id, page_id)
 
             for source, target, data in list(self._graph.edges(data=True)):
-                # Only process fragment→claim edges (supports/refutes/neutral)
+                # Process fragment→claim edges (origin for provenance, NLI for evidence)
                 relation = data.get("relation")
                 if relation not in (
                     RelationType.SUPPORTS.value,
                     RelationType.REFUTES.value,
                     RelationType.NEUTRAL.value,
+                    RelationType.ORIGIN.value,
                 ):
                     continue
                 source_node_type = self._graph.nodes[source].get("node_type")

@@ -457,8 +457,20 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
             resource_id=edge_id,
         )
 
+    # Only NLI evidence edges (supports/refutes/neutral) can be corrected.
+    # Origin edges are provenance, not NLI classification.
+    # Cites edges are citations, not NLI classification.
+    current_relation = edge.get("relation") or "unknown"
+    if current_relation not in ("supports", "refutes", "neutral"):
+        raise InvalidParamsError(
+            f"Edge {edge_id} has relation '{current_relation}' which cannot be corrected. "
+            f"Only NLI evidence edges (supports/refutes/neutral) can be corrected via edge_correct.",
+            param_name="edge_id",
+            expected="edge with relation supports/refutes/neutral",
+        )
+
     now = datetime.now(UTC).isoformat()
-    previous_relation = edge.get("nli_label") or edge.get("relation") or "unknown"
+    previous_relation = edge.get("nli_label") or current_relation
     predicted_confidence = edge.get("nli_edge_confidence") or 0.0
     is_correction = previous_relation != correct_relation
 
