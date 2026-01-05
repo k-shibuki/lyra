@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:stop_task",
   "title": "stop_task Response",
-  "description": "Response schema for stop_task tool (ADR-0003, ADR-0010)",
+  "description": "Response schema for stop_task tool. Pauses a task session; task remains resumable.",
   "type": "object",
   "properties": {
     "ok": {
@@ -12,15 +12,52 @@
       "type": "string"
     },
     "final_status": {
-      "type": "string"
+      "type": "string",
+      "enum": ["paused", "cancelled"],
+      "description": "Task status after stop. 'paused' = session ended, resumable. 'cancelled' = user explicit stop, still resumable."
     },
     "reason": {
-      "type": "string"
+      "type": "string",
+      "enum": ["session_completed", "budget_exhausted", "user_cancelled"],
+      "description": "Stop reason provided by caller. Default: session_completed."
     },
     "mode": {
       "type": "string",
       "enum": ["graceful", "immediate", "full"],
       "description": "Stop mode used (ADR-0010)"
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["search_queue_only", "all_jobs"],
+      "description": "Scope of job cancellation (ADR-0016). search_queue_only = only search jobs cancelled, verify_nli/citation_graph allowed to complete. all_jobs = all job kinds cancelled."
+    },
+    "cancelled_counts": {
+      "type": "object",
+      "description": "Counts of cancelled jobs by kind and state.",
+      "properties": {
+        "queued_cancelled": {"type": "integer"},
+        "running_cancelled": {"type": "integer"},
+        "tasks_cancelled": {"type": "integer"},
+        "jobs_waited": {"type": "integer"},
+        "by_kind": {
+          "type": "object",
+          "description": "Breakdown by job kind",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "queued": {"type": "integer"},
+              "running": {"type": "integer"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "unaffected_kinds": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Job kinds NOT cancelled by this stop (when scope=search_queue_only)."
     },
     "summary": {
       "type": "object",
@@ -34,9 +71,12 @@
         "elapsed_seconds": {"type": "number"}
       },
       "additionalProperties": false
+    },
+    "is_resumable": {
+      "type": "boolean",
+      "description": "Always true. Task can be resumed by calling queue_searches with the same task_id."
     }
   },
   "required": ["ok", "task_id", "final_status"],
   "additionalProperties": false
 }
-

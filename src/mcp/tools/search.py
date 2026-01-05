@@ -53,15 +53,34 @@ async def handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
         )
 
     with LogContext(task_id=task_id):
-        # Verify task exists
+        # Verify task exists and check status
         db = await get_database()
         task = await db.fetch_one(
-            "SELECT id FROM tasks WHERE id = ?",
+            "SELECT id, status FROM tasks WHERE id = ?",
             (task_id,),
         )
 
         if task is None:
             raise TaskNotFoundError(task_id)
+
+        # Get task status (supports both dict and tuple access)
+        task_status = task["status"] if isinstance(task, dict) else task[1]
+
+        # Reject failed tasks (terminal state)
+        if task_status == "failed":
+            raise InvalidParamsError(
+                "Cannot queue searches on a failed task",
+                param_name="task_id",
+                expected="task in created, exploring, or paused state",
+            )
+
+        # Log resume for paused tasks (this is the expected resumption flow)
+        if task_status == "paused":
+            logger.info(
+                "Resuming paused task with new searches",
+                task_id=task_id,
+                previous_status=task_status,
+            )
 
         # Determine priority value from string
         priority_str = options.get("priority", "medium")
@@ -131,14 +150,31 @@ async def handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
             priority=priority_str,
         )
 
+        # Update task status to exploring if new searches were queued
+        # This resumes paused tasks automatically
+        if len(search_ids) > 0 and task_status in ("paused", "created"):
+            await db.execute(
+                "UPDATE tasks SET status = 'exploring' WHERE id = ?",
+                (task_id,),
+            )
+            logger.debug(
+                "Task status updated to exploring",
+                task_id=task_id,
+                previous_status=task_status,
+            )
+
         message = f"{len(search_ids)} searches queued"
         if skipped_count > 0:
             message += f" ({skipped_count} duplicates skipped)"
         message += ". Use get_status(wait=N) to monitor progress."
+
+        # Include resume info for previously paused tasks
+        was_resumed = task_status == "paused" and len(search_ids) > 0
         return {
             "ok": True,
             "queued_count": len(search_ids),
             "skipped_count": skipped_count,
             "search_ids": search_ids,
             "message": message,
+            "task_resumed": was_resumed,
         }

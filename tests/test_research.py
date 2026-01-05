@@ -868,6 +868,9 @@ class TestExplorationState:
     async def test_finalize_returns_summary(self, test_database: Database) -> None:
         """
         Verify finalize returns proper summary with unsatisfied subqueries.
+
+        Note: finalize() now returns final_status='paused' (resumable) instead
+        of 'completed'/'partial' to indicate the task can be resumed.
         """
         # Given: 1 satisfied and 1 unsatisfied search
         task_id = await test_database.create_task(query="test")
@@ -884,9 +887,10 @@ class TestExplorationState:
         # When: Finalize exploration
         result = await state.finalize()
 
-        # Then: Summary shows partial completion with suggestions
+        # Then: Summary shows paused (resumable) status with suggestions
         assert result["ok"] is True
-        assert result["final_status"] == "partial"
+        assert result["final_status"] == "paused"  # Now always 'paused' (resumable)
+        assert result["is_resumable"] is True
         assert result["summary"]["satisfied_searches"] == 1
         assert "sq_002" in result["summary"]["unsatisfied_searches"]
         assert (
@@ -1508,17 +1512,18 @@ class TestStopTaskAction:
         state = ExplorationState(task_id)
         state._db = test_database
 
-        # Patch finalize to return incomplete result
-        async def mock_finalize() -> dict[str, object]:
+        # Patch finalize to return incomplete result (now accepts reason parameter)
+        async def mock_finalize(reason: str = "session_completed") -> dict[str, object]:
             return {
                 "ok": True,
-                "final_status": "completed",
+                "final_status": "paused",
+                "is_resumable": True,
                 # Missing "summary" and "evidence_graph_summary"
             }
 
         with patch.object(state, "finalize", mock_finalize):
             # When: Call stop_task_action
-            result = await stop_task_action(task_id, state, "completed")
+            result = await stop_task_action(task_id, state, "session_completed")
 
             # Then: Should succeed with default values
             assert result["ok"] is True
@@ -1542,13 +1547,14 @@ class TestStopTaskAction:
         state = ExplorationState(task_id)
         state._db = test_database
 
-        # Patch finalize to return empty nested dicts
-        async def mock_finalize() -> dict[str, object]:
+        # Patch finalize to return empty nested dicts (now accepts reason parameter)
+        async def mock_finalize(reason: str = "session_completed") -> dict[str, object]:
             return {
                 "ok": True,
-                "final_status": "partial",
+                "final_status": "paused",  # Now returns 'paused' (resumable)
                 "summary": {},  # Empty summary
                 "evidence_graph_summary": {},  # Empty graph summary
+                "is_resumable": True,
             }
 
         with patch.object(state, "finalize", mock_finalize):
@@ -1557,7 +1563,7 @@ class TestStopTaskAction:
 
             # Then: Should succeed with default values
             assert result["ok"] is True
-        assert result["final_status"] == "partial"
+        assert result["final_status"] == "paused"  # Now 'paused' (resumable)
         assert result["summary"]["satisfied_searches"] == 0
         assert result["summary"]["total_claims"] == 0
         assert result["summary"]["primary_source_ratio"] == 0.0
@@ -1581,11 +1587,11 @@ class TestStopTaskAction:
         # Register a search for total_searches count
         state.register_search("sq_001", "test query")
 
-        # Patch finalize to return complete result
-        async def mock_finalize() -> dict[str, object]:
+        # Patch finalize to return complete result (now accepts reason parameter)
+        async def mock_finalize(reason: str = "session_completed") -> dict[str, object]:
             return {
                 "ok": True,
-                "final_status": "completed",
+                "final_status": "paused",  # Now returns 'paused' (resumable)
                 "summary": {
                     "satisfied_searches": 5,
                     "total_claims": 10,
@@ -1593,15 +1599,17 @@ class TestStopTaskAction:
                 "evidence_graph_summary": {
                     "primary_source_ratio": 0.75,
                 },
+                "is_resumable": True,
             }
 
         with patch.object(state, "finalize", mock_finalize):
-            # When: Call stop_task_action
-            result = await stop_task_action(task_id, state, "completed")
+            # When: Call stop_task_action with reason='session_completed' (new default)
+            result = await stop_task_action(task_id, state, "session_completed")
 
             # Then: Should use values from finalize_result
             assert result["ok"] is True
-        assert result["final_status"] == "completed"
+        assert result["final_status"] == "paused"  # Now 'paused' (resumable)
+        assert result["is_resumable"] is True
         assert result["summary"]["total_searches"] == 1  # One registered search
         assert result["summary"]["satisfied_searches"] == 5
         assert result["summary"]["total_claims"] == 10

@@ -21,6 +21,9 @@ Tests the async search queue tool per ADR-0010.
 | TC-QS-03 | get_status wait=60 | Boundary – maximum | Waits up to 60s | Long polling |
 | TC-QS-04 | get_status wait=-1 | Boundary – invalid | InvalidParamsError | Validation |
 | TC-QS-05 | get_status wait=61 | Boundary – invalid | InvalidParamsError | Validation |
+| TC-Q-11 | queue_searches on paused task | Equivalence – resume | Task resumed, status=exploring | Resumption |
+| TC-Q-12 | queue_searches on failed task | Boundary – rejected | InvalidParamsError | Failed rejection |
+| TC-Q-13 | queue_searches response has task_resumed | Equivalence – flag | task_resumed=True for paused | Response field |
 """
 
 from __future__ import annotations
@@ -587,3 +590,175 @@ class TestQueueSearchesToolDefinition:
         assert "wait" in get_status_tool.inputSchema["properties"]
         assert get_status_tool.inputSchema["properties"]["wait"]["maximum"] == 180
         assert get_status_tool.inputSchema["properties"]["wait"]["minimum"] == 0
+
+
+class TestQueueSearchesPausedTaskResumption:
+    """Tests for queue_searches on paused tasks (resumption flow)."""
+
+    @pytest.mark.asyncio
+    async def test_queue_searches_on_paused_task(self, test_database: Database) -> None:
+        """
+        TC-Q-11: queue_searches on paused task resumes it.
+
+        // Given: Task in 'paused' status
+        // When: queue_searches is called
+        // Then: Searches queued, task status becomes 'exploring'
+        """
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
+
+        db = test_database
+
+        # Create paused task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_q11", "Test task", "paused"),
+        )
+
+        result = await _handle_queue_searches(
+            {
+                "task_id": "task_q11",
+                "queries": ["resume query"],
+            }
+        )
+
+        # Verify searches queued
+        assert result["ok"] is True
+        assert result["queued_count"] == 1
+
+        # Verify task status updated to exploring
+        task = await db.fetch_one(
+            "SELECT status FROM tasks WHERE id = ?",
+            ("task_q11",),
+        )
+        assert task is not None
+        assert task["status"] == "exploring"
+
+    @pytest.mark.asyncio
+    async def test_queue_searches_on_failed_task_rejected(self, test_database: Database) -> None:
+        """
+        TC-Q-12: queue_searches on failed task is rejected.
+
+        // Given: Task in 'failed' status
+        // When: queue_searches is called
+        // Then: InvalidParamsError is raised
+        """
+        from src.mcp.errors import InvalidParamsError
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
+
+        db = test_database
+
+        # Create failed task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_q12", "Test task", "failed"),
+        )
+
+        with pytest.raises(InvalidParamsError) as exc_info:
+            await _handle_queue_searches(
+                {
+                    "task_id": "task_q12",
+                    "queries": ["attempt query"],
+                }
+            )
+
+        assert "failed task" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_queue_searches_response_has_task_resumed_flag(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-Q-13: queue_searches response includes task_resumed flag.
+
+        // Given: Paused task
+        // When: queue_searches is called
+        // Then: Response has task_resumed=True
+        """
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
+
+        db = test_database
+
+        # Create paused task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_q13", "Test task", "paused"),
+        )
+
+        result = await _handle_queue_searches(
+            {
+                "task_id": "task_q13",
+                "queries": ["resume query"],
+            }
+        )
+
+        assert result["ok"] is True
+        assert result.get("task_resumed") is True
+
+    @pytest.mark.asyncio
+    async def test_queue_searches_response_task_resumed_false_for_exploring(
+        self, test_database: Database
+    ) -> None:
+        """
+        Test that task_resumed=False for already exploring tasks.
+
+        // Given: Task in 'exploring' status
+        // When: queue_searches is called
+        // Then: Response has task_resumed=False
+        """
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
+
+        db = test_database
+
+        # Create exploring task
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_exploring", "Test task", "exploring"),
+        )
+
+        result = await _handle_queue_searches(
+            {
+                "task_id": "task_exploring",
+                "queries": ["new query"],
+            }
+        )
+
+        assert result["ok"] is True
+        assert result.get("task_resumed") is False
+
+    @pytest.mark.asyncio
+    async def test_queue_searches_on_created_task_updates_to_exploring(
+        self, test_database: Database
+    ) -> None:
+        """
+        Test that queue_searches on 'created' task updates status to 'exploring'.
+
+        // Given: Task in 'created' status
+        // When: queue_searches is called
+        // Then: Task status becomes 'exploring'
+        """
+        from src.mcp.tools.search import handle_queue_searches as _handle_queue_searches
+
+        db = test_database
+
+        # Create task in 'created' status
+        await db.execute(
+            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            ("task_created", "Test task", "created"),
+        )
+
+        result = await _handle_queue_searches(
+            {
+                "task_id": "task_created",
+                "queries": ["first query"],
+            }
+        )
+
+        assert result["ok"] is True
+
+        # Verify task status updated to exploring
+        task = await db.fetch_one(
+            "SELECT status FROM tasks WHERE id = ?",
+            ("task_created",),
+        )
+        assert task is not None
+        assert task["status"] == "exploring"

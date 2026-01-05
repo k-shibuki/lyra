@@ -269,7 +269,10 @@ QUERY DESIGN TIPS:
     Tool(
         name="stop_task",
         title="Stop Research Task",
-        description="""Stop and finalize a research task. Cancels pending searches and prepares materials.
+        description="""Pause a research task session. Cancels pending searches and prepares materials.
+
+IMPORTANT: Tasks are always RESUMABLE. After stopping, you can call queue_searches with the
+same task_id to continue exploration in a new session.
 
 WHEN TO STOP:
 - budget.remaining_percent approaching 0
@@ -277,18 +280,25 @@ WHEN TO STOP:
 - Sufficient claims collected (check metrics.total_claims)
 - Time constraints require wrapping up
 
+SCOPE (ADR-0016):
+- search_queue_only (default): Only cancel search_queue jobs. VERIFY_NLI and CITATION_GRAPH jobs
+  are allowed to complete. This is the recommended default for session completion.
+- all_jobs: Cancel ALL job kinds for this task (search, verify_nli, citation_graph, etc.).
+
 MODES:
 - graceful: Cancel queued searches, wait for running searches to complete (up to 30s timeout), then finalize.
 - immediate: Cancel all searches (queued + running) immediately, then finalize. Use when budget exhausted.
 - full: Cancel all searches AND wait for ML/NLI operations to fully drain. Use for complete shutdown.
 
 DB IMPACT (on stop):
-- tasks.status → 'completed' (or 'cancelled' if reason=user_cancelled)
-- jobs.state → 'cancelled' for queued jobs (all modes) and running jobs (immediate/full modes)
+- tasks.status → 'paused' (resumable)
+- jobs.state → 'cancelled' for queued jobs (within scope, all modes) and running jobs (immediate/full modes)
 - intervention_queue.status → 'cancelled' for pending auth items
 - Claims/fragments persisted during the task remain in DB for query_sql/vector_search.
+- With scope=search_queue_only: verify_nli and citation_graph jobs continue running and complete.
 
-AFTER STOPPING: Use query_sql and vector_search tools to explore collected evidence.""",
+AFTER STOPPING: Use query_sql and vector_search tools to explore collected evidence.
+To continue exploration, call queue_searches with the same task_id.""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -298,15 +308,21 @@ AFTER STOPPING: Use query_sql and vector_search tools to explore collected evide
                 },
                 "reason": {
                     "type": "string",
-                    "enum": ["completed", "budget_exhausted", "user_cancelled"],
-                    "default": "completed",
-                    "description": "Why the task is stopping. Logged for analysis.",
+                    "enum": ["session_completed", "budget_exhausted", "user_cancelled"],
+                    "default": "session_completed",
+                    "description": "Why the session is stopping. session_completed=normal pause, budget_exhausted=out of budget, user_cancelled=explicit cancel.",
                 },
                 "mode": {
                     "type": "string",
                     "enum": ["graceful", "immediate", "full"],
                     "default": "graceful",
                     "description": "graceful=wait for running, immediate=cancel all, full=cancel all + drain ML",
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": ["search_queue_only", "all_jobs"],
+                    "default": "search_queue_only",
+                    "description": "search_queue_only=only cancel search jobs (verify_nli/citation_graph complete), all_jobs=cancel all",
                 },
             },
             "required": ["task_id"],

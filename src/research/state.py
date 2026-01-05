@@ -39,14 +39,27 @@ class SearchStatus(Enum):
 
 
 class TaskStatus(Enum):
-    """Status of a research task."""
+    """Status of a research task.
+
+    Lifecycle:
+    - CREATED: Task created, waiting for searches to be queued.
+    - EXPLORING: Exploration in progress (searches running).
+    - AWAITING_DECISION: Paused, waiting for Cursor AI decision.
+    - PAUSED: Session ended; task is resumable (can queue more searches).
+    - FAILED: Failed with error (terminal state).
+
+    Note: FINALIZING and COMPLETED are deprecated; use PAUSED instead.
+    PAUSED indicates "this session ended" but the task can be resumed later.
+    """
 
     CREATED = "created"  # Task created, Cursor AI designing searches
     EXPLORING = "exploring"  # Exploration in progress
     AWAITING_DECISION = "awaiting_decision"  # Waiting for Cursor AI decision
-    FINALIZING = "finalizing"  # Wrapping up exploration
-    COMPLETED = "completed"  # Successfully completed
+    PAUSED = "paused"  # Session ended; resumable (replaces COMPLETED)
     FAILED = "failed"  # Failed with error
+    # Deprecated: kept for backward compatibility when reading from DB
+    FINALIZING = "finalizing"  # (deprecated) Use PAUSED
+    COMPLETED = "completed"  # (deprecated) Use PAUSED
 
 
 class SearchState(BaseModel):
@@ -907,17 +920,31 @@ class ExplorationState:
             )
             return {"total_nodes": 0, "total_edges": 0}
 
-    async def finalize(self) -> dict[str, Any]:
+    async def finalize(self, reason: str = "session_completed") -> dict[str, Any]:
         """
-        Finalize exploration and return summary.
+        Finalize exploration session and return summary.
 
-        Returns summary including:
-        - Final status
-        - Search completion summary
-        - Unsatisfied searches
-        - Followup suggestions
+        This marks the current session as ended. The task transitions to PAUSED,
+        meaning it can be resumed later with additional searches.
+
+        Args:
+            reason: Stop reason. Determines final_status:
+                - "session_completed" -> "paused" (default, resumable)
+                - "budget_exhausted" -> "paused" (resumable after budget increase)
+                - "user_cancelled" -> "cancelled" (explicit user stop)
+
+        Returns:
+            Summary including final status, search completion stats,
+            unsatisfied searches, and followup suggestions.
         """
-        self._task_status = TaskStatus.COMPLETED
+        # Map reason to final_status and TaskStatus
+        if reason == "user_cancelled":
+            final_status = "cancelled"
+            self._task_status = TaskStatus.PAUSED  # Still resumable if user changes mind
+        else:
+            # session_completed, budget_exhausted -> paused
+            final_status = "paused"
+            self._task_status = TaskStatus.PAUSED
 
         satisfied_searches = [
             s for s in self._searches.values() if s.status == SearchStatus.SATISFIED
@@ -939,9 +966,6 @@ class ExplorationState:
         for s in partial_searches:
             if not s.has_primary_source:
                 followup_suggestions.append(f"{s.id}: 一次資料が見つかっていません")
-
-        # Determine final status
-        final_status = "completed" if not unsatisfied_searches else "partial"
 
         # Calculate refuted claims from searches with found refutations
         refuted_from_searches = sum(
@@ -979,4 +1003,5 @@ class ExplorationState:
                 )
                 / max(1, len(self._searches)),
             },
+            "is_resumable": True,  # Task can always be resumed with more searches
         }
