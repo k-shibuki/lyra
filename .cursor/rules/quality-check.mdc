@@ -1,46 +1,46 @@
 ---
-description: 品質確認（lint/format/type）の規約
+description: Quality check conventions (lint/format/type)
 alwaysApply: false
 ---
-# 品質確認（quality-check）の規約
+# Quality Check Conventions
 
-本ルールは `/quality-check` 実行時に適用される「規約（ポリシー）」である。
-手順（どのコマンドをどう叩くか）は `@.cursor/commands/quality-check.md` を参照する。
+This rule defines the **policy** applied when executing `/quality-check`.
+Procedures (which commands to run and how) are documented in `@.cursor/commands/quality-check.md`.
 
-## 基本原則
+## Basic Principle
 
-**警告・エラーは必ず根本原因から解消する。回避策で“黙らせない”。**
+**Always resolve warnings and errors from the root cause. Don't "silence" them with workarounds.**
 
-## 禁止事項（回避策）
+## Prohibited Practices (Workarounds)
 
-以下は原則禁止（正当な理由がある場合のみ、理由を明記して例外化）:
+The following are prohibited in principle (exception only with stated justification):
 
-- `# type: ignore` による型エラーの握りつぶし
-- `# noqa` によるlint無効化（正当な理由がある場合を除く）
-- `cast(Any, ...)` 等の「Anyへ逃がす」型隠蔽
-- 過度に広い型（`Any`, `object`）での型エラー回避
+- Suppressing type errors with `# type: ignore`
+- Disabling lint with `# noqa` (except with valid justification)
+- Type concealment by "escaping to Any" like `cast(Any, ...)`
+- Avoiding type errors with overly broad types (`Any`, `object`)
 
-## 正しい修正アプローチ
+## Correct Fix Approaches
 
-- 適切な型アノテーションの追加
-- 型ガード（`isinstance`, `assert`）で型を絞り込む
-- `cast()` は具体型への変換のみに限定（例: `cast(str, ...)`, `cast(dict[str, Any], ...)`）
-- 型スタブ不足は `types-*` パッケージ等で補う（可能なら）
+- Add appropriate type annotations
+- Narrow types with type guards (`isinstance`, `assert`)
+- Limit `cast()` to conversions to concrete types only (e.g., `cast(str, ...)`, `cast(dict[str, Any], ...)`)
+- Supplement missing type stubs with `types-*` packages etc. (where possible)
 
-## チェック対象（最低でもこれは必ず実行）
+## Check Targets (Minimum Required Execution)
 
-1. Ruff lint の **エラーと警告**
-2. Ruff format の **差分**
-3. mypy の **エラーと警告**
-4. check-jsonschema の **エラーと警告**（JSONスキーマファイルの検証）
-5. 不適切な `Any` の導入（新規追加・拡散）
-6. セキュリティ観点の明確な問題（認証/認可、入力検証、データ保持）
+1. Ruff lint **errors and warnings**
+2. Ruff format **diffs**
+3. mypy **errors and warnings**
+4. check-jsonschema **errors and warnings** (JSON schema file validation)
+5. Inappropriate `Any` introduction (new additions, propagation)
+6. Clear security issues (authentication/authorization, input validation, data retention)
 
-## 例外（意図的なlint）について
+## About Exceptions (Intentional Lint)
 
-意図的にlint規約に反する場合は、必ず **理由をdocstringまたはコメント**で明示する。
+When intentionally violating lint rules, always **state the reason in docstring or comment**.
 
-例（E402）:
+Example (E402):
 
 ```python
 # E402: Intentionally import after pytestmark for test configuration
@@ -48,14 +48,14 @@ pytestmark = pytest.mark.unit
 from src.module import Something
 ```
 
-## 完了条件（Definition of Done）
+## Definition of Done
 
-変更箇所に関係ない既存のエラーも修正し、すべて以下を満たすこと。
+Fix existing errors unrelated to changes as well; all of the following must be satisfied:
 
-- `ruff check` が **エラー・警告ゼロ**
-- `ruff format --check` が **差分ゼロ**
-- `mypy` が **Success: no issues found**
-- `check-jsonschema` が **エラー・警告ゼロ**（JSONスキーマファイルが有効なJSON Schema Draft 7形式であること）
-- 例外（意図的なlint）には **理由が明記**されている
-- 新規に `# type: ignore` / 不当な `# noqa` を追加していない
-- `Any` で問題を隠していない
+- `ruff check` has **zero errors/warnings**
+- `ruff format --check` has **zero diffs**
+- `mypy` shows **Success: no issues found**
+- `check-jsonschema` has **zero errors/warnings** (JSON schema files are valid JSON Schema Draft 7 format)
+- Exceptions (intentional lint) have **documented reasons**
+- No new `# type: ignore` / unjustified `# noqa` added
+- Not hiding problems with `Any`

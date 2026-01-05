@@ -1,79 +1,79 @@
 ---
 alwaysApply: true
 ---
-# E2Eデバッグ規約
+# E2E Debugging Conventions
 
-## 位置づけ（規約と手順の分離）
+## Positioning (Separation of Policy and Procedure)
 
-- 本ファイルは **規約（原則・制約）** を定義する。
-- 具体的な手順（チェックリスト・コマンド・クエリ集）は `@.cursor/commands/debug-e2e.md` を参照する。
+- This file defines **policies (principles and constraints)**.
+- Specific procedures (checklists, commands, query collections) are documented in `@.cursor/commands/debug-e2e.md`.
 
-## 目的
+## Purpose
 
-E2Eシナリオ（`docs/S_FULL_E2E.md` 等）を完遂するためのデバッグにおいて、再現性があり効率的な問題解決を行う。
+Achieve reproducible and efficient problem resolution when debugging to complete E2E scenarios (such as `docs/S_FULL_E2E.md`).
 
 ---
 
-## 0. デバッグ基本原則
+## 0. Basic Debugging Principles
 
-### 0.1 自律実行の原則
+### 0.1 Autonomous Execution Principle
 
-- **AIが自律的に実行**: ユーザーに操作を依頼せず、AIがターミナルコマンド・テストスクリプト・DBクエリを直接実行する
-  - 例外: MCPサーバの再起動・再接続はユーザー操作が必要
-  - MCPツールが `Tool not found` になった場合は再接続を依頼する
-- **推測で修正しない**: ログや計装による証拠に基づいて修正する
+- **AI executes autonomously**: AI directly executes terminal commands, test scripts, and DB queries without asking user to perform operations
+  - Exception: MCP server restart/reconnection requires user operation
+  - If MCP tool returns `Tool not found`, request reconnection
+- **Don't fix based on speculation**: Fix based on evidence from logs or instrumentation
 
-### 0.2 タイムアウト必須
+### 0.2 Timeout Required
 
-ターミナルコマンドは **必ずタイムアウトを設定** してハングを防ぐ:
+Terminal commands **must always have timeout set** to prevent hangs:
 
 ```bash
-# 良い例: timeout付き
+# Good: with timeout
 timeout 30 uv run python -c "..."
 
-# 悪い例: タイムアウトなし（ハングの危険）
+# Bad: no timeout (hang risk)
 uv run python -c "..."
 ```
 
-**推奨タイムアウト値**:
+**Recommended Timeout Values**:
 
-| 操作 | タイムアウト |
-|------|-------------|
-| 環境チェック（make doctor等） | 30秒 |
-| DB操作・クエリ | 10秒 |
-| MCP ハンドラーテスト | 30秒 |
-| 検索実行（queue_searches） | 120秒 |
-| ページ取得・抽出 | 60秒 |
+| Operation | Timeout |
+|-----------|---------|
+| Environment check (make doctor, etc.) | 30s |
+| DB operations/queries | 10s |
+| MCP handler test | 30s |
+| Search execution (queue_searches) | 120s |
+| Page fetch/extraction | 60s |
 
-### 0.3 MCPサーバーログの確認
+### 0.3 MCP Server Log Verification
 
-MCPサーバーのログは `logs/lyra_YYYYMMDD.log` に出力される。以下のコマンドで確認:
+MCP server logs are output to `logs/lyra_YYYYMMDD.log`. Check with these commands:
 
 ```bash
-make mcp-logs           # 最新100行を表示
-make mcp-logs-f         # リアルタイムで追跡（tail -f）
-make mcp-logs-grep PATTERN="error"  # パターン検索
+make mcp-logs           # Show last 100 lines
+make mcp-logs-f         # Follow in real-time (tail -f)
+make mcp-logs-grep PATTERN="error"  # Pattern search
 ```
 
-### 0.4 仮説→計装→検証サイクル
+### 0.4 Hypothesis → Instrumentation → Verification Cycle
 
-1. **仮説形成**: 症状から原因候補を列挙する
-2. **計装**: 仮説を検証できるログ/アサーションを追加する
-3. **検証**: 計装結果から仮説を棄却または採用する
-4. **反復**: 仮説が棄却されたら次の仮説へ
+1. **Hypothesis Formation**: List possible causes from symptoms
+2. **Instrumentation**: Add logs/assertions that can verify hypotheses
+3. **Verification**: Reject or adopt hypotheses based on instrumentation results
+4. **Iteration**: If hypothesis is rejected, move to next hypothesis
 
 ---
 
-## 1. 計装の指針
+## 1. Instrumentation Guidelines
 
-### 1.1 ログ形式（NDJSON）
+### 1.1 Log Format (NDJSON)
 
-デバッグログはNDJSON形式で `/home/statuser/lyra/.cursor/debug.log` に出力:
+Debug logs are output in NDJSON format to `${PROJECT_ROOT}/.cursor/debug.log`:
 
 ```python
 # #region agent log
 import json
-with open("/home/statuser/lyra/.cursor/debug.log", "a") as f:
+with open(".cursor/debug.log", "a") as f:
     f.write(json.dumps({
         "location": "src/xxx.py:LINE",
         "message": "desc",
@@ -85,146 +85,146 @@ with open("/home/statuser/lyra/.cursor/debug.log", "a") as f:
 # #endregion
 ```
 
-### 1.2 計装の配置ルール
+### 1.2 Instrumentation Placement Rules
 
-| 配置箇所 | 記録内容 |
-|----------|----------|
-| 関数エントリ | 引数の値 |
-| 関数イグジット | 戻り値 |
-| 分岐ポイント | どのブランチが実行されたか |
-| 外部呼び出し前後 | API/DB呼び出しの入出力 |
-| 例外キャッチ | 例外の型とメッセージ |
+| Placement Location | Content to Record |
+|-------------------|-------------------|
+| Function entry | Argument values |
+| Function exit | Return values |
+| Branch points | Which branch was executed |
+| Before/after external calls | API/DB call input/output |
+| Exception catch | Exception type and message |
 
-### 1.3 仮説IDの命名規約
+### 1.3 Hypothesis ID Naming Convention
 
-- `A`, `B`, `C`, ... : 主仮説
-- `A1`, `A2`, ... : サブ仮説
-- 各ログに `hypothesisId` を付与し、分析時に絞り込めるようにする
-
----
-
-## 2. 状態ベースデバッグの原則
-
-### 2.1 期待状態を先に定義する
-
-バグ調査の前に「正常時のDB/キュー/キャッシュの状態」を明確にする:
-
-1. **ADR/スキーマ参照**: 状態遷移や制約を確認する
-2. **期待状態の言語化**: 「何が起きるべきだったか」を先に定義する
-3. **実際状態との比較**: 差分から原因を特定する
-
-### 2.2 状態遷移の検証パターン
-
-| 検証対象 | 確認項目 |
-|----------|----------|
-| レコードのライフサイクル | created → active → completed/cancelled の遷移が正しいか |
-| 外部キー整合性 | 親レコード削除時に子レコードが孤立していないか |
-| タイムスタンプ | created_at < updated_at < expires_at の順序が正しいか |
-| ステータス遷移 | 許可されていない遷移（cancelled → active 等）がないか |
-
-### 2.3 不整合検出のアプローチ
-
-1. **直接クエリ**: `SELECT ... WHERE status NOT IN ('expected', 'values')`
-2. **カウント比較**: 関連テーブル間のレコード数の期待値と実際値を比較
-3. **論理的矛盾検出**: `expires_at < created_at` のような論理的に不可能な状態を検索
+- `A`, `B`, `C`, ... : Main hypotheses
+- `A1`, `A2`, ... : Sub-hypotheses
+- Include `hypothesisId` in each log for filtering during analysis
 
 ---
 
-## 3. DBロック競合への対処
+## 2. State-Based Debugging Principles
 
-### 3.1 問題の認識
+### 2.1 Define Expected State First
 
-MCPサーバがDB書き込みロック（WAL WRITER lock）を保持している場合、別プロセスからの書き込みがハングする。
+Before bug investigation, clarify "normal DB/queue/cache state":
 
-**確認方法**:
+1. **Reference ADR/Schema**: Check state transitions and constraints
+2. **Verbalize Expected State**: Define "what should have happened" first
+3. **Compare with Actual State**: Identify cause from differences
+
+### 2.2 State Transition Verification Patterns
+
+| Verification Target | Check Items |
+|--------------------|-------------|
+| Record lifecycle | Is transition created → active → completed/cancelled correct? |
+| Foreign key integrity | Are child records orphaned when parent record is deleted? |
+| Timestamps | Is created_at < updated_at < expires_at order correct? |
+| Status transitions | Are there disallowed transitions (cancelled → active, etc.)? |
+
+### 2.3 Inconsistency Detection Approaches
+
+1. **Direct query**: `SELECT ... WHERE status NOT IN ('expected', 'values')`
+2. **Count comparison**: Compare expected vs actual record counts between related tables
+3. **Logical contradiction detection**: Search for logically impossible states like `expires_at < created_at`
+
+---
+
+## 3. Handling DB Lock Contention
+
+### 3.1 Problem Recognition
+
+When MCP server holds DB write lock (WAL WRITER lock), writes from other processes will hang.
+
+**Verification method**:
 ```bash
-fuser data/lyra.db  # DBを使用しているプロセスを確認
+fuser data/lyra.db  # Check processes using DB
 ```
 
-### 3.2 回避策
+### 3.2 Workarounds
 
-| シナリオ | 対処 |
-|----------|------|
-| E2Eシナリオ実行 | MCPサーバ経由でツールを呼び出す（正規ルート、問題なし） |
-| 直接テスト | テスト用隔離DB（`tests/conftest.py` の `test_database` fixture）を使用 |
-| 緊急時 | MCPサーバ再起動後にテスト（ユーザー操作必要） |
-
----
-
-## 4. チェックリスト
-
-### デバッグ開始前
-
-- [ ] 症状を正確に記述した（期待 vs 実際）
-- [ ] 期待されるDB状態を定義した
-- [ ] 仮説を列挙した
-
-### デバッグ中
-
-- [ ] ターミナルコマンドにタイムアウトを付けた
-- [ ] 計装にはリージョンマーカーを付けた（`#region agent log`）
-- [ ] 仮説IDをログに含めた
-
-### デバッグ完了後
-
-- [ ] 計装コードを削除した
-- [ ] 根本原因を特定し、最小修正を行った
-- [ ] テストで修正を検証した
+| Scenario | Solution |
+|----------|----------|
+| E2E scenario execution | Call tools via MCP server (normal route, no problem) |
+| Direct testing | Use isolated test DB (`test_database` fixture in `tests/conftest.py`) |
+| Emergency | Test after MCP server restart (requires user operation) |
 
 ---
 
-## 5. Python 固有の落とし穴
+## 4. Checklists
 
-### 5.1 `dict.get(key, default)` と `None` 値
+### Before Starting Debug
 
-**問題**: `dict.get(key, default)` はキーが存在し値が `None` の場合、`default` ではなく `None` を返す。
+- [ ] Accurately described symptoms (expected vs actual)
+- [ ] Defined expected DB state
+- [ ] Listed hypotheses
+
+### During Debug
+
+- [ ] Added timeout to terminal commands
+- [ ] Added region markers to instrumentation (`#region agent log`)
+- [ ] Included hypothesis ID in logs
+
+### After Debug Completion
+
+- [ ] Removed instrumentation code
+- [ ] Identified root cause and made minimal fix
+- [ ] Verified fix with tests
+
+---
+
+## 5. Python-Specific Pitfalls
+
+### 5.1 `dict.get(key, default)` and `None` Values
+
+**Problem**: `dict.get(key, default)` returns `None`, not `default`, when key exists with `None` value.
 
 ```python
-# NG: API応答で {"externalIds": null} の場合、None が返る
+# NG: When API response is {"externalIds": null}, returns None
 external_ids = data.get("externalIds", {})  # → None
 
-# OK: or パターンで None を空辞書に変換
+# OK: Use or pattern to convert None to empty dict
 external_ids = data.get("externalIds") or {}  # → {}
 ```
 
-**適用すべき場面**:
-- 外部 API からの JSON パース
-- 値が `None` になりうる辞書からの取得
+**When to apply**:
+- JSON parsing from external APIs
+- Dictionary retrieval where value can be `None`
 
-### 5.2 例外型の一致
+### 5.2 Exception Type Matching
 
-**問題**: 独自例外クラスと外部ライブラリの例外クラスは別物。
+**Problem**: Custom exception classes and external library exception classes are different.
 
 ```python
-# NG: httpx.HTTPStatusError を catch できない
-from src.utils.api_retry import HTTPStatusError  # 独自
-except HTTPStatusError as e:  # httpx の例外は素通り
+# NG: Cannot catch httpx.HTTPStatusError
+from src.utils.api_retry import HTTPStatusError  # custom
+except HTTPStatusError as e:  # httpx exception passes through
 
-# OK: 両方を catch
+# OK: Catch both
 import httpx
-except httpx.HTTPStatusError as e:  # httpx の例外
+except httpx.HTTPStatusError as e:  # httpx exception
     ...
-except HTTPStatusError as e:  # 独自例外
+except HTTPStatusError as e:  # custom exception
     ...
 ```
 
-**確認方法**: `raise_for_status()` などが投げる例外の型をドキュメントで確認。
+**Verification method**: Check exception types thrown by `raise_for_status()` etc. in documentation.
 
-### 5.3 Rate Limiter の適用範囲
+### 5.3 Rate Limiter Application Scope
 
-**原則**: API クライアントのすべての外部呼び出しメソッドに Rate Limiter を適用する。
+**Principle**: Apply Rate Limiter to all external call methods in API clients.
 
 ```python
-# NG: search() のみに適用
+# NG: Applied only to search()
 async def search(self, query: str) -> list[Paper]:
     await limiter.acquire(self.name)
     ...
 
 async def get_references(self, paper_id: str) -> list[Paper]:
-    # Rate Limiter なし → 大量リクエストで 429
+    # No Rate Limiter → 429 on bulk requests
     ...
 
-# OK: すべてのメソッドに適用
+# OK: Applied to all methods
 async def get_references(self, paper_id: str) -> list[Paper]:
     await limiter.acquire(self.name)
     try:

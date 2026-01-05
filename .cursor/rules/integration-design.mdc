@@ -1,83 +1,83 @@
 ---
-description: モジュール間の連動を設計・検証する際の規約
+description: Conventions for designing and verifying inter-module integration
 alwaysApply: false
 ---
-# モジュール間連動設計ルール
+# Inter-Module Integration Design Rules
 
-## 位置づけ（規約と手順の分離）
+## Positioning (Separation of Policy and Procedure)
 
-- 本ファイルは **規約（ポリシー）** を定義する。
-- 具体的な手順（出力物の作り方・進め方）は `@.cursor/commands/integration-design.md` を参照する。
+- This file defines **policy**.
+- Specific procedures (how to create deliverables, how to proceed) are documented in `@.cursor/commands/integration-design.md`.
 
-## 目的
+## Purpose
 
-バイブコーディングで生じる「モジュール間の連動ができておらず、全体として機能するプロダクトになっていない」問題を解決する。
+Solve the problem of "modules not integrating properly, resulting in a product that doesn't function as a whole" that arises in vibe coding.
 
-## 実装前の必須確認事項
+## Mandatory Pre-Implementation Checks
 
-### 0.1. 仕様書の確認
+### 0.1. Specification Review
 
-1. **docs/requirements.mdの該当セクションを確認**
-   - 実装対象機能に関連するセクションを特定
-   - 仕様の要件を正確に理解する
+1. **Check relevant sections of docs/requirements.md**
+   - Identify sections related to the feature being implemented
+   - Accurately understand specification requirements
 
-2. **準拠性チェック**
-   - 実装案が仕様書の要件を満たしているか確認
-   - 仕様書に明記されていない動作を追加しない
+2. **Compliance Check**
+   - Verify implementation proposal meets specification requirements
+   - Don't add behavior not specified in the specification
 
-### 0.2. コードベースの理解
+### 0.2. Codebase Understanding
 
-1. **関連モジュールの調査** - 既存コードを調査し、パターンを確認
-2. **依存関係の確認** - 循環依存がないか確認
-3. **一貫性の確認** - 命名規則、エラーハンドリング、ログ出力形式
+1. **Related Module Investigation** - Investigate existing code and confirm patterns
+2. **Dependency Verification** - Verify no circular dependencies
+3. **Consistency Verification** - Naming conventions, error handling, log output format
 
-### 0.3. コーディング規約の確認
+### 0.3. Coding Convention Check
 
-- **コメントは英語で統一**（docstringも英語）
-- **実装計画書の章番号を含めない**
-- **docstringはGoogleスタイル**
+- **Comments in English** (docstrings also in English)
+- **Don't include implementation plan chapter numbers**
+- **Docstrings in Google style**
 
-## 4ステップ設計プロセス
+## 4-Step Design Process
 
-### ステップ1: シーケンス図の作成
+### Step 1: Create Sequence Diagram
 
-- 対象モジュール間のシーケンス図を作成
-- データ型を明示（Pydanticモデル推奨）
-- 保存場所: `docs/debug/`
+- Create sequence diagram between target modules
+- Explicitly specify data types (Pydantic models recommended)
+- Save location: `docs/debug/`
 
-### ステップ2: 型定義（Pydantic）
+### Step 2: Type Definition (Pydantic)
 
-- モジュール間のデータ構造をPydanticモデルで定義
-- `src/{module}/schemas.py` に配置
+- Define data structures between modules as Pydantic models
+- Place in `src/{module}/schemas.py`
 
-### ステップ3: デバッグ用スクリプトの作成
+### Step 3: Create Debug Scripts
 
-- `tests/scripts/debug_{feature}_flow.py` に配置
-- 各ステップでデータの型・内容を検証
-- **新規パラメータ/フィールドがある場合**: 入口→各モジュール境界→出口の各地点で、その値が期待通りに保持/変換されていること（必要なら“効いていること”）を検証する
+- Place in `tests/scripts/debug_{feature}_flow.py`
+- Verify data type and content at each step
+- **When adding new parameters/fields**: Verify at entry → each module boundary → exit that values are held/transformed as expected (and "taking effect" if necessary)
 
-### ステップ4: シーケンス図の更新
+### Step 4: Update Sequence Diagram
 
-- 修正後の正しいデータフローを記録
+- Record correct data flow after modifications
 
-## チェックリスト
+## Checklists
 
-### 実装前
-- [ ] 仕様書確認
-- [ ] コードベース理解
-- [ ] 依存関係確認
-- [ ] コーディング規約確認
+### Pre-Implementation
+- [ ] Specification review
+- [ ] Codebase understanding
+- [ ] Dependency verification
+- [ ] Coding convention check
 
-### 設計・実装
-- [ ] シーケンス図作成
-- [ ] Pydanticモデル定義
-- [ ] **追加したパラメータ/フィールドの伝播表**（どこで受け取り、どこに渡し、どこで効果が出るか）を作る
-- [ ] デバッグスクリプト作成・実行
-- [ ] デバッグスクリプトで **伝播表の各境界** を検証（未配線なら失敗する観測点を置く）
-- [ ] 型チェック
+### Design & Implementation
+- [ ] Sequence diagram created
+- [ ] Pydantic models defined
+- [ ] **Propagation table for added parameters/fields** (where received, where passed, where effect occurs)
+- [ ] Debug scripts created and executed
+- [ ] Debug scripts verify **each boundary in propagation table** (place observation points that fail if not wired)
+- [ ] Type check
 
-### 実装後
-- [ ] 仕様準拠性確認
-- [ ] コメント言語確認
-- [ ] 一貫性確認
-- [ ] Lintエラー確認
+### Post-Implementation
+- [ ] Specification compliance verified
+- [ ] Comment language verified
+- [ ] Consistency verified
+- [ ] Lint errors verified
