@@ -853,7 +853,7 @@ class SearchExecutor:
             result = await llm_extract(
                 passages=[passage],
                 task="extract_claims",
-                context=self.state.original_query,
+                context=self.state.task_hypothesis,
             )
 
             if result.get("ok") and result.get("claims"):

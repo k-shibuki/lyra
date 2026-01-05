@@ -170,7 +170,7 @@ For other clients, copy `config/mcp-config.example.json` to your client's config
 
 ```python
 # 1. Create task
-task = create_task(query="Efficacy of DPP-4 inhibitors for diabetes?")
+task = create_task(hypothesis="DPP-4 inhibitors improve HbA1c in type 2 diabetes")
 
 # 2. Queue searches (async execution)
 queue_searches(task_id=task.task_id, queries=[

@@ -39,7 +39,7 @@ async def test_query_view_valid_call(test_database: Database) -> None:
     claim_id = "claim_qv_001"
 
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         (task_id, "test query", "completed"),
     )
     await db.execute(
@@ -106,7 +106,7 @@ async def test_query_view_with_limit(test_database: Database) -> None:
     task_id = "test_task_limit"
 
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         (task_id, "test query", "completed"),
     )
 

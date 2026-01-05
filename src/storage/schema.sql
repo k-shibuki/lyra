@@ -17,9 +17,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 -- ============================================================
 
 -- Tasks: Research task definitions
+-- ADR-0018: hypothesis is the central claim the task aims to verify
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
-    query TEXT NOT NULL,
+    hypothesis TEXT NOT NULL,  -- Central hypothesis to verify (ADR-0018)
     status TEXT NOT NULL DEFAULT 'pending',  -- pending, running, completed, failed, cancelled
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     started_at DATETIME,
@@ -739,7 +740,7 @@ CREATE TABLE IF NOT EXISTS nli_corrections (
     edge_id TEXT NOT NULL,
     task_id TEXT,
     premise TEXT NOT NULL,               -- NLI premise snapshot (for training reproducibility)
-    hypothesis TEXT NOT NULL,            -- NLI hypothesis snapshot (for training reproducibility)
+    nli_hypothesis TEXT NOT NULL,         -- NLI hypothesis snapshot (ADR-0018: renamed to avoid conflict with task.hypothesis)
     predicted_label TEXT NOT NULL,       -- Original NLI prediction: supports/refutes/neutral
     predicted_confidence REAL NOT NULL,  -- Original confidence (0.0-1.0)
     correct_label TEXT NOT NULL,         -- Human-provided ground-truth: supports/refutes/neutral

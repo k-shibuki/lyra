@@ -27,7 +27,7 @@ class TestPipelineTimeout:
         """Create a mock ExplorationState."""
         state = MagicMock()
         state.task_id = "test_task"
-        state.original_query = "test query"
+        state.task_hypothesis = "test hypothesis"
         state.record_activity = MagicMock()
         state.get_status = AsyncMock(
             return_value={

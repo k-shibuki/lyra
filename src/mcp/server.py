@@ -110,9 +110,9 @@ and refuting queries to ensure balanced evidence collection.""",
         inputSchema={
             "type": "object",
             "properties": {
-                "query": {
+                "hypothesis": {
                     "type": "string",
-                    "description": "Research question or hypothesis to investigate. Be specific - this guides the entire exploration.",
+                    "description": "Central hypothesis to verify (ADR-0018). A falsifiable claim that guides the entire exploration. Search queries are designed to find evidence supporting or refuting this hypothesis.",
                 },
                 "config": {
                     "type": "object",
@@ -147,7 +147,7 @@ and refuting queries to ensure balanced evidence collection.""",
                     },
                 },
             },
-            "required": ["query"],
+            "required": ["hypothesis"],
         },
         outputSchema=_load_schema("create_task"),
         annotations=ToolAnnotations(

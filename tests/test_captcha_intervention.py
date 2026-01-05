@@ -354,7 +354,7 @@ class TestRequeueAwaitingAuthJobs:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status, created_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status, created_at) VALUES (?, ?, ?, ?)",
             (task_id, "test query", "running", datetime.now(UTC).isoformat()),
         )
 
@@ -490,7 +490,7 @@ class TestGetPendingAuthInfo:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status, created_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status, created_at) VALUES (?, ?, ?, ?)",
             (task_id, "test query", "running", datetime.now(UTC).isoformat()),
         )
 

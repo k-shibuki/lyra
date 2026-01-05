@@ -359,7 +359,7 @@ class TestClaimReject:
 
         # Create test task (for foreign key constraint)
         await db.execute(
-            "INSERT INTO tasks (id, query) VALUES (?, ?)",
+            "INSERT INTO tasks (id, hypothesis) VALUES (?, ?)",
             (task_id, "Test query"),
         )
 
@@ -444,7 +444,7 @@ class TestClaimReject:
 
         # Create test task (for foreign key constraint)
         await db.execute(
-            "INSERT INTO tasks (id, query) VALUES (?, ?)",
+            "INSERT INTO tasks (id, hypothesis) VALUES (?, ?)",
             (task_id, "Test query"),
         )
 
@@ -491,7 +491,7 @@ class TestClaimRestore:
 
         # Create test task (for foreign key constraint)
         await db.execute(
-            "INSERT INTO tasks (id, query) VALUES (?, ?)",
+            "INSERT INTO tasks (id, hypothesis) VALUES (?, ?)",
             (task_id, "Test query"),
         )
 
@@ -539,7 +539,7 @@ class TestClaimRestore:
 
         # Create test task (for foreign key constraint)
         await db.execute(
-            "INSERT INTO tasks (id, query) VALUES (?, ?)",
+            "INSERT INTO tasks (id, hypothesis) VALUES (?, ?)",
             (task_id, "Test query"),
         )
 
@@ -604,7 +604,7 @@ class TestEdgeCorrect:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES ('test-task', 'test', 'running')"
+            "INSERT INTO tasks (id, hypothesis, status) VALUES ('test-task', 'test', 'running')"
         )
 
         # Create claim
@@ -687,7 +687,7 @@ class TestEdgeCorrect:
 
         # Create minimal test data
         await db.execute(
-            "INSERT OR IGNORE INTO tasks (id, query, status) VALUES ('test-task', 'test', 'running')"
+            "INSERT OR IGNORE INTO tasks (id, hypothesis, status) VALUES ('test-task', 'test', 'running')"
         )
         await db.execute(
             """
@@ -786,7 +786,7 @@ class TestEdgeCorrect:
 
         # Create minimal test data
         await db.execute(
-            "INSERT OR IGNORE INTO tasks (id, query, status) VALUES ('test-task', 'test', 'running')"
+            "INSERT OR IGNORE INTO tasks (id, hypothesis, status) VALUES ('test-task', 'test', 'running')"
         )
         await db.execute(
             """

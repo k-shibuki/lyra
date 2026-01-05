@@ -15,8 +15,9 @@
       "type": "string",
       "enum": ["exploring", "paused", "completed", "failed"]
     },
-    "query": {
-      "type": "string"
+    "hypothesis": {
+      "type": "string",
+      "description": "Central hypothesis to verify (ADR-0018)"
     },
     "searches": {
       "type": "array",
@@ -192,7 +193,7 @@
     "ok",
     "task_id",
     "status",
-    "query",
+    "hypothesis",
     "searches",
     "queue",
     "metrics",

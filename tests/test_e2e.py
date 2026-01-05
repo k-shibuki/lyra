@@ -274,7 +274,7 @@ class TestSearchToReportPipeline:
 
         # Given: A research query to investigate
         task_id = await e2e_database.create_task(
-            query="What is the history of Python programming language?"
+            hypothesis="What is the history of Python programming language?"
         )
         assert task_id is not None, "Failed to create task"
 
@@ -340,7 +340,7 @@ class TestSearchToReportPipeline:
         from src.filter.evidence_graph import EvidenceGraph, NodeType, RelationType
 
         # Given: A task with claims and supporting fragments
-        task_id = await e2e_database.create_task(query="E2E test query for report generation")
+        task_id = await e2e_database.create_task(hypothesis="E2E test query for report generation")
 
         graph = EvidenceGraph(task_id=task_id)
 
@@ -426,7 +426,7 @@ class TestAuthenticationQueueFlow:
         # Given: An intervention queue and a task requiring authentication
         queue = InterventionQueue()
         queue._db = e2e_database
-        task_id = await e2e_database.create_task(query="E2E auth queue test")
+        task_id = await e2e_database.create_task(hypothesis="E2E auth queue test")
 
         # When: Enqueue authentication challenges with different priorities
         queue_id_1 = await queue.enqueue(
@@ -478,8 +478,8 @@ class TestAuthenticationQueueFlow:
         queue = InterventionQueue()
         queue._db = e2e_database
 
-        task_a = await e2e_database.create_task(query="E2E task A")
-        task_b = await e2e_database.create_task(query="E2E task B")
+        task_a = await e2e_database.create_task(hypothesis="E2E task A")
+        task_b = await e2e_database.create_task(hypothesis="E2E task B")
 
         await queue.enqueue(
             task_id=task_a,
@@ -538,7 +538,7 @@ class TestAuthenticationQueueFlow:
         queue = InterventionQueue()
         queue._db = e2e_database
 
-        task_id = await e2e_database.create_task(query="E2E complete single auth test")
+        task_id = await e2e_database.create_task(hypothesis="E2E complete single auth test")
 
         queue_id = await queue.enqueue(
             task_id=task_id,
@@ -583,8 +583,8 @@ class TestAuthenticationQueueFlow:
         queue = InterventionQueue()
         queue._db = e2e_database
 
-        task_a = await e2e_database.create_task(query="E2E task A for domain auth")
-        task_b = await e2e_database.create_task(query="E2E task B for domain auth")
+        task_a = await e2e_database.create_task(hypothesis="E2E task A for domain auth")
+        task_b = await e2e_database.create_task(hypothesis="E2E task B for domain auth")
 
         await queue.enqueue(
             task_id=task_a,
@@ -646,7 +646,7 @@ class TestAuthenticationQueueFlow:
         queue = InterventionQueue()
         queue._db = e2e_database
 
-        task_id = await e2e_database.create_task(query="E2E skip by ids test")
+        task_id = await e2e_database.create_task(hypothesis="E2E skip by ids test")
 
         queue_id_1 = await queue.enqueue(
             task_id=task_id,
@@ -693,8 +693,8 @@ class TestAuthenticationQueueFlow:
         queue = InterventionQueue()
         queue._db = e2e_database
 
-        task_a = await e2e_database.create_task(query="E2E skip domain task A")
-        task_b = await e2e_database.create_task(query="E2E skip domain task B")
+        task_a = await e2e_database.create_task(hypothesis="E2E skip domain task A")
+        task_b = await e2e_database.create_task(hypothesis="E2E skip domain task B")
 
         await queue.enqueue(
             task_id=task_a,
@@ -744,7 +744,7 @@ class TestAuthenticationQueueFlow:
         queue = InterventionQueue()
         queue._db = e2e_database
 
-        task_id = await e2e_database.create_task(query="E2E pending count test")
+        task_id = await e2e_database.create_task(hypothesis="E2E pending count test")
 
         await queue.enqueue(
             task_id=task_id,
@@ -809,7 +809,7 @@ class TestAuthenticationQueueFlow:
         queue = InterventionQueue()
         queue._db = e2e_database
 
-        task_id = await e2e_database.create_task(query="E2E cleanup test")
+        task_id = await e2e_database.create_task(hypothesis="E2E cleanup test")
 
         await queue.enqueue(
             task_id=task_id,
@@ -872,7 +872,7 @@ class TestCompleteResearchFlow:
 
         # Given: A research query to investigate
         query = "What are the main features of Python 3.12?"
-        task_id = await e2e_database.create_task(query=query)
+        task_id = await e2e_database.create_task(hypothesis=query)
 
         assert task_id is not None, "Failed to create task"
         print(f"\n[E2E] Step 1: Created task {task_id}")

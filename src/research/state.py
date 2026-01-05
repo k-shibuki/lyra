@@ -255,8 +255,8 @@ class ExplorationState:
         self._task_status = TaskStatus.CREATED
         self._searches: dict[str, SearchState] = {}
 
-        # Original query for context (used by llm_extract)
-        self.original_query: str = ""
+        # Task hypothesis for context (used by llm_extract for focus, ADR-0018)
+        self.task_hypothesis: str = ""
 
         # Budget tracking
         self._budget_pages_limit = 120
@@ -370,7 +370,8 @@ class ExplorationState:
                 self._task_status = TaskStatus.CREATED
 
             # Load original query for context (used by llm_extract)
-            self.original_query = task.get("query", "")
+            # ADR-0018: hypothesis is the central claim to verify
+            self.task_hypothesis = task.get("hypothesis", "")
 
         # Load existing searches
         queries = await self._db.fetch_all(

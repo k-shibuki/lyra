@@ -229,7 +229,7 @@ class ChainOfDensityCompressor:
         self,
         claims: list[dict[str, Any]],
         fragments: list[dict[str, Any]],
-        task_query: str,
+        task_hypothesis: str,
     ) -> dict[str, Any]:
         """
         Compress claims and fragments into a dense summary.
@@ -237,7 +237,7 @@ class ChainOfDensityCompressor:
         Args:
             claims: List of claim records.
             fragments: List of fragment records with citation info.
-            task_query: Original research query.
+            task_hypothesis: Central hypothesis to verify (ADR-0018).
 
         Returns:
             Compression result with dense summary and validated claims.
@@ -259,7 +259,7 @@ class ChainOfDensityCompressor:
 
         if self.use_llm:
             # Perform iterative densification
-            summaries = await self._iterative_densify(dense_claims, fragments, task_query)
+            summaries = await self._iterative_densify(dense_claims, fragments, task_hypothesis)
         else:
             # Rule-based compression
             summaries = self._rule_based_compress(dense_claims)
@@ -269,7 +269,7 @@ class ChainOfDensityCompressor:
 
         return {
             "ok": True,
-            "task_query": task_query,
+            "task_hypothesis": task_hypothesis,
             "dense_claims": [c.to_dict() for c in dense_claims],
             "summaries": [s.to_dict() for s in summaries],
             "final_summary": final_summary.to_dict() if final_summary else None,
@@ -460,7 +460,7 @@ class ChainOfDensityCompressor:
         self,
         claims: list[DenseClaim],
         fragments: list[dict[str, Any]],
-        task_query: str,
+        task_hypothesis: str,
     ) -> list[DenseSummary]:
         """Perform iterative densification using LLM."""
         summaries = []
@@ -745,7 +745,7 @@ class ChainOfDensityCompressor:
 async def compress_with_chain_of_density(
     claims: list[dict[str, Any]],
     fragments: list[dict[str, Any]],
-    task_query: str,
+    task_hypothesis: str,
     max_iterations: int = 5,
     use_llm: bool = True,
 ) -> dict[str, Any]:
@@ -759,7 +759,7 @@ async def compress_with_chain_of_density(
     Args:
         claims: List of claim records.
         fragments: List of fragment records.
-        task_query: Original research query.
+        task_hypothesis: Central hypothesis to verify (ADR-0018).
         max_iterations: Maximum densification iterations.
         use_llm: Whether to use LLM for compression.
 
@@ -771,4 +771,4 @@ async def compress_with_chain_of_density(
         use_llm=use_llm,
     )
 
-    return await compressor.compress(claims, fragments, task_query)
+    return await compressor.compress(claims, fragments, task_hypothesis)

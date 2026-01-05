@@ -214,7 +214,7 @@ class TestGetStatusDomainOverrides:
         # Create task first
         task_id = "test-task-overrides"
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Test query", "running"),
         )
 

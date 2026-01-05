@@ -31,7 +31,7 @@ class TestEnqueueCitationGraphJob:
         search_id = "sq_cg_01"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Test query", "exploring"),
         )
 
@@ -83,7 +83,7 @@ class TestEnqueueCitationGraphJob:
         job_id = f"cg_{search_id}"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Test query", "exploring"),
         )
 
@@ -174,7 +174,7 @@ class TestProcessCitationGraph:
         task_id = "task_cg_process"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Test query", "exploring"),
         )
 

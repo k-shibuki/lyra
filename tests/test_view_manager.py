@@ -100,7 +100,7 @@ async def test_view_manager_query(test_database: Database, tmp_path: Path) -> No
     """
     db = test_database
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         ("task_1", "test query", "completed"),
     )
 

@@ -308,7 +308,7 @@ class RefutationExecutor:
                 {
                     "pair_id": "refutation_check",
                     "premise": passage,
-                    "hypothesis": claim_text,
+                    "nli_hypothesis": claim_text,
                 }
             ]
 

@@ -74,13 +74,13 @@ class NLIModel:
     async def predict(
         self,
         premise: str,
-        hypothesis: str,
+        nli_hypothesis: str,
     ) -> dict[str, Any]:
         """Predict stance relationship.
 
         Args:
             premise: Premise text.
-            hypothesis: Hypothesis text.
+            nli_hypothesis: NLI hypothesis text (ADR-0018).
 
         Returns:
             Prediction result with:
@@ -91,7 +91,7 @@ class NLIModel:
         """
         await self._ensure_model()
 
-        input_text = f"{premise} [SEP] {hypothesis}"
+        input_text = f"{premise} [SEP] {nli_hypothesis}"
 
         try:
             result = self._model(input_text)[0]
@@ -130,7 +130,7 @@ class NLIModel:
         """Predict stance for multiple pairs.
 
         Args:
-            pairs: List of (premise, hypothesis) tuples.
+            pairs: List of (premise, nli_hypothesis) tuples (ADR-0018).
 
         Returns:
             List of prediction results with nli_raw_confidence and nli_edge_confidence.
@@ -193,7 +193,7 @@ async def nli_judge(
     """Judge stance relationships for claim pairs.
 
     Args:
-        pairs: List of pair dicts with 'pair_id', 'premise', 'hypothesis'.
+        pairs: List of pair dicts with 'pair_id', 'premise', 'nli_hypothesis' (ADR-0018).
 
     Returns:
         List of result dicts with 'pair_id', 'stance', 'nli_edge_confidence'.
@@ -265,9 +265,9 @@ async def _nli_judge_local(
     for pair in pairs:
         pair_id = pair.get("pair_id", "unknown")
         premise = pair.get("premise", "")
-        hypothesis = pair.get("hypothesis", "")
+        nli_hypothesis = pair.get("nli_hypothesis", "")
 
-        prediction = await model.predict(premise, hypothesis)
+        prediction = await model.predict(premise, nli_hypothesis)
 
         results.append(
             {

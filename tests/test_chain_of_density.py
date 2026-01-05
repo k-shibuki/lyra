@@ -547,7 +547,7 @@ class TestChainOfDensityCompressor:
         result = await compressor.compress(
             claims=[],
             fragments=[],
-            task_query="Test query",
+            task_hypothesis="Test query",
         )
 
         # Then: Returns error
@@ -566,7 +566,7 @@ class TestChainOfDensityCompressor:
         result = await compressor.compress(
             claims=sample_claims,
             fragments=sample_fragments,
-            task_query="日本の経済成長率について",
+            task_hypothesis="日本の経済成長率について",
         )
 
         # Then: Complete result with all sections
@@ -598,14 +598,14 @@ class TestChainOfDensityIntegration:
         result = await compress_with_chain_of_density(
             claims=sample_claims,
             fragments=sample_fragments,
-            task_query="日本の経済成長率について",
+            task_hypothesis="日本の経済成長率について",
             max_iterations=3,
             use_llm=False,
         )
 
         # Then: Complete result structure
         assert result["ok"] is True
-        assert result["task_query"] == "日本の経済成長率について"
+        assert result["task_hypothesis"] == "日本の経済成長率について"
         assert len(result["dense_claims"]) == 2
 
     @pytest.mark.asyncio
@@ -639,7 +639,7 @@ class TestChainOfDensityIntegration:
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
-            task_query="Test",
+            task_hypothesis="Test",
             use_llm=False,
         )
 
@@ -668,7 +668,7 @@ class TestChainOfDensityIntegration:
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
-            task_query="Test",
+            task_hypothesis="Test",
             use_llm=False,
         )
 
@@ -714,7 +714,7 @@ class TestChainOfDensityEdgeCases:
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
-            task_query="Single claim test",
+            task_hypothesis="Single claim test",
             use_llm=False,
         )
 
@@ -748,7 +748,7 @@ class TestChainOfDensityEdgeCases:
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
-            task_query="Unmatched test",
+            task_hypothesis="Unmatched test",
             use_llm=False,
         )
 
@@ -783,7 +783,7 @@ class TestChainOfDensityEdgeCases:
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
-            task_query="Unicode test",
+            task_hypothesis="Unicode test",
             use_llm=False,
         )
 
@@ -820,7 +820,7 @@ class TestChainOfDensityEdgeCases:
         result = await compress_with_chain_of_density(
             claims=claims,
             fragments=fragments,
-            task_query="Long content test",
+            task_hypothesis="Long content test",
             use_llm=False,
         )
 

@@ -40,9 +40,9 @@ class TestGetStatusIntegration:
 
         # Create task
         await db.execute(
-            """INSERT INTO tasks (id, query, status, created_at)
+            """INSERT INTO tasks (id, hypothesis, status, created_at)
                VALUES (?, ?, ?, ?)""",
-            (task_id, "integration test query", "exploring", datetime.now(UTC).isoformat()),
+            (task_id, "integration test hypothesis", "exploring", datetime.now(UTC).isoformat()),
         )
 
         # Create query record (using actual schema: query_text, query_type)
@@ -119,7 +119,7 @@ class TestGetStatusIntegration:
         # Verify response structure
         assert result["ok"] is True
         assert result["task_id"] == task_id
-        assert result["query"] == "integration test query"
+        assert result["hypothesis"] == "integration test hypothesis"
         assert "metrics" in result
         assert "budget" in result
         assert "searches" in result
@@ -142,7 +142,7 @@ class TestGetStatusIntegration:
 
         # Create bare task
         await db.execute(
-            """INSERT INTO tasks (id, query, status, created_at)
+            """INSERT INTO tasks (id, hypothesis, status, created_at)
                VALUES (?, ?, ?, ?)""",
             (task_id, "minimal query", "pending", datetime.now(UTC).isoformat()),
         )
@@ -171,7 +171,7 @@ class TestMCPToolDataConsistency:
 
         # Create task
         await db.execute(
-            """INSERT INTO tasks (id, query, status, created_at)
+            """INSERT INTO tasks (id, hypothesis, status, created_at)
                VALUES (?, ?, ?, ?)""",
             (task_id, "full exploration query", "exploring", datetime.now(UTC).isoformat()),
         )

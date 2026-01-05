@@ -72,7 +72,7 @@ class TestDatabase:
         task_id = await test_database.insert(
             "tasks",
             {
-                "query": "test query",
+                "hypothesis": "test query",
                 "status": "pending",
             },
         )
@@ -82,7 +82,7 @@ class TestDatabase:
         result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
 
         assert result is not None
-        assert result["query"] == "test query"
+        assert result["hypothesis"] == "test query"
         assert result["status"] == "pending"
 
     @pytest.mark.asyncio
@@ -131,7 +131,7 @@ class TestDatabase:
             await test_database.insert(
                 "tasks",
                 {
-                    "query": f"query {i}",
+                    "hypothesis": f"hypothesis {i}",
                     "status": "pending",
                 },
             )
@@ -148,7 +148,7 @@ class TestDatabase:
         task_id = await test_database.insert(
             "tasks",
             {
-                "query": "original query",
+                "hypothesis": "original hypothesis",
                 "status": "pending",
             },
         )
@@ -189,7 +189,7 @@ class TestTaskOperations:
     async def test_create_task(self, test_database: Database) -> None:
         """Test create_task creates a new task."""
         task_id = await test_database.create_task(
-            query="What is AI?",
+            hypothesis="What is AI?",
             config={"depth": 3},
         )
 
@@ -198,7 +198,7 @@ class TestTaskOperations:
         result = await test_database.fetch_one("SELECT * FROM tasks WHERE id = ?", (task_id,))
         assert result is not None
 
-        assert result["query"] == "What is AI?"
+        assert result["hypothesis"] == "What is AI?"
         assert result["status"] == "pending"
         assert json.loads(result["config_json"]) == {"depth": 3}
 

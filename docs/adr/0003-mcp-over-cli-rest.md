@@ -49,8 +49,8 @@ async def get_page(url: str) -> PageContent:
     ...
 
 @server.tool()
-async def extract_claims(page_id: str, hypothesis: str) -> List[Claim]:
-    """Extract claims related to hypothesis from page"""
+async def extract_claims(page_id: str, context: str) -> List[Claim]:
+    """Extract claims from page, using context (task hypothesis) for focus"""
     ...
 ```
 

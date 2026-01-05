@@ -187,7 +187,7 @@ async def _verify_single_claim(
         {
             "pair_id": f"{claim_id}:{c['fragment_id']}",
             "premise": c["text_content"],
-            "hypothesis": claim_text,
+            "nli_hypothesis": claim_text,
         }
         for c in candidates
     ]

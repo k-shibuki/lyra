@@ -139,6 +139,8 @@ async def handle_vector_search(args: dict[str, Any]) -> dict[str, Any]:
                 "ok": True,
                 "results": results,
                 "total_searched": total_searched,
+                "message": f"Found {len(results)} results from {total_searched} {target}."
+                + (" Use query_sql for detailed analysis." if results else ""),
             }
 
         except Exception as e:

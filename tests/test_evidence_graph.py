@@ -2033,7 +2033,7 @@ class TestPhaseP2DomainCategoryOnEdges:
         # First create a task (foreign key required)
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2122,7 +2122,7 @@ class TestCitationNetworkLoading:
         # Given: Create task
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2207,7 +2207,7 @@ class TestCitationNetworkLoading:
         # Given: Create test data
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2274,7 +2274,7 @@ class TestCitationNetworkLoading:
         # Given: Create test data (same setup as above)
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2343,7 +2343,7 @@ class TestCitationNetworkLoading:
         # Given: Create test data with multiple source pages
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2439,7 +2439,7 @@ class TestCitationNetworkLoading:
         # Given: Create task with no claims
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2487,7 +2487,7 @@ class TestCitationNetworkLoading:
         # Given: Create test data
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2570,7 +2570,7 @@ class TestCitationNetworkLoading:
         # Given: Create test data without cites edges
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2627,7 +2627,7 @@ class TestCitationNetworkLoading:
         # Given: Create task with claims but no edges
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2701,7 +2701,7 @@ class TestEvidenceSourceDerived:
         # Given: Create task with claim, fragment, and page
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2755,7 +2755,7 @@ class TestEvidenceSourceDerived:
         # Given: Task with claim, two fragments from same page
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2822,7 +2822,7 @@ class TestEvidenceSourceDerived:
         # Given: 2 claims, 2 pages, 2 fragments
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2902,7 +2902,7 @@ class TestEvidenceSourceDerived:
         # Given: Create test data
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -2957,7 +2957,7 @@ class TestEvidenceSourceDerived:
         # Given: Create test data
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -3014,7 +3014,7 @@ class TestEvidenceSourceDerived:
         # Given: Full chain: claim -> fragment(page-1) -> page-1 -> page-2 (cited)
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -3094,7 +3094,7 @@ class TestEvidenceSourceDerived:
         # Given: Task with no claims
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -3126,7 +3126,7 @@ class TestEvidenceSourceDerived:
         # Given: Task with claims but no edges
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -3161,7 +3161,7 @@ class TestEvidenceSourceDerived:
         # Given: Fragment with NULL page_id (simulate legacy data)
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -3223,7 +3223,7 @@ class TestEvidenceSourceDerived:
         # Given: Create test data
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )
@@ -3282,7 +3282,7 @@ class TestEvidenceSourceDerived:
         # Given: Fragment -> claim with neutral relation
         await test_database.execute(
             """
-            INSERT INTO tasks (id, query, status, created_at)
+            INSERT INTO tasks (id, hypothesis, status, created_at)
             VALUES ('test-task', 'Test question', 'pending', datetime('now'))
             """
         )

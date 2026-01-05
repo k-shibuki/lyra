@@ -48,7 +48,7 @@ async def test_query_sql_valid_select(test_database: Database) -> None:
     # Setup: Insert test data
     db = test_database
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         ("test_task", "test query", "completed"),
     )
 
@@ -75,7 +75,7 @@ async def test_query_sql_with_limit(test_database: Database) -> None:
     # Insert multiple tasks
     for i in range(5):
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (f"task_{i}", f"query {i}", "completed"),
         )
 
@@ -177,7 +177,11 @@ async def test_query_sql_forbidden_insert() -> None:
     // Then: Raises ValueError
     """
     with pytest.raises(InvalidParamsError) as exc_info:
-        await sql.handle_query_sql({"sql": "INSERT INTO tasks VALUES ('test', 'query', 'pending')"})
+        await sql.handle_query_sql(
+            {
+                "sql": "INSERT INTO tasks (id, hypothesis, status) VALUES ('test', 'hypothesis', 'pending')"
+            }
+        )
 
     assert "Forbidden SQL keyword" in str(exc_info.value)
 

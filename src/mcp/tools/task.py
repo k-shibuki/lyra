@@ -33,9 +33,9 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
     Handle create_task tool call.
 
     Creates a new research task and returns task_id.
-    Per ADR-0003: Returns task_id, query, created_at, budget.
+    Per ADR-0018: hypothesis is the central claim to verify.
     """
-    query = args["query"]
+    hypothesis = args["hypothesis"]
     config = args.get("config", {})
 
     # Generate task ID
@@ -47,7 +47,7 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
     max_seconds = budget_config.get("max_seconds", 1200)
 
     with LogContext(task_id=task_id):
-        logger.info("Creating task", query=query[:100])
+        logger.info("Creating task", hypothesis=hypothesis[:100])
 
         # Store task in database
         db = await get_database()
@@ -56,21 +56,22 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
 
         await db.execute(
             """
-            INSERT INTO tasks (id, query, status, config_json, created_at)
+            INSERT INTO tasks (id, hypothesis, status, config_json, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (task_id, query, "created", json.dumps(config), created_at),
+            (task_id, hypothesis, "created", json.dumps(config), created_at),
         )
 
         response = {
             "ok": True,
             "task_id": task_id,
-            "query": query,
+            "hypothesis": hypothesis,
             "created_at": created_at,
             "budget": {
                 "budget_pages": budget_pages,
                 "max_seconds": max_seconds,
             },
+            "message": f"Task created. Use queue_searches(task_id='{task_id}', queries=[...]) to start exploration.",
         }
         return attach_meta(response, create_minimal_meta())
 
@@ -126,7 +127,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
         # Get task info from DB
         db = await get_database()
         task = await db.fetch_one(
-            "SELECT id, query, status, created_at FROM tasks WHERE id = ?",
+            "SELECT id, hypothesis, status, created_at FROM tasks WHERE id = ?",
             (task_id,),
         )
 
@@ -135,7 +136,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 
         # Map DB status to spec status
         db_status = task["status"] if isinstance(task, dict) else task[2]
-        task_query = task["query"] if isinstance(task, dict) else task[1]
+        task_hypothesis = task["hypothesis"] if isinstance(task, dict) else task[1]
 
         # Get exploration state status
         exploration_status = None
@@ -213,7 +214,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "ok": True,
                 "task_id": task_id,
                 "status": status,
-                "query": task_query,
+                "hypothesis": task_hypothesis,
                 "searches": searches,
                 "queue": queue_info,  # ADR-0010: Search queue status
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
@@ -285,7 +286,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "ok": True,
                 "task_id": task_id,
                 "status": db_status or "created",
-                "query": task_query,
+                "hypothesis": task_hypothesis,
                 "searches": [],
                 "queue": queue_info,  # ADR-0010: Search queue status
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status

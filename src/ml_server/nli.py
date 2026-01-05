@@ -89,20 +89,20 @@ class NLIService:
     async def predict(
         self,
         premise: str,
-        hypothesis: str,
+        nli_hypothesis: str,
     ) -> dict:
         """Predict stance relationship.
 
         Args:
             premise: Premise text.
-            hypothesis: Hypothesis text.
+            nli_hypothesis: NLI hypothesis text (ADR-0018).
 
         Returns:
             Prediction result with label and confidence.
         """
         await self.load()
 
-        input_text = f"{premise} [SEP] {hypothesis}"
+        input_text = f"{premise} [SEP] {nli_hypothesis}"
 
         try:
             result = self._model(input_text)[0]

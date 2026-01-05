@@ -46,7 +46,7 @@ async def test_vector_search_valid_query_claims(test_database: Database) -> None
     # Setup: Insert claim and embedding
     db = test_database
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         ("task_vs_01", "test", "completed"),
     )
     await db.execute(
@@ -134,7 +134,7 @@ async def test_vector_search_with_task_id(test_database: Database) -> None:
     # Setup: Insert task, claim, and embedding
     db = test_database
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         ("task_123", "test", "completed"),
     )
     await db.execute(
@@ -186,7 +186,7 @@ async def test_vector_search_top_k(test_database: Database) -> None:
     # Setup: Insert multiple claims with embeddings
     db = test_database
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         ("task_topk", "test", "completed"),
     )
 
@@ -233,7 +233,7 @@ async def test_vector_search_min_similarity(test_database: Database) -> None:
     # Setup: Insert claim with embedding
     db = test_database
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         ("task_minsim", "test", "completed"),
     )
     await db.execute(

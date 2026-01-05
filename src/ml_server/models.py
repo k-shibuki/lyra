@@ -34,7 +34,10 @@ class NLIPair(BaseModel):
 
     pair_id: str = Field(default="", description="Pair identifier")
     premise: str = Field(..., description="Premise text")
-    hypothesis: str = Field(..., description="Hypothesis text")
+    nli_hypothesis: str = Field(
+        ...,
+        description="NLI hypothesis text (ADR-0018: renamed to avoid conflict with task.hypothesis)",
+    )
 
 
 class NLIRequest(BaseModel):

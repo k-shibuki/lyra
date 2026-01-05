@@ -166,7 +166,7 @@ async def handle_queue_searches(args: dict[str, Any]) -> dict[str, Any]:
         message = f"{len(search_ids)} searches queued"
         if skipped_count > 0:
             message += f" ({skipped_count} duplicates skipped)"
-        message += ". Use get_status(wait=N) to monitor progress."
+        message += ". Use get_status(wait=0..180) to monitor progress."
 
         # Include resume info for previously paused tasks
         was_resumed = task_status == "paused" and len(search_ids) > 0

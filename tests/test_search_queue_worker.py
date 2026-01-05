@@ -111,7 +111,7 @@ class TestSearchQueueWorker:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_wk01", "Test task", "exploring"),
         )
 
@@ -187,7 +187,7 @@ class TestSearchQueueWorker:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_wk02", "Test task", "exploring"),
         )
 
@@ -243,7 +243,7 @@ class TestSearchQueueWorker:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_wk04", "Test task", "exploring"),
         )
 
@@ -636,7 +636,7 @@ class TestWorkerCancellationBehavior:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_cancel_01", "Test task", "exploring"),
         )
 
@@ -911,7 +911,7 @@ class TestSearchQueuePerformance:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf01", "Large queue test", "exploring"),
         )
 
@@ -1009,7 +1009,7 @@ class TestSearchQueuePerformance:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf02", "Error recovery test", "exploring"),
         )
 
@@ -1126,7 +1126,7 @@ class TestSearchQueuePerformance:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf03_parallel", "Parallel test", "exploring"),
         )
 
@@ -1242,7 +1242,7 @@ class TestSearchQueuePerformance:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf03", "Concurrency test", "exploring"),
         )
 
@@ -1344,7 +1344,7 @@ class TestSearchQueuePerformance:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf05", "Priority order test", "exploring"),
         )
 
@@ -1441,7 +1441,7 @@ class TestSearchQueuePerformance:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf06", "FIFO test", "exploring"),
         )
 
@@ -1526,7 +1526,7 @@ class TestSearchQueuePerformance:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf07", "Variable time test", "exploring"),
         )
 
@@ -1630,7 +1630,7 @@ class TestSearchQueuePerformance:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf08", "Two workers priority test", "exploring"),
         )
 
@@ -1740,7 +1740,7 @@ class TestSearchQueuePerformance:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf09", "Empty queue test", "exploring"),
         )
 
@@ -1782,7 +1782,7 @@ class TestSearchQueuePerformance:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_pf10", "Single job two workers", "exploring"),
         )
 
@@ -1887,7 +1887,7 @@ class TestSearchQueueWorkerOptionsPropagation:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_wk_opt01", "Test task", "exploring"),
         )
 
@@ -1973,7 +1973,7 @@ class TestSearchQueueWorkerOptionsPropagation:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_wk_opt02", "Test task", "exploring"),
         )
 

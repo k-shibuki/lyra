@@ -46,7 +46,7 @@ class NLIPair(BaseModel):
 
     pair_id: str = Field(default="unknown")
     premise: str
-    hypothesis: str
+    nli_hypothesis: str  # ADR-0018: renamed to avoid conflict with task.hypothesis
 
 
 class NLIRequest(BaseModel):

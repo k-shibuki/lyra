@@ -48,11 +48,11 @@ Base Model (DeBERTa-v3-xsmall/small)
 Learn LoRA adapters from user feedback (see ADR-0012):
 
 ```python
-# Collect feedback data
+# Collect feedback data (ADR-0018: nli_hypothesis = claim_text)
 feedback_data = [
     {
-        "premise": "Claim from Paper A...",
-        "hypothesis": "User's hypothesis...",
+        "premise": "Fragment from Paper A...",
+        "nli_hypothesis": "Extracted claim text...",  # ADR-0018 terminology
         "correct_label": "supports",  # User correction
         "original_label": "neutral"   # Model misclassification
     },

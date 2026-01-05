@@ -98,7 +98,7 @@ class TestStopTaskModeValidation:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st05", "Test task", "exploring"),
         )
 
@@ -131,7 +131,7 @@ class TestStopTaskGracefulMode:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st01", "Test task", "exploring"),
         )
 
@@ -188,7 +188,7 @@ class TestStopTaskGracefulMode:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st07", "Test task", "exploring"),
         )
 
@@ -242,7 +242,7 @@ class TestStopTaskGracefulMode:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st04", "Test task", "exploring"),
         )
 
@@ -326,7 +326,7 @@ class TestStopTaskImmediateMode:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st02", "Test task", "exploring"),
         )
 
@@ -383,7 +383,7 @@ class TestStopTaskImmediateMode:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st03", "Test task", "exploring"),
         )
 
@@ -445,7 +445,7 @@ class TestStopTaskFullMode:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_full_01", "Test task", "exploring"),
         )
 
@@ -522,7 +522,7 @@ class TestStopTaskEmptyQueue:
 
         # Create task with no jobs
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st06", "Test task", "exploring"),
         )
 
@@ -584,7 +584,7 @@ class TestStopTaskRealCancellation:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st10", "Test task", "exploring"),
         )
 
@@ -638,11 +638,11 @@ class TestStopTaskRealCancellation:
 
         # Create tasks
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st10_a", "Test task A", "exploring"),
         )
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st10_b", "Test task B", "exploring"),
         )
 
@@ -721,7 +721,7 @@ class TestStopTaskRaceCondition:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st11", "Test task", "exploring"),
         )
 
@@ -783,7 +783,7 @@ class TestStopTaskRaceCondition:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st11b", "Test task", "exploring"),
         )
 
@@ -852,7 +852,7 @@ class TestStopTaskAuthQueueCancellation:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st12", "Test task", "exploring"),
         )
 
@@ -919,7 +919,7 @@ class TestStopTaskAuthQueueCancellation:
 
         # Create task with no auth items
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st13", "Test task", "exploring"),
         )
 
@@ -951,7 +951,7 @@ class TestStopTaskAuthQueueCancellation:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st12b", "Test task", "exploring"),
         )
 
@@ -1010,7 +1010,7 @@ class TestStopTaskPausedStatus:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st14", "Test task", "exploring"),
         )
 
@@ -1040,7 +1040,7 @@ class TestStopTaskPausedStatus:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st15", "Test task", "exploring"),
         )
 
@@ -1070,7 +1070,7 @@ class TestStopTaskPausedStatus:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st16", "Test task", "exploring"),
         )
 
@@ -1103,7 +1103,7 @@ class TestStopTaskPausedStatus:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_st17", "Test task", "exploring"),
         )
 
@@ -1131,7 +1131,7 @@ class TestStopTaskPausedStatus:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_budget", "Test task", "exploring"),
         )
 
@@ -1165,7 +1165,7 @@ class TestStopTaskScope:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_scope_01", "Test task", "exploring"),
         )
 
@@ -1227,7 +1227,7 @@ class TestStopTaskScope:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_scope_02", "Test task", "exploring"),
         )
 
@@ -1290,7 +1290,7 @@ class TestStopTaskScope:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_scope_03", "Test task", "exploring"),
         )
 
@@ -1319,7 +1319,7 @@ class TestStopTaskScope:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_scope_04", "Test task", "exploring"),
         )
 
@@ -1359,7 +1359,7 @@ class TestStopTaskScope:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_scope_05", "Test task", "exploring"),
         )
 
@@ -1390,7 +1390,7 @@ class TestStopTaskScope:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_scope_06", "Test task", "exploring"),
         )
 

@@ -160,7 +160,7 @@ class ResearchContext:
         self.task_id = task_id
         self._db: Database | None = None
         self._task: dict[str, Any] | None = None
-        self._original_query: str = ""
+        self._task_hypothesis: str = ""  # ADR-0018: Central hypothesis
         self._fetcher = fetcher  # For RDAP/WHOIS/crt.sh lookups
 
     async def _ensure_db(self) -> None:
@@ -177,7 +177,8 @@ class ResearchContext:
             (self.task_id,),
         )
         if self._task:
-            self._original_query = self._task.get("query", "")
+            # ADR-0018: hypothesis is the central claim to verify
+            self._task_hypothesis = self._task.get("hypothesis", "")
 
     async def get_context(self) -> dict[str, Any]:
         """
@@ -185,7 +186,7 @@ class ResearchContext:
 
         Returns:
             Dictionary containing:
-            - original_query: The research question
+            - task_hypothesis: The central hypothesis to verify (ADR-0018)
             - extracted_entities: List of extracted entities
             - applicable_templates: List of applicable vertical templates
             - similar_past_queries: Past queries with success rates
@@ -222,7 +223,7 @@ class ResearchContext:
         return {
             "ok": True,
             "task_id": self.task_id,
-            "original_query": self._original_query,
+            "task_hypothesis": self._task_hypothesis,
             "extracted_entities": [
                 {
                     "text": e.text,
@@ -256,13 +257,13 @@ class ResearchContext:
 
     async def _extract_entities(self) -> list[EntityInfo]:
         """
-        Extract entities from the original query.
+        Extract entities from the task hypothesis.
 
         Uses simple pattern matching. For production, consider
         using a proper NER model via the local LLM.
         """
         entities = []
-        query = self._original_query
+        query = self._task_hypothesis
 
         for entity_type, patterns in ENTITY_PATTERNS.items():
             for pattern in patterns:
@@ -297,7 +298,7 @@ class ResearchContext:
         Determine applicable vertical templates based on query content.
         """
         templates = []
-        query_lower = self._original_query.lower()
+        query_lower = self._task_hypothesis.lower()
 
         # Academic indicators
         academic_keywords = [
@@ -403,7 +404,7 @@ class ResearchContext:
     def _is_similar_query(self, past_query: str) -> bool:
         """Check if a past query is similar to current query."""
         # Simple word overlap check
-        current_words = set(self._original_query.lower().split())
+        current_words = set(self._task_hypothesis.lower().split())
         past_words = set(past_query.lower().split())
 
         if not current_words or not past_words:

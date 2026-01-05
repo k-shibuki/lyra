@@ -111,7 +111,7 @@ async def nli(request: NLIRequest) -> NLIResponse:
         for pair in request.pairs:
             prediction = await service.predict(
                 premise=pair.premise,
-                hypothesis=pair.hypothesis,
+                nli_hypothesis=pair.nli_hypothesis,
             )
 
             results.append(

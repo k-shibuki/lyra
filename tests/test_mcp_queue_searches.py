@@ -127,7 +127,7 @@ class TestQueueSearchesExecution:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q01", "Test task", "exploring"),
         )
 
@@ -168,7 +168,7 @@ class TestQueueSearchesExecution:
 
         # Create task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q07", "Test task", "exploring"),
         )
 
@@ -198,7 +198,7 @@ class TestQueueSearchesExecution:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q05", "Test task", "exploring"),
         )
 
@@ -231,7 +231,7 @@ class TestQueueSearchesExecution:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q06", "Test task", "exploring"),
         )
 
@@ -272,7 +272,7 @@ class TestQueueSearchesOptionsPropagation:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q08", "Test task", "exploring"),
         )
 
@@ -308,7 +308,7 @@ class TestQueueSearchesOptionsPropagation:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q09", "Test task", "exploring"),
         )
 
@@ -344,7 +344,7 @@ class TestQueueSearchesOptionsPropagation:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q10", "Test task", "exploring"),
         )
 
@@ -396,7 +396,7 @@ class TestGetStatusWithWait:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_qs04", "Test task", "exploring"),
         )
 
@@ -425,7 +425,7 @@ class TestGetStatusWithWait:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_qs05", "Test task", "exploring"),
         )
 
@@ -453,7 +453,7 @@ class TestGetStatusWithWait:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_qs02", "Test task", "exploring"),
         )
 
@@ -489,7 +489,7 @@ class TestGetStatusQueueField:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_qs01", "Test task", "exploring"),
         )
 
@@ -539,7 +539,7 @@ class TestGetStatusQueueField:
         db = test_database
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_empty_q", "Test task", "exploring"),
         )
 
@@ -610,7 +610,7 @@ class TestQueueSearchesPausedTaskResumption:
 
         # Create paused task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q11", "Test task", "paused"),
         )
 
@@ -649,7 +649,7 @@ class TestQueueSearchesPausedTaskResumption:
 
         # Create failed task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q12", "Test task", "failed"),
         )
 
@@ -680,7 +680,7 @@ class TestQueueSearchesPausedTaskResumption:
 
         # Create paused task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_q13", "Test task", "paused"),
         )
 
@@ -711,7 +711,7 @@ class TestQueueSearchesPausedTaskResumption:
 
         # Create exploring task
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_exploring", "Test task", "exploring"),
         )
 
@@ -742,7 +742,7 @@ class TestQueueSearchesPausedTaskResumption:
 
         # Create task in 'created' status
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_created", "Test task", "created"),
         )
 

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:create_task",
   "title": "create_task Response",
-  "description": "Response schema for create_task tool",
+  "description": "Response schema for create_task tool (ADR-0018: hypothesis-first)",
   "type": "object",
   "properties": {
     "ok": {
@@ -12,9 +12,9 @@
       "type": "string",
       "description": "Generated task ID"
     },
-    "query": {
+    "hypothesis": {
       "type": "string",
-      "description": "Research query"
+      "description": "Central hypothesis to verify (ADR-0018)"
     },
     "created_at": {
       "type": "string",
@@ -30,7 +30,7 @@
       "additionalProperties": false
     }
   },
-  "required": ["ok", "task_id", "query", "created_at", "budget"],
+  "required": ["ok", "task_id", "hypothesis", "created_at", "budget"],
   "additionalProperties": false
 }
 

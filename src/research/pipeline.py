@@ -1482,7 +1482,7 @@ class SearchPipeline:
                 {
                     "pair_id": "refutation_check",
                     "premise": passage,
-                    "hypothesis": claim_text,
+                    "nli_hypothesis": claim_text,
                 }
             ]
 
@@ -1616,4 +1616,5 @@ async def stop_task_action(
                 "primary_source_ratio": evidence_graph_summary.get("primary_source_ratio", 0.0),
             },
             "is_resumable": finalize_result.get("is_resumable", True),
+            "message": f"Task paused. Resume with queue_searches(task_id='{task_id}', queries=[...]).",
         }

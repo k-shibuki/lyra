@@ -68,7 +68,7 @@ async def test_persist_claim_embedding(test_database: Database) -> None:
     db = test_database
     # Create test task and claim
     await db.execute(
-        "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+        "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
         ("task_1", "test query", "completed"),
     )
     await db.execute(

@@ -30,7 +30,7 @@ These jobs run in the background and update `bayesian_truth_confidence` in the e
 
 | Tool | Description |
 |------|-------------|
-| `create_task` | Create research task with query and optional config (budget, priority_domains) |
+| `create_task` | Create research task with central hypothesis (ADR-0018) and optional config (budget, priority_domains) |
 | `get_status` | Get task progress; supports long-polling via `wait` parameter |
 | `stop_task` | Pause task session (graceful/immediate/full modes, scope parameter) |
 

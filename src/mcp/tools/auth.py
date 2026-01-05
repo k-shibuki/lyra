@@ -278,6 +278,9 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             count = result.get("skipped", 0)
             requeued_count = 0
 
+        message = f"{count} auth items resolved for {domain}."
+        if requeued_count > 0:
+            message += f" {requeued_count} blocked searches requeued and will retry automatically."
         return {
             "ok": True,
             "target": "domain",
@@ -285,6 +288,7 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             "action": action,
             "resolved_count": count,
             "requeued_count": requeued_count,  # ADR-0007
+            "message": message,
         }
 
     elif target == "task":

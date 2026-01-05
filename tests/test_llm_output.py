@@ -687,7 +687,7 @@ class TestParseAndValidate:
         # Given: Create a task first (for foreign key constraint)
         task_id = "test_task_123"
         await test_database.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "test query", "pending"),
         )
 

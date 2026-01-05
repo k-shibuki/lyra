@@ -76,7 +76,7 @@ class TestGetStatusWithExplorationState:
         """Create mock task data."""
         return {
             "id": "task_abc123",
-            "query": "Test research question",
+            "hypothesis": "Test research question",
             "status": "exploring",
             "created_at": "2024-01-15T10:00:00Z",
             "updated_at": "2024-01-15T10:30:00Z",
@@ -185,7 +185,7 @@ class TestGetStatusWithExplorationState:
         assert result["ok"] is True
         assert result["task_id"] == "task_abc123"
         assert result["status"] == "exploring"
-        assert result["query"] == "Test research question"
+        assert result["hypothesis"] == "Test research question"
         assert len(result["searches"]) == 2
         assert result["metrics"]["total_searches"] == 2
         assert result["metrics"]["satisfied_count"] == 1
@@ -370,7 +370,7 @@ class TestGetStatusWithoutExplorationState:
         """Create mock task data."""
         return {
             "id": "task_xyz789",
-            "query": "Another research question",
+            "hypothesis": "Another research question",
             "status": "pending",
             "created_at": "2024-01-15T11:00:00Z",
             "updated_at": "2024-01-15T11:00:00Z",
@@ -407,7 +407,7 @@ class TestGetStatusWithoutExplorationState:
         assert result["ok"] is True
         assert result["task_id"] == "task_xyz789"
         assert result["status"] == "pending"  # DB status is returned when no exploration state
-        assert result["query"] == "Another research question"
+        assert result["hypothesis"] == "Another research question"
         assert result["searches"] == []
         assert result["metrics"]["total_searches"] == 0
         assert result["metrics"]["total_pages"] == 0
@@ -427,7 +427,7 @@ class TestGetStatusStatusMapping:
         """Create base mock task."""
         return {
             "id": "task_test",
-            "query": "Test query",
+            "hypothesis": "Test query",
             "created_at": "2024-01-15T10:00:00Z",
             "updated_at": "2024-01-15T10:00:00Z",
         }
@@ -529,7 +529,7 @@ class TestGetStatusBlockedDomains:
         """Create mock task data."""
         return {
             "id": "task_blocked_test",
-            "query": "Test blocked domains",
+            "hypothesis": "Test blocked domains",
             "status": "exploring",
             "created_at": "2024-01-15T10:00:00Z",
         }
@@ -849,7 +849,7 @@ class TestGetStatusJobsSummary:
         """Create mock task data."""
         return {
             "id": "task_jobs_test",
-            "query": "Test research question",
+            "hypothesis": "Test research question",
             "status": "exploring",
             "created_at": "2024-01-15T10:00:00Z",
             "updated_at": "2024-01-15T10:30:00Z",

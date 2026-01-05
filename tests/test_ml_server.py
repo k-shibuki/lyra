@@ -569,7 +569,7 @@ class TestNLIService:
             # When
             result = await service.predict(
                 premise="The sky is blue.",
-                hypothesis="The weather is clear.",
+                nli_hypothesis="The weather is clear.",
             )
 
             # Then: load() was called
@@ -644,7 +644,7 @@ class TestNLIService:
             with pytest.raises(RuntimeError) as exc_info:
                 await service.predict(
                     premise="Test premise",
-                    hypothesis="Test hypothesis",
+                    nli_hypothesis="Test hypothesis",
                 )
 
             assert "NLI model loading failed" in str(exc_info.value)

@@ -83,7 +83,7 @@ class TestNormalCases:
         response = {
             "ok": True,
             "task_id": "task_abc123",
-            "query": "What is Python?",
+            "hypothesis": "What is Python?",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {
                 "budget_pages": 120,
@@ -109,7 +109,7 @@ class TestNormalCases:
             "ok": True,
             "task_id": "task_abc123",
             "status": "exploring",
-            "query": "What is Python?",
+            "hypothesis": "What is Python?",
             "searches": [
                 {
                     "id": "search_1",
@@ -254,7 +254,7 @@ class TestAbnormalCases:
         response = {
             "ok": True,
             "task_id": "task_abc123",
-            "query": "Test query",
+            "hypothesis": "Test hypothesis",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {"budget_pages": 120, "max_seconds": 1200},
             # Unknown fields
@@ -419,7 +419,7 @@ class TestAbnormalCases:
             "ok": True,
             "task_id": "task_abc123",
             "status": "exploring",
-            "query": "test",
+            "hypothesis": "test",
             "searches": [],
             "metrics": {
                 "total_searches": 0,
@@ -464,7 +464,7 @@ class TestBoundaryCases:
         response = {
             "ok": True,
             "task_id": "task_abc123",
-            "query": "test",
+            "hypothesis": "test",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {
                 "budget_pages": 120,
@@ -505,7 +505,7 @@ class TestBoundaryCases:
             "ok": True,
             "task_id": "task_abc123",
             "status": "exploring",
-            "query": "test",
+            "hypothesis": "test",
             "searches": searches,
             "metrics": {
                 "total_searches": 100,
@@ -609,7 +609,7 @@ class TestConvenienceFunctions:
         response = {
             "ok": True,
             "task_id": "task_abc",
-            "query": "test",
+            "hypothesis": "test",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {"budget_pages": 120, "max_seconds": 1200},
         }
@@ -723,7 +723,7 @@ class TestIntegration:
         raw_response = {
             "ok": True,
             "task_id": "task_test",
-            "query": "integration test",
+            "hypothesis": "integration test",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {"budget_pages": 100, "max_seconds": 600},
             # Simulated unknown field that might leak
@@ -777,7 +777,7 @@ class TestSecurityCases:
             "ok": True,
             "task_id": "task_abc",
             "status": "exploring",
-            "query": "test",
+            "hypothesis": "test",
             "searches": [
                 {
                     "id": "s1",
@@ -831,7 +831,7 @@ class TestSecurityCases:
             "ok": True,
             "task_id": "task_abc",
             "status": "exploring",
-            "query": "main query",
+            "hypothesis": "main hypothesis",
             "searches": [
                 {
                     "id": "s1",
@@ -867,8 +867,9 @@ class TestSecurityCases:
         result = sanitizer_with_prompt.sanitize_response(response, "get_status")
 
         # Query field should be processed (counted in llm_fields_processed)
-        # Note: The main "query" and nested "query" should both be processed
-        assert result.stats.llm_fields_processed >= 2
+        # Note: ADR-0018 renamed task-level "query" to "hypothesis"
+        # Only the search-level "query" is now processed as LLM content
+        assert result.stats.llm_fields_processed >= 1
 
     def test_query_field_in_llm_content_fields(self) -> None:
         """

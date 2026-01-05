@@ -148,7 +148,7 @@ class TestExplorationControlFlow:
 
         # Given: A task with a query containing entities
         task_id = await integration_db.create_task(
-            query="What are the environmental impacts of Toyota's EV production?",
+            hypothesis="What are the environmental impacts of Toyota's EV production?",
         )
 
         context = ResearchContext(task_id)
@@ -160,7 +160,7 @@ class TestExplorationControlFlow:
         # Then: Context contains entities and templates
         assert result["ok"] is True
         assert (
-            result["original_query"]
+            result["task_hypothesis"]
             == "What are the environmental impacts of Toyota's EV production?"
         )
         assert "extracted_entities" in result
@@ -172,7 +172,7 @@ class TestExplorationControlFlow:
         from src.research.state import ExplorationState, SearchStatus
 
         # Given: A task and exploration state
-        task_id = await integration_db.create_task(query="Research X")
+        task_id = await integration_db.create_task(hypothesis="Research X")
 
         state = ExplorationState(task_id)
         state._db = integration_db
@@ -630,7 +630,7 @@ class TestFullPipelineSimulation:
 
         # Given: A research query
         task_id = await integration_db.create_task(
-            query="What are the health effects of microplastics?"
+            hypothesis="What are the health effects of microplastics?"
         )
 
         # When: Get research context

@@ -104,7 +104,7 @@ async def sample_task_id(test_database: Database) -> str:
 
     Per schema: intervention_queue.task_id references tasks(id)
     """
-    task_id = await test_database.create_task(query="Test query for intervention queue")
+    task_id = await test_database.create_task(hypothesis="Test query for intervention queue")
     return task_id
 
 
@@ -456,8 +456,8 @@ class TestGetPending:
     ) -> None:
         """Test get_pending filters by task_id correctly."""
         # Given: Create two tasks and add items to each
-        task1 = await test_database.create_task(query="Task 1 query")
-        task2 = await test_database.create_task(query="Task 2 query")
+        task1 = await test_database.create_task(hypothesis="Task 1 query")
+        task2 = await test_database.create_task(hypothesis="Task 2 query")
 
         await queue_with_db.enqueue(
             task_id=task1,

@@ -116,12 +116,13 @@ Feedback data is stored across multiple tables:
 
 ```sql
 -- NLI edge corrections (for edge_correct)
+-- ADR-0018: nli_hypothesis renamed to avoid conflict with task.hypothesis
 CREATE TABLE nli_corrections (
     id TEXT PRIMARY KEY,
     edge_id TEXT NOT NULL,
     task_id TEXT,
     premise TEXT NOT NULL,
-    hypothesis TEXT NOT NULL,
+    nli_hypothesis TEXT NOT NULL,  -- The claim text used as NLI hypothesis
     predicted_label TEXT NOT NULL,
     predicted_confidence REAL NOT NULL,
     correct_label TEXT NOT NULL,

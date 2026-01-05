@@ -1,19 +1,19 @@
 """Tests for create_task MCP tool.
 
-Tests create_task handler behavior per ADR-0003.
+Tests create_task handler behavior per ADR-0003 and ADR-0018 (hypothesis-first).
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
-| TC-CT-N-01 | Valid query, budget_pages provided | Equivalence – normal | ok=True, budget.budget_pages returned | - |
-| TC-CT-N-02 | Valid query, default budget | Equivalence – normal | ok=True, budget_pages=120, max_seconds=1200 | Default values |
-| TC-CT-N-03 | Valid query, config omitted | Equivalence – normal | ok=True, default budget applied | - |
-| TC-CT-A-01 | Empty query string | Boundary – empty | InvalidParamsError | - |
-| TC-CT-A-02 | query missing | Boundary – NULL | KeyError or InvalidParamsError | - |
-| TC-CT-B-01 | budget_pages=0 | Boundary – zero | ok=True, budget_pages=0 | Zero allowed |
-| TC-CT-B-02 | budget_pages=-1 | Boundary – negative | ok=True, budget_pages=-1 | Negative allowed (validation elsewhere) |
-| TC-CT-B-03 | max_seconds=0 | Boundary – zero | ok=True, max_seconds=0 | Zero allowed |
-| TC-CT-B-04 | max_seconds=-1 | Boundary – negative | ok=True, max_seconds=-1 | Negative allowed (validation elsewhere) |
+|| TC-CT-N-01 | Valid hypothesis, budget_pages provided | Equivalence – normal | ok=True, budget.budget_pages returned | - |
+|| TC-CT-N-02 | Valid hypothesis, default budget | Equivalence – normal | ok=True, budget_pages=120, max_seconds=1200 | Default values |
+|| TC-CT-N-03 | Valid hypothesis, config omitted | Equivalence – normal | ok=True, default budget applied | - |
+|| TC-CT-A-01 | Empty hypothesis string | Boundary – empty | Task created (empty allowed) | - |
+|| TC-CT-A-02 | hypothesis missing | Boundary – NULL | KeyError | ADR-0018: hypothesis is required |
+|| TC-CT-B-01 | budget_pages=0 | Boundary – zero | ok=True, budget_pages=0 | Zero allowed |
+|| TC-CT-B-02 | budget_pages=-1 | Boundary – negative | ok=True, budget_pages=-1 | Negative allowed (validation elsewhere) |
+|| TC-CT-B-03 | max_seconds=0 | Boundary – zero | ok=True, max_seconds=0 | Zero allowed |
+|| TC-CT-B-04 | max_seconds=-1 | Boundary – negative | ok=True, max_seconds=-1 | Negative allowed (validation elsewhere) |
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-N-01: create_task returns budget_pages in response.
 
-        // Given: Valid query and budget config
+        // Given: Valid hypothesis and budget config (ADR-0018)
         // When: _handle_create_task is called
         // Then: ok=True and budget includes budget_pages
         """
@@ -48,13 +48,14 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "test query",
+                    "hypothesis": "DPP-4 inhibitors improve HbA1c",
                     "config": {"budget": {"budget_pages": 10, "max_seconds": 60}},
                 }
             )
 
         assert result["ok"] is True
         assert "task_id" in result
+        assert result["hypothesis"] == "DPP-4 inhibitors improve HbA1c"
         assert result["budget"]["budget_pages"] == 10
         assert result["budget"]["max_seconds"] == 60
 
@@ -63,7 +64,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-N-02: create_task uses default budget when not specified.
 
-        // Given: Valid query without budget config
+        // Given: Valid hypothesis without budget config (ADR-0018)
         // When: _handle_create_task is called
         // Then: ok=True and budget uses defaults (budget_pages=120, max_seconds=1200)
         """
@@ -74,7 +75,7 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "test query",
+                    "hypothesis": "test hypothesis",
                     "config": {},
                 }
             )
@@ -88,7 +89,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-N-03: create_task works when config is omitted.
 
-        // Given: Valid query without config
+        // Given: Valid hypothesis without config (ADR-0018)
         // When: _handle_create_task is called
         // Then: ok=True and default budget applied
         """
@@ -99,7 +100,7 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "test query",
+                    "hypothesis": "test hypothesis",
                 }
             )
 
@@ -108,11 +109,11 @@ class TestCreateTaskValidation:
         assert result["budget"]["max_seconds"] == 1200
 
     @pytest.mark.asyncio
-    async def test_create_task_empty_query(self, test_database: Database) -> None:
+    async def test_create_task_empty_hypothesis(self, test_database: Database) -> None:
         """
-        TC-CT-A-01: create_task rejects empty query string.
+        TC-CT-A-01: create_task allows empty hypothesis string.
 
-        // Given: Empty query string
+        // Given: Empty hypothesis string (ADR-0018)
         // When: _handle_create_task is called
         // Then: Task is created (empty string is allowed, validation elsewhere)
         """
@@ -123,20 +124,20 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "",
+                    "hypothesis": "",
                 }
             )
 
-        # Empty query is allowed (validation happens elsewhere)
+        # Empty hypothesis is allowed (validation happens elsewhere)
         assert result["ok"] is True
-        assert result["query"] == ""
+        assert result["hypothesis"] == ""
 
     @pytest.mark.asyncio
-    async def test_create_task_missing_query(self, test_database: Database) -> None:
+    async def test_create_task_missing_hypothesis(self, test_database: Database) -> None:
         """
-        TC-CT-A-02: create_task raises error when query is missing.
+        TC-CT-A-02: create_task raises error when hypothesis is missing.
 
-        // Given: query parameter missing
+        // Given: hypothesis parameter missing (ADR-0018)
         // When: _handle_create_task is called
         // Then: KeyError raised
         """
@@ -164,7 +165,7 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "test query",
+                    "hypothesis": "test hypothesis",
                     "config": {"budget": {"budget_pages": 0}},
                 }
             )
@@ -177,7 +178,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-B-02: create_task accepts negative budget_pages (validation elsewhere).
 
-        // Given: budget_pages=-1
+        // Given: budget_pages=-1 (ADR-0018)
         // When: _handle_create_task is called
         // Then: ok=True, budget_pages=-1 (validation happens elsewhere)
         """
@@ -188,7 +189,7 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "test query",
+                    "hypothesis": "test hypothesis",
                     "config": {"budget": {"budget_pages": -1}},
                 }
             )
@@ -201,7 +202,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-B-03: create_task accepts max_seconds=0.
 
-        // Given: max_seconds=0
+        // Given: max_seconds=0 (ADR-0018)
         // When: _handle_create_task is called
         // Then: ok=True, max_seconds=0
         """
@@ -212,7 +213,7 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "test query",
+                    "hypothesis": "test hypothesis",
                     "config": {"budget": {"max_seconds": 0}},
                 }
             )
@@ -225,7 +226,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-B-04: create_task accepts negative max_seconds (validation elsewhere).
 
-        // Given: max_seconds=-1
+        // Given: max_seconds=-1 (ADR-0018)
         // When: _handle_create_task is called
         // Then: ok=True, max_seconds=-1 (validation happens elsewhere)
         """
@@ -236,7 +237,7 @@ class TestCreateTaskValidation:
         with patch("src.storage.database.get_database", new=AsyncMock(return_value=db)):
             result = await _handle_create_task(
                 {
-                    "query": "test query",
+                    "hypothesis": "test hypothesis",
                     "config": {"budget": {"max_seconds": -1}},
                 }
             )

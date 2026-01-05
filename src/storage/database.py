@@ -307,13 +307,13 @@ class Database:
 
     async def create_task(
         self,
-        query: str,
+        hypothesis: str,
         config: dict[str, Any] | None = None,
     ) -> str:
         """Create a new research task.
 
         Args:
-            query: Research query.
+            hypothesis: Central hypothesis to verify (ADR-0018).
             config: Optional task configuration.
 
         Returns:
@@ -324,12 +324,12 @@ class Database:
             "tasks",
             {
                 "id": task_id,
-                "query": query,
+                "hypothesis": hypothesis,
                 "status": "pending",
                 "config_json": json.dumps(config) if config else None,
             },
         )
-        logger.info("Task created", task_id=task_id, query=query[:50])
+        logger.info("Task created", task_id=task_id, hypothesis=hypothesis[:50])
         return task_id
 
     async def update_task_status(

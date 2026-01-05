@@ -353,7 +353,7 @@ class TestQueueSearchesDedup:
         task_id = f"task_{uuid.uuid4().hex[:8]}"
 
         # Create task first
-        await db.insert("tasks", {"id": task_id, "query": "test", "status": "running"})
+        await db.insert("tasks", {"id": task_id, "hypothesis": "test", "status": "running"})
 
         # Queue first search
         input_data = {"query": "test query", "options": {}}
@@ -402,8 +402,8 @@ class TestQueueSearchesDedup:
         task_2 = f"task_2_{uuid.uuid4().hex[:8]}"
 
         # Create tasks
-        await db.insert("tasks", {"id": task_1, "query": "test", "status": "running"})
-        await db.insert("tasks", {"id": task_2, "query": "test", "status": "running"})
+        await db.insert("tasks", {"id": task_1, "hypothesis": "test", "status": "running"})
+        await db.insert("tasks", {"id": task_2, "hypothesis": "test", "status": "running"})
 
         # Queue search for task_1
         input_data = {"query": "shared query", "options": {}}
@@ -450,7 +450,7 @@ class TestQueueSearchesDedup:
         task_id = f"task_{uuid.uuid4().hex[:8]}"
 
         # Create task
-        await db.insert("tasks", {"id": task_id, "query": "test", "status": "running"})
+        await db.insert("tasks", {"id": task_id, "hypothesis": "test", "status": "running"})
 
         # Queue and complete search
         input_data = {"query": "requeue test", "options": {}}

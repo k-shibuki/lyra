@@ -40,7 +40,7 @@ class TestVerifyClaimsNli:
         page_id = "page_01"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Test query", "exploring"),
         )
         await db.execute(
@@ -122,7 +122,7 @@ class TestVerifyClaimsNli:
         task_id = "task_no_claims"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Empty task", "exploring"),
         )
 
@@ -146,7 +146,7 @@ class TestVerifyClaimsNli:
         claim_id = "claim_no_emb"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "No embedding task", "exploring"),
         )
         await db.execute(
@@ -181,7 +181,7 @@ class TestVerifyClaimsNli:
         page_id = "page_dup"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Dup test", "exploring"),
         )
         await db.execute(
@@ -257,7 +257,7 @@ class TestVerifyClaimsNli:
         page_id = "page_low_conf"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Low conf test", "exploring"),
         )
         await db.execute(
@@ -341,7 +341,7 @@ class TestVerifyClaimsNli:
         page_diff = "page_diff"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Origin exclusion test", "exploring"),
         )
         # Page with same domain as origin
@@ -444,7 +444,7 @@ class TestVerifyClaimsNli:
         claim_id = "claim_zero_pairs"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Zero pairs test", "exploring"),
         )
         await db.execute(
@@ -479,7 +479,7 @@ class TestVerifyClaimsNli:
         claim_id = "claim_max_dom"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Max domains test", "exploring"),
         )
         # Create pages from 3 different domains
@@ -558,7 +558,7 @@ class TestVerifyClaimsNli:
         page_id = "page_no_neutral"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "No neutral test", "exploring"),
         )
         await db.execute(
@@ -636,7 +636,7 @@ class TestEnqueueVerifyNliJob:
         task_id = "task_enqueue"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             (task_id, "Enqueue test", "exploring"),
         )
 
@@ -739,7 +739,7 @@ class TestDbUniqueConstraint:
         fragment_id = "frag_unique"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_unique", "Unique test", "exploring"),
         )
         await db.execute(
@@ -802,7 +802,7 @@ class TestDbUniqueConstraint:
         fragment_id = "frag_origin_ok"
 
         await db.execute(
-            "INSERT INTO tasks (id, query, status) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
             ("task_origin_ok", "Origin test", "exploring"),
         )
         await db.execute(

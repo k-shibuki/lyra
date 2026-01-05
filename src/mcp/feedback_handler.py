@@ -149,6 +149,7 @@ async def _handle_domain_block(args: dict[str, Any]) -> dict[str, Any]:
         "action": "domain_block",
         "domain_pattern": domain_pattern,
         "rule_id": rule_id,
+        "message": f"Domain '{domain_pattern}' blocked. Future searches will skip this domain.",
     }
 
 
@@ -435,13 +436,13 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
 
     db = await get_database()
 
-    # Get edge with premise/hypothesis from related entities
+    # Get edge with premise/nli_hypothesis from related entities (ADR-0018)
     edge = await db.fetch_one(
         """
         SELECT e.id, e.source_type, e.source_id, e.target_type, e.target_id,
                e.relation, e.nli_label, e.nli_edge_confidence,
                COALESCE(f.text_content, '') as premise,
-               COALESCE(c.claim_text, '') as hypothesis
+               COALESCE(c.claim_text, '') as nli_hypothesis
         FROM edges e
         LEFT JOIN fragments f ON e.source_type = 'fragment' AND e.source_id = f.id
         LEFT JOIN claims c ON e.target_type = 'claim' AND e.target_id = c.id
@@ -487,11 +488,11 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
 
     sample_id: str | None = None
     if is_correction:
-        # Insert nli_correction (only when label changes)
+        # Insert nli_correction (only when label changes) - ADR-0018: nli_hypothesis
         sample_id = f"nlc_{uuid.uuid4().hex[:12]}"
         await db.execute(
             """
-            INSERT INTO nli_corrections (id, edge_id, task_id, premise, hypothesis,
+            INSERT INTO nli_corrections (id, edge_id, task_id, premise, nli_hypothesis,
                                          predicted_label, predicted_confidence,
                                          correct_label, reason, corrected_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -501,7 +502,7 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
                 edge_id,
                 task_id,
                 edge.get("premise", ""),
-                edge.get("hypothesis", ""),
+                edge.get("nli_hypothesis", ""),
                 previous_relation,
                 predicted_confidence,
                 correct_relation,
@@ -555,6 +556,7 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
         "edge_id": edge_id,
         "previous_relation": previous_relation,
         "new_relation": correct_relation,
+        "message": f"Edge corrected: {previous_relation} → {correct_relation}. Saved for future model improvement.",
     }
     if sample_id is not None:
         response["sample_id"] = sample_id

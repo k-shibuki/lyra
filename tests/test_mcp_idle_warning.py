@@ -28,7 +28,7 @@ class TestMCPIdleWarning:
         """Create a mock database."""
         db = AsyncMock()
         db.fetch_one = AsyncMock(
-            return_value={"id": "test_task", "status": "created", "query": "test query"}
+            return_value={"id": "test_task", "status": "created", "hypothesis": "test hypothesis"}
         )
         db.fetch_all = AsyncMock(return_value=[])
         # Mock cursor with rowcount attribute for UPDATE operations
@@ -42,7 +42,7 @@ class TestMCPIdleWarning:
         """Create a mock ExplorationState with activity tracking."""
         state = MagicMock()
         state.task_id = "test_task"
-        state.original_query = "test query"
+        state.task_hypothesis = "test hypothesis"
         state.record_activity = MagicMock()
         state.get_idle_seconds = MagicMock(return_value=100)
         state.get_status = AsyncMock(

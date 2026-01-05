@@ -120,13 +120,13 @@ Lyra executes the following **based on MCP client instructions** (does not advan
 Exploration proceeds in an MCP client-driven loop:
 
 ```
-1. create_task(query)
-   └─ Lyra: Creates task, returns task_id
+1. create_task(hypothesis)
+   └─ Lyra: Creates task with central hypothesis (ADR-0018), returns task_id
 
-2. MCP Client: Designs query (this judgment is MCP client only)
+2. MCP Client: Designs search queries (this judgment is MCP client only)
 
-3. search(task_id, query)
-   └─ Lyra: Executes pipeline, returns result summary
+3. queue_searches(task_id, queries)
+   └─ Lyra: Queues searches, returns immediately (ADR-0010)
 
 4. get_status(task_id)
    └─ Lyra: Returns metrics only (no recommendations)
@@ -136,8 +136,8 @@ Exploration proceeds in an MCP client-driven loop:
 
 5. MCP Client: Evaluates situation, designs next query (repeats 3-4)
 
-6. search(task_id, query, refute=true)
-   └─ Lyra: Executes in refutation mode
+6. queue_searches(task_id, queries_for_refutation)
+   └─ Lyra: Queues refutation searches
 
 7. stop_task(task_id)
    └─ Lyra: Records final state to DB
@@ -145,6 +145,8 @@ Exploration proceeds in an MCP client-driven loop:
 8. query_sql(sql="SELECT * FROM v_contradictions ...") / vector_search(query="...", target="claims")
    └─ Lyra: Provides granular access to evidence graph via SQL and semantic search (per ADR-0017)
    └─ MCP Client: Explores graph iteratively, structures and writes report
+
+**Note**: Per ADR-0018, the task's `hypothesis` is used as context for claim extraction, providing focus for relevant claims. Search queries are designed by the MCP client to find evidence supporting or refuting this hypothesis.
 ```
 
 ### Concrete Example

@@ -103,7 +103,7 @@ class TestResearchContext:
         """
         # Given: A task with a query containing organization entity
         task_id = await test_database.create_task(
-            query="株式会社トヨタ自動車の2024年決算情報",
+            hypothesis="株式会社トヨタ自動車の2024年決算情報",
         )
         context = ResearchContext(task_id)
         context._db = test_database
@@ -114,7 +114,7 @@ class TestResearchContext:
         # Then: Context contains extracted entities
         assert result["ok"] is True
         assert result["task_id"] == task_id
-        assert result["original_query"] == "株式会社トヨタ自動車の2024年決算情報"
+        assert result["task_hypothesis"] == "株式会社トヨタ自動車の2024年決算情報"
         [e["type"] for e in result["extracted_entities"]]
         assert isinstance(result["extracted_entities"], list)
 
@@ -127,7 +127,7 @@ class TestResearchContext:
         """
         # Given: A task with research-related query
         task_id = await test_database.create_task(
-            query="機械学習の最新研究論文",
+            hypothesis="機械学習の最新研究論文",
         )
         context = ResearchContext(task_id)
         context._db = test_database
@@ -154,7 +154,7 @@ class TestResearchContext:
         """
         # Given: A task with any query
         task_id = await test_database.create_task(
-            query="AIの倫理的課題について",
+            hypothesis="AIの倫理的課題について",
         )
         context = ResearchContext(task_id)
         context._db = test_database
@@ -174,7 +174,7 @@ class TestResearchContext:
         Verify that get_context returns recommended search engines.
         """
         # Given: A task with a simple query
-        task_id = await test_database.create_task(query="test query")
+        task_id = await test_database.create_task(hypothesis="test query")
         context = ResearchContext(task_id)
         context._db = test_database
 
@@ -626,7 +626,7 @@ class TestExplorationState:
         Verify search registration and starting.
         """
         # Given: An exploration state for a task
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -650,7 +650,7 @@ class TestExplorationState:
         Verify page budget is tracked correctly.
         """
         # Given: An exploration state with small page limit
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
         state._budget_pages_limit = 10
@@ -675,7 +675,7 @@ class TestExplorationState:
         Now async per ADR-0007 changes.
         """
         # Given: An exploration state with 2 subqueries
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
         state.register_search("sq_001", "search 1", priority="high")
@@ -703,7 +703,7 @@ class TestExplorationState:
         """
 
         # Given: An exploration state with pending auth items
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -748,7 +748,7 @@ class TestExplorationState:
         """
 
         # Given: 3 pending auth items
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -787,7 +787,7 @@ class TestExplorationState:
         """
 
         # Given: 5 pending auth items
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -834,7 +834,7 @@ class TestExplorationState:
         """
 
         # Given: 2 high priority auth items
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -873,7 +873,7 @@ class TestExplorationState:
         of 'completed'/'partial' to indicate the task can be resumed.
         """
         # Given: 1 satisfied and 1 unsatisfied search
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -921,7 +921,7 @@ class TestExplorationStateBoundaryValues:
         // Then: Budget exceeded immediately
         """
         # Given: ExplorationState with zero page limit
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
         state._budget_pages_limit = 0
@@ -942,7 +942,7 @@ class TestExplorationStateBoundaryValues:
         // Then: Budget exceeded
         """
         # Given: ExplorationState at exact limit
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
         state._budget_pages_limit = 5
@@ -963,7 +963,7 @@ class TestExplorationStateBoundaryValues:
         // Then: Within budget
         """
         # Given: ExplorationState one below limit
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
         state._budget_pages_limit = 5
@@ -984,7 +984,7 @@ class TestExplorationStateBoundaryValues:
         // Then: Within budget with warning
         """
         # Given: ExplorationState at 81% usage
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
         state._budget_pages_limit = 100
@@ -1029,17 +1029,17 @@ class TestSearchExecutor:
         ADR-0002: Lyra only adds operators, does not design new queries.
         """
         # Given: A SearchExecutor and original query
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         executor = SearchExecutor(task_id, state)
 
-        original_query = "機械学習の研究論文"
+        task_hypothesis = "機械学習の研究論文"
 
         # When: Expand query
-        expanded = executor._expand_query(original_query)
+        expanded = executor._expand_query(task_hypothesis)
 
         # Then: Original is included and core term preserved
-        assert original_query in expanded
+        assert task_hypothesis in expanded
         for eq in expanded:
             assert "機械学習" in eq, f"Expected '機械学習' in expanded query: {eq}"
 
@@ -1219,7 +1219,7 @@ class TestRefutationExecutor:
         Verify reverse query generation is mechanical (suffix-based).
         """
         # Given: A RefutationExecutor and claim text
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
         executor = RefutationExecutor(task_id, state)
@@ -1251,7 +1251,7 @@ class TestRefutationExecutor:
         from src.research.refutation import RefutationExecutor
 
         # Given: Claim with source_url in verification_notes
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         claim_id = "claim_test_123"
         await test_database.execute(
             """
@@ -1298,7 +1298,7 @@ class TestRefutationExecutor:
         from src.research.refutation import RefutationExecutor
 
         # Given: Claim without source_url
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         claim_id = "claim_test_456"
         await test_database.execute(
             """
@@ -1376,7 +1376,7 @@ class TestExplorationIntegration:
         """
         # Given: A research task
         task_id = await test_database.create_task(
-            query="量子コンピュータの現状と課題",
+            hypothesis="量子コンピュータの現状と課題",
         )
 
         # When: Get research context
@@ -1469,7 +1469,7 @@ class TestResponsibilityBoundary:
         ADR-0002: Lyra provides support information, Cursor AI decides.
         """
         # Given: A ResearchContext
-        task_id = await test_database.create_task(query="test query")
+        task_id = await test_database.create_task(hypothesis="test query")
         context = ResearchContext(task_id)
         context._db = test_database
 
@@ -1508,7 +1508,7 @@ class TestStopTaskAction:
         from src.research.pipeline import stop_task_action
         from src.research.state import ExplorationState
 
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -1543,7 +1543,7 @@ class TestStopTaskAction:
         from src.research.pipeline import stop_task_action
         from src.research.state import ExplorationState
 
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 
@@ -1580,7 +1580,7 @@ class TestStopTaskAction:
         from src.research.pipeline import stop_task_action
         from src.research.state import ExplorationState
 
-        task_id = await test_database.create_task(query="test")
+        task_id = await test_database.create_task(hypothesis="test")
         state = ExplorationState(task_id)
         state._db = test_database
 

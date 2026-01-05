@@ -16,19 +16,23 @@
 - ADR-0005: Evidence Graph Structure（主張-断片-ページのグラフ構造）
 - ADR-0010: Async Search Queue（非同期検索キュー）
 - ADR-0012: Feedback Tool Design（ヒューマンフィードバック）
+- **ADR-0018: Task Hypothesis-First（仮説検証モデル、query→hypothesis リネーム）**
 
 ---
 
 ## 1. ケーススタディ設計
 
-### 1.1 研究課題
+### 1.1 研究仮説 (ADR-0018: Hypothesis-First)
 
-**メインクエリ（英語）**:
+**中心仮説（英語）**:
 
 ```
-What is the efficacy and safety of DPP-4 inhibitors as add-on therapy 
-for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?
+DPP-4 inhibitors as add-on therapy for type 2 diabetes patients 
+receiving insulin therapy with HbA1c ≥7% improve glycemic control 
+and have an acceptable safety profile.
 ```
+
+この仮説を検証するため、支持/反証の両方のエビデンスを収集する。
 
 ### 1.2 クエリ選定の根拠
 
@@ -100,9 +104,9 @@ make mcp
 
 ### 2.2 実験プロトコル
 
-#### 2.2.1 同一クエリの投入
+#### 2.2.1 クエリ設計
 
-**全ツールに同一の英語クエリを投入**:
+**商用ツール向けクエリ（質問形式）**:
 
 ```
 What is the efficacy and safety of DPP-4 inhibitors as add-on therapy 
@@ -118,28 +122,37 @@ Please provide:
 Cite primary sources (original papers, FDA labels, clinical guidelines).
 ```
 
+**Lyra向け（仮説検証形式）**: ADR-0018に基づき、検証対象の仮説を明示し、支持/反証クエリの両方を設計。
+
 #### 2.2.2 Lyraの実行手順
 
 **Step 1: タスク作成**
 
 ```
-create_task(query="What is the efficacy and safety of DPP-4 inhibitors...")
+create_task(hypothesis="DPP-4 inhibitors as add-on therapy for type 2 diabetes patients improve HbA1c and are safe")
 → task_id取得
 ```
 
 **Step 2: サブクエリ設計（Cursor AI）**
 
-Cursor AIがクエリを分解し、検索クエリを設計:
+Cursor AIがクエリを分解し、**支持クエリと反証クエリの両方**を設計（ADR-0018: バイアス軽減）:
 
 ```
 queue_searches(task_id, queries=[
-  "DPP-4 inhibitors efficacy meta-analysis HbA1c",
-  "DPP-4 inhibitors safety cardiovascular outcomes",
+  # 支持クエリ（efficacy）
+  "DPP-4 inhibitors efficacy meta-analysis HbA1c reduction",
   "sitagliptin add-on therapy insulin-treated HbA1c 7 RCT",
-  "DPP-4 inhibitors vs GLP-1 agonists comparison",
-  "FDA DPP-4 inhibitors approval label",
-  "EMA DPP-4 inhibitors EPAR",
-  "DPP-4 inhibitors hypoglycemia risk systematic review"
+  "DPP-4 inhibitors cardiovascular safety TECOS trial",
+  
+  # 反証クエリ（limitations, criticisms）
+  "DPP-4 inhibitors limitations systematic review",
+  "DPP-4 inhibitors vs GLP-1 agonists comparison disadvantages",
+  "DPP-4 inhibitors hypoglycemia risk concerns",
+  "DPP-4 inhibitors pancreatitis risk FDA warning",
+  
+  # 一次資料（regulatory）
+  "FDA DPP-4 inhibitors approval label sitagliptin",
+  "EMA DPP-4 inhibitors EPAR assessment"
 ])
 ```
 
@@ -271,12 +284,13 @@ Note: タスクは `paused` 状態になり、同じ `task_id` で `queue_search
 
 ```sql
 -- Deterministic sample of 30 Fragment->Claim edges for a task
+-- ADR-0018: nli_hypothesis = claim_text (NLI判定対象)
 SELECT
   e.id AS edge_id,
   e.nli_label,
   e.nli_edge_confidence,  -- NLI model output (calibrated)
   f.text_content AS premise,
-  c.claim_text AS hypothesis
+  c.claim_text AS nli_hypothesis  -- ADR-0018 terminology
 FROM edges e
 JOIN claims c
   ON e.target_type = 'claim' AND e.target_id = c.id
@@ -402,4 +416,5 @@ LIMIT 30;
 | 日付 | 内容 |
 |------|------|
 | 2025-12-26 | 初版作成 |
+| 2026-01-05 | ADR-0018対応（hypothesis-first, 反証クエリ追加） |
 
