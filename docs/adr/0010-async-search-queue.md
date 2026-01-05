@@ -1,7 +1,7 @@
 # ADR-0010: Async Search Queue Architecture
 
 ## Date
-2025-12-10
+2025-12-10 (Updated: 2026-01-05)
 
 ## Context
 
@@ -217,6 +217,39 @@ class StatusResult:
 - Queue items persist in `jobs` table with `kind = 'search_queue'`
 - Completed items store full result JSON for auditability
 
+### Job Chaining: search_queue → VERIFY_NLI / CITATION_GRAPH
+
+When a `search_queue` job completes successfully (pages_fetched > 0), it automatically enqueues follow-up jobs:
+
+```
+search_queue (completed)
+    │
+    ├──► VERIFY_NLI (enqueued, priority=45, slot=CPU_NLP)
+    │        │
+    │        ├── Vector search for candidate fragments (excluding origin domain)
+    │        ├── NLI judgment for each (fragment, claim) pair
+    │        └── INSERT OR IGNORE edges (supports/refutes/neutral)
+    │
+    └──► CITATION_GRAPH (enqueued, priority=50, slot=CPU_NLP)
+             │
+             ├── get_citation_graph for papers with abstracts
+             ├── Relevance filtering of citations
+             └── Persist CITES edges
+```
+
+**Key behaviors**:
+- Both jobs run on `CPU_NLP` slot (don't block browser/network resources)
+- `VERIFY_NLI`: Candidate fragments are filtered to exclude the claim's origin domain (no self-referencing)
+- `CITATION_GRAPH`: Uses separate budget (`citation_graph_budget_pages`) per ADR-0016
+- Duplicate `(fragment_id, claim_id)` pairs are skipped (DB unique index + application check)
+- If follow-up jobs fail, the `search_queue` result is unaffected (fire-and-forget)
+
+**Task status interactions**:
+- `paused` tasks: Already-enqueued `VERIFY_NLI` and `CITATION_GRAPH` jobs will complete
+- `stop_task(scope=search_queue_only)`: Does NOT cancel `VERIFY_NLI` or `CITATION_GRAPH` jobs
+- `stop_task(scope=all_jobs)`: Cancels all pending jobs including `VERIFY_NLI` and `CITATION_GRAPH`
+- Resuming a task with `queue_searches`: New searches may trigger additional follow-up jobs
+
 ### Query Deduplication
 
 - `queue_searches` checks for existing `queued`/`running` jobs with same query before inserting
@@ -224,17 +257,42 @@ class StatusResult:
 
 ### stop_task Semantics
 
+#### Scope Parameter
+
+`stop_task` accepts a `scope` parameter to control which job kinds are cancelled:
+
+| Scope | Cancelled Job Kinds | Unaffected Job Kinds |
+|-------|---------------------|---------------------|
+| `search_queue_only` (default) | `search_queue` | `verify_nli`, `citation_graph`, `embed`, `nli` |
+| `all_jobs` | All kinds for this task | None |
+
+**Rationale**: By default, stopping a task stops only the search pipeline. Verification and citation graph jobs, which process already-collected data, are allowed to complete. This provides better data consistency and avoids wasted work.
+
+#### Mode Behavior
+
 | Mode | Queued Items | Running Items | ML/NLI Operations |
 |------|--------------|---------------|-------------------|
 | `graceful` | → cancelled | Wait for completion (30s timeout) | Continue until job completes |
 | `immediate` | → cancelled | Cancel via `asyncio.Task.cancel()` | May be interrupted mid-flight |
 | `full` | → cancelled | Cancel via `asyncio.Task.cancel()` | Wait for drain (0.5s) |
 
+**Note**: Mode applies only to job kinds within the specified `scope`.
+
 **DB Impact on stop_task**:
-- `tasks.status` → `completed` (or `cancelled` if reason=user_cancelled)
-- `jobs.state` → `cancelled` for queued jobs (all modes) and running jobs (immediate/full modes)
-- `intervention_queue.status` → `cancelled` for pending auth items
+- `tasks.status` → `paused` (task is resumable; can call queue_searches again)
+- `jobs.state` → `cancelled` for jobs within scope (queued jobs in all modes, running jobs in immediate/full modes)
+- `intervention_queue.status` → `cancelled` for pending auth items (always cancelled)
 - Claims/fragments already persisted remain in DB for query_sql/vector_search
+
+**Response includes**:
+- `scope`: The scope that was applied
+- `cancelled_counts`: Breakdown by job kind and state (queued/running)
+- `unaffected_kinds`: List of job kinds that were NOT cancelled
+
+**Reason Semantics**:
+- `session_completed` (default): Session ends normally, task paused and resumable.
+- `budget_exhausted`: Budget depleted, task paused and resumable after budget increase.
+- `user_cancelled`: User explicitly cancelled, task paused (still resumable if desired).
 
 **Consistency**: Job's `state = 'cancelled'` in `jobs` table is authoritative record. Partial artifacts may exist but are filterable.
 

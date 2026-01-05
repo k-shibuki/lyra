@@ -172,15 +172,37 @@ get_status(task_id)
 → evidence_summary: {total_claims, total_fragments, supporting_edges, refuting_edges, ...}
 ```
 
+**自動クロスソース検証（VERIFY_NLI）**
+
+各 `search_queue` ジョブの完了後、Lyraは自動的に `VERIFY_NLI` ジョブをenqueueし、以下を実行:
+
+1. 新規Claimに対してベクトル検索で類似Fragmentを候補化
+2. Claimの出典ドメイン（origin）は除外（自己参照なし）
+3. NLIで stance（supports/refutes/neutral）を判定
+4. `edges` テーブルに永続化（重複は DB constraint で防止）
+
+これにより `v_claim_evidence_summary.bayesian_truth_confidence` が 0.5 から変動し始める。
+検証の進行状況は以下で確認可能:
+
+```
+# supports/refutes エッジの確認
+query_sql(sql="SELECT * FROM v_evidence_chain WHERE task_id = ? LIMIT 20")
+
+# ベイズ信頼度の確認
+query_sql(sql="SELECT claim_id, claim_text, bayesian_truth_confidence FROM v_claim_evidence_summary WHERE task_id = ? ORDER BY bayesian_truth_confidence DESC")
+```
+
 **Step 6: レポート構成（Cursor AI）**
 
 Cursor AIが `query_sql`/`vector_search` で取得した素材を統合してレポートを作成（ADR-0002）。
 
-**Step 7: タスク完了**
+**Step 7: セッション終了（タスクは再開可能）**
 
 ```
-stop_task(task_id, reason="completed")
+stop_task(task_id, reason="session_completed")
 ```
+
+Note: タスクは `paused` 状態になり、同じ `task_id` で `queue_searches` を呼び出すことで再開可能。
 
 #### 2.2.3 商用ツールの実行手順
 

@@ -1,7 +1,7 @@
 # ADR-0016: Unified Search Sources
 
 ## Date
-2025-12-26
+2025-12-26 (Updated: 2026-01-05)
 
 ## Context
 
@@ -123,8 +123,41 @@ Uses `CanonicalPaperIndex` (introduced in ADR-0008):
 - Ordering introduces delay
 - Parallel is simpler and faster
 
+## Execution Priority and Budget Separation
+
+### Web Fetch First
+
+To ensure SERP-derived web pages are fetched even when `cursor_idle_timeout_seconds` safe-stop occurs, execution order is:
+
+```
+1. Parallel: Browser SERP + Academic API
+2. Deduplication via CanonicalPaperIndex
+3. Web Fetch First: entries_needing_fetch (SERP-only, no abstract)
+4. Abstract Persist: papers with abstract (academic API results)
+5. Enqueue: CITATION_GRAPH job (deferred)
+```
+
+**Rationale**: Citation graph processing (`get_citation_graph` + relevance filtering + persist) can be time-consuming. If it runs before web fetching, SERP-only results (e.g., FDA.gov, Wikipedia) may never be fetched within the timeout budget.
+
+### Citation Graph as Deferred Job
+
+Citation graph processing is separated into a distinct job (`JobKind.CITATION_GRAPH`) with its own budget:
+
+| Aspect | search_queue Job | CITATION_GRAPH Job |
+|--------|------------------|-------------------|
+| Triggered by | `queue_searches` | After `search_queue` completion |
+| Budget | `budget_pages_limit`, `cursor_idle_timeout_seconds` | `citation_graph_budget_pages`, `citation_graph_max_seconds` |
+| Priority | 25 | 50 (lower than VERIFY_NLI) |
+| Slot | `network_client` | `cpu_nlp` |
+
+**Key behaviors**:
+- Citation graph does NOT consume search page budget
+- `stop_task(scope=search_queue_only)` does NOT cancel CITATION_GRAPH jobs
+- Already-enqueued CITATION_GRAPH jobs complete even after task is paused
+
 ## Related
 
 - [ADR-0008: Academic Data Source Strategy](0008-academic-data-source-strategy.md) - Academic API selection and CanonicalPaperIndex
+- [ADR-0010: Async Search Queue Architecture](0010-async-search-queue.md) - Job queue, stop_task scope
 - [ADR-0013: Worker Resource Contention Control](0013-worker-resource-contention.md) - Academic API rate limits
 - [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - Browser SERP resource control

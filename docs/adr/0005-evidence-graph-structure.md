@@ -132,17 +132,43 @@ Fragment  Fragment  Fragment
 
 | Edge | From | To | Description |
 |------|------|-----|-------------|
-| SUPPORTS | Fragment | Claim | Fragment supports claim |
-| REFUTES | Fragment | Claim | Fragment contradicts claim |
-| NEUTRAL | Fragment | Claim | Relationship unclear |
-| CITES | Page | Page | Citation relationship between sources |
-| EVIDENCE_SOURCE | Claim | Page | Claim is based on evidence from this page |
+| ORIGIN | Fragment | Claim | Provenance: which fragment a claim was extracted from |
+| SUPPORTS | Fragment | Claim | Fragment supports claim (cross-source verification) |
+| REFUTES | Fragment | Claim | Fragment contradicts claim (cross-source verification) |
+| NEUTRAL | Fragment | Claim | Relationship unclear (cross-source verification) |
+| CITES | Page | Page | Citation relationship between sources (deferred job) |
+| EVIDENCE_SOURCE | Claim | Page | Claim is based on evidence from this page (derived) |
 
 **Implementation note**:
-- `EXTRACTED_FROM (Fragment → Page)` is represented implicitly by the relational link `fragments.page_id → pages.id`,
-  not as an explicit `edges` record.
-- `CITES` is persisted as `edges` rows with `source_type='page'` and `target_type='page'`.
-- `EVIDENCE_SOURCE` is derived in-memory by `load_from_db()` from `fragment→claim` + `fragment.page_id` (not persisted to DB).
+- `ORIGIN` is persisted to DB when a claim is extracted from a fragment. It tracks provenance (where did this claim come from?), NOT whether the claim is true. Origin edges have `nli_label=NULL` and `nli_edge_confidence=NULL` since no NLI judgment is performed.
+- `SUPPORTS/REFUTES/NEUTRAL` are created when a *different* source is found that relates to the claim. These edges carry NLI model output. **Automatic creation**: When a `search_queue` job completes, Lyra automatically enqueues a `VERIFY_NLI` job that:
+  1. Uses vector search to find candidate fragments from other domains
+  2. Excludes fragments from the claim's origin domain (no self-referencing)
+  3. Runs NLI to determine stance
+  4. Persists edges with `INSERT OR IGNORE` (see "Duplicate Prevention" below)
+- `EXTRACTED_FROM (Fragment → Page)` is represented implicitly by the relational link `fragments.page_id → pages.id`, not as an explicit `edges` record.
+- `CITES` is persisted as `edges` rows with `source_type='page'` and `target_type='page'`. **Generation**: CITES edges are created by a deferred `CITATION_GRAPH` job (per ADR-0016), NOT during the search pipeline. This ensures web page fetching is prioritized over citation graph processing.
+- `EVIDENCE_SOURCE` is derived in-memory by `load_from_db()` from `origin` + NLI fragment→claim edges + `fragment.page_id` (not persisted to DB).
+
+### Duplicate Prevention (NLI Edges)
+
+The same `(fragment_id, claim_id)` pair is evaluated **only once** for NLI. Re-evaluation is prevented by:
+
+1. **DB Constraint**: A partial unique index on `edges`:
+   ```sql
+   CREATE UNIQUE INDEX idx_edges_nli_unique
+     ON edges(source_type, source_id, target_type, target_id)
+     WHERE source_type = 'fragment'
+       AND target_type = 'claim'
+       AND relation IN ('supports', 'refutes', 'neutral');
+   ```
+2. **Application-Level Check**: Before running NLI, existing edges are queried to skip already-evaluated pairs.
+3. **INSERT OR IGNORE**: Edge insertion uses `INSERT OR IGNORE` to gracefully handle race conditions.
+
+This ensures:
+- No duplicate NLI work for the same fragment-claim pair
+- `origin` edges are unaffected (different relation type)
+- Task resumption (`paused` → `exploring`) doesn't re-evaluate existing pairs
 
 ### Confidence Calculation (Bayesian Approach)
 
@@ -151,6 +177,8 @@ Current implementation uses **Beta distribution updating** (conjugate prior) wit
 - Evidence edges carry `edges.nli_edge_confidence` (NLI model output, calibrated).
 - For a claim, all incoming evidence edges of type `supports/refutes/neutral` are collected.
 - Only `supports/refutes` update the posterior; `neutral` is treated as "no information".
+- **`origin` edges are NOT used in Bayesian update** - they track provenance only. A newly extracted claim starts at `bayesian_truth_confidence = 0.5` (uninformative prior) until cross-source evidence is found.
+- **Automatic verification**: After each `search_queue` completion, a `VERIFY_NLI` job runs to find cross-source evidence. This is when `bayesian_truth_confidence` begins to diverge from 0.5.
 
 Implementation-equivalent formulation:
 
