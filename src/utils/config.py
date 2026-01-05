@@ -23,7 +23,7 @@ class TaskLimitsConfig(BaseModel):
     llm_time_ratio_max: float = 0.30
     max_manual_interventions: int = 3
     max_manual_intervention_time_minutes: int = 5
-    cursor_idle_timeout_seconds: int = 60  # ADR-0002: Cursor AI idle timeout
+    cursor_idle_timeout_seconds: int = 180  # ADR-0002: Per-search timeout (allows full pipeline)
     auth_queue_ttl_hours: int = 3  # Default expiration for intervention queue items
 
 
