@@ -72,7 +72,7 @@ Each edge carries calibrated NLI confidence, and claims accumulate Bayesian conf
 ### WSL2 Setup
 
 ```bash
-sudo apt install -y curl git make podman podman-compose
+sudo apt install -y curl git make podman podman-compose shellcheck
 
 # GPU support (recommended) - requires NVIDIA repository
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
@@ -91,7 +91,7 @@ Install Chrome on Windows and keep the default path:
 
 ```bash
 # Core dependencies (make is required for build commands)
-sudo apt install -y curl git make podman podman-compose libcurl4-openssl-dev
+sudo apt install -y curl git make podman podman-compose libcurl4-openssl-dev shellcheck
 
 # Rust toolchain (required for building sudachipy - Japanese NLP tokenizer)
 # Note: apt's rustc is too old; use rustup for latest version
@@ -149,7 +149,22 @@ Edit `.env` if you need to customize settings.
 mkdir -p .cursor && cp config/mcp-config.example.json .cursor/mcp.json
 ```
 
-For other clients, copy `config/mcp-config.example.json` to your client's config location.
+**Important**: Edit `.cursor/mcp.json` and update the path to match your installation:
+
+```json
+{
+  "mcpServers": {
+    "lyra": {
+      "command": "/full/path/to/lyra/scripts/mcp.sh",
+      "args": []
+    }
+  }
+}
+```
+
+Replace `/full/path/to/lyra` with your actual Lyra installation path (e.g., `/home/username/Projects/lyra`).
+
+For other clients, copy `config/mcp-config.example.json` to your client's config location and adjust the path accordingly.
 
 ## Usage Example
 

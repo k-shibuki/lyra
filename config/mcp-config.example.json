@@ -1,11 +1,8 @@
 {
   "mcpServers": {
     "lyra": {
-      "command": "bash",
-      "args": [
-        "./scripts/mcp.sh"
-      ]
+      "command": "/path/to/lyra/scripts/mcp.sh",
+      "args": []
     }
   }
 }
-

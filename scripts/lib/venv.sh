@@ -1,8 +1,7 @@
 #!/bin/bash
 # Lyra shell - venv management (uv)
-
-VENV_DIR="${PROJECT_DIR}/.venv"
-export VENV_DIR
+#
+# Note: VENV_DIR is defined in paths.sh (loaded earlier by common.sh)
 
 # Function: ensure_venv
 # Description: Check if venv exists, fail if not

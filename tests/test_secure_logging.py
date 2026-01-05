@@ -222,11 +222,11 @@ class TestSecureLoggerAbnormal:
         // Then: Paths are removed/masked
         """
         try:
-            raise FileNotFoundError("Cannot open /home/statuser/lyra/secrets.txt")
+            raise FileNotFoundError("Cannot open /home/testuser/lyra/secrets.txt")
         except Exception as e:
             result = secure_logger.log_exception(e)
 
-            assert "/home/statuser" not in result.sanitized_message
+            assert "/home/testuser" not in result.sanitized_message
 
 
 # ============================================================================

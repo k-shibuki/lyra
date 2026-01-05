@@ -40,7 +40,7 @@ cmd_check() {
     
     # Check 1: Environment detection
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        echo "[1/13] Environment..."
+        echo "[1/14] Environment..."
     fi
     local env_type
     env_type=$(detect_env)
@@ -62,7 +62,7 @@ cmd_check() {
     # Check 2: make
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[2/13] make..."
+        echo "[2/14] make..."
     fi
     if check_make; then
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
@@ -81,7 +81,7 @@ cmd_check() {
     # Check 3: curl
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[3/13] curl..."
+        echo "[3/14] curl..."
     fi
     if check_command curl; then
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
@@ -100,7 +100,7 @@ cmd_check() {
     # Check 4: uv
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[4/13] uv..."
+        echo "[4/14] uv..."
     fi
     if check_command uv; then
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
@@ -120,7 +120,7 @@ cmd_check() {
     # Check 5: Python environment (.venv + version)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[5/13] Python environment..."
+        echo "[5/14] Python environment..."
     fi
     if check_dir "${VENV_DIR}"; then
         if check_python_version "${VENV_DIR}/bin/python"; then
@@ -154,7 +154,7 @@ cmd_check() {
     # Check 6: Rust toolchain (sudachipy build)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[6/13] Rust toolchain..."
+        echo "[6/14] Rust toolchain..."
     fi
     local rust_min="1.82.0"
     if check_rustc; then
@@ -201,7 +201,7 @@ cmd_check() {
     # Check 7: Container runtime (podman or docker)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[7/13] Container runtime..."
+        echo "[7/14] Container runtime..."
     fi
     local has_podman="false"
     if check_command podman && check_command podman-compose; then
@@ -242,7 +242,7 @@ cmd_check() {
     # Check 8: GPU presence (nvidia-smi)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[8/13] GPU (nvidia-smi)..."
+        echo "[8/14] GPU (nvidia-smi)..."
     fi
     if check_gpu; then
         local gpu_info
@@ -268,7 +268,7 @@ cmd_check() {
     # Check 9: Container GPU readiness (Podman CDI / Docker nvidia-container-toolkit)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[9/13] GPU (Container Runtime)..."
+        echo "[9/14] GPU (Container Runtime)..."
     fi
     if check_gpu; then
         if [[ "$has_podman" == "true" ]]; then
@@ -340,7 +340,7 @@ cmd_check() {
     # Check 10: Disk space (~25GB required)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[10/13] Disk space..."
+        echo "[10/14] Disk space..."
     fi
     local required_mb=25000
     if check_disk_space "$required_mb"; then
@@ -370,7 +370,7 @@ cmd_check() {
     # Check 11: Chrome installed
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[11/13] Chrome installed..."
+        echo "[11/14] Chrome installed..."
     fi
     if check_chrome_installed; then
         local chrome_path
@@ -408,7 +408,7 @@ cmd_check() {
     if [[ "$env_type" == "wsl" ]]; then
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
             echo ""
-            echo "[12/13] Chrome/CDP (WSL)..."
+            echo "[12/14] Chrome/CDP (WSL)..."
         fi
         
         # Check PowerShell
@@ -445,7 +445,7 @@ cmd_check() {
     else
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
             echo ""
-            echo "[12/13] Chrome/CDP..."
+            echo "[12/14] Chrome/CDP..."
             echo "  - Skipped (not WSL)"
         fi
     fi
@@ -453,7 +453,7 @@ cmd_check() {
     # Check 13: Configuration files
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[13/13] Configuration..."
+        echo "[13/14] Configuration..."
     fi
     if check_file "${PROJECT_DIR}/.env"; then
         if check_env_permissions "${PROJECT_DIR}/.env"; then
@@ -480,6 +480,25 @@ cmd_check() {
             echo "    -> Create: cp .env.example .env"
         fi
         ((issues++)) || true
+    fi
+    
+    # Check 14: shellcheck (development tool, warning only)
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo ""
+        echo "[14/14] Development tools..."
+    fi
+    if check_command shellcheck; then
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            echo "  ✓ shellcheck found"
+        fi
+    else
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            json_parts+=("$(json_kv "shellcheck" "missing")")
+        else
+            echo "  ⚠ shellcheck not found (optional, for make quality)"
+            echo "    -> Install: sudo apt install -y shellcheck"
+        fi
+        ((warnings++)) || true
     fi
     
     # Summary
@@ -512,7 +531,7 @@ cmd_check() {
             fi
             echo ""
             echo "Quick fix:"
-            echo "  sudo apt install -y make curl podman podman-compose"
+            echo "  sudo apt install -y make curl podman podman-compose shellcheck"
             echo "  curl -LsSf https://astral.sh/uv/install.sh | sh && source \$HOME/.local/bin/env"
             echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source \$HOME/.cargo/env"
             echo "  # For Podman GPU (CDI): install NVIDIA Container Toolkit + generate /etc/cdi/nvidia.yaml"

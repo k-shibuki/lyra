@@ -363,13 +363,13 @@ class TestAbnormalCases:
         // Then: Paths are removed
         """
         try:
-            raise FileNotFoundError("Cannot find /home/statuser/lyra/secret.txt")
+            raise FileNotFoundError("Cannot find /home/testuser/lyra/secret.txt")
         except Exception as e:
             result = sanitizer.sanitize_error(e)
 
         assert "ok" in result
         assert result["ok"] is False
-        assert "/home/statuser" not in result["error"]
+        assert "/home/testuser" not in result["error"]
         assert "[PATH]" in result["error"] or "secret.txt" not in result["error"]
 
     def test_tool_without_schema_passes_through(self, sanitizer: ResponseSanitizer) -> None:

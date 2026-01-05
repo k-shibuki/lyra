@@ -172,15 +172,9 @@ require_host_execution "mcp.sh" "runs MCP server on WSL host and connects to Cur
 # 1. Setup venv if needed (uses common.sh function)
 setup_venv "mcp"
 
-# Install Playwright browsers if needed (first run only)
-# Note: -d doesn't work with globs, so we use ls to check
-if ! ls -d "${VENV_DIR}/lib/python"*"/site-packages/playwright" >/dev/null 2>&1 || \
-   [[ ! -d "$HOME/.cache/ms-playwright" ]]; then
-    log_info "Installing Playwright browsers..." >&2
-    uv run playwright install chromium --with-deps 2>/dev/null || {
-        log_warn "Playwright browser install failed. May need manual installation." >&2
-    }
-fi
+# Note: Playwright browsers (chromium, firefox, webkit) are NOT needed.
+# Lyra uses Chrome CDP connection only (ADR-0006: real profile consistency).
+# The Playwright library is used solely for its CDP client, not its browsers.
 
 # 2. Activate venv
 # shellcheck source=/dev/null

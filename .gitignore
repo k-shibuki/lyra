@@ -145,6 +145,10 @@ htmlcov/
 # Debug logs (runtime instrumentation output)
 .cursor/debug.log
 debug.log
+
+# Cursor MCP config (contains user-specific absolute paths)
+# Use: cp config/mcp-config.example.json .cursor/mcp.json
+.cursor/mcp.json
 *.debug.log
 
 # Debug HTML files (parser diagnostics)
