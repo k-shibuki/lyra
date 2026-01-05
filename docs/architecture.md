@@ -2,49 +2,43 @@
 
 ## Overview
 
-Lyra is an AI-powered academic research assistant that runs as an MCP (Model Context Protocol) server. It uses a hybrid architecture where the MCP server runs on the host (WSL2/Linux) while inference services run in containers.
+Lyra is an open-source server implementing the Model Context Protocol (MCP)—a standard interface for connecting AI assistants to external tools—that enables AI assistants to conduct desktop research with structured provenance, providing accurate and auditable evidence. The software exposes research capabilities—web search, content extraction, natural language inference, and evidence graph construction—as structured tools that MCP-compatible AI clients can invoke directly.
+
+The architecture separates strategic reasoning (performed by the AI assistant in the MCP client) from mechanical execution (evidence discovery, classification, and scoring). Lyra uses a hybrid architecture where the MCP server runs on the host (WSL2/Linux) while inference services run in network-isolated containers.
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ WSL2/Linux Host                                                 │
-│                                                                 │
-│  ┌─────────────┐   stdio    ┌────────────────────────────────┐ │
-│  │ Cursor/MCP  │◄──────────►│ MCP Server (scripts/mcp.sh)    │ │
-│  │   Client    │            │   - Python + uv venv           │ │
-│  └─────────────┘            │   - Evidence Graph (SQLite)    │ │
-│                             │   - Search orchestration       │ │
-│                             └───────────┬───────┬────────────┘ │
-│                                         │       │               │
-│                              HTTP       │       │ Playwright    │
-│                              :8080      │       ▼               │
-│                                         │  ┌─────────┐          │
-│                                         │  │ Chrome  │─────────────────►
-│                                         │  └─────────┘          │  Internet
-│                                         ▼                       │
-└─────────────────────────────────────────────────────────────────┘
-                                          │
-┌─────────────────────────────────────────│───────────────────────┐
-│ Containers (Podman/Docker)              │                       │
-│                                         ▼                       │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                       proxy                               │   │
-│  │        Bridge: Host MCP ↔ Internal Services               │   │
-│  └────────┬─────────────────────────────────────────┬───────┘   │
-│           │                                         │            │
-│           │ lyra-internal                           │ lyra-net   │
-│           ▼                                         ▼            │
-│  ┌────────────────────────────────────────┐  ┌────────────────┐ │
-│  │    lyra-internal (isolated, no inet)   │  │    lyra-net    │ │
-│  │  ┌────────────┐     ┌────────────┐     │  │   (external)   │ │
-│  │  │   ollama   │     │     ml     │     │  │ ┌────────────┐ │ │
-│  │  │  LLM(GPU)  │     │ Embed/NLI  │     │  │ │    tor     │───────────►
-│  │  │ qwen2.5:3b │     │ bge-m3,NLI │     │  │ │SOCKS Proxy │ │ │ Internet
-│  │  └────────────┘     └────────────┘     │  │ │ Anonymous  │ │ │
-│  │       GPU                GPU           │  │ └────────────┘ │ │
-│  └────────────────────────────────────────┘  └────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+See [figures/figure1-architecture.mmd](figures/figure1-architecture.mmd) for the Mermaid source.
+
+```mermaid
+flowchart TB
+    subgraph Host["WSL2/Linux Host"]
+        MCP["MCP Client<br/>(Claude, etc.)"]
+        Server["MCP Server<br/>+ Evidence Graph"]
+        Chrome["Chrome"]
+    end
+    subgraph Containers["Containers (Podman)"]
+        subgraph lyra-internal["lyra-internal (isolated)"]
+            Ollama["ollama<br/>qwen2.5:3b"]
+            ML["ml<br/>BGE-M3, NLI"]
+        end
+        Proxy["proxy"]
+        subgraph lyra-net["lyra-net"]
+            Tor["tor"]
+        end
+    end
+    Internet((Internet))
+    Academic["Academic APIs<br/>(S2, OpenAlex)"]
+    MCP <-->|stdio| Server
+    Server --> Chrome
+    Server --> Academic
+    Chrome --> Internet
+    Academic --> Internet
+    Server <-->|HTTP| Proxy
+    Proxy <--> Ollama
+    Proxy <--> ML
+    Proxy <--> Tor
+    Tor <-->|SOCKS| Internet
 ```
 
 ## Components
@@ -83,46 +77,37 @@ The compose scripts (`scripts/lib/compose.sh`) handle this automatically via ove
 
 ## Data Flow
 
-```
-User Query
-    │
-    ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  MCP Client     │────►│  MCP Server     │────►│  Search Queue   │
-│  (Cursor)       │     │  (Host)         │     │                 │
-└─────────────────┘     └────────┬────────┘     └────────┬────────┘
-                                 │                       │
-                    ┌────────────┴────────────┐          │
-                    ▼                         ▼          ▼
-             ┌──────────┐              ┌──────────┐  ┌──────────┐
-             │  Chrome  │              │   Tor    │  │ Academic │
-             │ (Browser)│              │  Proxy   │  │   APIs   │
-             └────┬─────┘              └────┬─────┘  └────┬─────┘
-                  │                         │             │
-                  ▼                         ▼             ▼
-             ┌────────────────────────────────────────────────┐
-             │                   Internet                      │
-             └────────────────────────────────────────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │   Content Extraction    │
-                    │   (trafilatura, etc.)   │
-                    └────────────┬────────────┘
-                                 │
-                    ┌────────────┴────────────┐
-                    ▼                         ▼
-             ┌──────────┐              ┌──────────┐
-             │  Ollama  │              │    ML    │
-             │  (LLM)   │              │ Embed/NLI│
-             └──────────┘              └──────────┘
-                    │                         │
-                    └────────────┬────────────┘
-                                 ▼
-                    ┌─────────────────────────┐
-                    │    Evidence Graph       │
-                    │    (SQLite)             │
-                    └─────────────────────────┘
+```mermaid
+flowchart TB
+    Query["User Query"]
+    MCP["MCP Client<br/>(Cursor)"]
+    Server["MCP Server<br/>(Host)"]
+    Queue["Search Queue"]
+    
+    Chrome["Chrome<br/>(Browser)"]
+    Tor["Tor<br/>Proxy"]
+    Academic["Academic<br/>APIs"]
+    Internet((Internet))
+    
+    Extract["Content Extraction<br/>(trafilatura, etc.)"]
+    Ollama["Ollama<br/>(LLM)"]
+    ML["ML<br/>Embed/NLI"]
+    Graph["Evidence Graph<br/>(SQLite)"]
+    
+    Query --> MCP --> Server --> Queue
+    Server --> Chrome
+    Server --> Tor
+    Queue --> Academic
+    
+    Chrome --> Internet
+    Tor --> Internet
+    Academic --> Internet
+    
+    Internet --> Extract
+    Extract --> Ollama
+    Extract --> ML
+    Ollama --> Graph
+    ML --> Graph
 ```
 
 ## Security Model

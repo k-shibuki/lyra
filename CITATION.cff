@@ -21,8 +21,11 @@ keywords:
   - MCP
   - research automation
 abstract: >-
-  Lyra is an AI-powered academic research assistant that enables
-  transparent, traceable evidence collection with zero operational cost.
-  It implements the Model Context Protocol (MCP) to expose research
-  capabilities as structured tools, maintaining complete local data
-  sovereignty while leveraging frontier AI reasoning capabilities.
+  Lyra is an open-source server implementing the Model Context Protocol (MCP)
+  that enables AI assistants to conduct desktop research with structured
+  provenance, providing accurate and auditable evidence. The software exposes
+  research capabilities—web search, content extraction, natural language
+  inference, and evidence graph construction—as structured tools that
+  MCP-compatible AI clients can invoke directly. Every claim links to source
+  fragments, which link to page URLs, creating an auditable chain from
+  assertion to origin.

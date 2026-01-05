@@ -10,10 +10,15 @@ _GPU_WARNING_SHOWN="${_GPU_WARNING_SHOWN:-false}"
 
 # Function: detect_gpu
 # Description: Detect if NVIDIA GPU is available for container use
+#              Can be explicitly disabled via LYRA_DISABLE_GPU=1
 # Returns:
-#   0: GPU is available
-#   1: GPU not available
+#   0: GPU is available and not explicitly disabled
+#   1: GPU not available or disabled
 detect_gpu() {
+    # Allow explicit opt-out for CPU-only mode
+    if [[ "${LYRA_DISABLE_GPU:-}" == "1" ]]; then
+        return 1
+    fi
     # Check if nvidia-smi command exists and works
     if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
         return 0
@@ -21,12 +26,37 @@ detect_gpu() {
     return 1
 }
 
+# Function: detect_podman_cdi_ready
+# Description: Detect if Podman GPU CDI is configured (required for nvidia.com/gpu=all)
+# Returns:
+#   0: CDI appears ready
+#   1: Not ready
+detect_podman_cdi_ready() {
+    command -v nvidia-ctk &> /dev/null && [[ -f /etc/cdi/nvidia.yaml ]]
+}
+
+# Function: require_podman_cdi_or_fail
+# Description: Fail fast with actionable message when GPU is present but Podman CDI is missing
+# Returns:
+#   Exits with EXIT_DEPENDENCY
+require_podman_cdi_or_fail() {
+    if detect_podman_cdi_ready; then
+        return 0
+    fi
+    output_error "$EXIT_DEPENDENCY" "GPU detected but Podman CDI is not configured (nvidia.com/gpu=all is unresolvable)" \
+        "hint=curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list && sudo apt update && sudo apt install -y nvidia-container-toolkit && sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+}
+
 # Function: _log_gpu_warning
 # Description: Log GPU warning once (internal helper)
 _log_gpu_warning() {
     if [[ "$_GPU_WARNING_SHOWN" != "true" ]]; then
-        log_warn "GPU not detected. Running in CPU mode (inference will be significantly slower)."
-        log_warn "For GPU support, install nvidia-container-toolkit and run: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+        if [[ "${LYRA_DISABLE_GPU:-}" == "1" ]]; then
+            log_info "GPU disabled (LYRA_DISABLE_GPU=1). Running in CPU mode."
+        else
+            log_warn "GPU not detected. Running in CPU mode (inference will be significantly slower)."
+            log_warn "For GPU support, install nvidia-container-toolkit and run: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+        fi
         _GPU_WARNING_SHOWN=true
         export _GPU_WARNING_SHOWN
     fi
@@ -50,16 +80,18 @@ get_compose_cmd() {
     # LYRA_COMPOSE_RUNTIME=docker or LYRA_COMPOSE_RUNTIME=podman
     local force_runtime="${LYRA_COMPOSE_RUNTIME:-}"
     
-    # Detect GPU availability
-    local gpu_available=false
-    if detect_gpu; then
-        gpu_available=true
-    else
-        _log_gpu_warning
-    fi
-    
     # Podman (if not forcing docker)
     if [[ "$force_runtime" != "docker" ]] && command -v podman-compose &> /dev/null; then
+        # Detect GPU availability
+        local gpu_available=false
+        if detect_gpu; then
+            # Fail-fast: if GPU exists, Podman CDI must be configured before applying GPU overlay
+            require_podman_cdi_or_fail
+            gpu_available=true
+        else
+            _log_gpu_warning
+        fi
+
         local cmd="podman-compose -p ${project_name} -f ${compose_dir}/podman-compose.yml"
         if [[ "$gpu_available" == "true" ]]; then
             cmd="$cmd -f ${compose_dir}/podman-compose.gpu.yml"
@@ -70,6 +102,14 @@ get_compose_cmd() {
     
     # Docker (if not forcing podman)
     if [[ "$force_runtime" != "podman" ]] && command -v docker &> /dev/null; then
+        # Detect GPU availability (Docker GPU preflight is handled by Docker runtime; we only gate on nvidia-smi)
+        local gpu_available=false
+        if detect_gpu; then
+            gpu_available=true
+        else
+            _log_gpu_warning
+        fi
+
         # Docker Compose V2 (docker compose)
         if docker compose version &> /dev/null; then
             local cmd="docker compose -p ${project_name} -f ${compose_dir}/docker-compose.yml"

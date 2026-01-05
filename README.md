@@ -64,31 +64,48 @@ Each edge carries calibrated NLI confidence, and claims accumulate Bayesian conf
 - **Linux** (WSL2 or Native Ubuntu Desktop 24.04 LTS)
 - **Python 3.14+** (managed via `uv`)
 - **Podman** or **Docker**
-- **Chrome/Chromium** (for browser automation)
+- **Browser for automation (CDP)**:
+  - **WSL2**: Windows **Google Chrome** (required; fixed path)
+  - **Native Linux**: **Google Chrome** (recommended) or **Chromium** (supported)
 - **NVIDIA GPU** (recommended, optional - CPU fallback available)
 
 ### WSL2 Setup
 
 ```bash
-sudo apt install -y curl git podman podman-compose
+sudo apt install -y curl git make podman podman-compose
 
-# GPU support (recommended)
-sudo apt install -y nvidia-container-toolkit
+# GPU support (recommended) - requires NVIDIA repository
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt update && sudo apt install -y nvidia-container-toolkit
 sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ```
+
+Browser automation on WSL2 uses **Windows Google Chrome** via CDP.
+Install Chrome on Windows and keep the default path:
+`C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe`
 
 ### Native Linux (Ubuntu) Setup
 
 ```bash
-# Python 3.14 (if not available in your distro)
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt install -y python3.14 python3.14-venv
+# Core dependencies (make is required for build commands)
+sudo apt install -y curl git make podman podman-compose libcurl4-openssl-dev
 
-# Core dependencies
-sudo apt install -y curl git podman podman-compose libcurl4-openssl-dev
+# Rust toolchain (required for building sudachipy - Japanese NLP tokenizer)
+# Note: apt's rustc is too old; use rustup for latest version
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source $HOME/.cargo/env
 
 # Browser automation
-sudo apt install -y google-chrome-stable  # or chromium-browser
+# Option A: Google Chrome (recommended; official repo)
+curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+sudo apt update && sudo apt install -y google-chrome-stable
+#
+# Option B: Chromium (supported; easier but less stable)
+# sudo snap install chromium
 
 # Desktop notifications (optional)
 sudo apt install -y libnotify-bin
@@ -96,20 +113,34 @@ sudo apt install -y libnotify-bin
 # Window activation for CAPTCHA handling (optional)
 sudo apt install -y xdotool
 
-# GPU support (optional but recommended for performance)
-sudo apt install -y nvidia-container-toolkit
+# GPU support (optional but recommended for performance) - requires NVIDIA repository
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt update && sudo apt install -y nvidia-container-toolkit
 sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ```
 
+Note: `source $HOME/.cargo/env` is only for enabling `rustc/cargo` in your current shell (it is not related to Lyra's `.env`).
+
+**Note**: Python 3.14 is automatically managed by `uv` - no system installation required.
+
 **GPU Auto-Detection**: Lyra automatically detects GPU availability at startup. If `nvidia-smi` is not found, it runs in CPU mode (slower inference, but fully functional).
+
+**CPU-only Mode**: To explicitly disable GPU and run in CPU mode (even when GPU is available), set `LYRA_DISABLE_GPU=1` in your `.env` file. This is useful for testing or when you want to avoid nvidia-container-toolkit setup.
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/k-shibuki/lyra.git && cd lyra
 make doctor   # Check environment
+make setup    # Install Python deps (uv will auto-manage Python 3.14+)
 make up       # Start (auto-build first time)
 ```
+
+Note: `.env` is created automatically from `.env.example` on the first run of `make doctor` / `make setup` / `make up`.
+Edit `.env` if you need to customize settings.
 
 ### MCP Client Configuration
 

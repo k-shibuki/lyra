@@ -40,7 +40,7 @@ cmd_check() {
     
     # Check 1: Environment detection
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        echo "[1/10] Environment..."
+        echo "[1/13] Environment..."
     fi
     local env_type
     env_type=$(detect_env)
@@ -59,10 +59,29 @@ cmd_check() {
         ((warnings++)) || true
     fi
     
-    # Check 2: curl
+    # Check 2: make
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[2/10] curl..."
+        echo "[2/13] make..."
+    fi
+    if check_make; then
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            echo "  ✓ make found"
+        fi
+    else
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            json_parts+=("$(json_kv "make" "missing")")
+        else
+            echo "  ✗ make not found"
+            echo "    -> Install: sudo apt install -y make"
+        fi
+        ((issues++)) || true
+    fi
+    
+    # Check 3: curl
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo ""
+        echo "[3/13] curl..."
     fi
     if check_command curl; then
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
@@ -73,15 +92,15 @@ cmd_check() {
             json_parts+=("$(json_kv "curl" "missing")")
         else
             echo "  ✗ curl not found"
-            echo "    -> Install: sudo apt install curl"
+            echo "    -> Install: sudo apt install -y curl"
         fi
         ((issues++)) || true
     fi
     
-    # Check 3: uv
+    # Check 4: uv
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[3/10] uv..."
+        echo "[4/13] uv..."
     fi
     if check_command uv; then
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
@@ -97,11 +116,11 @@ cmd_check() {
         fi
         ((issues++)) || true
     fi
-    
-    # Check 4: .venv
+
+    # Check 5: Python environment (.venv + version)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[4/10] Python environment..."
+        echo "[5/13] Python environment..."
     fi
     if check_dir "${VENV_DIR}"; then
         if check_python_version "${VENV_DIR}/bin/python"; then
@@ -115,9 +134,9 @@ cmd_check() {
             py_version=$("${VENV_DIR}/bin/python" -V 2>&1 | awk '{print $2}' || echo "unknown")
             if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
                 json_parts+=("$(json_kv "python_version" "$py_version")")
-                json_parts+=("$(json_kv "python_version_issue" "expected_3.13+")")
+                json_parts+=("$(json_kv "python_version_issue" "expected_3.14+")")
             else
-                echo "  ⚠ .venv exists but Python version is $py_version (expected 3.13+)"
+                echo "  ⚠ .venv exists but Python version is $py_version (expected 3.14+)"
                 echo "    -> Recreate: rm -rf .venv && make setup"
             fi
             ((warnings++)) || true
@@ -131,13 +150,62 @@ cmd_check() {
         fi
         ((issues++)) || true
     fi
-    
-    # Check 5: Container runtime (podman or docker)
+
+    # Check 6: Rust toolchain (sudachipy build)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[5/10] Container runtime..."
+        echo "[6/13] Rust toolchain..."
     fi
+    local rust_min="1.82.0"
+    if check_rustc; then
+        local rustc_version
+        rustc_version="$(get_rustc_version)"
+        if check_rustc_min_version "$rust_min"; then
+            if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                json_parts+=("$(json_kv "rustc_version" "$rustc_version")")
+            else
+                echo "  ✓ rustc found (rustc $rustc_version)"
+            fi
+        else
+            if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                json_parts+=("$(json_kv "rustc_version" "$rustc_version")")
+                json_parts+=("$(json_kv "rustc_issue" "expected_${rust_min}+")")
+            else
+                echo "  ✗ rustc is too old (rustc $rustc_version, expected ${rust_min}+)"
+                echo "    -> Recommended: install rustup (apt rustc may be too old)"
+                echo "       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+                echo "       source \$HOME/.cargo/env"
+            fi
+            ((issues++)) || true
+        fi
+    else
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            json_parts+=("$(json_kv "rustc" "missing")")
+        else
+            echo "  ✗ rustc not found (required for sudachipy build)"
+            echo "    -> Install rustup:"
+            echo "       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+            echo "       source \$HOME/.cargo/env"
+        fi
+        ((issues++)) || true
+    fi
+    if ! check_rustup; then
+        if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+            json_parts+=("$(json_kv "rustup" "missing")")
+        else
+            echo "  ⚠ rustup not found (recommended)"
+        fi
+        ((warnings++)) || true
+    fi
+    
+    # Check 7: Container runtime (podman or docker)
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo ""
+        echo "[7/13] Container runtime..."
+    fi
+    local has_podman="false"
     if check_command podman && check_command podman-compose; then
+        has_podman="true"
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
             echo "  ✓ podman and podman-compose found"
         fi
@@ -171,10 +239,10 @@ cmd_check() {
         ((issues++)) || true
     fi
     
-    # Check 6: GPU (required for containers)
+    # Check 8: GPU presence (nvidia-smi)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[6/10] GPU..."
+        echo "[8/13] GPU (nvidia-smi)..."
     fi
     if check_gpu; then
         local gpu_info
@@ -196,11 +264,83 @@ cmd_check() {
         fi
         ((issues++)) || true
     fi
-    
-    # Check 7: Disk space (~25GB required)
+
+    # Check 9: Container GPU readiness (Podman CDI / Docker nvidia-container-toolkit)
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[7/10] Disk space..."
+        echo "[9/13] GPU (Container Runtime)..."
+    fi
+    if check_gpu; then
+        if [[ "$has_podman" == "true" ]]; then
+            # Podman: requires CDI config for nvidia.com/gpu=all
+            local cdi_ok="true"
+            if ! check_nvidia_ctk; then
+                cdi_ok="false"
+            fi
+            if ! check_podman_cdi; then
+                cdi_ok="false"
+            fi
+
+            if [[ "$cdi_ok" == "true" ]]; then
+                if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+                    echo "  ✓ Podman: nvidia-ctk found"
+                    echo "  ✓ Podman: CDI config found (/etc/cdi/nvidia.yaml)"
+                else
+                    json_parts+=("$(json_kv "podman_cdi" "ok")")
+                fi
+            else
+                if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                    json_parts+=("$(json_kv "podman_cdi" "missing")")
+                else
+                    echo "  ✗ Podman CDI is not configured (required for nvidia.com/gpu=all)"
+                    echo "    -> Install NVIDIA Container Toolkit (requires NVIDIA apt repo):"
+                    echo "       curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
+                    echo "       curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \\"
+                    echo "         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \\"
+                    echo "         sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+                    echo "       sudo apt update && sudo apt install -y nvidia-container-toolkit"
+                    echo "       sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+                fi
+                ((issues++)) || true
+            fi
+        elif check_command docker; then
+            # Docker: nvidia-container-toolkit enables GPU via deploy.resources in compose
+            if check_nvidia_ctk; then
+                if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+                    echo "  ✓ Docker: nvidia-container-toolkit found"
+                else
+                    json_parts+=("$(json_kv "docker_gpu" "ok")")
+                fi
+            else
+                if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
+                    json_parts+=("$(json_kv "docker_gpu" "missing")")
+                else
+                    echo "  ✗ Docker: nvidia-container-toolkit not found"
+                    echo "    -> Install NVIDIA Container Toolkit (requires NVIDIA apt repo):"
+                    echo "       curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
+                    echo "       curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \\"
+                    echo "         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \\"
+                    echo "         sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+                    echo "       sudo apt update && sudo apt install -y nvidia-container-toolkit"
+                    echo "       sudo systemctl restart docker"
+                fi
+                ((issues++)) || true
+            fi
+        else
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+                echo "  - Skipped (no container runtime detected)"
+            fi
+        fi
+    else
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            echo "  - Skipped (no NVIDIA GPU)"
+        fi
+    fi
+    
+    # Check 10: Disk space (~25GB required)
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        echo ""
+        echo "[10/13] Disk space..."
     fi
     local required_mb=25000
     if check_disk_space "$required_mb"; then
@@ -227,10 +367,10 @@ cmd_check() {
         ((issues++)) || true
     fi
     
-    # Check 8: Chrome installed
+    # Check 11: Chrome installed
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[8/10] Chrome installed..."
+        echo "[11/13] Chrome installed..."
     fi
     if check_chrome_installed; then
         local chrome_path
@@ -252,18 +392,23 @@ cmd_check() {
                 echo "    -> Install Chrome on Windows: https://www.google.com/chrome/"
                 echo "    -> Expected path: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
             else
-                echo "    -> Install: sudo apt install google-chrome-stable"
-                echo "    -> Or: sudo apt install chromium-browser"
+                echo "    -> Option A: Install Google Chrome (recommended; official repo)"
+                echo "         curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg"
+                echo "         echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main\" | sudo tee /etc/apt/sources.list.d/google-chrome.list"
+                echo "         sudo apt update && sudo apt install -y google-chrome-stable"
+                echo "    -> Option B: Install Chromium via snap (easier but less stable)"
+                echo "         sudo snap install chromium"
+                echo "    Note: 'apt install chromium-browser' may fail on Ubuntu 24.04 (redirects to snap)"
             fi
         fi
         ((issues++)) || true
     fi
     
-    # Check 9: Chrome/CDP (WSL only)
+    # Check 12: Chrome/CDP (WSL only)
     if [[ "$env_type" == "wsl" ]]; then
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
             echo ""
-            echo "[9/10] Chrome/CDP (WSL)..."
+            echo "[12/13] Chrome/CDP (WSL)..."
         fi
         
         # Check PowerShell
@@ -300,15 +445,15 @@ cmd_check() {
     else
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
             echo ""
-            echo "[9/10] Chrome/CDP..."
+            echo "[12/13] Chrome/CDP..."
             echo "  - Skipped (not WSL)"
         fi
     fi
     
-    # Check 10: Configuration files
+    # Check 13: Configuration files
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo ""
-        echo "[10/10] Configuration..."
+        echo "[13/13] Configuration..."
     fi
     if check_file "${PROJECT_DIR}/.env"; then
         if check_env_permissions "${PROJECT_DIR}/.env"; then
@@ -367,9 +512,10 @@ cmd_check() {
             fi
             echo ""
             echo "Quick fix:"
-            echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
-            echo "  sudo apt install -y podman podman-compose nvidia-container-toolkit"
-            echo "  sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+            echo "  sudo apt install -y make curl podman podman-compose"
+            echo "  curl -LsSf https://astral.sh/uv/install.sh | sh && source \$HOME/.local/bin/env"
+            echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source \$HOME/.cargo/env"
+            echo "  # For Podman GPU (CDI): install NVIDIA Container Toolkit + generate /etc/cdi/nvidia.yaml"
             echo ""
             echo "Next steps:"
             echo "  1. Fix the issues listed above"

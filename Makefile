@@ -28,13 +28,13 @@ SCRIPTS := ./scripts
 # =============================================================================
 
 setup: ## Install dependencies with uv (MCP extras)
-	uv sync --frozen --extra mcp
+	@$(SCRIPTS)/setup.sh mcp
 
 setup-full: ## Install all dependencies (full development)
-	uv sync --frozen --extra full
+	@$(SCRIPTS)/setup.sh full
 
 setup-ml: ## Install ML dependencies
-	uv sync --frozen --extra ml
+	@$(SCRIPTS)/setup.sh ml
 
 setup-ml-models: ## Download ML models to host (embedding + NLI)
 	@echo "Downloading ML models to models/huggingface/..."

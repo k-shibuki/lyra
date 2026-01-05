@@ -39,12 +39,31 @@ check_dir() {
     [[ -d "$dir" ]]
 }
 
+# Function: version_ge
+# Description: Compare two dotted versions (e.g., 1.82.0) using sort -V
+# Arguments:
+#   $1: Actual version
+#   $2: Required minimum version
+# Returns:
+#   0: actual >= required
+#   1: actual < required or invalid input
+version_ge() {
+    local actual="${1:-}"
+    local required="${2:-}"
+    if [[ -z "$actual" || -z "$required" ]]; then
+        return 1
+    fi
+    local smallest
+    smallest="$(printf '%s\n' "$required" "$actual" | sort -V | head -n 1)"
+    [[ "$smallest" == "$required" ]]
+}
+
 # Function: check_python_version
-# Description: Check if Python version matches requirement (3.13+)
+# Description: Check if Python version matches requirement (3.14+)
 # Arguments:
 #   $1: Python executable path (optional, defaults to .venv/bin/python)
 # Returns:
-#   0: Version matches (3.13 or higher)
+#   0: Version matches (3.14 or higher)
 #   1: Version mismatch or check failed
 check_python_version() {
     local python_exe="${1:-${VENV_DIR}/bin/python}"
@@ -56,8 +75,8 @@ check_python_version() {
     local version
     version=$("$python_exe" -V 2>&1 | awk '{print $2}' || echo "")
     
-    # Match Python 3.13+ (3.13, 3.14, 3.15, ..., 3.99)
-    if [[ "$version" =~ ^3\.(1[3-9]|[2-9][0-9])\. ]]; then
+    # Match Python 3.14+ (3.14, 3.15, ..., 3.99)
+    if [[ "$version" =~ ^3\.(1[4-9]|[2-9][0-9])\. ]]; then
         return 0
     fi
     
@@ -128,6 +147,89 @@ check_env_permissions() {
 #   1: nvidia-smi not found
 check_gpu() {
     check_command nvidia-smi
+}
+
+# Function: check_make
+# Description: Check if make is available (required for Makefile-based workflow)
+# Returns:
+#   0: make found
+#   1: make not found
+check_make() {
+    check_command make
+}
+
+# Function: check_rustup
+# Description: Check if rustup is available
+# Returns:
+#   0: rustup found
+#   1: rustup not found
+check_rustup() {
+    check_command rustup
+}
+
+# Function: check_rustc
+# Description: Check if rustc is available
+# Returns:
+#   0: rustc found
+#   1: rustc not found
+check_rustc() {
+    check_command rustc
+}
+
+# Function: get_rustc_version
+# Description: Extract rustc version number (e.g., 1.84.0)
+# Returns:
+#   Version string or empty
+get_rustc_version() {
+    rustc --version 2>/dev/null | awk '{print $2}' | head -1
+}
+
+# Function: check_rustc_min_version
+# Description: Check if rustc meets minimum version (default: 1.82.0)
+# Arguments:
+#   $1: Minimum required version (optional)
+# Returns:
+#   0: rustc >= min version
+#   1: rustc missing or too old
+check_rustc_min_version() {
+    local min_version="${1:-1.82.0}"
+    if ! check_rustc; then
+        return 1
+    fi
+    local current
+    current="$(get_rustc_version)"
+    version_ge "$current" "$min_version"
+}
+
+# Function: check_nvidia_ctk
+# Description: Check if nvidia-ctk is available (provided by nvidia-container-toolkit)
+# Returns:
+#   0: nvidia-ctk found
+#   1: nvidia-ctk not found
+check_nvidia_ctk() {
+    check_command nvidia-ctk
+}
+
+# Function: check_podman_cdi
+# Description: Check if Podman CDI config exists for NVIDIA GPU devices
+# Returns:
+#   0: /etc/cdi/nvidia.yaml exists
+#   1: missing
+check_podman_cdi() {
+    [[ -f /etc/cdi/nvidia.yaml ]]
+}
+
+# Function: check_docker_gpu_runtime
+# Description: Check if Docker is configured for GPU access (nvidia-container-runtime)
+# Returns:
+#   0: Docker can access GPU
+#   1: Docker GPU runtime not configured or not working
+check_docker_gpu_runtime() {
+    if ! check_command docker; then
+        return 1
+    fi
+    # Try to run a simple GPU query with docker
+    docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi &> /dev/null
 }
 
 # Function: get_gpu_info
