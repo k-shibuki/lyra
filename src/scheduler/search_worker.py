@@ -31,6 +31,45 @@ EMPTY_QUEUE_POLL_INTERVAL = 1.0
 ERROR_RECOVERY_DELAY = 5.0
 
 
+async def _enqueue_verify_nli_if_needed(task_id: str, search_result: dict) -> None:
+    """
+    Enqueue VERIFY_NLI job after search completion.
+
+    Always enqueues for completed searches - the verify_claims_nli function
+    queries the DB for claims and handles empty cases gracefully.
+    This ensures Academic API-extracted claims (which may not appear in
+    the search_result dict) are also verified.
+
+    ADR-0005: Cross-source NLI verification is triggered per search_queue job.
+
+    Args:
+        task_id: Task ID.
+        search_result: Result dict from search_action (used for logging only).
+    """
+    # Log what the search produced (for debugging)
+    pages_fetched = search_result.get("pages_fetched", 0)
+    status = search_result.get("status", "unknown")
+
+    logger.debug(
+        "Enqueuing VERIFY_NLI job after search completion",
+        task_id=task_id,
+        search_status=status,
+        pages_fetched=pages_fetched,
+    )
+
+    try:
+        from src.filter.cross_verification import enqueue_verify_nli_job
+
+        await enqueue_verify_nli_job(task_id=task_id)
+    except Exception as e:
+        # Don't fail the search if VERIFY_NLI enqueue fails
+        logger.warning(
+            "Failed to enqueue VERIFY_NLI job",
+            task_id=task_id,
+            error=str(e),
+        )
+
+
 async def _get_exploration_state(task_id: str) -> ExplorationState:
     """Get or create exploration state for a task.
 
@@ -248,6 +287,10 @@ async def _search_queue_worker(worker_id: int) -> None:
                                 status=result.get("status"),
                                 pages_fetched=result.get("pages_fetched"),
                             )
+
+                            # ADR-0005: Enqueue VERIFY_NLI job for cross-source verification
+                            # This runs NLI on new claims against fragments from other sources
+                            await _enqueue_verify_nli_if_needed(task_id, result)
 
                 except asyncio.CancelledError:
                     # stop_task(mode=immediate) cancelled this search_task

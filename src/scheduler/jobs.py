@@ -29,6 +29,8 @@ class JobKind(str, Enum):
     Note:
         Per ADR-0004: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
         Per ADR-0010: SEARCH_QUEUE added for async search queue architecture.
+        Per ADR-0005: VERIFY_NLI added for automatic cross-source NLI verification.
+        Per ADR-0016: CITATION_GRAPH added for deferred citation graph processing.
     """
 
     SERP = "serp"
@@ -38,6 +40,8 @@ class JobKind(str, Enum):
     LLM = "llm"  # Single LLM job type (per ADR-0004)
     NLI = "nli"
     SEARCH_QUEUE = "search_queue"  # Async search queue (per ADR-0010)
+    VERIFY_NLI = "verify_nli"  # Cross-source NLI verification (per ADR-0005)
+    CITATION_GRAPH = "citation_graph"  # Deferred citation graph processing (per ADR-0016)
 
 
 class Slot(str, Enum):
@@ -70,6 +74,8 @@ KIND_TO_SLOT = {
     JobKind.LLM: Slot.GPU,  # Single LLM slot (per ADR-0004)
     JobKind.NLI: Slot.CPU_NLP,
     JobKind.SEARCH_QUEUE: Slot.NETWORK_CLIENT,  # Async search queue (per ADR-0010)
+    JobKind.VERIFY_NLI: Slot.CPU_NLP,  # Cross-source NLI verification (per ADR-0005)
+    JobKind.CITATION_GRAPH: Slot.CPU_NLP,  # Deferred citation graph (per ADR-0016)
 }
 
 # Priority order (lower = higher priority)
@@ -81,6 +87,8 @@ KIND_PRIORITY = {
     JobKind.LLM: 60,  # Single LLM priority (per ADR-0004)
     JobKind.NLI: 35,
     JobKind.SEARCH_QUEUE: 25,  # Between FETCH and EXTRACT (per ADR-0010)
+    JobKind.VERIFY_NLI: 45,  # After EMBED, before LLM (per ADR-0005)
+    JobKind.CITATION_GRAPH: 50,  # After VERIFY_NLI, before LLM (per ADR-0016)
 }
 
 # Slot concurrency limits
@@ -525,6 +533,16 @@ class JobScheduler:
             from src.filter.nli import nli_judge
 
             return {"results": await nli_judge(**input_data)}
+
+        elif kind == JobKind.VERIFY_NLI:
+            from src.filter.cross_verification import verify_claims_nli
+
+            return await verify_claims_nli(**input_data)
+
+        elif kind == JobKind.CITATION_GRAPH:
+            from src.research.citation_graph import process_citation_graph
+
+            return await process_citation_graph(**input_data)
 
         else:
             raise ValueError(f"Unknown job kind: {kind}")
