@@ -2,14 +2,14 @@
 Tab pool for browser-based SERP fetching.
 
 Per ADR-0014: Browser SERP Resource Control.
-Per ADR-0015: Adaptive Concurrency Control (auto-backoff on CAPTCHA/403).
+Per ADR-0014: Adaptive Concurrency Control (auto-backoff on CAPTCHA/403).
 
 Design:
 - Manages a pool of browser tabs (Page objects) for parallel SERP fetching
 - Prevents simultaneous operations on the same Page
 - Supports configurable max_tabs for gradual parallelization
 - Default max_tabs=1 ensures correctness (no Page contention)
-- Auto-backoff: reduces effective_max_tabs on CAPTCHA/403 (no auto-increase per ADR-0015)
+- Auto-backoff: reduces effective_max_tabs on CAPTCHA/403 (no auto-increase per ADR-0014)
 - Increase max_tabs for parallelization after stability validation
 """
 
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class TabPoolBackoffState:
-    """Tracks backoff state for TabPool (ADR-0015)."""
+    """Tracks backoff state for TabPool (ADR-0014)."""
 
     effective_max_tabs: int = 1  # Current effective limit (may be < config max)
     config_max_tabs: int = 1  # Original config limit (upper bound)
@@ -41,12 +41,31 @@ class TabPoolBackoffState:
     error_403_count: int = 0  # Total 403 count since last reset
 
 
+@dataclass
+class HeldTab:
+    """Tab held for CAPTCHA resolution (ADR-0007).
+
+    When a CAPTCHA is detected during SERP search, the tab is held
+    instead of being released to the pool. This allows:
+    1. User to solve CAPTCHA in the browser
+    2. Background check to detect resolution
+    3. Auto-release on resolution/expiry
+    """
+
+    tab: Page
+    queue_id: str  # InterventionQueue item ID
+    engine: str  # Search engine name (for CircuitBreaker reset)
+    task_id: str  # Task ID (for filtering on stop_task)
+    held_at: float  # Timestamp when tab was held
+    expires_at: float  # Timestamp when tab should be force-released
+
+
 class TabPool:
     """Manages browser tabs for parallel SERP fetching.
 
     Prevents Page sharing between concurrent operations per ADR-0014.
     Each search operation borrows a tab, uses it exclusively, then returns it.
-    Implements auto-backoff on CAPTCHA/403 (ADR-0015).
+    Implements auto-backoff on CAPTCHA/403 (ADR-0014).
 
     Example:
         pool = TabPool(max_tabs=1)
@@ -79,7 +98,7 @@ class TabPool:
         self._max_tabs = max_tabs
         self._acquire_timeout = acquire_timeout
 
-        # Backoff state (ADR-0015)
+        # Backoff state (ADR-0014)
         self._backoff_state = TabPoolBackoffState(
             effective_max_tabs=max_tabs,
             config_max_tabs=max_tabs,
@@ -105,13 +124,18 @@ class TabPool:
         # Track if pool is closed
         self._closed = False
 
+        # Held tabs for CAPTCHA resolution (ADR-0007)
+        self._held_tabs: dict[str, HeldTab] = {}  # queue_id -> HeldTab
+        self._held_tabs_check_task: asyncio.Task[None] | None = None
+        self._held_tabs_check_interval: float = 10.0  # Check every 10 seconds
+
         logger.debug("TabPool initialized", max_tabs=max_tabs)
 
     async def acquire(self, context: BrowserContext) -> Page:
         """Acquire a tab from the pool.
 
         Blocks until a tab is available or creates a new one if under effective_max_tabs.
-        Respects backoff state (ADR-0015).
+        Respects backoff state (ADR-0014).
 
         Args:
             context: Browser context to create new tabs in.
@@ -126,7 +150,7 @@ class TabPool:
         if self._closed:
             raise RuntimeError("TabPool is closed")
 
-        # Wait for backoff slot if necessary (ADR-0015)
+        # Wait for backoff slot if necessary (ADR-0014)
         start_time = time.time()
         poll_interval = 0.1  # Check every 100ms
 
@@ -209,18 +233,233 @@ class TabPool:
             # Should never happen, but log if it does
             logger.warning("Available tabs queue full, tab not returned")
 
-        # Release backoff slot (ADR-0015)
+        # Release backoff slot (ADR-0014)
         if self._active_count > 0:
             self._active_count -= 1
         self._slot_available.set()  # Signal that a slot is available
 
         logger.debug("Tab released", available=self._available_tabs.qsize())
 
+    def hold_for_captcha(
+        self,
+        tab: Page,
+        queue_id: str,
+        engine: str,
+        task_id: str,
+        expires_at: float,
+    ) -> None:
+        """Hold a tab for CAPTCHA resolution (ADR-0007).
+
+        Instead of releasing the tab to the pool, hold it so the user can
+        solve the CAPTCHA in the browser. A background task will check
+        periodically if the CAPTCHA has been resolved.
+
+        Args:
+            tab: The Page to hold.
+            queue_id: InterventionQueue item ID.
+            engine: Search engine name (for CircuitBreaker reset).
+            task_id: Task ID (for filtering on stop_task).
+            expires_at: Unix timestamp when to force-release.
+        """
+        if self._closed:
+            return
+
+        held = HeldTab(
+            tab=tab,
+            queue_id=queue_id,
+            engine=engine,
+            task_id=task_id,
+            held_at=time.time(),
+            expires_at=expires_at,
+        )
+        self._held_tabs[queue_id] = held
+
+        # Release backoff slot but don't return tab to pool
+        if self._active_count > 0:
+            self._active_count -= 1
+        self._slot_available.set()
+
+        logger.info(
+            "Tab held for CAPTCHA resolution",
+            queue_id=queue_id,
+            engine=engine,
+            task_id=task_id,
+            held_count=len(self._held_tabs),
+        )
+
+        # Start background check if not running
+        if self._held_tabs_check_task is None or self._held_tabs_check_task.done():
+            self._held_tabs_check_task = asyncio.create_task(
+                self._check_held_tabs_loop(),
+                name="tab_pool_held_tabs_check",
+            )
+
+    async def _check_held_tabs_loop(self) -> None:
+        """Periodically check if held tabs' CAPTCHAs are resolved (ADR-0007)."""
+        try:
+            while self._held_tabs and not self._closed:
+                await asyncio.sleep(self._held_tabs_check_interval)
+                await self._check_all_held_tabs()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.warning("Held tabs check loop error", error=str(e))
+
+    async def _check_all_held_tabs(self) -> None:
+        """Check all held tabs for CAPTCHA resolution or expiry."""
+        from src.crawler.challenge_detector import _is_challenge_page
+
+        to_release: list[tuple[str, str]] = []  # (queue_id, reason)
+
+        for queue_id, held in list(self._held_tabs.items()):
+            # Check timeout
+            if time.time() > held.expires_at:
+                to_release.append((queue_id, "expired"))
+                continue
+
+            # Check if CAPTCHA resolved
+            try:
+                if held.tab.is_closed():
+                    to_release.append((queue_id, "tab_closed"))
+                    continue
+
+                content = await held.tab.content()
+                if not _is_challenge_page(content, {}):
+                    to_release.append((queue_id, "resolved"))
+            except Exception as e:
+                logger.debug(
+                    "Held tab check failed",
+                    queue_id=queue_id,
+                    error=str(e),
+                )
+                to_release.append((queue_id, "error"))
+
+        # Release resolved/expired tabs
+        for queue_id, reason in to_release:
+            await self._release_held_tab(queue_id, reason)
+
+    async def _release_held_tab(self, queue_id: str, reason: str) -> None:
+        """Release a held tab back to pool (ADR-0007).
+
+        Args:
+            queue_id: InterventionQueue item ID.
+            reason: Why the tab is being released (resolved/expired/error/manual).
+        """
+        if queue_id not in self._held_tabs:
+            return
+
+        held = self._held_tabs.pop(queue_id)
+
+        logger.info(
+            "Releasing held tab",
+            queue_id=queue_id,
+            engine=held.engine,
+            reason=reason,
+            held_duration_s=round(time.time() - held.held_at, 1),
+        )
+
+        if reason == "resolved":
+            # Capture session cookies before releasing (ADR-0007)
+            session_data = None
+            try:
+                from src.mcp.tools.auth import capture_auth_session_cookies
+
+                session_data = await capture_auth_session_cookies(held.engine)
+                if session_data:
+                    logger.info(
+                        "Auto-captured session cookies on CAPTCHA resolution",
+                        engine=held.engine,
+                        cookie_count=len(session_data.get("cookies", [])),
+                    )
+            except Exception as e:
+                logger.debug(
+                    "Failed to capture session cookies (non-critical)",
+                    engine=held.engine,
+                    error=str(e),
+                )
+
+            # Reset circuit breaker for this engine
+            try:
+                from src.mcp.tools.auth import reset_circuit_breaker_for_engine
+
+                await reset_circuit_breaker_for_engine(held.engine)
+            except Exception as e:
+                logger.warning(
+                    "Failed to reset circuit breaker",
+                    engine=held.engine,
+                    error=str(e),
+                )
+
+            # Requeue awaiting_auth jobs (same as resolve_auth flow)
+            try:
+                from src.mcp.tools.auth import requeue_awaiting_auth_jobs
+
+                requeued = await requeue_awaiting_auth_jobs(held.engine)
+                if requeued > 0:
+                    logger.info(
+                        "Auto-requeued awaiting_auth jobs on CAPTCHA resolution",
+                        engine=held.engine,
+                        requeued_count=requeued,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Failed to requeue awaiting_auth jobs",
+                    engine=held.engine,
+                    error=str(e),
+                )
+
+            # Mark intervention queue item as completed with session data
+            try:
+                from src.utils.intervention_queue import get_intervention_queue
+
+                queue = get_intervention_queue()
+                await queue.complete(queue_id, success=True, session_data=session_data)
+            except Exception as e:
+                logger.warning(
+                    "Failed to complete intervention queue item",
+                    queue_id=queue_id,
+                    error=str(e),
+                )
+
+        # Release tab to pool (if not closed)
+        if not held.tab.is_closed():
+            self.release(held.tab)
+
+    async def release_captcha_tab(self, queue_id: str) -> bool:
+        """Manually release a CAPTCHA tab (called from resolve_auth).
+
+        Args:
+            queue_id: InterventionQueue item ID.
+
+        Returns:
+            True if tab was found and released.
+        """
+        if queue_id in self._held_tabs:
+            await self._release_held_tab(queue_id, "manual")
+            return True
+        return False
+
+    async def release_held_tabs_for_task(self, task_id: str) -> int:
+        """Release all held tabs for a specific task (called from stop_task).
+
+        Args:
+            task_id: Task ID to filter by.
+
+        Returns:
+            Number of tabs released.
+        """
+        to_release = [qid for qid, held in self._held_tabs.items() if held.task_id == task_id]
+
+        for queue_id in to_release:
+            await self._release_held_tab(queue_id, "task_stopped")
+
+        return len(to_release)
+
     def report_captcha(self) -> None:
         """Report CAPTCHA detection.
 
-        Triggers backoff: reduces effective_max_tabs (ADR-0015).
-        Note: No auto-increase for browser SERP (manual only per ADR-0015).
+        Triggers backoff: reduces effective_max_tabs (ADR-0014).
+        Note: No auto-increase for browser SERP (manual only per ADR-0014).
 
         When already at floor (effective_max_tabs=1), logs warning to alert operator
         that CAPTCHAs are continuing despite minimum concurrency.
@@ -266,8 +505,8 @@ class TabPool:
     def report_403(self) -> None:
         """Report 403 error.
 
-        Triggers backoff: reduces effective_max_tabs (ADR-0015).
-        Note: No auto-increase for browser SERP (manual only per ADR-0015).
+        Triggers backoff: reduces effective_max_tabs (ADR-0014).
+        Note: No auto-increase for browser SERP (manual only per ADR-0014).
 
         When already at floor (effective_max_tabs=1), logs warning to alert operator
         that 403 errors are continuing despite minimum concurrency.
@@ -314,7 +553,7 @@ class TabPool:
         """Manually reset backoff state.
 
         Call this after manual config adjustment to restore effective_max_tabs
-        to config value (ADR-0015: no auto-increase for browser SERP).
+        to config value (ADR-0014: no auto-increase for browser SERP).
         """
         backoff = self._backoff_state
         backoff.effective_max_tabs = backoff.config_max_tabs
@@ -333,6 +572,23 @@ class TabPool:
         Should be called when the provider is being shut down.
         """
         self._closed = True
+
+        # Cancel held tabs check task
+        if self._held_tabs_check_task and not self._held_tabs_check_task.done():
+            self._held_tabs_check_task.cancel()
+            try:
+                await self._held_tabs_check_task
+            except asyncio.CancelledError:
+                pass
+
+        # Close held tabs
+        for held in list(self._held_tabs.values()):
+            try:
+                if not held.tab.is_closed():
+                    await held.tab.close()
+            except Exception as e:
+                logger.debug("Error closing held tab", error=str(e))
+        self._held_tabs.clear()
 
         async with self._lock:
             for tab in self._tabs:
@@ -372,7 +628,8 @@ class TabPool:
         """Get pool statistics.
 
         Returns:
-            Dict with pool stats for monitoring, including backoff state (ADR-0015).
+            Dict with pool stats for monitoring, including backoff state (ADR-0014)
+            and held tabs state (ADR-0007).
         """
         backoff = self._backoff_state
         return {
@@ -381,13 +638,25 @@ class TabPool:
             "available_tabs": self._available_tabs.qsize(),
             "active_tabs": self._active_count,
             "closed": self._closed,
-            # Backoff state (ADR-0015)
+            # Backoff state (ADR-0014)
             "effective_max_tabs": backoff.effective_max_tabs,
             "backoff_active": backoff.backoff_active,
             "captcha_count": backoff.captcha_count,
             "error_403_count": backoff.error_403_count,
             "last_captcha_time": backoff.last_captcha_time,
             "last_403_time": backoff.last_403_time,
+            # Held tabs state (ADR-0007)
+            "held_tabs_count": len(self._held_tabs),
+            "held_tabs": [
+                {
+                    "queue_id": h.queue_id,
+                    "engine": h.engine,
+                    "task_id": h.task_id,
+                    "held_at": h.held_at,
+                    "expires_at": h.expires_at,
+                }
+                for h in self._held_tabs.values()
+            ],
         }
 
 
@@ -511,14 +780,14 @@ def get_tab_pool(worker_id: int = 0, max_tabs: int | None = None) -> TabPool:
         worker_id: Worker identifier (0 to num_workers-1).
                    Each worker gets its own isolated TabPool.
         max_tabs: Maximum concurrent tabs per worker (only used on first call).
-                  If None, reads from config (ADR-0015).
+                  If None, reads from config (ADR-0014).
 
     Returns:
         TabPool instance for the specified worker.
     """
     if worker_id not in _tab_pools:
         if max_tabs is None:
-            # Read from config (ADR-0015)
+            # Read from config (ADR-0014)
             from src.utils.config import get_settings
 
             settings = get_settings()

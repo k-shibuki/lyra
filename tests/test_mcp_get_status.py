@@ -842,7 +842,7 @@ class TestGetStatusBlockedDomains:
 
 
 class TestGetStatusJobsSummary:
-    """Tests for jobs summary in get_status response (ADR-0016)."""
+    """Tests for jobs summary in get_status response (ADR-0015)."""
 
     @pytest.fixture
     def mock_task(self) -> dict[str, Any]:

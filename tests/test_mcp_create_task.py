@@ -1,6 +1,6 @@
 """Tests for create_task MCP tool.
 
-Tests create_task handler behavior per ADR-0003 and ADR-0018 (hypothesis-first).
+Tests create_task handler behavior per ADR-0003 and ADR-0017 (hypothesis-first).
 
 ## Test Perspectives Table
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
@@ -9,7 +9,7 @@ Tests create_task handler behavior per ADR-0003 and ADR-0018 (hypothesis-first).
 || TC-CT-N-02 | Valid hypothesis, default budget | Equivalence – normal | ok=True, budget_pages=120, max_seconds=1200 | Default values |
 || TC-CT-N-03 | Valid hypothesis, config omitted | Equivalence – normal | ok=True, default budget applied | - |
 || TC-CT-A-01 | Empty hypothesis string | Boundary – empty | Task created (empty allowed) | - |
-|| TC-CT-A-02 | hypothesis missing | Boundary – NULL | KeyError | ADR-0018: hypothesis is required |
+|| TC-CT-A-02 | hypothesis missing | Boundary – NULL | KeyError | ADR-0017: hypothesis is required |
 || TC-CT-B-01 | budget_pages=0 | Boundary – zero | ok=True, budget_pages=0 | Zero allowed |
 || TC-CT-B-02 | budget_pages=-1 | Boundary – negative | ok=True, budget_pages=-1 | Negative allowed (validation elsewhere) |
 || TC-CT-B-03 | max_seconds=0 | Boundary – zero | ok=True, max_seconds=0 | Zero allowed |
@@ -37,7 +37,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-N-01: create_task returns budget_pages in response.
 
-        // Given: Valid hypothesis and budget config (ADR-0018)
+        // Given: Valid hypothesis and budget config (ADR-0017)
         // When: _handle_create_task is called
         // Then: ok=True and budget includes budget_pages
         """
@@ -64,7 +64,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-N-02: create_task uses default budget when not specified.
 
-        // Given: Valid hypothesis without budget config (ADR-0018)
+        // Given: Valid hypothesis without budget config (ADR-0017)
         // When: _handle_create_task is called
         // Then: ok=True and budget uses defaults (budget_pages=120, max_seconds=1200)
         """
@@ -89,7 +89,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-N-03: create_task works when config is omitted.
 
-        // Given: Valid hypothesis without config (ADR-0018)
+        // Given: Valid hypothesis without config (ADR-0017)
         // When: _handle_create_task is called
         // Then: ok=True and default budget applied
         """
@@ -113,7 +113,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-A-01: create_task allows empty hypothesis string.
 
-        // Given: Empty hypothesis string (ADR-0018)
+        // Given: Empty hypothesis string (ADR-0017)
         // When: _handle_create_task is called
         // Then: Task is created (empty string is allowed, validation elsewhere)
         """
@@ -137,7 +137,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-A-02: create_task raises error when hypothesis is missing.
 
-        // Given: hypothesis parameter missing (ADR-0018)
+        // Given: hypothesis parameter missing (ADR-0017)
         // When: _handle_create_task is called
         // Then: KeyError raised
         """
@@ -178,7 +178,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-B-02: create_task accepts negative budget_pages (validation elsewhere).
 
-        // Given: budget_pages=-1 (ADR-0018)
+        // Given: budget_pages=-1 (ADR-0017)
         // When: _handle_create_task is called
         // Then: ok=True, budget_pages=-1 (validation happens elsewhere)
         """
@@ -202,7 +202,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-B-03: create_task accepts max_seconds=0.
 
-        // Given: max_seconds=0 (ADR-0018)
+        // Given: max_seconds=0 (ADR-0017)
         // When: _handle_create_task is called
         // Then: ok=True, max_seconds=0
         """
@@ -226,7 +226,7 @@ class TestCreateTaskValidation:
         """
         TC-CT-B-04: create_task accepts negative max_seconds (validation elsewhere).
 
-        // Given: max_seconds=-1 (ADR-0018)
+        // Given: max_seconds=-1 (ADR-0017)
         // When: _handle_create_task is called
         // Then: ok=True, max_seconds=-1 (validation happens elsewhere)
         """

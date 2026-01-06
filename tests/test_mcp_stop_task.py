@@ -1,6 +1,6 @@
 """Tests for stop_task MCP tool with mode and scope parameters.
 
-Tests the stop_task tool's graceful/immediate mode per ADR-0010 and scope per ADR-0016.
+Tests the stop_task tool's graceful/immediate mode per ADR-0010 and scope per ADR-0015.
 
 ## Test Perspectives Table
 
@@ -1148,7 +1148,7 @@ class TestStopTaskPausedStatus:
 
 
 class TestStopTaskScope:
-    """Tests for stop_task scope parameter (ADR-0016)."""
+    """Tests for stop_task scope parameter (ADR-0015)."""
 
     @pytest.mark.asyncio
     async def test_scope_default_is_search_queue_only(self, test_database: Database) -> None:

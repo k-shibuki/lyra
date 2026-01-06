@@ -8,12 +8,33 @@ from typing import Any
 
 from src.mcp.errors import InvalidParamsError
 from src.search.circuit_breaker import get_circuit_breaker_manager
+from src.search.tab_pool import get_all_tab_pools
 from src.storage.database import get_database
 from src.utils.intervention_queue import get_intervention_queue
 from src.utils.logging import ensure_logging_configured, get_logger
 
 ensure_logging_configured()
 logger = get_logger(__name__)
+
+
+async def release_captcha_tabs(queue_ids: list[str]) -> int:
+    """Release CAPTCHA tabs for the given queue IDs (ADR-0007).
+
+    Called when resolve_auth completes queue items. Releases held tabs
+    so they return to the pool.
+
+    Args:
+        queue_ids: List of InterventionQueue item IDs.
+
+    Returns:
+        Number of tabs released.
+    """
+    released = 0
+    for pool in get_all_tab_pools().values():
+        for queue_id in queue_ids:
+            if await pool.release_captcha_tab(queue_id):
+                released += 1
+    return released
 
 
 async def handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
@@ -239,8 +260,13 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
                     session_data = await capture_auth_session_cookies(domain)
 
             result = await queue.complete(queue_id, success=success, session_data=session_data)
+
+            # ADR-0007: Release held CAPTCHA tab
+            await release_captcha_tabs([queue_id])
         else:  # skip
             result = await queue.skip(queue_ids=[queue_id])
+            # ADR-0007: Release held CAPTCHA tab (even on skip)
+            await release_captcha_tabs([queue_id])
 
         return {
             "ok": True,
@@ -258,6 +284,10 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
                 param_name="domain",
                 expected="non-empty string",
             )
+
+        # ADR-0007: Get queue_ids before completing to release tabs later
+        pending_items = await queue.get_pending(domain=domain)
+        domain_queue_ids: list[str] = [str(item["id"]) for item in pending_items if item.get("id")]
 
         if action == "complete":
             # Capture cookies for the domain
@@ -277,6 +307,9 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
             result = await queue.skip(domain=domain)
             count = result.get("skipped", 0)
             requeued_count = 0
+
+        # ADR-0007: Release held CAPTCHA tabs
+        await release_captcha_tabs(domain_queue_ids)
 
         message = f"{count} auth items resolved for {domain}."
         if requeued_count > 0:
@@ -300,9 +333,11 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
                 expected="non-empty string",
             )
 
+        # Get all pending items for this task
+        pending_items = await queue.get_pending(task_id=task_id)
+        task_queue_ids: list[str] = [str(item["id"]) for item in pending_items if item.get("id")]
+
         if action == "complete":
-            # Get all pending items for this task
-            pending_items = await queue.get_pending(task_id=task_id)
             if not pending_items:
                 return {
                     "ok": True,
@@ -338,6 +373,9 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
                     requeued_count += await requeue_awaiting_auth_jobs(domain)
                     await reset_circuit_breaker_for_engine(domain)
 
+            # ADR-0007: Release held CAPTCHA tabs
+            await release_captcha_tabs(task_queue_ids)
+
             return {
                 "ok": True,
                 "target": "task",
@@ -349,6 +387,9 @@ async def handle_resolve_auth(args: dict[str, Any]) -> dict[str, Any]:
         else:  # skip
             result = await queue.skip(task_id=task_id)
             count = result.get("skipped", 0)
+
+            # ADR-0007: Release held CAPTCHA tabs
+            await release_captcha_tabs(task_queue_ids)
 
             return {
                 "ok": True,

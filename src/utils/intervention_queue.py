@@ -143,6 +143,7 @@ class InterventionQueue:
         self,
         task_id: str | None = None,
         priority: str | None = None,
+        domain: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Get pending authentications.
@@ -150,6 +151,7 @@ class InterventionQueue:
         Args:
             task_id: Filter by task ID (optional).
             priority: Filter by priority (optional).
+            domain: Filter by domain (optional).
             limit: Maximum number of items.
 
         Returns:
@@ -173,6 +175,10 @@ class InterventionQueue:
         if priority:
             query += " AND priority = ?"
             params.append(priority)
+
+        if domain:
+            query += " AND domain = ?"
+            params.append(domain)
 
         query += (
             " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, queued_at"

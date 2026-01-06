@@ -548,14 +548,14 @@ class TestGlobalEngineRateLimiterFunctions:
 
 
 # =============================================================================
-# TabPool Backoff Tests (ADR-0015)
+# TabPool Backoff Tests (ADR-0014)
 # =============================================================================
 
 
 class TestTabPoolBackoff:
     """Tests for TabPool backoff functionality.
 
-    Per ADR-0015: Adaptive Concurrency Control.
+    Per ADR-0014: Adaptive Concurrency Control.
 
     Test Perspectives Table:
     | Case ID | Input / Precondition | Perspective | Expected Result |
@@ -966,3 +966,543 @@ class TestTabPoolBackoff:
         # Cleanup
         pool.release(tab1)
         pool.release(tab2)
+
+
+# =============================================================================
+# TabPool HeldTab Tests (ADR-0007: CAPTCHA Tab Hold)
+# =============================================================================
+
+
+class TestTabPoolHeldTabs:
+    """Tests for TabPool held tabs functionality.
+
+    Per ADR-0007: Human-in-the-Loop Authentication.
+
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result |
+    |---------|----------------------|-------------|-----------------|
+    | TC-H-01 | hold_for_captcha() | Equivalence | Tab held, not in pool |
+    | TC-H-02 | release_captcha_tab() | Equivalence | Tab returned to pool |
+    | TC-H-03 | release_held_tabs_for_task() | Equivalence | All task tabs released |
+    | TC-H-04 | Expired tab | Boundary | Tab auto-released |
+    | TC-H-05 | Resolved CAPTCHA | Equivalence | Tab auto-released, CB reset |
+    | TC-H-06 | get_stats with held tabs | Equivalence | Stats include held_tabs |
+    | TC-H-07 | close() with held tabs | Equivalence | Held tabs cleaned up |
+    """
+
+    @pytest.fixture(autouse=True)
+    async def reset_pool(self) -> None:
+        """Reset global tab pool before each test."""
+        await reset_tab_pool()
+
+    def _create_mock_context(self) -> MagicMock:
+        """Create a mock BrowserContext."""
+        mock_context = MagicMock()
+        mock_pages: list[MagicMock] = []
+
+        async def new_page() -> MagicMock:
+            mock_page = MagicMock()
+            mock_page.is_closed.return_value = False
+            mock_page.close = AsyncMock()
+            # Add content method for CAPTCHA checking
+            mock_page.content = AsyncMock(return_value="<html>Normal page</html>")
+            mock_pages.append(mock_page)
+            return mock_page
+
+        mock_context.new_page = new_page
+        mock_context._mock_pages = mock_pages
+        return mock_context
+
+    # =========================================================================
+    # TC-H-01: hold_for_captcha basic functionality
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_hold_for_captcha_basic(self) -> None:
+        """Test hold_for_captcha holds tab and removes from pool.
+
+        Given: A TabPool with an acquired tab
+        When: hold_for_captcha() is called
+        Then: Tab is held, not returned to pool, slot is released
+        """
+        # Given: Pool with acquired tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        expires_at = time.time() + 3600
+
+        # When: Hold tab for CAPTCHA
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=expires_at,
+        )
+
+        # Then: Tab is held, slot is released
+        assert "test-queue-id" in pool._held_tabs
+        assert pool._active_count == 0  # Slot released for other work
+        assert pool._available_tabs.qsize() == 0  # But tab not in available queue
+
+        # Verify held tab data
+        held = pool._held_tabs["test-queue-id"]
+        assert held.tab is tab
+        assert held.engine == "duckduckgo"
+        assert held.task_id == "test-task"
+        assert held.expires_at == expires_at
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-02: release_captcha_tab manual release
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_release_captcha_tab_manual(self) -> None:
+        """Test release_captcha_tab returns tab to pool.
+
+        Given: A TabPool with a held CAPTCHA tab
+        When: release_captcha_tab() is called
+        Then: Tab is returned to pool, held_tabs cleared
+        """
+        # Given: Pool with held tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() + 3600,
+        )
+
+        # When: Manual release
+        result = await pool.release_captcha_tab("test-queue-id")
+
+        # Then: Tab returned to pool
+        assert result is True
+        assert "test-queue-id" not in pool._held_tabs
+        assert pool._available_tabs.qsize() == 1  # Tab in available queue
+
+        # Cleanup
+        await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_release_captcha_tab_nonexistent(self) -> None:
+        """Test release_captcha_tab returns False for unknown queue_id.
+
+        Given: A TabPool with no held tabs
+        When: release_captcha_tab() is called with unknown queue_id
+        Then: Returns False
+        """
+        # Given: Empty pool
+        pool = TabPool(max_tabs=1)
+
+        # When: Release unknown queue_id
+        result = await pool.release_captcha_tab("nonexistent")
+
+        # Then: Returns False
+        assert result is False
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-03: release_held_tabs_for_task releases all task tabs
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_release_held_tabs_for_task(self) -> None:
+        """Test release_held_tabs_for_task releases all tabs for a task.
+
+        Given: A TabPool with multiple held tabs for different tasks
+        When: release_held_tabs_for_task() is called for one task
+        Then: Only that task's tabs are released
+        """
+        # Given: Pool with tabs for multiple tasks
+        pool = TabPool(max_tabs=3)
+        mock_context = self._create_mock_context()
+
+        tab1 = await pool.acquire(mock_context)
+        tab2 = await pool.acquire(mock_context)
+        tab3 = await pool.acquire(mock_context)
+
+        pool.hold_for_captcha(
+            tab=tab1,
+            queue_id="queue-1",
+            engine="duckduckgo",
+            task_id="task-A",
+            expires_at=time.time() + 3600,
+        )
+        pool.hold_for_captcha(
+            tab=tab2,
+            queue_id="queue-2",
+            engine="mojeek",
+            task_id="task-A",
+            expires_at=time.time() + 3600,
+        )
+        pool.hold_for_captcha(
+            tab=tab3,
+            queue_id="queue-3",
+            engine="brave",
+            task_id="task-B",
+            expires_at=time.time() + 3600,
+        )
+
+        # When: Release tabs for task-A
+        released = await pool.release_held_tabs_for_task("task-A")
+
+        # Then: Only task-A tabs released
+        assert released == 2
+        assert "queue-1" not in pool._held_tabs
+        assert "queue-2" not in pool._held_tabs
+        assert "queue-3" in pool._held_tabs  # task-B still held
+
+        # Cleanup
+        await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_release_held_tabs_for_nonexistent_task(self) -> None:
+        """Test release_held_tabs_for_task with nonexistent task_id returns 0.
+
+        Given: A TabPool with held tabs for task-A
+        When: release_held_tabs_for_task() is called with nonexistent task-Z
+        Then: Returns 0, no tabs released
+        """
+        # Given: Pool with held tab for task-A
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="queue-1",
+            engine="duckduckgo",
+            task_id="task-A",
+            expires_at=time.time() + 3600,
+        )
+
+        # When: Release tabs for nonexistent task-Z
+        released = await pool.release_held_tabs_for_task("task-Z")
+
+        # Then: No tabs released
+        assert released == 0
+        assert "queue-1" in pool._held_tabs  # task-A still held
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-04: Expired tab auto-release
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_expired_tab_auto_release(self) -> None:
+        """Test expired held tab is auto-released.
+
+        Given: A TabPool with an expired held tab
+        When: _check_all_held_tabs() is called
+        Then: Expired tab is released
+        """
+        # Given: Pool with expired held tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        # Set expires_at to past
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() - 1,  # Already expired
+        )
+
+        # When: Check held tabs
+        await pool._check_all_held_tabs()
+
+        # Then: Tab released
+        assert "test-queue-id" not in pool._held_tabs
+        assert pool._available_tabs.qsize() == 1
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-05: Resolved CAPTCHA auto-release (with full wiring verification)
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_resolved_captcha_auto_release(self) -> None:
+        """Test resolved CAPTCHA auto-releases tab with full resolve_auth flow.
+
+        Given: A TabPool with a held tab showing normal content (CAPTCHA resolved)
+        When: _check_all_held_tabs() is called
+        Then: Tab is released, all resolve_auth equivalent actions are triggered:
+              - capture_auth_session_cookies called
+              - reset_circuit_breaker_for_engine called
+              - requeue_awaiting_auth_jobs called
+              - queue.complete called with session_data
+        """
+        # Given: Pool with held tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        # Tab returns normal content (CAPTCHA was resolved)
+        tab.content = AsyncMock(return_value="<html>Normal search results</html>")  # type: ignore[method-assign]
+
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() + 3600,
+        )
+
+        # Mock dependencies - verify all wiring for resolve_auth equivalent flow
+        mock_session_data = {"cookies": [{"name": "test", "value": "123"}]}
+        with (
+            patch(
+                "src.mcp.tools.auth.capture_auth_session_cookies",
+                new_callable=AsyncMock,
+                return_value=mock_session_data,
+            ) as mock_capture_cookies,
+            patch(
+                "src.mcp.tools.auth.reset_circuit_breaker_for_engine",
+                new_callable=AsyncMock,
+            ) as mock_reset_cb,
+            patch(
+                "src.mcp.tools.auth.requeue_awaiting_auth_jobs",
+                new_callable=AsyncMock,
+                return_value=2,
+            ) as mock_requeue,
+            patch("src.utils.intervention_queue.get_intervention_queue") as mock_get_queue,
+            patch("src.crawler.challenge_detector._is_challenge_page", return_value=False),
+        ):
+            mock_queue = MagicMock()
+            mock_queue.complete = AsyncMock()
+            mock_get_queue.return_value = mock_queue
+
+            # When: Check held tabs
+            await pool._check_all_held_tabs()
+
+            # Then: All resolve_auth equivalent actions are called
+            # 1. Cookie capture (wiring verification)
+            mock_capture_cookies.assert_called_once_with("duckduckgo")
+
+            # 2. Circuit breaker reset (wiring verification)
+            mock_reset_cb.assert_called_once_with("duckduckgo")
+
+            # 3. Requeue awaiting_auth jobs (wiring verification - added feature)
+            mock_requeue.assert_called_once_with("duckduckgo")
+
+            # 4. Queue completion with session data (effect verification)
+            mock_queue.complete.assert_called_once_with(
+                "test-queue-id", success=True, session_data=mock_session_data
+            )
+
+        # Then: Tab released to pool
+        assert "test-queue-id" not in pool._held_tabs
+        assert pool._available_tabs.qsize() == 1
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-05b: Closed tab during check is handled gracefully
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_closed_tab_during_check_is_released(self) -> None:
+        """Test that a tab closed externally is released without error.
+
+        Given: A TabPool with a held tab that has been closed externally
+        When: _check_all_held_tabs() is called
+        Then: Tab is released with reason "tab_closed", no exceptions
+        """
+        # Given: Pool with held tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() + 3600,
+        )
+
+        # Simulate tab being closed externally
+        tab.is_closed.return_value = True  # type: ignore[attr-defined]
+
+        # When: Check held tabs (should not raise)
+        await pool._check_all_held_tabs()
+
+        # Then: Tab removed from held tabs (released with reason="tab_closed")
+        assert "test-queue-id" not in pool._held_tabs
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-05c: Empty held tabs check is no-op
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_check_empty_held_tabs_is_noop(self) -> None:
+        """Test _check_all_held_tabs with no held tabs does nothing.
+
+        Given: A TabPool with no held tabs
+        When: _check_all_held_tabs() is called
+        Then: No errors, no state changes
+        """
+        # Given: Empty pool
+        pool = TabPool(max_tabs=1)
+        assert len(pool._held_tabs) == 0
+
+        # When: Check held tabs (should be no-op)
+        await pool._check_all_held_tabs()
+
+        # Then: Still empty, no errors
+        assert len(pool._held_tabs) == 0
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-06: get_stats includes held tabs info
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_get_stats_includes_held_tabs(self) -> None:
+        """Test get_stats includes held tabs information.
+
+        Given: A TabPool with held tabs
+        When: get_stats() is called
+        Then: Stats include held_tabs_count and held_tabs list
+        """
+        # Given: Pool with held tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        expires_at = time.time() + 3600
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=expires_at,
+        )
+
+        # When: Get stats
+        stats = pool.get_stats()
+
+        # Then: Stats include held tabs
+        assert stats["held_tabs_count"] == 1
+        assert len(stats["held_tabs"]) == 1
+        held_info = stats["held_tabs"][0]
+        assert held_info["queue_id"] == "test-queue-id"
+        assert held_info["engine"] == "duckduckgo"
+        assert held_info["task_id"] == "test-task"
+        assert held_info["expires_at"] == expires_at
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-07: close() cleans up held tabs
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_close_cleans_up_held_tabs(self) -> None:
+        """Test close() cleans up held tabs.
+
+        Given: A TabPool with held tabs
+        When: close() is called
+        Then: Held tabs are closed and cleaned up
+        """
+        # Given: Pool with held tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() + 3600,
+        )
+
+        assert len(pool._held_tabs) == 1
+
+        # When: Close pool
+        await pool.close()
+
+        # Then: Held tabs cleared
+        assert len(pool._held_tabs) == 0
+        # Tab was closed (via MagicMock)
+        assert tab.close.called  # type: ignore[attr-defined]
+
+    # =========================================================================
+    # TC-H-08: hold_for_captcha starts background check task
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_hold_starts_check_task(self) -> None:
+        """Test hold_for_captcha starts background check task.
+
+        Given: A TabPool with no held tabs
+        When: hold_for_captcha() is called
+        Then: Background check task is started
+        """
+        # Given: Pool with acquired tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        assert pool._held_tabs_check_task is None
+
+        # When: Hold tab for CAPTCHA
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() + 3600,
+        )
+
+        # Then: Check task started
+        assert pool._held_tabs_check_task is not None
+        assert not pool._held_tabs_check_task.done()
+
+        # Cleanup
+        await pool.close()
+
+    # =========================================================================
+    # TC-H-09: hold_for_captcha on closed pool is no-op
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_hold_on_closed_pool_is_noop(self) -> None:
+        """Test hold_for_captcha on closed pool is no-op.
+
+        Given: A closed TabPool
+        When: hold_for_captcha() is called
+        Then: No error, no tab held
+        """
+        # Given: Closed pool
+        pool = TabPool(max_tabs=1)
+        await pool.close()
+
+        mock_page = MagicMock()
+        mock_page.is_closed.return_value = False
+
+        # When: Try to hold (should be no-op)
+        pool.hold_for_captcha(
+            tab=mock_page,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() + 3600,
+        )
+
+        # Then: No tab held
+        assert len(pool._held_tabs) == 0

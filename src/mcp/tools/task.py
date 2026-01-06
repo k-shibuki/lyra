@@ -33,7 +33,7 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
     Handle create_task tool call.
 
     Creates a new research task and returns task_id.
-    Per ADR-0018: hypothesis is the central claim to verify.
+    Per ADR-0017: hypothesis is the central claim to verify.
     """
     hypothesis = args["hypothesis"]
     config = args.get("config", {})
@@ -204,7 +204,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get pending auth info (ADR-0007)
             pending_auth = await get_pending_auth_info(db, task_id)
 
-            # Get all jobs summary (ADR-0016: VERIFY_NLI, CITATION_GRAPH visibility)
+            # Get all jobs summary (ADR-0015: VERIFY_NLI, CITATION_GRAPH visibility)
             jobs_summary = await get_task_jobs_summary(db, task_id)
 
             # db_only: Always compute total_* metrics from DB, even when ExplorationState exists.
@@ -250,7 +250,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "idle_seconds": exploration_status.get("idle_seconds", 0),  # ADR-0002
                 "blocked_domains": blocked_domains,  # Added for transparency
                 "domain_overrides": domain_overrides,  #
-                "jobs": jobs_summary,  # ADR-0016: All job kinds status
+                "jobs": jobs_summary,  # ADR-0015: All job kinds status
             }
 
             # Add evidence_summary when status is completed
@@ -276,7 +276,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get pending auth info (ADR-0007)
             pending_auth = await get_pending_auth_info(db, task_id)
 
-            # Get all jobs summary (ADR-0016: VERIFY_NLI, CITATION_GRAPH visibility)
+            # Get all jobs summary (ADR-0015: VERIFY_NLI, CITATION_GRAPH visibility)
             jobs_summary = await get_task_jobs_summary(db, task_id)
 
             # H-D fix: Fetch metrics directly from DB when exploration state unavailable
@@ -307,7 +307,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "idle_seconds": 0,  # ADR-0002 (no exploration state)
                 "blocked_domains": blocked_domains,  # Added for transparency
                 "domain_overrides": domain_overrides,  #
-                "jobs": jobs_summary,  # ADR-0016: All job kinds status
+                "jobs": jobs_summary,  # ADR-0015: All job kinds status
             }
 
             # Add evidence_summary when status is completed
@@ -325,7 +325,7 @@ async def handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
     Implements ADR-0003: Finalizes task session (pauses task).
     Implements ADR-0010: Stop modes (graceful/immediate) and scope.
 
-    Scope semantics (ADR-0016):
+    Scope semantics (ADR-0015):
     - search_queue_only (default): Only cancel search_queue jobs. VERIFY_NLI,
       CITATION_GRAPH, and other jobs are allowed to complete.
     - all_jobs: Cancel all job kinds for this task.
@@ -385,11 +385,24 @@ async def handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
         # Record activity for ADR-0002 idle timeout tracking
         state.record_activity()
 
-        # Handle jobs based on mode and scope (ADR-0010, ADR-0016)
+        # Handle jobs based on mode and scope (ADR-0010, ADR-0015)
         cancelled_counts = await cancel_jobs_by_scope(task_id, mode, scope, db)
 
         # Cancel pending auth queue items for this task
         await cancel_auth_queue_for_task(task_id, db)
+
+        # ADR-0007: Release held CAPTCHA tabs for this task
+        from src.search.tab_pool import get_all_tab_pools
+
+        held_tabs_released = 0
+        for pool in get_all_tab_pools().values():
+            held_tabs_released += await pool.release_held_tabs_for_task(task_id)
+        if held_tabs_released > 0:
+            logger.info(
+                "Released held CAPTCHA tabs for task",
+                task_id=task_id,
+                released_count=held_tabs_released,
+            )
 
         # Execute stop through unified API
         result = await stop_task_action(
@@ -440,7 +453,7 @@ async def cancel_jobs_by_scope(
     Returns:
         Dict with counts of cancelled/waited jobs by kind and state.
 
-    Scope semantics (ADR-0016):
+    Scope semantics (ADR-0015):
     - search_queue_only: Only cancel 'search_queue' jobs.
     - all_jobs: Cancel all job kinds for this task.
 

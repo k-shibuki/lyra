@@ -1077,6 +1077,7 @@ class BrowserSearchProvider(BaseSearchProvider):
 
                     # Acquire a tab from the pool (prevents Page sharing)
                     tab = await self._tab_pool.acquire(self._context)
+                    tab_held = False  # Track if tab was held for CAPTCHA (ADR-0007)
                     try:
                         # Navigate to search page
                         await tab.goto(
@@ -1129,59 +1130,77 @@ class BrowserSearchProvider(BaseSearchProvider):
 
                         # Parse results
                         parse_result = parser.parse(html, query)
-                    finally:
-                        # Always release tab back to pool
-                        self._tab_pool.release(tab)
 
-                    # Handle CAPTCHA on current page
-                    if parse_result.is_captcha:
-                        self._captcha_count += 1
-                        self._record_session_captcha(engine)
-                        self._tab_pool.report_captcha()
-
-                        try:
-                            await record_engine_result(
-                                engine=engine,
-                                success=False,
-                                latency_ms=(time.time() - start_time) * 1000,
-                                is_captcha=True,
-                            )
-                        except Exception as e:
-                            logger.warning(
-                                "Failed to record engine result",
-                                engine=engine,
-                                error=str(e),
-                            )
-
-                        # Queue CAPTCHA for batch processing (ADR-0007)
+                        # Handle CAPTCHA on current page (ADR-0007)
                         queue_id = None
                         captcha_queued = False
-                        if options.task_id:
-                            try:
-                                from src.utils.intervention_queue import get_intervention_queue
+                        if parse_result.is_captcha:
+                            self._captcha_count += 1
+                            self._record_session_captcha(engine)
+                            self._tab_pool.report_captcha()
 
-                                queue = get_intervention_queue()
-                                queue_id = await queue.enqueue(
-                                    task_id=options.task_id,
-                                    url=search_url,
-                                    domain=engine,
-                                    auth_type=parse_result.captcha_type or "captcha",
-                                    priority="medium",
-                                    search_job_id=options.search_job_id,
-                                )
-                                captcha_queued = True
-                                logger.info(
-                                    "CAPTCHA queued for intervention",
-                                    queue_id=queue_id,
+                            try:
+                                await record_engine_result(
                                     engine=engine,
+                                    success=False,
+                                    latency_ms=(time.time() - start_time) * 1000,
+                                    is_captcha=True,
                                 )
                             except Exception as e:
                                 logger.warning(
-                                    "Failed to queue CAPTCHA",
+                                    "Failed to record engine result",
                                     engine=engine,
                                     error=str(e),
                                 )
 
+                            # Queue CAPTCHA for batch processing (ADR-0007)
+                            if options.task_id:
+                                try:
+                                    from src.utils.intervention_queue import (
+                                        get_intervention_queue,
+                                    )
+
+                                    queue = get_intervention_queue()
+                                    queue_id = await queue.enqueue(
+                                        task_id=options.task_id,
+                                        url=search_url,
+                                        domain=engine,
+                                        auth_type=parse_result.captcha_type or "captcha",
+                                        priority="medium",
+                                        search_job_id=options.search_job_id,
+                                    )
+                                    captcha_queued = True
+                                    logger.info(
+                                        "CAPTCHA queued for intervention",
+                                        queue_id=queue_id,
+                                        engine=engine,
+                                    )
+
+                                    # Hold tab for CAPTCHA resolution (ADR-0007)
+                                    # Tab will be auto-released when CAPTCHA is resolved
+                                    # or expires (default: 3 hours)
+                                    expires_at = time.time() + 3 * 3600
+                                    self._tab_pool.hold_for_captcha(
+                                        tab=tab,
+                                        queue_id=queue_id,
+                                        engine=engine,
+                                        task_id=options.task_id,
+                                        expires_at=expires_at,
+                                    )
+                                    tab_held = True
+                                except Exception as e:
+                                    logger.warning(
+                                        "Failed to queue CAPTCHA",
+                                        engine=engine,
+                                        error=str(e),
+                                    )
+                    finally:
+                        # Release tab back to pool unless held for CAPTCHA (ADR-0007)
+                        if not tab_held:
+                            self._tab_pool.release(tab)
+
+                    # Return CAPTCHA response
+                    if parse_result.is_captcha:
                         # Return partial results if we have any
                         if all_results:
                             logger.info(
