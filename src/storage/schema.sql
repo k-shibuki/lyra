@@ -989,6 +989,8 @@ WHERE e.source_type = 'fragment'
   AND e.relation IN ('supports', 'refutes', 'neutral');  -- Exclude origin
 
 -- 5) Hub pages (pages that support many claims) + citation counts
+-- DEPRECATED: Consider using v_source_impact instead, which includes both
+-- knowledge generation (origin edges) and corroboration (supports edges).
 CREATE VIEW IF NOT EXISTS v_hub_pages AS
 WITH page_claims AS (
   SELECT
@@ -1128,6 +1130,7 @@ FROM v__evidence_with_year
 GROUP BY task_id, year;
 
 -- 10) Claim temporal support (supports only)
+-- DEPRECATED: Use v_emerging_consensus instead for trend analysis.
 CREATE VIEW IF NOT EXISTS v_claim_temporal_support AS
 SELECT
     task_id,
@@ -1217,7 +1220,56 @@ SELECT
     (claims_supported * 1.0) + (cited_by_count * 0.5) + (citation_count * 0.2) AS authority_score
 FROM base;
 
+-- 13b) Source impact (knowledge generation + corroboration)
+-- Unlike v_source_authority which only counts NLI "supports" edges,
+-- this view measures both knowledge generation (origin edges) and corroboration.
+-- This ensures meta-analyses and systematic reviews are properly valued.
+CREATE VIEW IF NOT EXISTS v_source_impact AS
+WITH generated AS (
+  SELECT
+      c.task_id,
+      p.id AS page_id,
+      p.url,
+      p.title,
+      p.domain,
+      COUNT(DISTINCT c.id) AS claims_generated,
+      AVG(c.llm_claim_confidence) AS avg_claim_confidence
+  FROM edges e
+  JOIN claims c ON e.target_type = 'claim' AND e.target_id = c.id
+  JOIN fragments f ON e.source_type = 'fragment' AND e.source_id = f.id
+  JOIN pages p ON f.page_id = p.id
+  WHERE e.relation = 'origin'
+  GROUP BY c.task_id, p.id
+),
+supported AS (
+  SELECT c.task_id, p.id AS page_id, COUNT(DISTINCT e.id) AS claims_supported
+  FROM edges e
+  JOIN claims c ON e.target_type = 'claim' AND e.target_id = c.id
+  JOIN fragments f ON e.source_type = 'fragment' AND e.source_id = f.id
+  JOIN pages p ON f.page_id = p.id
+  WHERE e.relation = 'supports'
+  GROUP BY c.task_id, p.id
+)
+SELECT
+    g.task_id,
+    g.page_id,
+    g.url,
+    g.title,
+    g.domain,
+    g.claims_generated,
+    ROUND(g.avg_claim_confidence, 4) AS avg_claim_confidence,
+    COALESCE(s.claims_supported, 0) AS claims_supported,
+    ROUND(
+        g.claims_generated 
+        + (COALESCE(g.avg_claim_confidence, 0.5) * g.claims_generated * 0.5) 
+        + (COALESCE(s.claims_supported, 0) * 0.3),
+        2
+    ) AS impact_score
+FROM generated g
+LEFT JOIN supported s ON g.task_id = s.task_id AND g.page_id = s.page_id;
+
 -- 14) Controversy by era (bucket by decade using newest evidence year)
+-- DEPRECATED: Low usage. Use v_contradictions + v_evidence_timeline for similar analysis.
 CREATE VIEW IF NOT EXISTS v_controversy_by_era AS
 WITH c AS (
   SELECT

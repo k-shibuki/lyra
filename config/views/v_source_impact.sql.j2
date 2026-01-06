@@ -1,0 +1,10 @@
+-- Source impact (knowledge generation + corroboration)
+-- Ranks sources by: claims_generated + confidence bonus + corroboration
+SELECT *
+FROM v_source_impact
+{% if task_id %}
+WHERE task_id = '{{ task_id }}'
+{% endif %}
+ORDER BY impact_score DESC
+
+
