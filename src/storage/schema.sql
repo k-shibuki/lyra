@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 -- ============================================================
 
 -- Tasks: Research task definitions
--- ADR-0018: hypothesis is the central claim the task aims to verify
+-- ADR-0017: hypothesis is the central claim the task aims to verify
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
-    hypothesis TEXT NOT NULL,  -- Central hypothesis to verify (ADR-0018)
+    hypothesis TEXT NOT NULL,  -- Central hypothesis to verify (ADR-0017)
     status TEXT NOT NULL DEFAULT 'pending',  -- pending, running, completed, failed, cancelled
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     started_at DATETIME,
@@ -548,10 +548,11 @@ WHERE cooldown_until > CURRENT_TIMESTAMP
    OR skip_until > CURRENT_TIMESTAMP;
 
 -- Task progress view
+-- ADR-0017: hypothesis is the central claim the task aims to verify
 CREATE VIEW IF NOT EXISTS v_task_progress AS
 SELECT 
     t.id as task_id,
-    t.query,
+    t.hypothesis,
     t.status,
     t.created_at,
     COUNT(DISTINCT q.id) as query_count,
@@ -740,7 +741,7 @@ CREATE TABLE IF NOT EXISTS nli_corrections (
     edge_id TEXT NOT NULL,
     task_id TEXT,
     premise TEXT NOT NULL,               -- NLI premise snapshot (for training reproducibility)
-    nli_hypothesis TEXT NOT NULL,         -- NLI hypothesis snapshot (ADR-0018: renamed to avoid conflict with task.hypothesis)
+    nli_hypothesis TEXT NOT NULL,         -- NLI hypothesis snapshot (ADR-0017: renamed to avoid conflict with task.hypothesis)
     predicted_label TEXT NOT NULL,       -- Original NLI prediction: supports/refutes/neutral
     predicted_confidence REAL NOT NULL,  -- Original confidence (0.0-1.0)
     correct_label TEXT NOT NULL,         -- Human-provided ground-truth: supports/refutes/neutral
@@ -836,10 +837,11 @@ ORDER BY timestamp DESC
 LIMIT 100;
 
 -- Task metrics summary
+-- ADR-0017: hypothesis is the central claim the task aims to verify
 CREATE VIEW IF NOT EXISTS v_task_metrics_summary AS
 SELECT 
     t.id as task_id,
-    t.query,
+    t.hypothesis,
     t.status,
     tm.total_queries,
     tm.total_pages_fetched,

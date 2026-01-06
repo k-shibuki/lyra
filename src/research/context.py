@@ -160,7 +160,7 @@ class ResearchContext:
         self.task_id = task_id
         self._db: Database | None = None
         self._task: dict[str, Any] | None = None
-        self._task_hypothesis: str = ""  # ADR-0018: Central hypothesis
+        self._task_hypothesis: str = ""  # ADR-0017: Central hypothesis
         self._fetcher = fetcher  # For RDAP/WHOIS/crt.sh lookups
 
     async def _ensure_db(self) -> None:
@@ -177,7 +177,7 @@ class ResearchContext:
             (self.task_id,),
         )
         if self._task:
-            # ADR-0018: hypothesis is the central claim to verify
+            # ADR-0017: hypothesis is the central claim to verify
             self._task_hypothesis = self._task.get("hypothesis", "")
 
     async def get_context(self) -> dict[str, Any]:
@@ -186,7 +186,7 @@ class ResearchContext:
 
         Returns:
             Dictionary containing:
-            - task_hypothesis: The central hypothesis to verify (ADR-0018)
+            - task_hypothesis: The central hypothesis to verify (ADR-0017)
             - extracted_entities: List of extracted entities
             - applicable_templates: List of applicable vertical templates
             - similar_past_queries: Past queries with success rates

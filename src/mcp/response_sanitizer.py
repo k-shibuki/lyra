@@ -1,7 +1,7 @@
 """
 MCP Response Sanitizer.
 
-Implements L7 (MCP Response Sanitization) per ADR-0005:
+Implements L7 (MCP Response Sanitization) per ADR-0006 (8-Layer Security Model):
 - Schema-based allowlist filtering (only defined fields pass through)
 - LLM-generated field sanitization (L4 validation)
 - Error response sanitization (no stack traces or internal paths)

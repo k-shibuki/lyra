@@ -268,7 +268,7 @@ async def retry_api_call[T](
             if status_code == 429:
                 consecutive_429_count += 1
 
-                # H-A fix: Report 429 to rate limiter for adaptive backoff (ADR-0015)
+                # H-A fix: Report 429 to rate limiter for adaptive backoff (ADR-0013)
                 if rate_limiter_provider:
                     try:
                         from src.search.apis.rate_limiter import get_academic_rate_limiter

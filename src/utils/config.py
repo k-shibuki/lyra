@@ -336,13 +336,13 @@ class MetricsConfig(BaseModel):
     hysteresis_min_interval: int = 300
 
 
-# === Concurrency Configuration (ADR-0015) ===
+# === Concurrency Configuration (ADR-0013/ADR-0014) ===
 
 
 class SearchQueueConcurrencyConfig(BaseModel):
     """Search queue worker concurrency configuration.
 
-    Per ADR-0010/ADR-0015: Config-driven worker count.
+    Per ADR-0010: Config-driven worker count.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -353,7 +353,7 @@ class SearchQueueConcurrencyConfig(BaseModel):
 class BrowserSerpConcurrencyConfig(BaseModel):
     """Browser SERP tab pool concurrency configuration.
 
-    Per ADR-0014/ADR-0015: Config-driven max_tabs.
+    Per ADR-0014: Config-driven max_tabs.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -366,7 +366,7 @@ class BrowserSerpConcurrencyConfig(BaseModel):
 class AcademicAPIBackoffConfig(BaseModel):
     """Academic API auto-backoff configuration.
 
-    Per ADR-0015: Safe auto-backoff for academic APIs.
+    Per ADR-0013: Safe auto-backoff for academic APIs.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -384,7 +384,7 @@ class AcademicAPIBackoffConfig(BaseModel):
 class BrowserSerpBackoffConfig(BaseModel):
     """Browser SERP auto-backoff configuration.
 
-    Per ADR-0015: Safe auto-backoff for browser SERP (decrease only, no auto-increase).
+    Per ADR-0014: Safe auto-backoff for browser SERP (decrease only, no auto-increase).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -392,13 +392,13 @@ class BrowserSerpBackoffConfig(BaseModel):
     decrease_step: int = Field(
         default=1, ge=1, description="Amount to decrease max_tabs on CAPTCHA/403 detection"
     )
-    # Note: No auto_increase for browser SERP (manual only per ADR-0015)
+    # Note: No auto_increase for browser SERP (manual only per ADR-0014)
 
 
 class BackoffConfig(BaseModel):
     """Auto-backoff configuration for concurrency control.
 
-    Per ADR-0015: Automatically reduce concurrency on errors.
+    Per ADR-0013/ADR-0014: Automatically reduce concurrency on errors.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -410,7 +410,7 @@ class BackoffConfig(BaseModel):
 class ConcurrencyConfig(BaseModel):
     """Concurrency control configuration.
 
-    Per ADR-0015: Config-driven concurrency + Safe Auto-Backoff.
+    Per ADR-0013/ADR-0014: Config-driven concurrency + Safe Auto-Backoff.
 
     Attributes:
         search_queue: Search queue worker settings (num_workers).

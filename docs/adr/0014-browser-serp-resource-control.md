@@ -31,44 +31,74 @@ Both share "resource contention control" as a theme, but resource characteristic
 
 **Introduce TabPool (tab management) to structurally eliminate browser operation contention (simultaneous operations on same Page).**
 
-> **Important**: The current `BrowserSearchProvider` shares a single `page` and executes `goto()` etc.
-> "Per-engine Semaphore" alone can still cause **simultaneous operations on the same Page**. First guarantee **correctness (eliminate contention)**.
+> **Important**: Without explicit tab management, multiple workers sharing a single Page can cause race conditions during `goto()` etc. TabPool guarantees **correctness first**.
 
 ### Design Principles
 
-1. **Pages are not shared**: Browser operations for one search are confined to "borrowed tab (Page)"
+1. **Pages are not shared**: Each search operation borrows an exclusive tab (Page) from the pool
 2. **TabPool centralizes limit management**: Start with `max_tabs=1` and increase gradually
 3. **Per-engine rate control**: QPS (min_interval) and concurrency controlled per engine
 4. **Configuration responsibility separation**:
    - **Engine QPS/parallelism**: `config/engines.yaml` (Engine policy)
    - **URL templates/selectors**: `config/search_parsers.yaml` (Parser)
 
-### Implementation
+### TabPool Pattern
 
-**TabPool pattern:**
-1. Each search operation borrows a tab (Page) from TabPool
-2. Per-engine semaphore gates concurrent requests to same engine
-3. Tab released after operation completes
+```mermaid
+flowchart LR
+    subgraph Workers
+        W0[Worker 0]
+        W1[Worker 1]
+    end
+    
+    subgraph TabPool
+        T1[Tab 1]
+        T2[Tab 2]
+    end
+    
+    W0 -->|acquire| TabPool
+    W1 -->|acquire| TabPool
+    TabPool -->|exclusive Page| W0
+    TabPool -->|exclusive Page| W1
+    W0 -->|release| TabPool
+    W1 -->|release| TabPool
+```
 
 **Effects:**
 - **Correctness**: Eliminates simultaneous operations on same Page
 - **Configurable**: Parallelism adjustable via `max_tabs` setting
 - **Per-engine control**: QPS/concurrency per engine in `config/engines.yaml`
 
-### Configuration
+### CAPTCHA Tab Holding (ADR-0007 Integration)
 
-Per-engine limits use `config/engines.yaml` (Engine policy):
+When CAPTCHA is detected, the tab is **held** (not released) so the user can solve it in the browser:
 
-```yaml
-duckduckgo:
-  # ... engine policy ...
-  min_interval: 2.0
-  concurrency: 1
+```mermaid
+sequenceDiagram
+    participant W as Worker
+    participant TP as TabPool
+    participant IQ as InterventionQueue
+    participant BG as Background Checker
 
-mojeek:
-  min_interval: 4.0
-  concurrency: 1
+    W->>TP: acquire()
+    TP-->>W: Page
+    W->>W: SERP fetch → CAPTCHA detected
+    
+    W->>TP: hold_for_captcha(tab, queue_id)
+    Note over TP: Tab held, slot released
+    W->>IQ: queue auth item
+    
+    loop Every 10s
+        BG->>TP: check held tabs
+        TP->>TP: is_challenge_page?
+    end
+    
+    Note over TP: User solves CAPTCHA
+    BG->>TP: CAPTCHA resolved
+    TP->>TP: release held tab to pool
 ```
+
+> **Note**: Slot (`_active_count`) is released immediately on hold, allowing other workers to acquire tabs. The held tab remains outside the pool until CAPTCHA is resolved or expires (see [ADR-0007](0007-human-in-the-loop-auth.md)).
 
 ## Consequences
 
@@ -81,14 +111,14 @@ mojeek:
 
 ### Negative
 
-1. **Complexity Increase**: Tab acquisition/release, ensure release on exception
+1. **Complexity Increase**: Tab acquisition/release logic, ensure release on exception
 2. **Memory Increase**: Tab/DOM holding increases with `max_tabs>1`
 3. **Bot Detection Risk**: High parallelism may trigger detection
 
 ### Neutral
 
 1. **No Academic API Changes**: Handled separately by ADR-0013
-2. **No HTTP Fetch Changes**: Already protected by existing `RateLimiter`
+2. **No HTTP Fetch Changes**: Already protected by existing domain-level `RateLimiter`
 
 ## Alternatives Considered
 
@@ -115,10 +145,17 @@ TabPool is introduced not "for parallelization" but as "abstraction to avoid Pag
 
 Each Worker gets **independent Chrome process, profile, and CDP port** for complete isolation:
 
-```
-Worker 0 ──▶ CDP:9222 ──▶ Chrome (Lyra-00)
-Worker 1 ──▶ CDP:9223 ──▶ Chrome (Lyra-01)
-Worker N ──▶ CDP:922N ──▶ Chrome (Lyra-0N)
+```mermaid
+flowchart LR
+    subgraph MCP Server
+        W0[Worker 0]
+        W1[Worker 1]
+        WN[Worker N]
+    end
+    
+    W0 -->|CDP| C0["Chrome (Lyra-00)<br/>Port: base+0"]
+    W1 -->|CDP| C1["Chrome (Lyra-01)<br/>Port: base+1"]
+    WN -->|CDP| CN["Chrome (Lyra-0N)<br/>Port: base+N"]
 ```
 
 **Principles:**
@@ -129,7 +166,7 @@ Worker N ──▶ CDP:922N ──▶ Chrome (Lyra-0N)
 ### Chrome Lazy Startup
 
 Chrome instances are started on-demand, not at MCP server startup:
-- `_auto_start_chrome()` checks CDP availability and starts Chrome if needed
+- Auto-start checks CDP availability and starts Chrome if needed
 - Global lock prevents race conditions when multiple workers attempt simultaneous start
 - Re-check after acquiring lock avoids duplicate starts
 
@@ -138,7 +175,28 @@ Chrome instances are started on-demand, not at MCP server startup:
 - Faster MCP server startup
 - Complete worker isolation (process, profile, fingerprint)
 
+## Auto-backoff on CAPTCHA/403
+
+Bot detection and CAPTCHAs cannot be prevented by rate limiting alone. The backoff strategy is conservative:
+
+- **Decrease**: Lower `effective_max_tabs` when CAPTCHA/403 rate increases
+- **Recovery**: **No auto-recovery**. Reset by MCP server restart or `TabPool.reset_backoff()` (debug)
+- **Risk**: Medium to high (BAN risk from bot detection)
+
+Unlike academic APIs where rate limits are predictable, browser SERP detection depends on engine-side heuristics that are opaque. Therefore, **auto-recovery is disabled**.
+
+**Config location**: `config/settings.yaml` → `concurrency.backoff.browser_serp`
+
+```yaml
+concurrency:
+  backoff:
+    browser_serp:
+      decrease_step: 1  # Amount to decrease on CAPTCHA/403
+      # No auto_increase (manual only)
+```
+
 ## Related
 
-- [ADR-0010](0010-async-search-queue.md) - Worker parallel execution foundation
-- [ADR-0013](0013-worker-resource-contention.md) - Academic API rate limits
+- [ADR-0007: Human-in-the-loop Auth](0007-human-in-the-loop-auth.md) - CAPTCHA tab holding integration
+- [ADR-0010: Async Search Queue](0010-async-search-queue.md) - Worker parallel execution foundation
+- [ADR-0013: Worker Resource Contention](0013-worker-resource-contention.md) - Academic API rate limits (complementary)

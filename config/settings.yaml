@@ -308,7 +308,7 @@ metrics:
   # Hysteresis to prevent oscillation
   hysteresis_min_interval: 300  # 5 minutes
 
-# === Concurrency Settings (ADR-0015) ===
+# === Concurrency Settings (ADR-0013/ADR-0014) ===
 concurrency:
   # Search queue worker settings
   search_queue:
@@ -323,7 +323,7 @@ concurrency:
     # Min: 1, Default: 2
     max_tabs: 2
   
-  # Auto-backoff settings (ADR-0015)
+  # Auto-backoff settings (ADR-0013/ADR-0014)
   # Automatically reduce concurrency on errors; recovery varies by resource type
   backoff:
     academic_api:
@@ -334,5 +334,5 @@ concurrency:
     browser_serp:
       # Amount to decrease max_tabs on CAPTCHA/403 detection
       decrease_step: 1
-      # Note: No auto_increase for browser SERP (manual only per ADR-0015)
+      # Note: No auto_increase for browser SERP (manual only per ADR-0014)
 

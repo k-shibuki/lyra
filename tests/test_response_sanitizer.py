@@ -156,7 +156,7 @@ class TestNormalCases:
         // When: Sanitizing the response
         // Then: Response passes through sanitization
 
-        NOTE: query_sql replaced get_materials per ADR-0017.
+        NOTE: query_sql replaced get_materials per ADR-0016.
         """
         response = {
             "ok": True,
@@ -867,7 +867,7 @@ class TestSecurityCases:
         result = sanitizer_with_prompt.sanitize_response(response, "get_status")
 
         # Query field should be processed (counted in llm_fields_processed)
-        # Note: ADR-0018 renamed task-level "query" to "hypothesis"
+        # Note: ADR-0017 renamed task-level "query" to "hypothesis"
         # Only the search-level "query" is now processed as LLM content
         assert result.stats.llm_fields_processed >= 1
 

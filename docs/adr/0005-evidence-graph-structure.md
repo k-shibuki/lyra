@@ -104,16 +104,45 @@ Note:
 
 ### Graph Structure
 
+```mermaid
+graph TB
+    subgraph Pages
+        P1[Page A]
+        P2[Page B]
+    end
+    
+    subgraph Fragments
+        F1[Fragment<br/>from Page A]
+        F2[Fragment<br/>from Page B]
+    end
+    
+    C[Claim]
+    
+    %% Implicit: Fragment belongs to Page (via page_id FK, not an edge)
+    P1 -.-> F1
+    P2 -.-> F2
+    
+    %% ORIGIN: provenance tracking
+    F1 ==>|ORIGIN| C
+    
+    %% NLI edges: cross-source verification
+    F2 -->|supports / refutes / neutral| C
+    
+    %% CITES: citation relationship between pages
+    P1 -->|CITES| P2
+    
+    %% EVIDENCE_SOURCE: derived edge (not persisted)
+    C -.->|EVIDENCE_SOURCE| P1
 ```
-         Claim (Assertion/Hypothesis)
-              │
-    ┌─────────┼─────────┐
-    │         │         │
-Fragment  Fragment  Fragment
-(SUPPORTS) (REFUTES) (NEUTRAL)
-    │
-    └── Page ── Domain (reference only; not a persisted node)
-```
+
+| Edge | Direction | Usage | Persisted | Bayesian Update |
+|------|-----------|-------|-----------|-----------------|
+| `ORIGIN` | Fragment → Claim | Provenance: which fragment a claim was extracted from | Yes | No (NLI not performed) |
+| `supports` / `refutes` / `neutral` | Fragment → Claim | Cross-source verification via NLI model | Yes | Yes (`nli_edge_confidence`) |
+| `CITES` | Page → Page | Citation relationship (academic papers) | Yes | No |
+| `EVIDENCE_SOURCE` | Claim → Page | Derived from ORIGIN + NLI edges | **No** (in-memory only) | N/A |
+
+> **Note**: Domain is reference information stored as edge metadata (`source_domain_category`) and in the `domains` table, NOT as a graph node.
 
 ### Node Types
 
@@ -141,13 +170,13 @@ Fragment  Fragment  Fragment
 
 **Implementation note**:
 - `ORIGIN` is persisted to DB when a claim is extracted from a fragment. It tracks provenance (where did this claim come from?), NOT whether the claim is true. Origin edges have `nli_label=NULL` and `nli_edge_confidence=NULL` since no NLI judgment is performed.
-- `SUPPORTS/REFUTES/NEUTRAL` are created when a *different* source is found that relates to the claim. These edges carry NLI model output (`nli_hypothesis=claim_text`, per ADR-0018). **Automatic creation**: When a `search_queue` job completes, Lyra automatically enqueues a `VERIFY_NLI` job that:
+- `SUPPORTS/REFUTES/NEUTRAL` are created when a *different* source is found that relates to the claim. These edges carry NLI model output (`nli_hypothesis=claim_text`, per ADR-0017). **Automatic creation**: When a `search_queue` job completes, Lyra automatically enqueues a `VERIFY_NLI` job that:
   1. Uses vector search to find candidate fragments from other domains
   2. Excludes fragments from the claim's origin domain (no self-referencing)
   3. Runs NLI to determine stance
   4. Persists edges with `INSERT OR IGNORE` (see "Duplicate Prevention" below)
 - `EXTRACTED_FROM (Fragment → Page)` is represented implicitly by the relational link `fragments.page_id → pages.id`, not as an explicit `edges` record.
-- `CITES` is persisted as `edges` rows with `source_type='page'` and `target_type='page'`. **Generation**: CITES edges are created by a deferred `CITATION_GRAPH` job (per ADR-0016), NOT during the search pipeline. This ensures web page fetching is prioritized over citation graph processing.
+- `CITES` is persisted as `edges` rows with `source_type='page'` and `target_type='page'`. **Generation**: CITES edges are created by a deferred `CITATION_GRAPH` job (per ADR-0015), NOT during the search pipeline. This ensures web page fetching is prioritized over citation graph processing.
 - `EVIDENCE_SOURCE` is derived in-memory by `load_from_db()` from `origin` + NLI fragment→claim edges + `fragment.page_id` (not persisted to DB).
 
 ### Duplicate Prevention (NLI Edges)
@@ -231,6 +260,7 @@ Reasons:
 | Vector DB Only | Fast similarity search | Weak relationships | Supplementary adoption |
 | Score Only | Lightweight | Opaque rationale | Rejected |
 
-## References
+## Related
+
 - `src/storage/schema.sql` - Graph schema (edges, claims, fragments tables)
 - `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)

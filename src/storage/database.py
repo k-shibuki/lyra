@@ -313,7 +313,7 @@ class Database:
         """Create a new research task.
 
         Args:
-            hypothesis: Central hypothesis to verify (ADR-0018).
+            hypothesis: Central hypothesis to verify (ADR-0017).
             config: Optional task configuration.
 
         Returns:

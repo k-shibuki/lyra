@@ -1,7 +1,7 @@
 """
 Wiring/Effect tests for concurrency configuration.
 
-Per ADR-0015: Adaptive Concurrency Control.
+Per ADR-0013/ADR-0014: Worker Resource Contention Control.
 These tests verify that config values are actually propagated and used.
 
 ## Test Perspectives Table (Wiring/Effect)

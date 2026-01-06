@@ -527,7 +527,7 @@ class SearchQueueWorkerManager:
         self._workers = []
         self._running_jobs = {}
 
-        # Read num_workers from config (ADR-0015)
+        # Read num_workers from config (ADR-0010)
         settings = get_settings()
         num_workers = settings.concurrency.search_queue.num_workers
 

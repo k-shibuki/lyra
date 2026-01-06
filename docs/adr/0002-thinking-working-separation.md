@@ -14,7 +14,7 @@ Problems with the single-model approach:
 
 | Problem | Details |
 |---------|---------|
-| Cost | Continuous use of GPT-4/Claude class models is expensive |
+| Cost | Continuous use of GPT-5/Claude 4.5 class models is expensive |
 | Latency | Large models respond slowly |
 | Local Execution Difficulty | 70B+ models don't run on typical GPUs |
 
@@ -26,35 +26,30 @@ Meanwhile, local small models (3B-7B):
 
 This architecture extends to a three-layer collaboration model encompassing Lyra, AI, and human researchers:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Human (Researcher)                                         │
-│  ─────────────────────────────────────────────────────────  │
-│  • Primary source deep reading                              │
-│  • Critical evaluation of evidence quality                  │
-│  • Final judgment and interpretation                        │
-│  • Domain expertise application                             │
-└─────────────────────────────────────────────────────────────┘
-                              ▲ Structured evidence + sources
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│  MCP Client (Claude Desktop / Cline / etc.)                 │
-│  ─────────────────────────────────────────────────────────  │
-│  • Research plan formulation                                │
-│  • Exploration strategy decisions                           │
-│  • Result interpretation and synthesis                      │
-│  • User interaction                                         │
-└─────────────────────────────────────────────────────────────┘
-                              ▲ MCP Protocol
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│  Lyra (MCP Server)                                          │
-│  ─────────────────────────────────────────────────────────  │
-│  • Source discovery and organization                        │
-│  • Text extraction and structuring                          │
-│  • NLI judgment (SUPPORTS/REFUTES/NEUTRAL)                  │
-│  • Data persistence                                         │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph WORKING["Working Layer"]
+        direction TB
+        Lyra["Lyra<br/>(MCP Server)"]
+        W["Search → Extract → NLI → Store"]
+    end
+
+    subgraph THINKING["Thinking Layer"]
+        direction TB
+        MCP["MCP Client<br/>(Cursor / Claude Desktop)"]
+        T["Plan → Decide → Synthesize"]
+    end
+
+    subgraph JUDGMENT["Judgment Layer"]
+        direction TB
+        Human["Human<br/>(Researcher)"]
+        J["Evaluate → Interpret → Conclude"]
+    end
+
+    Lyra -->|"Metrics<br/>Evidence"| MCP
+    MCP -->|"Queries<br/>Commands"| Lyra
+    MCP -->|"Structured<br/>Sources"| Human
+    Human -->|"Direction<br/>Feedback"| MCP
 ```
 
 **Key principle**: Lyra is a *navigation tool*, not a reading tool. It identifies and organizes relevant sources; detailed analysis of primary sources is part of the researcher's tool-assisted workflow.
@@ -62,29 +57,6 @@ This architecture extends to a three-layer collaboration model encompassing Lyra
 ## Decision
 
 **Clearly separate "Thinking" and "Working", assigning optimal components to each.**
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  MCP Client (Claude Desktop / Cline / etc.)                 │
-│  ─────────────────────────────────────────────────────────  │
-│  • Research plan formulation                                │
-│  • Exploration strategy decisions                           │
-│  • Result interpretation and synthesis                      │
-│  • User interaction                                         │
-└─────────────────────────────────────────────────────────────┘
-                              │ MCP Protocol
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Lyra (MCP Server)                                          │
-│  ─────────────────────────────────────────────────────────  │
-│  • Web crawling execution                                   │
-│  • Text extraction and structuring                          │
-│  • NLI judgment (SUPPORTS/REFUTES/NEUTRAL)                  │
-│  • Data persistence                                         │
-└─────────────────────────────────────────────────────────────┘
-```
 
 ### Responsibility Matrix
 
@@ -121,7 +93,7 @@ Exploration proceeds in an MCP client-driven loop:
 
 ```
 1. create_task(hypothesis)
-   └─ Lyra: Creates task with central hypothesis (ADR-0018), returns task_id
+   └─ Lyra: Creates task with central hypothesis (ADR-0017), returns task_id
 
 2. MCP Client: Designs search queries (this judgment is MCP client only)
 
@@ -143,10 +115,10 @@ Exploration proceeds in an MCP client-driven loop:
    └─ Lyra: Records final state to DB
 
 8. query_sql(sql="SELECT * FROM v_contradictions ...") / vector_search(query="...", target="claims")
-   └─ Lyra: Provides granular access to evidence graph via SQL and semantic search (per ADR-0017)
+   └─ Lyra: Provides granular access to evidence graph via SQL and semantic search (per ADR-0016)
    └─ MCP Client: Explores graph iteratively, structures and writes report
 
-**Note**: Per ADR-0018, the task's `hypothesis` is used as context for claim extraction, providing focus for relevant claims. Search queries are designed by the MCP client to find evidence supporting or refuting this hypothesis.
+**Note**: Per ADR-0017, the task's `hypothesis` is used as context for claim extraction, providing focus for relevant claims. Search queries are designed by the MCP client to find evidence supporting or refuting this hypothesis.
 ```
 
 ### Concrete Example
@@ -189,6 +161,9 @@ Lyra (Working):
 | Single Cloud API | High quality | High cost, Zero OpEx violation | Rejected |
 | Agent Framework (LangChain, etc.) | Flexible | Over-abstraction, MCP incompatible | Rejected |
 
-## References
+## Related
+
+- [ADR-0001: Local-First / Zero OpEx](0001-local-first-zero-opex.md) - Foundation for local execution and cost constraints
+- [ADR-0017: Task Hypothesis-First Architecture](0017-task-hypothesis-first.md) - Hypothesis-driven exploration; researchers formulate hypotheses, Lyra finds evidence
+- [System Architecture](../architecture.md) - Detailed component diagram
 - MCP Specification: https://modelcontextprotocol.io
-- ADR-0001: Local-First / Zero OpEx

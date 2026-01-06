@@ -1,7 +1,7 @@
 """
 Citation graph processing as a deferred job.
 
-Per ADR-0016: Citation graph processing is separated from the search pipeline
+Per ADR-0015: Citation graph processing is separated from the search pipeline
 to ensure web page fetching is prioritized within timeout budgets.
 
 This module provides:
@@ -28,7 +28,7 @@ async def enqueue_citation_graph_job(
 ) -> str | None:
     """Enqueue a citation graph job for deferred processing.
 
-    Per ADR-0016: Citation graph processing runs as a separate job
+    Per ADR-0015: Citation graph processing runs as a separate job
     after the search pipeline completes, not consuming search budget.
 
     Args:
@@ -101,7 +101,7 @@ async def process_citation_graph(
     3. Persist citation papers (with/without abstracts)
     4. Create CITES edges
 
-    This runs outside the search budget (per ADR-0016).
+    This runs outside the search budget (per ADR-0015).
 
     Args:
         task_id: Task ID.

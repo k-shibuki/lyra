@@ -30,7 +30,7 @@ def _setup_limiter_with_config(
     limiter._configs[provider] = config
     limiter._qps_locks[provider] = asyncio.Lock()
     limiter._concurrency_semaphores[provider] = asyncio.Semaphore(config.max_parallel)
-    # ADR-0015: Initialize backoff-related state
+    # ADR-0013: Initialize backoff-related state
     limiter._active_counts[provider] = 0
     limiter._slot_events[provider] = asyncio.Event()
     limiter._slot_events[provider].set()  # Initially available

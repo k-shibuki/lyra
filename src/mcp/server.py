@@ -112,7 +112,7 @@ and refuting queries to ensure balanced evidence collection.""",
             "properties": {
                 "hypothesis": {
                     "type": "string",
-                    "description": "Central hypothesis to verify (ADR-0018). A falsifiable claim that guides the entire exploration. Search queries are designed to find evidence supporting or refuting this hypothesis.",
+                    "description": "Central hypothesis to verify (ADR-0017). A falsifiable claim that guides the entire exploration. Search queries are designed to find evidence supporting or refuting this hypothesis.",
                 },
                 "config": {
                     "type": "object",
@@ -280,7 +280,7 @@ WHEN TO STOP:
 - Sufficient claims collected (check metrics.total_claims)
 - Time constraints require wrapping up
 
-SCOPE (ADR-0016):
+SCOPE (ADR-0015):
 - search_queue_only (default): Only cancel search_queue jobs. VERIFY_NLI and CITATION_GRAPH jobs
   are allowed to complete. This is the recommended default for session completion.
 - all_jobs: Cancel ALL job kinds for this task (search, verify_nli, citation_graph, etc.).

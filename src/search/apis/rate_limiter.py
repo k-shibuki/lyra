@@ -3,7 +3,7 @@ Global rate limiter for academic APIs.
 
 Enforces per-provider QPS limits across all worker instances.
 Per ADR-0013: Worker Resource Contention Control.
-Per ADR-0015: Adaptive Concurrency Control (auto-backoff on 429).
+Per ADR-0013: Adaptive Concurrency Control (auto-backoff on 429).
 
 Design:
 - Each provider (semantic_scholar, openalex) has its own rate limit settings
@@ -48,7 +48,7 @@ class ProviderRateLimitConfig:
 
 @dataclass
 class BackoffState:
-    """Tracks backoff state for a provider (ADR-0015)."""
+    """Tracks backoff state for a provider (ADR-0013)."""
 
     effective_max_parallel: int = 1  # Current effective limit (may be < config max)
     config_max_parallel: int = 1  # Original config limit (upper bound)
@@ -63,7 +63,7 @@ class AcademicAPIRateLimiter:
 
     Enforces per-provider QPS limits across all worker instances.
     Uses asyncio.Lock for QPS enforcement and asyncio.Semaphore for concurrency.
-    Implements auto-backoff on 429 errors (ADR-0015).
+    Implements auto-backoff on 429 errors (ADR-0013).
 
     Example:
         limiter = get_academic_rate_limiter()
@@ -91,7 +91,7 @@ class AcademicAPIRateLimiter:
         self._configs: dict[str, ProviderRateLimitConfig] = {}
         # Initialization lock
         self._init_lock = asyncio.Lock()
-        # Backoff state per provider (ADR-0015)
+        # Backoff state per provider (ADR-0013)
         self._backoff_states: dict[str, BackoffState] = {}
         # Active request count per provider (for backoff enforcement)
         self._active_counts: dict[str, int] = {}
@@ -181,7 +181,7 @@ class AcademicAPIRateLimiter:
             # Event to signal slot availability
             self._slot_events[provider] = asyncio.Event()
             self._slot_events[provider].set()  # Initially available
-            # Initialize backoff state (ADR-0015)
+            # Initialize backoff state (ADR-0013)
             self._backoff_states[provider] = BackoffState(
                 effective_max_parallel=config.max_parallel,
                 config_max_parallel=config.max_parallel,
@@ -214,7 +214,7 @@ class AcademicAPIRateLimiter:
         if timeout is None:
             timeout = DEFAULT_SLOT_ACQUIRE_TIMEOUT_SECONDS
 
-        # Check for recovery before acquiring (ADR-0015)
+        # Check for recovery before acquiring (ADR-0013)
         await self._maybe_recover(provider)
 
         # 1. Acquire concurrency slot (may block if effective_max_parallel reached)
@@ -299,7 +299,7 @@ class AcademicAPIRateLimiter:
     async def report_429(self, provider: str) -> None:
         """Report a 429 rate limit error for a provider.
 
-        Triggers backoff: reduces effective_max_parallel (ADR-0015).
+        Triggers backoff: reduces effective_max_parallel (ADR-0013).
 
         Args:
             provider: API provider name.
@@ -425,7 +425,7 @@ class AcademicAPIRateLimiter:
             "active_count": self._active_counts.get(provider, 0),
         }
 
-        # Add backoff state (ADR-0015)
+        # Add backoff state (ADR-0013)
         if backoff:
             stats["effective_max_parallel"] = backoff.effective_max_parallel
             stats["backoff_active"] = backoff.backoff_active

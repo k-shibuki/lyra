@@ -1,5 +1,5 @@
 """
-Tests for citation graph deferred job processing (ADR-0016).
+Tests for citation graph deferred job processing (ADR-0015).
 
 Test Perspectives Table:
 | Case ID    | Input / Precondition                     | Perspective              | Expected Result                              | Notes          |

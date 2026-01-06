@@ -17,7 +17,7 @@
     },
     "hypothesis": {
       "type": "string",
-      "description": "Central hypothesis to verify (ADR-0018)"
+      "description": "Central hypothesis to verify (ADR-0017)"
     },
     "searches": {
       "type": "array",
@@ -163,7 +163,7 @@
     },
     "jobs": {
       "type": "object",
-      "description": "All job kinds summary for task (ADR-0016: VERIFY_NLI, CITATION_GRAPH visibility).",
+      "description": "All job kinds summary for task (ADR-0015: VERIFY_NLI, CITATION_GRAPH visibility).",
       "properties": {
         "total_queued": {"type": "integer", "description": "Total queued jobs across all kinds"},
         "total_running": {"type": "integer", "description": "Total running jobs across all kinds"},

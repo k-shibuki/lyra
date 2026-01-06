@@ -1730,12 +1730,12 @@ class TestGetOverallHarvestRate:
 
 
 # =============================================================================
-# Unified Dual-Source Search Tests (ADR-0016)
+# Unified Dual-Source Search Tests (ADR-0015)
 # =============================================================================
 
 
 class TestUnifiedDualSourceSearch:
-    """Tests for unified dual-source search behavior (ADR-0016).
+    """Tests for unified dual-source search behavior (ADR-0015).
 
     All queries now use both Academic API and Browser SERP, with results
     deduplicated via CanonicalPaperIndex.

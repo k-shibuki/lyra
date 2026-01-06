@@ -436,7 +436,7 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
 
     db = await get_database()
 
-    # Get edge with premise/nli_hypothesis from related entities (ADR-0018)
+    # Get edge with premise/nli_hypothesis from related entities (ADR-0017)
     edge = await db.fetch_one(
         """
         SELECT e.id, e.source_type, e.source_id, e.target_type, e.target_id,
@@ -488,7 +488,7 @@ async def _handle_edge_correct(args: dict[str, Any]) -> dict[str, Any]:
 
     sample_id: str | None = None
     if is_correction:
-        # Insert nli_correction (only when label changes) - ADR-0018: nli_hypothesis
+        # Insert nli_correction (only when label changes) - ADR-0017: nli_hypothesis
         sample_id = f"nlc_{uuid.uuid4().hex[:12]}"
         await db.execute(
             """

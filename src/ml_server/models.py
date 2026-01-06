@@ -36,7 +36,7 @@ class NLIPair(BaseModel):
     premise: str = Field(..., description="Premise text")
     nli_hypothesis: str = Field(
         ...,
-        description="NLI hypothesis text (ADR-0018: renamed to avoid conflict with task.hypothesis)",
+        description="NLI hypothesis text (ADR-0017: renamed to avoid conflict with task.hypothesis)",
     )
 
 

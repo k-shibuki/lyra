@@ -176,7 +176,7 @@ class MLClient:
         """Judge stance relationships for claim pairs.
 
         Args:
-            pairs: List of dicts with 'pair_id', 'premise', 'nli_hypothesis' (ADR-0018).
+            pairs: List of dicts with 'pair_id', 'premise', 'nli_hypothesis' (ADR-0017).
 
         Returns:
             List of result dicts with 'pair_id', 'label', 'confidence'.

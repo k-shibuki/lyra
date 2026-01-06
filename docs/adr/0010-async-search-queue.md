@@ -34,159 +34,133 @@ Synchronous processing results in:
 
 - The queue worker is started when the MCP server starts (`run_server()` startup).
 - The queue worker is stopped (cancelled) when the MCP server shuts down (`run_server()` shutdown).
-- Start **2 worker tasks** for parallel execution.
+- Number of workers is configurable via `concurrency.search_queue.num_workers` (default: 2).
 
 ### Architecture
 
-```
-MCP Client                               Lyra
-     │                                    │
-     │  queue_searches([q1, q2, q3])      │
-     │ ─────────────────────────────────► │
-     │                                    │ ┌─────────────────┐
-     │  {task_id: "xxx", queued: 3}       │ │  Search Queue   │
-     │ ◄───────────────────────────────── │ │  [q1, q2, q3]   │
-     │                                    │ └────────┬────────┘
-     │                                    │          │
-     │  (MCP client does other work)      │          ▼ Async processing
-     │                                    │   ┌──────────────┐
-     │  get_status(task_id, wait=30)      │   │   Worker     │
-     │ ─────────────────────────────────► │   │  - Crawl     │
-     │                                    │   │  - Extract   │
-     │  {progress: "2/3", results: [...]} │   │  - Store     │
-     │ ◄───────────────────────────────── │   └──────────────┘
-     │                                    │
+Worker runs as a coroutine within the MCP Server process. Completion notification uses an in-memory `asyncio.Event` per task (no DB polling).
+
+```mermaid
+sequenceDiagram
+    participant C as MCP Client
+    participant M as MCP Server
+    participant S as ExplorationState
+    participant DB as jobs table
+    participant W as Worker<br/>(coroutine)
+
+    C->>M: queue_searches([q1, q2, q3])
+    M->>DB: INSERT jobs (state=queued)
+    M-->>C: {ok: true, queued: 3}
+
+    Note over C: Client does other work
+
+    C->>M: get_status(task_id, wait=30)
+    M->>S: wait_for_change(30)
+    Note over S: asyncio.Event.wait()
+
+    rect rgba(0, 0, 0, 0)
+        Note over W,DB: Worker loop (same process)
+        W->>DB: SELECT ... WHERE state=queued
+        W->>DB: UPDATE state=running (CAS)
+        W->>W: search → crawl → extract → store
+        W->>DB: UPDATE state=completed
+        W->>S: notify_status_change()
+        Note over S: asyncio.Event.set()
+    end
+
+    S-->>M: Event fired
+    M-->>C: {progress: "1/3", ...}
 ```
 
 ### MCP Tool Design
 
 #### queue_searches
 
-```python
-@server.tool()
-async def queue_searches(
-    task_id: str,
-    queries: List[str],
-    max_results_per_query: int = 10
-) -> QueueResult:
-    """
-    Add search queries to queue (returns immediately)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `task_id` | string | Task identifier |
+| `queries` | string[] | Search queries to execute |
+| `options.priority` | enum | `high` / `medium` / `low` (scheduling priority) |
+| `options.budget_pages` | int | Max pages per query |
 
-    Returns:
-        task_id: Task identifier
-        queued: Number added to queue
-        estimated_time: Estimated completion time
-    """
-    for query in queries:
-        await search_queue.enqueue(task_id, query, max_results_per_query)
-
-    return QueueResult(
-        task_id=task_id,
-        queued=len(queries),
-        estimated_time=estimate_completion_time(queries)
-    )
-```
+**Behavior**:
+- Returns immediately with `{ok, queued_count, search_ids}`
+- Duplicate queries (same task, queued/running) are auto-skipped
+- Jobs stored in `jobs` table with `kind='search_queue'`
 
 #### get_status (wait / long polling)
 
-```python
-@server.tool()
-async def get_status(
-    task_id: str,
-    wait: int = 0  # Seconds, 0 returns immediately
-) -> StatusResult:
-    """
-    Get task progress
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `task_id` | string | Task identifier |
+| `wait` | int | Seconds to wait for changes (0 = immediate return) |
 
-    If wait > 0, waits up to wait seconds until completion or change
-    """
-    if wait > 0:
-        # Long polling: wait until change
-        result = await wait_for_progress(task_id, timeout=wait)
-    else:
-        result = await get_current_status(task_id)
-
-    return StatusResult(
-        task_id=task_id,
-        status=result.status,  # "running", "completed", "failed"
-        progress=f"{result.completed}/{result.total}",
-        results=result.available_results,
-        errors=result.errors
-    )
-```
+**Behavior**:
+- `wait=0`: Returns current status immediately
+- `wait>0`: Blocks until progress change or timeout (long polling)
+- Returns progress, completed searches, partial results, and errors
 
 ### Long Polling Benefits
 
-```
-Traditional (short polling):
-  Client: get_status → Server: {progress: "0/3"}
-  (1 second later)
-  Client: get_status → Server: {progress: "0/3"}
-  (1 second later)
-  Client: get_status → Server: {progress: "1/3"}
-  ...
-  → Many requests, poor latency
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
 
-Long Polling:
-  Client: get_status(wait=30) → (server waits)
-  (when progress occurs)
-  Server: {progress: "1/3"}
-  → Reduced requests, immediate notification
+    rect rgba(0, 0, 0, 0)
+        Note over C,S: Traditional (Short Polling)
+        C->>S: get_status
+        S-->>C: {progress: "0/3"}
+        Note over C: Wait 1s
+        C->>S: get_status
+        S-->>C: {progress: "0/3"}
+        Note over C: Wait 1s
+        C->>S: get_status
+        S-->>C: {progress: "1/3"}
+        Note right of C: Many requests, poor latency
+    end
+
+    rect rgba(0, 0, 0, 0)
+        Note over C,S: Long Polling
+        C->>S: get_status(wait=30)
+        Note over S: Server waits for change
+        S-->>C: {progress: "1/3"}
+        Note right of C: Fewer requests, immediate notification
+    end
 ```
 
 ### Worker Implementation
 
-```python
-class SearchWorker:
-    async def process_queue(self):
-        while True:
-            # IMPORTANT: dequeue must be atomic when multiple workers run.
-            # Use "claim" semantics (queued -> running) in a single DB operation
-            # (e.g., UPDATE ... RETURNING) or a transaction (BEGIN IMMEDIATE)
-            # to avoid two workers picking the same queued item.
-            job = await self.queue.dequeue()
-            if job is None:
-                await asyncio.sleep(0.1)
-                continue
+**Processing Loop**:
+1. Dequeue next job using atomic claim semantics (CAS pattern)
+2. Execute search → crawl results → extract content → store
+3. Notify long polling clients on progress
+4. Handle errors gracefully (partial failures don't block queue)
 
-            try:
-                # Execute search
-                results = await self.search_engine.search(job.query)
+**Concurrency Safety**:
+- Multiple workers use compare-and-swap (`UPDATE WHERE state='queued'`) to claim jobs
+- Prevents duplicate processing of the same job
 
-                # Crawl each result
-                for url in results[:job.max_results]:
-                    page = await self.crawler.fetch(url)
-                    await self.storage.save_page(page)
-
-                    # Update progress (notify long polling)
-                    await self.notify_progress(job.task_id)
-
-            except Exception as e:
-                await self.record_error(job.task_id, e)
-```
+**Cancellation Support**:
+- Running jobs are tracked by `SearchQueueWorkerManager`
+- `stop_task(mode=immediate)` can cancel in-flight jobs via `asyncio.Task.cancel()`
 
 ### Error Handling
 
-```python
-@dataclass
-class StatusResult:
-    task_id: str
-    status: str
-    progress: str
-    results: List[PageSummary]
-    errors: List[ErrorInfo]  # Report partial errors too
+**Partial Failure Model**:
+- Individual search/fetch errors don't fail the entire task
+- Errors are recorded and reported alongside successful results
+- Status shows both `progress` (successes) and `errors` (failures)
 
-# Processing continues despite errors
-{
-    "status": "running",
-    "progress": "8/10",
-    "results": [...],  # 8 successful items
-    "errors": [
-        {"url": "https://...", "reason": "timeout"},
-        {"url": "https://...", "reason": "403 Forbidden"}
-    ]
-}
-```
+**Job States**:
+| State | Description |
+|-------|-------------|
+| `queued` | Waiting for worker |
+| `running` | Being processed |
+| `completed` | Finished successfully |
+| `failed` | Error during processing |
+| `cancelled` | Stopped by user |
+| `awaiting_auth` | Blocked by CAPTCHA (ADR-0007) |
 
 ## Consequences
 
@@ -219,28 +193,44 @@ class StatusResult:
 
 ### Job Chaining: search_queue → VERIFY_NLI / CITATION_GRAPH
 
-When a `search_queue` job completes successfully (pages_fetched > 0), it automatically enqueues follow-up jobs:
+Follow-up jobs are enqueued at different points in the search lifecycle:
 
+```mermaid
+flowchart TD
+    SQ_START["search_queue<br/>(running)"]
+    PIPE["SearchPipeline.execute()"]
+    ACAD["Academic paper processing"]
+    SQ_END["search_queue<br/>(completed)"]
+
+    SQ_START --> PIPE
+    PIPE --> ACAD
+    ACAD -->|"enqueue during pipeline"| CG
+    ACAD --> SQ_END
+    SQ_END -->|"enqueue after completion"| NLI
+
+    subgraph CG["CITATION_GRAPH (priority=50, slot=CPU_NLP)"]
+        C1[get_citation_graph for papers]
+        C2[Relevance filtering]
+        C3[Persist CITES edges]
+        C1 --> C2 --> C3
+    end
+
+    subgraph NLI["VERIFY_NLI (priority=45, slot=CPU_NLP)"]
+        N1[Vector search for candidate fragments]
+        N2[NLI judgment per fragment-claim pair]
+        N3[INSERT OR IGNORE edges]
+        N1 --> N2 --> N3
+    end
 ```
-search_queue (completed)
-    │
-    ├──► VERIFY_NLI (enqueued, priority=45, slot=CPU_NLP)
-    │        │
-    │        ├── Vector search for candidate fragments (excluding origin domain)
-    │        ├── NLI judgment for each (fragment, claim) pair
-    │        └── INSERT OR IGNORE edges (supports/refutes/neutral)
-    │
-    └──► CITATION_GRAPH (enqueued, priority=50, slot=CPU_NLP)
-             │
-             ├── get_citation_graph for papers with abstracts
-             ├── Relevance filtering of citations
-             └── Persist CITES edges
-```
+
+**Enqueue timing**:
+- `CITATION_GRAPH`: Enqueued **during** pipeline execution (after academic paper processing)
+- `VERIFY_NLI`: Enqueued **after** search_queue job completion (from search_worker)
 
 **Key behaviors**:
-- Both jobs run on `CPU_NLP` slot (don't block browser/network resources)
-- `VERIFY_NLI`: Candidate fragments are filtered to exclude the claim's origin domain (no self-referencing)
-- `CITATION_GRAPH`: Uses separate budget (`citation_graph_budget_pages`) per ADR-0016
+- Both jobs run on `CPU_NLP` slot (up to 8 parallel, don't block browser/network)
+- `VERIFY_NLI`: Candidate fragments exclude claim's origin domain (no self-referencing)
+- `CITATION_GRAPH`: Uses separate budget (`citation_graph_budget_pages`) per ADR-0015
 - Duplicate `(fragment_id, claim_id)` pairs are skipped (DB unique index + application check)
 - If follow-up jobs fail, the `search_queue` result is unaffected (fire-and-forget)
 
@@ -309,9 +299,9 @@ search_queue (completed)
 | Academic APIs | Global rate limiter | [ADR-0013](0013-worker-resource-contention.md) |
 | HTTP fetch | Per-domain RateLimiter | - |
 
-## References
+## Related
 
-- [ADR-0013](0013-worker-resource-contention.md) - Academic API resource control
-- [ADR-0014](0014-browser-serp-resource-control.md) - Browser SERP resource control
+- [ADR-0013: Worker Resource Contention](0013-worker-resource-contention.md) - Academic API resource control
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - TabPool for browser SERP
 - `src/scheduler/search_worker.py` - Worker implementation
 - `src/mcp/server.py` - MCP tool definitions

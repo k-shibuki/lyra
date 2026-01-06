@@ -1,7 +1,7 @@
 """
 Tests for ConcurrencyConfig and related config classes.
 
-Per ADR-0015: Adaptive Concurrency Control.
+Per ADR-0013/ADR-0014: Worker Resource Contention Control.
 
 ## Test Perspectives Table
 

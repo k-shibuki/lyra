@@ -1,7 +1,7 @@
 # ADR-0008: Academic Data Source Strategy
 
 ## Date
-2025-11-28 (Updated: 2026-01-03)
+2025-11-28 (Updated: 2026-01-06)
 
 ## Context
 
@@ -31,13 +31,45 @@ Comparison of major academic data sources:
 
 ### Data Source Hierarchy
 
+Two entry points converge on a shared API layer:
+
+```mermaid
+flowchart LR
+    subgraph ENTRY["Entry Points"]
+        direction TB
+        DQ["Direct Query<br/>(keyword search)"]
+        SERP["SERP URL<br/>(pubmed/arxiv/doi.org)"]
+    end
+
+    subgraph RESOLVE["ID Resolution"]
+        direction TB
+        EX["IdentifierExtractor"]
+        IR["IDResolver"]
+        EX -->|"PMID/arXiv"| IR
+    end
+
+    subgraph API["Academic API Layer"]
+        direction TB
+        S2{"Semantic Scholar"}
+        OA{"OpenAlex"}
+        S2 -->|"Rate Limit<br/>/ Not Found"| OA
+    end
+
+    OUT["Paper Metadata<br/>+ Citations"]
+
+    DQ --> S2
+    SERP --> EX
+    EX -->|"DOI (direct)"| S2
+    IR -->|DOI| S2
+
+    S2 -->|Success| OUT
+    OA --> OUT
 ```
-[1] Semantic Scholar API
-    ↓ On rate limit or not found
-[2] OpenAlex API
-    ↓ If not found
-[3] DOI/URL direct access
-```
+
+| Entry Point | Use Case | Processing |
+|-------------|----------|------------|
+| Direct Query | Academic search, citation graph | Direct to S2/OpenAlex |
+| SERP URL | Metadata complement for browser results | Extract ID → Resolve → API |
 
 ### Semantic Scholar (S2) Selection Reasons
 
@@ -47,7 +79,7 @@ Comparison of major academic data sources:
 | Abstract | Abstracts available for nearly all papers |
 | TL;DR | AI-generated summaries included |
 | API Quality | RESTful, well-documented |
-| Free Tier | 5,000 requests/5 minutes |
+| Free Tier | Rate-limited (see `config/academic_apis.yaml` for current limits) |
 
 ### Abstract-Only Strategy
 
@@ -73,39 +105,31 @@ This aligns with ADR-0002's three-layer model: Lyra discovers, AI synthesizes, h
 
 ### Citation Graph Construction
 
-```python
-# Get citations from S2
-paper = s2_client.get_paper(paper_id)
-references = paper.references      # Papers this paper cites
-citations = paper.citations        # Papers citing this paper
+Citation relationships from S2 API are integrated into the Evidence Graph (see ADR-0005).
 
-# Integrate into Evidence Graph (see ADR-0005)
-for ref in references:
-    graph.add_edge(
-        from_node=paper.fragment_id,
-        to_node=ref.fragment_id,
-        edge_type="CITES",
-        citation_source="s2"
-    )
+```mermaid
+flowchart LR
+    P[Paper] -->|references| R1[Referenced Paper 1]
+    P -->|references| R2[Referenced Paper 2]
+    C1[Citing Paper 1] -->|cites| P
+    C2[Citing Paper 2] -->|cites| P
 ```
+
+Edges are stored in the `edges` table with type `CITES`, enabling citation relationship tracking.
 
 ### Fallback Strategy
 
-```python
-async def get_paper_metadata(identifier: str) -> PaperMetadata:
-    # 1. Try S2
-    try:
-        return await s2_client.get_paper(identifier)
-    except RateLimitError:
-        await asyncio.sleep(backoff)
-        # 2. Fallback to OpenAlex
-        return await openalex_client.get_work(identifier)
-    except NotFoundError:
-        # 3. Direct DOI resolution
-        if is_doi(identifier):
-            return await resolve_doi_metadata(identifier)
-        raise
-```
+Fallback behavior executes in the following order:
+
+| Order | Condition | Action |
+|-------|-----------|--------|
+| 1 | S2 success | Return result |
+| 2 | S2 rate limited | Backoff, then try OpenAlex |
+| 3 | S2 not found | Try OpenAlex |
+| 4 | Both not found + DOI available | Resolve via DOI URL |
+| 5 | All failed | Return error |
+
+See `src/search/academic_provider.py` for parallel search and merge logic.
 
 ### Preprint Handling
 
@@ -115,12 +139,7 @@ async def get_paper_metadata(identifier: str) -> PaperMetadata:
 | bioRxiv/medRxiv | Unreviewed | Reflected in uncertainty (higher) |
 | Published Journal | Peer-reviewed | Normal |
 
-```python
-# Record review status in metadata
-if paper.venue in ["arXiv", "bioRxiv", "medRxiv"]:
-    paper.peer_reviewed = False
-    paper.preprint = True
-```
+**Preprint Detection**: When a paper's `venue` is a preprint server (arXiv, bioRxiv, medRxiv, etc.), the metadata is flagged as unreviewed and reflected in uncertainty scoring.
 
 **Implementation note (2025-12-27)**:
 - The current implementation stores academic metadata in `pages.paper_metadata` and may surface `year/doi/venue`
@@ -131,24 +150,14 @@ if paper.venue in ["arXiv", "bioRxiv", "medRxiv"]:
 
 ### API Client Configuration
 
-```python
-# Semantic Scholar
-S2_CONFIG = {
-    "base_url": "https://api.semanticscholar.org/graph/v1",
-    "rate_limit": 5000,  # per 5 minutes
-    "rate_window": 300,
-    "timeout": 30,
-    "retry_count": 3
-}
+API settings are managed in `config/academic_apis.yaml`. Key configuration items:
 
-# OpenAlex
-OPENALEX_CONFIG = {
-    "base_url": "https://api.openalex.org",
-    "polite_pool_email": "lyra@example.com",  # Required
-    "timeout": 30,
-    "retry_count": 3
-}
-```
+| API | Key Settings |
+|-----|--------------|
+| Semantic Scholar | base_url, rate_limit, timeout, priority |
+| OpenAlex | base_url, rate_limit, polite_pool User-Agent, priority |
+
+Rate limits and retry policies follow ADR-0013 (Worker Resource Contention Control).
 
 ## Consequences
 
@@ -172,9 +181,13 @@ OPENALEX_CONFIG = {
 | Scopus/WoS | High quality | Paid (Zero OpEx violation) | Rejected |
 | PubMed Only | Strong in medicine | Limited coverage | Rejected |
 
-## References
+## Related
+
+- [ADR-0005: Evidence Graph Structure](0005-evidence-graph-structure.md) - CITES edges for citation relationships
 - `src/search/apis/semantic_scholar.py` - Semantic Scholar API client
 - `src/search/apis/openalex.py` - OpenAlex API client
 - `src/search/academic_provider.py` - Academic API integration provider
+- `src/search/identifier_extractor.py` - DOI/PMID/arXiv extractor from URLs
+- `src/search/id_resolver.py` - PMID/arXiv to DOI resolver
+- `src/research/pipeline.py` - Search pipeline (Flow 1 implementation)
 - `config/academic_apis.yaml` - API configuration
-- ADR-0005: Evidence Graph Structure

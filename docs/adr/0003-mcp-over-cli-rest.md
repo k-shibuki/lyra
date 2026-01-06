@@ -35,45 +35,40 @@ Comparison of each method:
 3. **Stateful Communication**: Natural support for long-running research tasks
 4. **Ecosystem**: Compatible with Claude Desktop, Cline, Cursor, etc.
 
-### Provided Tools (Excerpt)
+### Tool Categories
 
-```python
-@server.tool()
-async def search(query: str, max_results: int = 10) -> SearchResult:
-    """Execute web search and return results"""
-    ...
+| Category | Description |
+|----------|-------------|
+| Task Management | Create/stop research tasks, get status |
+| Research Execution | Queue search queries for background processing |
+| Evidence Graph Exploration | SQL queries, semantic vector search, predefined views |
+| Authentication Queue | Handle CAPTCHA/auth challenges |
+| Feedback | Human-in-the-loop corrections for quality improvement |
+| Calibration | NLI model calibration metrics and rollback (admin) |
 
-@server.tool()
-async def get_page(url: str) -> PageContent:
-    """Fetch page content from specified URL"""
-    ...
-
-@server.tool()
-async def extract_claims(page_id: str, context: str) -> List[Claim]:
-    """Extract claims from page, using context (task hypothesis) for focus"""
-    ...
-```
+Tool definitions use JSON Schema for parameter validation via MCP's `inputSchema`.
 
 ### Communication Method
 
-```
-Claude Desktop / Cline
-        │
-        │ stdio (standard I/O)
-        ▼
-   Lyra MCP Server
+```mermaid
+flowchart TB
+    subgraph Client["MCP Client"]
+        CD[Cursor IDE]
+        CL[Claude Desktop]
+        CU[Cline]
+    end
+    
+    subgraph Server["Lyra MCP Server"]
+        S[MCP Handler]
+    end
+    
+    CD -->|stdio| S
+    CL -->|stdio| S
+    CU -->|stdio| S
 ```
 
 - **stdio**: Optimal for local execution, no additional ports required
 - Inter-process communication overhead is negligible
-
-### Client Requirements
-
-As stated in ADR-0002, the client side requires Claude/GPT-4 class reasoning capability. MCP aligns with this assumption:
-
-- Claude Desktop: Claude 3.5 Sonnet / Opus
-- Cline: Any LLM (recommended: Claude / GPT-4)
-- Cursor: Claude / GPT-4
 
 ## Consequences
 
@@ -97,7 +92,8 @@ As stated in ADR-0002, the client side requires Claude/GPT-4 class reasoning cap
 | GraphQL | Flexible queries | Excessive, no LLM integration | Rejected |
 | gRPC | High performance | Complex, no LLM integration | Rejected |
 
-## References
+## Related
+
+- [ADR-0002: Thinking-Working Separation](0002-thinking-working-separation.md) - Defines role separation between MCP client and server
 - `src/mcp/server.py` - MCP server implementation
 - MCP Specification: https://modelcontextprotocol.io
-- ADR-0002: Thinking-Working Separation

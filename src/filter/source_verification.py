@@ -1,7 +1,7 @@
 """
 Source Verification Flow.
 
-Implements L6 (Source Verification Flow) per ADR-0005:
+Implements L6 (Source Verification Flow) per ADR-0006 (8-Layer Security Model):
 - Automatic verification using EvidenceGraph
 - Trust level promotion/demotion based on corroboration
 - Integration with security detection (L2/L4)

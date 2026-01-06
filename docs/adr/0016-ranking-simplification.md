@@ -1,4 +1,4 @@
-# ADR-0017: Ranking Simplification and Evidence Graph Exploration Interface
+# ADR-0016: Ranking Simplification and Evidence Graph Exploration Interface
 
 ## Date
 2025-12-27
@@ -44,19 +44,7 @@ Additionally, the `get_materials` tool returns all evidence data at once (300-40
 
 - **Remove**: `cache_embed` table (expiring cache)
 - **Replace with**: `embeddings` table (persistent storage)
-- **Schema**:
-  ```sql
-  CREATE TABLE embeddings (
-      id TEXT PRIMARY KEY,
-      target_type TEXT NOT NULL,  -- 'fragment' | 'claim'
-      target_id TEXT NOT NULL,
-      model_id TEXT NOT NULL,
-      embedding_blob BLOB NOT NULL,
-      dimension INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(target_type, target_id, model_id)
-  );
-  ```
+- **Key columns**: `target_type` (fragment/claim), `target_id`, `model_id`, `embedding_blob`
 - **Benefits**:
   - No recalculation of embeddings
   - Faster vector search
@@ -69,42 +57,56 @@ Additionally, the `get_materials` tool returns all evidence data at once (300-40
 - **Examples**: `v_contradictions`, `v_hub_pages`, `v_evidence_timeline`
 - **Benefits**: Guide AI agents in exploration patterns
 
-## Implementation Details
+## Architecture Overview
+
+```mermaid
+flowchart TD
+    subgraph Ranking["2-Stage Ranking"]
+        BM25[BM25] --> Embed[Embedding]
+    end
+    
+    Embed --> Kneedle["Kneedle Cutoff<br/>(post-processing)"]
+    Kneedle --> Claims[(claims)]
+    Kneedle --> Fragments[(fragments)]
+    
+    subgraph Exploration["Evidence Graph Exploration (MCP Tools)"]
+        Vec[vector_search]
+        View[query_view]
+        SQL[query_sql]
+        List[list_views]
+    end
+    
+    subgraph Templates["config/views/*.sql.j2"]
+        Views[Analysis View Templates]
+    end
+    
+    Claims --> Vec
+    Fragments --> Vec
+    Views --> View
+    View --> SQL
+    Claims --> SQL
+    Fragments --> SQL
+```
+
+**Key points**:
+- **2-Stage Ranking**: BM25 (lexical) → Embedding (semantic). Kneedle is post-processing cutoff, not a ranking stage.
+- **MCP Tools**: `vector_search` for semantic discovery, `query_view` for predefined analysis, `query_sql` for ad-hoc queries, `list_views` to discover available views.
 
 ### Kneedle Algorithm
 
-```python
-def kneedle_cutoff(
-    ranked: list[dict[str, Any]],
-    min_results: int = 3,
-    max_results: int = 50,
-    sensitivity: float = 1.0,
-) -> list[dict[str, Any]]:
-    """Detect knee point in score curve and cut off after it."""
-    # Uses kneed library for knee detection
-    # Falls back to min_results if library unavailable
-```
+Detects the "knee point" in score distribution using the [kneed](https://github.com/arvkevi/kneed) library. Results below the knee point are excluded, providing adaptive quality-based cutoff instead of fixed top-k.
+
+- **Parameters**: `min_results`, `max_results`, `sensitivity`
+- **Fallback**: Returns `min_results` if library unavailable or detection fails
 
 ### Security for `query_sql`
 
-- Read-only SQLite connection (`mode=ro`)
-- Pattern-based validation (forbidden keywords: ATTACH, INSERT, UPDATE, DELETE, etc.)
-- Timeout protection (asyncio.wait_for)
-- Output limit (max 200 rows)
-
-### Configuration
-
-```yaml
-ranking:
-  bm25_top_k: 150
-  embedding_weight: 0.7
-  bm25_weight: 0.3
-  kneedle_cutoff:
-    enabled: true
-    min_results: 3
-    max_results: 50
-    sensitivity: 1.0
-```
+| Measure | Description |
+|---------|-------------|
+| Read-only | SQLite `mode=ro` connection |
+| Validation | Pattern-based forbidden keyword detection |
+| Timeout | `asyncio.wait_for` protection |
+| Output limit | Max 200 rows per query |
 
 ## Consequences
 
@@ -142,8 +144,9 @@ ranking:
 
 - **Rejected**: Less adaptive, may include low-quality results
 
-## References
+## Related
 
-- ADR-0001: Local-First Zero-Opex Architecture
-- ADR-0005: Evidence Graph Structure
+- [ADR-0001: Local-First Zero-Opex Architecture](0001-local-first-zero-opex.md) - No GPU required for reranking
+- [ADR-0005: Evidence Graph Structure](0005-evidence-graph-structure.md) - Graph structure for exploration
+- [ADR-0017: Task Hypothesis-First Architecture](0017-task-hypothesis-first.md) - Task scoping for query_sql/vector_search
 

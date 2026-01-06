@@ -32,7 +32,7 @@ Specifically:
 2. **Vector Search**: Local embedding models + SQLite FTS
 3. **Web Crawling**: Playwright (local execution)
 4. **Data Storage**: SQLite (local file)
-5. **ML Inference**: ml container for embedding/NLI (reranker removed per ADR-0017)
+5. **ML Inference**: ml container for embedding/NLI (reranker removed per ADR-0016)
 
 ### GPU Requirements
 
@@ -43,9 +43,9 @@ Specifically:
 | Ollama (LLM) | Recommended | Practical inference speed (20-100x faster) |
 | ml (Embedding/NLI) | Recommended | Batch processing performance |
 
-**CPU Fallback**: Lyra automatically detects GPU availability at startup via `nvidia-smi`. When no GPU is detected, it runs in CPU mode with a warning logged. CPU mode is fully functional but significantly slower (suitable for testing or low-volume use).
+**CPU Fallback**: Lyra automatically detects GPU availability at startup. When no GPU is detected, it runs in CPU mode with a warning logged. CPU mode is fully functional but significantly slower (suitable for testing or low-volume use).
 
-**GPU Auto-Detection**: The compose scripts (`scripts/lib/compose.sh`) automatically apply GPU overlay files (`podman-compose.gpu.yml` / `docker-compose.gpu.yml`) when `nvidia-smi` is available. No manual configuration required.
+**GPU Auto-Detection**: The container orchestration scripts automatically apply GPU overlay configurations when a CUDA-capable GPU is detected. No manual configuration required.
 
 ### Exceptions (Permitted External Communication)
 - Academic APIs (Semantic Scholar, OpenAlex): Free with relaxed rate limits
@@ -84,6 +84,9 @@ Specifically:
 | Self-hosted Cloud | Scalable | Infrastructure operation costs | Rejected |
 | CPU-Only Default | Runs without GPU | 20-100x slower | Rejected (GPU recommended, CPU fallback supported) |
 
-## References
+## Related
+
 - Ollama: https://ollama.ai
 - Qwen2.5: https://huggingface.co/Qwen
+- Semantic Scholar API: https://www.semanticscholar.org/product/api
+- OpenAlex API: https://openalex.org/

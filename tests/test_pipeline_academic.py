@@ -1516,19 +1516,19 @@ class TestExecuteComplementarySearchE2E:
 
 
 # =============================================================================
-# Test: Unified Search Identifier Complement (ADR-0016)
+# Test: Unified Search Identifier Complement (ADR-0015)
 # =============================================================================
 
 
 @pytest.mark.skip(
-    reason="ADR-0016: Tests need rewrite. Identifier extraction moved from "
+    reason="ADR-0015: Tests need rewrite. Identifier extraction moved from "
     "_execute_browser_search() to _execute_unified_search(). "
     "Unified search behavior tested in tests/test_research.py::TestUnifiedDualSourceSearch"
 )
 class TestUnifiedSearchIdentifierComplement:
     """Tests for identifier extraction and API complement in unified dual-source search.
 
-    NOTE (ADR-0016): After removing is_academic routing, ALL queries now use
+    NOTE (ADR-0015): After removing is_academic routing, ALL queries now use
     _execute_unified_search() which runs both Academic API and Browser SERP.
 
     SKIPPED: These tests were written for the old _execute_browser_search()

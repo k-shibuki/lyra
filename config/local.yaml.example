@@ -42,7 +42,7 @@ settings:
     budget_pages_per_task: 120
     cursor_idle_timeout_seconds: 180  # Default: 60, extend for long searches
 
-  # Concurrency (ADR-0015)
+  # Concurrency (ADR-0013/ADR-0014)
   concurrency:
     search_queue:
       num_workers: 2  # Parallel search workers

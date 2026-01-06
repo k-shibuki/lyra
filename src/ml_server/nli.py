@@ -95,7 +95,7 @@ class NLIService:
 
         Args:
             premise: Premise text.
-            nli_hypothesis: NLI hypothesis text (ADR-0018).
+            nli_hypothesis: NLI hypothesis text (ADR-0017).
 
         Returns:
             Prediction result with label and confidence.

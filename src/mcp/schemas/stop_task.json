@@ -29,7 +29,7 @@
     "scope": {
       "type": "string",
       "enum": ["search_queue_only", "all_jobs"],
-      "description": "Scope of job cancellation (ADR-0016). search_queue_only = only search jobs cancelled, verify_nli/citation_graph allowed to complete. all_jobs = all job kinds cancelled."
+      "description": "Scope of job cancellation (ADR-0015). search_queue_only = only search jobs cancelled, verify_nli/citation_graph allowed to complete. all_jobs = all job kinds cancelled."
     },
     "cancelled_counts": {
       "type": "object",

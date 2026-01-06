@@ -1,4 +1,4 @@
-# ADR-0006: eight-Layer Security Model
+# ADR-0006: Eight-Layer Security Model
 
 ## Date
 2025-11-18
@@ -37,30 +37,36 @@ The session-tag wrapper exists as a defense-in-depth tool, but prompt-building i
 
 ### 8-Layer Model
 
-```
-[Input]
-   │
-   ▼
-┌─────────────────────────────────┐
-│ L1: Input Validation            │  ← Format validation
-├─────────────────────────────────┤
-│ L2: URL Allowlist/Blocklist     │  ← Access control
-├─────────────────────────────────┤
-│ L3: Content Pre-filter          │  ← Pre-fetch filtering
-├─────────────────────────────────┤
-│ L4: Prompt Injection Detection  │  ← Injection detection
-├─────────────────────────────────┤
-│ L5: LLM Sandbox                 │  ← Execution isolation
-├─────────────────────────────────┤
-│ L6: Output Validation           │  ← Output verification
-├─────────────────────────────────┤
-│ L7: Response Sanitization       │  ← Neutralization
-├─────────────────────────────────┤
-│ L8: Audit Logging               │  ← Audit records
-└─────────────────────────────────┘
-   │
-   ▼
-[Output]
+```mermaid
+flowchart LR
+    Input([Input])
+
+    subgraph INBOUND["Inbound Defense"]
+        direction TB
+        L1["L1: Input Validation"]
+        L2["L2: URL Policy"]
+        L3["L3: Content Pre-filter"]
+        L1 --> L2 --> L3
+    end
+
+    subgraph CORE["Core Protection"]
+        direction TB
+        L4["L4: Injection Detection"]
+        L5["L5: LLM Sandbox"]
+        L4 --> L5
+    end
+
+    subgraph OUTBOUND["Outbound Defense"]
+        direction TB
+        L6["L6: Output Validation"]
+        L7["L7: Sanitization"]
+        L6 --> L7
+    end
+
+    L8["L8: Audit Log"]
+    Output([Output])
+
+    Input --> INBOUND --> CORE --> OUTBOUND --> L8 --> Output
 ```
 
 ### Layer Responsibilities
@@ -97,8 +103,17 @@ The session-tag wrapper exists as a defense-in-depth tool, but prompt-building i
 | External WAF | Specialized | Unsuitable for local execution | Rejected |
 | LLM Self-defense Only | Easy | Insufficient reliability | Rejected |
 
-## References
-- `src/filter/llm_security.py` - L4/L5 implementation
-- `src/mcp/response_sanitizer.py` - L7 implementation
-- `src/filter/source_verification.py` - L2/L6 implementation
+## Related
+
+| Layer | Module | Description |
+|-------|--------|-------------|
+| L1 | `src/mcp/schemas.py` | JSON Schema validation for MCP requests |
+| L2 | `src/utils/domain_policy.py` | Domain allowlist/blocklist, DomainPolicyManager |
+| L3 | `src/extractor/content.py`, `src/extractor/quality_analyzer.py` | HTML pre-filtering (trafilatura, script/style removal) |
+| L4 | `src/filter/llm_security.py` | Prompt injection detection (DANGEROUS_PATTERNS) |
+| L5 | `src/filter/llm_security.py` | LLM sandbox (session tags, length limits) |
+| L6 | `src/filter/llm_security.py`, `src/filter/source_verification.py` | Output validation, NLI verification |
+| L7 | `src/mcp/response_sanitizer.py` | MCP response sanitization |
+| L8 | `src/utils/secure_logging.py`, `src/storage/schema.sql` | Audit logging (AuditLogger, event_log table) |
+
 - OWASP LLM Top 10: https://owasp.org/www-project-top-10-for-large-language-model-applications/

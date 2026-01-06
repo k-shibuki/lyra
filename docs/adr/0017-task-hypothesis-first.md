@@ -1,4 +1,4 @@
-# ADR-0018: Task Hypothesis-First Architecture
+# ADR-0017: Task Hypothesis-First Architecture
 
 ## Date
 2026-01-05
@@ -45,14 +45,32 @@ This conceptual ambiguity led to:
 
 ```mermaid
 flowchart TD
-  CreateTask[create_task hypothesis ] -->|task_id| QueueSearches[queue_searches task_id,queries ]
-  QueueSearches --> SearchQueue[search_queue_jobs]
-  SearchQueue --> ExtractClaims[LLM_extract_claims context=task_hypothesis ]
-  ExtractClaims --> Claims[claims task_id,claim_text ]
-  Claims -->|trigger| VerifyNli[VERIFY_NLI]
-  VerifyNli -->|premise=fragment,nli_hypothesis=claim_text| NliJudge[NLI_judge]
-  NliJudge --> Edges[edges fragment→claim supports/refutes/neutral ]
-  Claims --> VectorSearch[vector_search query_text,task_id_filter ]
+    CreateTask["create_task(hypothesis)"]
+    QueueSearches["queue_searches(task_id, queries)"]
+    SearchQueue[(search_queue_jobs)]
+    Pages[(pages)]
+    ExtractClaims["LLM extract_claims"]
+    Claims[(claims)]
+    CitationGraph[CITATION_GRAPH job]
+    VerifyNli[VERIFY_NLI job]
+    NliJudge["NLI judge"]
+    Edges[(edges)]
+    VectorSearch["vector_search"]
+    QueryView["query_view / query_sql"]
+
+    CreateTask -->|"returns task_id"| QueueSearches
+    QueueSearches --> SearchQueue
+    SearchQueue --> Pages
+    SearchQueue --> ExtractClaims
+    Pages -->|"academic papers"| CitationGraph
+    CitationGraph -->|"CITES"| Edges
+    ExtractClaims -->|"context: task.hypothesis"| Claims
+    Claims -->|"triggers"| VerifyNli
+    VerifyNli -->|"premise: fragment.text<br/>nli_hypothesis: claim.claim_text"| NliJudge
+    NliJudge -->|"supports/refutes/neutral"| Edges
+    Edges --> VectorSearch
+    Claims --> VectorSearch
+    VectorSearch --> QueryView
 ```
 
 ### Usage Flow
@@ -61,8 +79,10 @@ flowchart TD
 2. **Query Design**: MCP client designs search queries to find supporting/refuting evidence
 3. **Search Execution**: `queue_searches(task_id, queries=["DPP-4 inhibitors meta-analysis", ...])`
 4. **Claim Extraction**: LLM extracts claims using `task_hypothesis` as context (focus)
-5. **NLI Verification**: `premise=fragment.text`, `nli_hypothesis=claim.claim_text`
-6. **Evidence Exploration**: `vector_search(query="...", task_id=task_id)`
+5. **Citation Graph**: Academic papers trigger `CITATION_GRAPH` job to build CITES edges
+6. **NLI Verification**: `premise=fragment.text`, `nli_hypothesis=claim.claim_text`
+7. **Evidence Exploration**: `vector_search(query="...", task_id=task_id)` for semantic discovery
+8. **Deep Dive**: `query_view` / `query_sql` for structured analysis (contradictions, hubs, etc.)
 
 ## Consequences
 
@@ -86,10 +106,11 @@ flowchart TD
 | Rename NLI `hypothesis` to `claim_hypothesis` | Clearer | Conflicts with standard NLI terminology | Rejected |
 | **Rename NLI `hypothesis` to `nli_hypothesis`** | Clear, explicit, unique | API change | **Accepted** |
 
-## References
-- ADR-0002: Thinking-Working Separation (updated: `create_task` field name)
-- ADR-0005: Evidence Graph Structure (updated: NLI terminology)
-- ADR-0010: Async Search Queue (updated: task/query relationship)
-- ADR-0012: Feedback Tool Design (updated: `nli_corrections` schema)
-- Integration Design: `docs/debug/hypothesis-first-integration.md`
+## Related
+
+- [ADR-0002: Thinking-Working Separation](0002-thinking-working-separation.md) - Updated `create_task` field name
+- [ADR-0005: Evidence Graph Structure](0005-evidence-graph-structure.md) - Updated NLI terminology
+- [ADR-0010: Async Search Queue](0010-async-search-queue.md) - Updated task/query relationship
+- [ADR-0012: Feedback Tool Design](0012-feedback-tool-design.md) - Updated `nli_corrections` schema
+- `docs/debug/hypothesis-first-integration.md` - Integration design details
 

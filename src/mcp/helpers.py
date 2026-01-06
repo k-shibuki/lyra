@@ -274,7 +274,7 @@ async def get_task_jobs_summary(db: Any, task_id: str) -> dict[str, Any]:
     Returns aggregated counts by kind and state for visibility into
     VERIFY_NLI, CITATION_GRAPH, and other job types.
 
-    Per ADR-0016: Expose all job kinds in get_status for transparency.
+    Per ADR-0015: Expose all job kinds in get_status for transparency.
 
     Args:
         db: Database connection.

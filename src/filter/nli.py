@@ -80,7 +80,7 @@ class NLIModel:
 
         Args:
             premise: Premise text.
-            nli_hypothesis: NLI hypothesis text (ADR-0018).
+            nli_hypothesis: NLI hypothesis text (ADR-0017).
 
         Returns:
             Prediction result with:
@@ -130,7 +130,7 @@ class NLIModel:
         """Predict stance for multiple pairs.
 
         Args:
-            pairs: List of (premise, nli_hypothesis) tuples (ADR-0018).
+            pairs: List of (premise, nli_hypothesis) tuples (ADR-0017).
 
         Returns:
             List of prediction results with nli_raw_confidence and nli_edge_confidence.
@@ -193,7 +193,7 @@ async def nli_judge(
     """Judge stance relationships for claim pairs.
 
     Args:
-        pairs: List of pair dicts with 'pair_id', 'premise', 'nli_hypothesis' (ADR-0018).
+        pairs: List of pair dicts with 'pair_id', 'premise', 'nli_hypothesis' (ADR-0017).
 
     Returns:
         List of result dicts with 'pair_id', 'stance', 'nli_edge_confidence'.

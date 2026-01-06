@@ -237,7 +237,7 @@ class ChainOfDensityCompressor:
         Args:
             claims: List of claim records.
             fragments: List of fragment records with citation info.
-            task_hypothesis: Central hypothesis to verify (ADR-0018).
+            task_hypothesis: Central hypothesis to verify (ADR-0017).
 
         Returns:
             Compression result with dense summary and validated claims.
@@ -759,7 +759,7 @@ async def compress_with_chain_of_density(
     Args:
         claims: List of claim records.
         fragments: List of fragment records.
-        task_hypothesis: Central hypothesis to verify (ADR-0018).
+        task_hypothesis: Central hypothesis to verify (ADR-0017).
         max_iterations: Maximum densification iterations.
         use_llm: Whether to use LLM for compression.
 

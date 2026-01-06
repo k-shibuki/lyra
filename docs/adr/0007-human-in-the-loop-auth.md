@@ -1,7 +1,7 @@
 # ADR-0007: Human-in-the-Loop Authentication
 
 ## Date
-2025-11-25 (Updated: 2026-01-03)
+2025-11-25 (Updated: 2026-01-06)
 
 ## Context
 
@@ -46,6 +46,7 @@ sequenceDiagram
     BP-->>BP: CAPTCHA detected!
     BP->>TP: report_captcha()
     BP->>IQ: enqueue(search_job_id)
+    BP->>TP: hold_for_captcha(tab, queue_id)
     BP->>CB: record_failure(is_captcha)
     BP-->>W: SearchResponse(captcha_queued=True)
     W->>DB: state=awaiting_auth
@@ -53,10 +54,20 @@ sequenceDiagram
     Note over IQ: After 30 seconds or queue empty
     IQ-->>User: Batch notification
 
-    User->>User: Solve CAPTCHA in browser
-    User->>MCP: resolve_auth(domain)
-    MCP->>DB: UPDATE state=queued
-    MCP->>CB: force_close(engine)
+    par Manual Resolution
+        User->>User: Solve CAPTCHA in browser
+        User->>MCP: resolve_auth(domain)
+        MCP->>TP: release_captcha_tab(queue_id)
+        MCP->>DB: UPDATE state=queued
+        MCP->>CB: force_close(engine)
+    and Auto-Detection
+        Note over TP: Background check every 10s
+        TP-->>TP: CAPTCHA resolved detected
+        TP->>CB: force_close(engine)
+        TP->>IQ: complete(queue_id)
+        TP-->>TP: release tab to pool
+    end
+
     W->>BP: search(query) [retry]
 ```
 
@@ -64,29 +75,25 @@ sequenceDiagram
 
 | Component | Role | ADR |
 |-----------|------|-----|
-| TabPool | Tab management, auto-backoff | ADR-0014, ADR-0015 |
+| TabPool | Tab management, auto-backoff | ADR-0014 |
 | InterventionQueue | CAPTCHA wait queue | ADR-0007 |
 | CircuitBreaker | Engine availability management | - |
 | BatchNotificationManager | Batch notifications | ADR-0007 |
 
 ### Authentication Queue Design
 
-```python
-# intervention_queue table
-CREATE TABLE intervention_queue (
-    id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL,
-    url TEXT NOT NULL,
-    domain TEXT NOT NULL,
-    auth_type TEXT NOT NULL,
-    priority TEXT DEFAULT 'medium',
-    status TEXT DEFAULT 'pending',
-    queued_at DATETIME,
-    expires_at DATETIME,  -- Queue item expiration (default: 3 hours from queued_at)
-    search_job_id TEXT,  -- Related search job ID
-    FOREIGN KEY (search_job_id) REFERENCES jobs(id)
-);
-```
+Authentication wait items are managed in the `intervention_queue` table (see `src/storage/schema.sql` for details).
+
+**Key Columns**:
+
+| Column | Purpose |
+|--------|---------|
+| `task_id` | Associated task |
+| `url`, `domain` | URL/domain requiring authentication |
+| `auth_type` | Challenge type (see table below) |
+| `status` | `pending` → `in_progress` → `completed`/`skipped`/`expired` |
+| `expires_at` | Queue item expiration |
+| `search_job_id` | Related search job (auto-requeue on resolve_auth) |
 
 **expires_at Specification**:
 - Default: 3 hours after `queued_at` (configurable via `TaskLimitsConfig.auth_queue_ttl_hours`)
@@ -150,10 +157,47 @@ WSL2 uses PowerShell bridging to display Windows notifications, ensuring visibil
 
 | Situation | Response |
 |-----------|----------|
-| CAPTCHA Detected | Add to queue, backoff, continue other domains |
+| CAPTCHA Detected | Hold tab, add to queue, backoff, continue other domains |
 | Repeated on Same Domain | Temporarily suspend via CircuitBreaker |
-| After resolve_auth | Automatic requeue, CircuitBreaker reset |
-| On stop_task | Update task's auth wait items to `cancelled` |
+| After resolve_auth | Release held tab, automatic requeue, CircuitBreaker reset |
+| User solves in browser (without resolve_auth) | Auto-detect via tab content check, auto-release |
+| On stop_task | Release held tabs, update auth items to `cancelled` |
+
+### Tab Hold for CAPTCHA Resolution
+
+When CAPTCHA is detected during SERP search, the browser tab is held (not returned to pool) to allow user interaction:
+
+```mermaid
+flowchart TD
+    A["CAPTCHA Detected"] --> B["TabPool.hold_for_captcha"]
+    B --> C["Tab held with queue_id"]
+    C --> D{"Background Check\n(every 10s)"}
+    D -->|CAPTCHA still present| D
+    D -->|CAPTCHA resolved| E["Auto-release"]
+    D -->|Expired 3h| F["Force-release"]
+    E --> G["CircuitBreaker.force_close"]
+    E --> H["InterventionQueue.complete"]
+    G --> I["Tab returns to pool"]
+    H --> I
+```
+
+**Key Behavior**:
+
+| Event | Action |
+|-------|--------|
+| CAPTCHA detected | `hold_for_captcha(tab, queue_id, engine, task_id, expires_at)` |
+| User solves manually | Background check detects, **auto-captures cookies**, CB reset, auto-releases |
+| User calls `resolve_auth` | Manual release via `release_captcha_tab(queue_id)` with cookie capture |
+| 3 hours expire | Force-release without CB reset or cookie capture |
+| `stop_task` called | `release_held_tabs_for_task(task_id)` releases all task tabs |
+
+This design allows:
+1. User to interact with CAPTCHA page directly in browser
+2. Automatic detection when CAPTCHA is resolved (no `resolve_auth` needed)
+3. **Automatic session cookie capture** on resolution (same as `resolve_auth`)
+4. Graceful cleanup on task stop or timeout
+
+**Note**: Auto-detection captures cookies via `capture_auth_session_cookies()`, providing the same session persistence as explicit `resolve_auth` calls. Users can solve CAPTCHAs before notifications appear and still get full functionality.
 
 ### resolve_auth Granularity
 
@@ -194,7 +238,11 @@ The `resolve_auth` MCP tool supports 3 granularity levels:
 | Skip Authentication | Simple | Cannot access important resources | Rejected |
 | Immediate Notification | Simple | Frequent work interruptions | Rejected |
 
-## References
+## Related
+
+- [ADR-0001: Local-First / Zero OpEx](0001-local-first-zero-opex.md) - Prohibits paid CAPTCHA solving services
+- [ADR-0006: 8-Layer Security Model](0006-eight-layer-security-model.md) - L2 URL policy for domain handling
+- [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - TabPool integration for CAPTCHA tab holding, auto-backoff
 - `src/storage/schema.sql` - `intervention_queue` table (auth queue)
 - `src/utils/intervention_queue.py` - `InterventionQueue`
 - `src/utils/batch_notification.py` - `BatchNotificationManager`
@@ -202,7 +250,4 @@ The `resolve_auth` MCP tool supports 3 granularity levels:
 - `src/crawler/challenge_detector.py` - Authentication challenge detection
 - `src/mcp/server.py` - `get_auth_queue`, `resolve_auth` MCP tools
 - `src/search/tab_pool.py` - TabPool, auto-backoff
-- ADR-0001: Local-First / Zero OpEx
-- ADR-0006: 8-Layer Security Model
-- ADR-0014: Browser SERP Resource Control
-- ADR-0015: Adaptive Concurrency Control
+

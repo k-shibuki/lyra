@@ -22,14 +22,45 @@ A mechanism is needed to correct these errors and utilize them for model improve
 
 ### Feedback Tool Actions (3-Level Structure)
 
-| Level | Action | Purpose | Target |
+```mermaid
+flowchart LR
+    subgraph Input["User Feedback"]
+        FB[feedback tool]
+    end
+    
+    subgraph Levels["3 Levels"]
+        D["Domain<br/>block/unblock"]
+        C["Claim<br/>reject/restore"]
+        E["Edge<br/>correct"]
+    end
+    
+    subgraph Impact["Impact on Evidence Graph"]
+        SQ[Search Quality]
+        CQ[Claim Quality]
+        NLI[NLI Accuracy]
+    end
+    
+    subgraph Output["Downstream Effect"]
+        EG[(Evidence Graph<br/>Quality)]
+        LoRA[LoRA Training<br/>Data]
+    end
+    
+    FB --> D & C & E
+    D -->|filter sources| SQ
+    C -->|filter claims| CQ
+    E -->|correct labels| NLI
+    SQ & CQ & NLI --> EG
+    E -.->|if label changed| LoRA
+```
+
+| Level | Action | Purpose | Impact |
 |-------|--------|---------|--------|
-| Domain | `domain_block` | Block a domain | Domain pattern |
-| Domain | `domain_unblock` | Unblock a domain | Domain pattern |
-| Domain | `domain_clear_override` | Clear override | Domain pattern |
-| Claim | `claim_reject` | Reject a claim | Claim ID |
-| Claim | `claim_restore` | Restore a claim | Claim ID |
-| Edge | `edge_correct` | Correct NLI edge | Edge ID |
+| Domain | `domain_block` | Block low-quality sources | Future searches skip this domain |
+| Domain | `domain_unblock` | Restore blocked domain | Re-enable source |
+| Domain | `domain_clear_override` | Remove override rule | Reset to default policy |
+| Claim | `claim_reject` | Mark claim as invalid | Excluded from analysis |
+| Claim | `claim_restore` | Restore rejected claim | Re-include in analysis |
+| Edge | `edge_correct` | Fix NLI label | Immediate graph update + LoRA training data |
 
 ### Tool Schema
 
@@ -110,47 +141,17 @@ A mechanism is needed to correct these errors and utilize them for model improve
 }
 ```
 
-### Database Schema
+### Database Tables
 
-Feedback data is stored across multiple tables:
+Feedback data is persisted to the following tables (see `src/storage/schema.sql` for full schema):
 
-```sql
--- NLI edge corrections (for edge_correct)
--- ADR-0018: nli_hypothesis renamed to avoid conflict with task.hypothesis
-CREATE TABLE nli_corrections (
-    id TEXT PRIMARY KEY,
-    edge_id TEXT NOT NULL,
-    task_id TEXT,
-    premise TEXT NOT NULL,
-    nli_hypothesis TEXT NOT NULL,  -- The claim text used as NLI hypothesis
-    predicted_label TEXT NOT NULL,
-    predicted_confidence REAL NOT NULL,
-    correct_label TEXT NOT NULL,
-    reason TEXT,
-    corrected_at TEXT NOT NULL
-);
-
--- Domain override rules (for domain_block/unblock)
-CREATE TABLE domain_override_rules (
-    id TEXT PRIMARY KEY,
-    domain_pattern TEXT NOT NULL,
-    decision TEXT NOT NULL,  -- "block" | "unblock"
-    reason TEXT NOT NULL,
-    created_at DATETIME,
-    is_active BOOLEAN DEFAULT 1
-);
-
--- Domain override audit log
-CREATE TABLE domain_override_events (
-    id TEXT PRIMARY KEY,
-    rule_id TEXT,
-    action TEXT NOT NULL,
-    domain_pattern TEXT NOT NULL,
-    decision TEXT NOT NULL,
-    reason TEXT,
-    created_at DATETIME
-);
-```
+| Table | Purpose | Used by |
+|-------|---------|---------|
+| `nli_corrections` | NLI correction samples for LoRA training | `edge_correct` |
+| `domain_override_rules` | Active block/unblock rules | `domain_*` actions |
+| `domain_override_events` | Audit log for domain changes | `domain_*` actions |
+| `claims` | Claim adoption status | `claim_reject/restore` |
+| `edges` | Human-reviewed flag and corrected labels | `edge_correct` |
 
 ### Security Constraints
 
@@ -173,32 +174,22 @@ FORBIDDEN_PATTERNS = [
 
 Feedback is immediately reflected in the graph:
 
-```python
-async def apply_feedback(action: str, args: dict):
-    if action == "edge_correct":
-        # Mark as human-reviewed, and optionally correct relation
-        edge = await get_edge(args["edge_id"])
-        previous_label = edge.nli_label or edge.relation
-        edge.edge_human_corrected = True
-        edge.edge_corrected_at = now()
-
-        # If the label changes, update the edge relation/label
-        if previous_label != args["correct_relation"]:
-            edge.relation = args["correct_relation"]
-            edge.nli_label = args["correct_relation"]
-            edge.nli_edge_confidence = 1.0  # Human correction has maximum confidence
-            edge.edge_correction_reason = args.get("reason")
-        else:
-            # Review only (no correction): keep existing model outputs
-            edge.edge_correction_reason = args.get("reason")
-
-        await save_edge(edge)
-        
-        # Persist correction samples only when the label actually changed
-        # (predicted_label != correct_label). These samples are used for future LoRA training.
-        if previous_label != args["correct_relation"]:
-            await save_nli_correction(edge, args)
+```mermaid
+flowchart TD
+    A[edge_correct called] --> B{Label changed?}
+    B -->|Yes| C[Update edge relation/label]
+    B -->|No| D[Mark as reviewed only]
+    C --> E[Set confidence = 1.0]
+    E --> F[Save to nli_corrections]
+    D --> G[Update edge timestamps]
+    F --> G
+    G --> H[Return result]
 ```
+
+Key behaviors:
+1. **Always**: Mark edge as human-reviewed (`edge_human_corrected = 1`)
+2. **If label changed**: Update relation/label, set confidence to 1.0, persist to `nli_corrections` for LoRA training
+3. **If label unchanged**: Review-only mode, no `nli_corrections` record created
 
 ### Edge Review vs Correction (Important Operational Note)
 
@@ -232,8 +223,10 @@ This separation enables "explicit recording of only errors" in operation, while 
 | Free text only | Flexible | Difficult to structure | Rejected |
 | External annotation tool | Feature-rich | Integration cost, Zero OpEx | Rejected |
 
-## References
+## Related
+
+- [ADR-0011: LoRA Fine-tuning Strategy](0011-lora-fine-tuning.md) - Uses edge corrections for adapter training
 - `src/mcp/feedback_handler.py` - Feedback action handler
 - `src/mcp/server.py` - Feedback tool definition
 - `src/storage/schema.sql` - nli_corrections, domain_override_rules tables
-- ADR-0011: LoRA Fine-tuning Strategy
+

@@ -30,7 +30,7 @@ class JobKind(str, Enum):
         Per ADR-0004: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
         Per ADR-0010: SEARCH_QUEUE added for async search queue architecture.
         Per ADR-0005: VERIFY_NLI added for automatic cross-source NLI verification.
-        Per ADR-0016: CITATION_GRAPH added for deferred citation graph processing.
+        Per ADR-0015: CITATION_GRAPH added for deferred citation graph processing.
     """
 
     SERP = "serp"
@@ -41,7 +41,7 @@ class JobKind(str, Enum):
     NLI = "nli"
     SEARCH_QUEUE = "search_queue"  # Async search queue (per ADR-0010)
     VERIFY_NLI = "verify_nli"  # Cross-source NLI verification (per ADR-0005)
-    CITATION_GRAPH = "citation_graph"  # Deferred citation graph processing (per ADR-0016)
+    CITATION_GRAPH = "citation_graph"  # Deferred citation graph processing (per ADR-0015)
 
 
 class Slot(str, Enum):
@@ -75,7 +75,7 @@ KIND_TO_SLOT = {
     JobKind.NLI: Slot.CPU_NLP,
     JobKind.SEARCH_QUEUE: Slot.NETWORK_CLIENT,  # Async search queue (per ADR-0010)
     JobKind.VERIFY_NLI: Slot.CPU_NLP,  # Cross-source NLI verification (per ADR-0005)
-    JobKind.CITATION_GRAPH: Slot.CPU_NLP,  # Deferred citation graph (per ADR-0016)
+    JobKind.CITATION_GRAPH: Slot.CPU_NLP,  # Deferred citation graph (per ADR-0015)
 }
 
 # Priority order (lower = higher priority)
@@ -88,7 +88,7 @@ KIND_PRIORITY = {
     JobKind.NLI: 35,
     JobKind.SEARCH_QUEUE: 25,  # Between FETCH and EXTRACT (per ADR-0010)
     JobKind.VERIFY_NLI: 45,  # After EMBED, before LLM (per ADR-0005)
-    JobKind.CITATION_GRAPH: 50,  # After VERIFY_NLI, before LLM (per ADR-0016)
+    JobKind.CITATION_GRAPH: 50,  # After VERIFY_NLI, before LLM (per ADR-0015)
 }
 
 # Slot concurrency limits

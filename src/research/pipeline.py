@@ -303,7 +303,7 @@ class SearchPipeline:
     ) -> SearchPipelineResult:
         """Execute normal search mode.
 
-        Always runs unified dual-source search (Academic API + Browser SERP) per ADR-0016.
+        Always runs unified dual-source search (Academic API + Browser SERP) per ADR-0015.
         Results are deduplicated via CanonicalPaperIndex, citation graph is processed once.
         """
         # Always use unified dual-source search (no is_academic branching)
@@ -525,7 +525,7 @@ class SearchPipeline:
     ) -> None:
         """Persist academic papers (Abstract Only) and enqueue citation graph job.
 
-        Per ADR-0016: Citation graph processing is deferred to a separate job.
+        Per ADR-0015: Citation graph processing is deferred to a separate job.
         This method only persists papers with abstracts synchronously.
 
         Args:
@@ -620,7 +620,7 @@ class SearchPipeline:
         result.pages_fetched += pages_created
         result.useful_fragments += fragments_created
 
-        # Enqueue citation graph job (deferred processing per ADR-0016)
+        # Enqueue citation graph job (deferred processing per ADR-0015)
         if paper_ids_with_page:
             try:
                 from src.research.citation_graph import enqueue_citation_graph_job
@@ -653,7 +653,7 @@ class SearchPipeline:
     ) -> SearchPipelineResult:
         """Execute unified dual-source search (Browser SERP + Academic API).
 
-        Always runs both sources in parallel per ADR-0016:
+        Always runs both sources in parallel per ADR-0015:
         - Browser SERP for web results
         - Academic API (S2 + OpenAlex) for structured paper data
 
@@ -821,7 +821,7 @@ class SearchPipeline:
                 serp_only=stats["serp_only"],
             )
 
-            # -6: WEB FETCH FIRST (ADR-0016 update)
+            # -6: WEB FETCH FIRST (ADR-0015 update)
             # Process entries that need fetch (no abstract available) BEFORE citation graph
             # This ensures SERP-only entries (FDA.gov, Wikipedia, etc.) are fetched within timeout
             entries_needing_fetch = [e for e in unique_entries if e.needs_fetch]

@@ -1,7 +1,7 @@
 """
 Tests for AcademicAPIRateLimiter backoff functionality.
 
-Per ADR-0015: Adaptive Concurrency Control.
+Per ADR-0013: Adaptive Concurrency Control.
 
 ## Test Perspectives Table
 

@@ -16,95 +16,92 @@ Lyra has multiple external dependencies (Ollama, Playwright, SQLite, external We
 
 On the other hand, pure unit tests alone cannot detect component integration issues.
 
+Additionally, tests need to run in diverse environments:
+- **Cloud Agents** (Cursor Cloud Agent, Claude Code, GitHub Actions): No display, Chrome, or Ollama
+- **Local**: Containers available but E2E may be limited
+- **Full Local**: Complete environment with Chrome CDP and GPU
+
 ## Decision
 
-**Adopt a 3-layer test strategy, progressively excluding external dependencies.**
+**Adopt a 3-layer test strategy with environment-aware execution and risk-based sub-markers.**
 
 ### Test Layers
 
-| Layer | Name | External Dependencies | Speed | Purpose |
-|:-----:|------|----------------------|-------|---------|
-| L1 | Unit | None (all mocked) | Fast | Logic verification |
-| L2 | Integration | Real SQLite | Medium | DB integration verification |
-| L3 | E2E | All real | Slow | Scenario verification |
+```mermaid
+flowchart TD
+    subgraph L1["L1: CI Layer"]
+        U[Unit Tests]
+        I[Integration Tests]
+    end
 
-### L1: Unit Tests
+    subgraph L2["L2: Local Layer"]
+        L1
+        C[Container Integration]
+    end
 
-```python
-# No external dependencies, all mocked
-@pytest.fixture
-def mock_ollama():
-    return MockOllamaClient(...)
+    subgraph L3["L3: E2E Layer"]
+        L2
+        E[E2E Tests]
+    end
 
-def test_nli_judgment_supports(mock_ollama):
-    result = nli_filter.judge(premise, hypothesis)
-    assert result.relation == "SUPPORTS"
+    ENV{Environment?}
+    ENV -->|Cloud Agent| L1
+    ENV -->|Local| L2
+    ENV -->|Full Local| L3
 ```
 
-**Characteristics**:
-- Replace Ollama with MockOllamaClient
-- Replace Playwright with MockBrowser
-- Replace SQLite with in-memory DB
-- Completes in hundreds of milliseconds
+| Layer | Name | Environment | External Dependencies | Speed |
+|:-----:|------|-------------|----------------------|-------|
+| L1 | CI | Cloud Agent / CI | All mocked | Fast |
+| L2 | Local | Developer WSL2 | + Podman containers | Medium |
+| L3 | E2E | Full environment | All real | Slow |
 
-### L2: Integration Tests
+### Primary Markers
 
-```python
-# Real SQLite, others mocked
-@pytest.fixture
-def real_db(tmp_path):
-    db_path = tmp_path / "test.db"
-    return Storage(db_path)
+| Marker | Speed Target | External Deps | Notes |
+|--------|--------------|---------------|-------|
+| `@pytest.mark.unit` | <1s/test | None | Default if no marker |
+| `@pytest.mark.integration` | <5s/test | Mocked but realistic | Component integration |
+| `@pytest.mark.e2e` | Variable | Real Chrome, Ollama | Excluded by default |
+| `@pytest.mark.slow` | >5s | Variable | Excluded by default |
 
-def test_evidence_persistence(real_db, mock_ollama):
-    # DB integration verification
-```
+### Risk-Based Sub-Markers (E2E Only)
 
-**Characteristics**:
-- Actual SQLite file operations
-- Schema migration verification
-- Transaction behavior confirmation
+For E2E tests, additional sub-markers indicate IP pollution risk:
 
-### L3: E2E Tests
+| Sub-Marker | Risk Level | Example Services |
+|------------|------------|------------------|
+| `@pytest.mark.external` | Moderate | Mojeek, Qwant |
+| `@pytest.mark.rate_limited` | High | DuckDuckGo, Google |
+| `@pytest.mark.manual` | N/A | CAPTCHA resolution |
 
-```python
-# All real (conditional execution in CI/CD)
-@pytest.mark.e2e
-@pytest.mark.skipif(not gpu_available(), reason="GPU required")
-def test_full_search_flow():
-    # Ollama + Playwright + SQLite + real Web
-```
+### Environment Detection
 
-**Characteristics**:
-- GPU required (skippable)
-- Network access
-- Execution time: several minutes
+Cloud agent environments are auto-detected via environment variables:
 
-### CI/CD Integration
+- `CURSOR_CLOUD_AGENT`, `CURSOR_SESSION_ID`, `CURSOR_BACKGROUND`
+- `CLAUDE_CODE`
+- `GITHUB_ACTIONS=true`
+- `GITLAB_CI`
+- `CI=true`
 
-```yaml
-# GitHub Actions
-jobs:
-  test-l1-l2:
-    # Run L1 (Unit) + L2 (Integration) in same job
-    runs-on: ubuntu-latest
-    steps:
-      - run: pytest -m "not e2e and not slow"
+In cloud agent environments, E2E and slow tests are automatically skipped.
 
-  test-l3:
-    runs-on: self-hosted  # GPU runner
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - run: pytest -m "e2e"
-```
+### Execution Commands
 
-### pytest Markers
+```bash
+# L1: CI Layer (cloud agent safe)
+pytest -m "not e2e and not slow"
 
-```python
-# conftest.py
-def pytest_configure(config):
-    config.addinivalue_line("markers", "integration: Uses real SQLite")
-    config.addinivalue_line("markers", "e2e: Uses all external dependencies")
+# L2: Local Layer (includes container tests)
+pytest -m "not e2e"
+
+# L3: E2E Layer
+pytest -m e2e
+
+# E2E with specific risk level
+pytest -m "e2e and external"
+pytest -m "e2e and rate_limited"
 ```
 
 ## Consequences
@@ -114,6 +111,7 @@ def pytest_configure(config):
 - **Stability**: L1/L2 are deterministic without external dependencies
 - **Progressive Verification**: Easy to identify problem location
 - **CI Efficiency**: L3 runs only when needed
+- **Cloud Agent Compatibility**: Auto-skip prevents failures in restricted environments
 
 ### Negative
 - **Mock Maintenance Cost**: MockOllama etc. need updates
@@ -127,8 +125,9 @@ def pytest_configure(config):
 | E2E Only | Realistic | Slow, unstable | Rejected |
 | Unit Only | Fast | Integration issues undetected | Rejected |
 | 2-Layer (Unit/E2E) | Simple | DB integration issues easily missed | Rejected |
+| No Auto-Skip | Simpler logic | CI failures in cloud agents | Rejected |
 
-## References
-- `README.md` - Quality Control section (test execution guide)
+## Related
+
 - `tests/conftest.py` - pytest configuration, environment detection, marker definitions
 - `scripts/test.sh` - Test runner (cloud agent compatible)

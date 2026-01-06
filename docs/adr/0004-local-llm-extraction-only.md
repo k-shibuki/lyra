@@ -14,7 +14,7 @@ Lyra needs to extract and structure information from web pages. Specific tasks:
 | Entity Extraction | Text | Names, organizations, dates, etc. |
 | Summarization | Long text | Short summary |
 
-LLMs are effective for these tasks, but ADR-0001 (Zero OpEx) constraints prohibit commercial APIs (GPT-4, Claude API).
+LLMs are effective for these tasks, but ADR-0001 (Zero OpEx) constraints prohibit commercial APIs.
 
 Additionally, as specified in ADR-0002, **strategic decisions (query design, exploration strategy) are handled by the MCP client**. Having local LLMs handle these would degrade quality.
 
@@ -44,8 +44,7 @@ Additionally, as specified in ADR-0002, **strategic decisions (query design, exp
 | Model | Size | Purpose | Selection Reason |
 |-------|------|---------|------------------|
 | Qwen2.5-3B-Instruct | 3B | Claim extraction, summarization | Japanese performance, size efficiency |
-| DeBERTa-v3-* (Transformers) | 70-140M | NLI stance classification | Robust NLI specialization (supports/refutes/neutral) |
-| (Backup) Phi-3-mini | 3.8B | English-focused extraction/summarization | High English performance |
+| DeBERTa-v3-small | ~140M | NLI stance classification | Robust NLI specialization (supports/refutes/neutral) |
 
 **Implementation note (2025-12-27)**:
 - In the current codebase, NLI is implemented via a Transformers sequence-classification model
@@ -54,7 +53,7 @@ Additionally, as specified in ADR-0002, **strategic decisions (query design, exp
 
 ### Prompt Design
 
-**Critical guidelines for 3B models (2025-12-31 update)**:
+**Critical guidelines for 3B models **:
 
 | Guideline | Reason |
 |-----------|--------|
@@ -82,38 +81,29 @@ Output JSON array. Each item: {"claim": "<claim text>", "type": "<fact|opinion|p
 Return JSON array: [{"claim": "...", "type": "fact", "relevance_to_query": 0.8, "confidence": 0.9}]
 ```
 
-NLI judgment example (legacy, now handled by DeBERTa):
+### NLI Judgment (DeBERTa)
 
-```
-System: You are an NLI (Natural Language Inference) expert.
-Compare the premise and hypothesis, and determine their relationship.
+NLI uses a fine-tuned Transformer model, not LLM prompts:
 
-User:
-Premise: {premise}
-Hypothesis: {hypothesis}
+| Aspect | Description |
+|--------|-------------|
+| Model | `cross-encoder/nli-deberta-v3-small` (sequence classification) |
+| Input format | `{premise} [SEP] {nli_hypothesis}` |
+| Output | ENTAILMENT / CONTRADICTION / NEUTRAL + softmax score |
+| Label mapping | ENTAILMENT→supports, CONTRADICTION→refutes, others→neutral |
+| Calibration | Platt Scaling applied to raw confidence (see ADR-0012) |
 
-Choose one of the following three options:
-- SUPPORTS: Premise supports the hypothesis
-- REFUTES: Premise contradicts the hypothesis
-- NEUTRAL: Cannot determine from premise
-
-Answer (single word only):
-```
+This approach provides faster inference (~10ms/pair) and more consistent results than LLM-based NLI.
 
 ### Output Control
 
-```python
-# Force structured output
-response = await ollama.generate(
-    model="qwen2.5:3b",
-    prompt=prompt,
-    format="json",  # Force JSON output
-    options={
-        "temperature": 0.1,  # Deterministic output
-        "num_predict": 50,   # Limit to short output
-    }
-)
-```
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| format | json | Force structured JSON output |
+| temperature | 0.1-0.3 | Near-deterministic output for extraction tasks |
+| num_predict | Limited | Constrain output length for focused responses |
+
+The Ollama provider supports JSON Schema enforcement via the `format` parameter for more reliable structured output than prompt-only instructions.
 
 ## Consequences
 
@@ -132,14 +122,15 @@ response = await ollama.generate(
 
 | Alternative | Pros | Cons | Decision |
 |-------------|------|------|----------|
-| GPT-4 API | High quality | Cost, Zero OpEx violation | Rejected |
+| Commercial APIs | High quality | Cost, Zero OpEx violation | Rejected |
 | 7B+ Models | Higher accuracy | Stricter GPU requirements | Future consideration |
 | Rule-based Extraction | Fast, reliable | Insufficient flexibility | Partial adoption |
 | External NLI Service | High accuracy | API dependency | Rejected |
 
-## References
+## Related
+
+- [ADR-0001: Local-First / Zero OpEx](0001-local-first-zero-opex.md) - Zero OpEx constraints for LLM selection
+- [ADR-0002: Thinking-Working Separation](0002-thinking-working-separation.md) - Defines extraction as Working layer task
 - `src/filter/ollama_provider.py` - Ollama client
 - `src/filter/llm.py` - LLM extraction processing
 - `src/filter/nli.py` - NLI judgment implementation
-- ADR-0001: Local-First / Zero OpEx
-- ADR-0002: Thinking-Working Separation

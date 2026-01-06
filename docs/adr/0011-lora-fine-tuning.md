@@ -33,26 +33,41 @@ Full fine-tuning has these problems:
 
 ### Architecture
 
+```mermaid
+flowchart LR
+    subgraph Inference["Inference"]
+        Q[NLI Query] --> Base["Base Model<br/>(DeBERTa-v3)"]
+        Base --> Adapter["LoRA Adapter"]
+        Adapter --> Out[Improved Output]
+    end
+    
+    subgraph Feedback["Feedback Accumulation"]
+        Out -.->|misclassification found| EC[edge_correct]
+        EC -->|correction sample| DB[(nli_corrections)]
+    end
+    
+    subgraph Training["Offline Training"]
+        DB -->|100+ samples| Train[LoRA Training]
+        Train -->|new adapter| Adapter
+    end
 ```
-Base Model (DeBERTa-v3-xsmall/small)
-    │
-    ├── LoRA Adapter: General NLI improvement
-    │
-    ├── LoRA Adapter: Academic domain
-    │
-    └── LoRA Adapter: User-specific (learned from feedback)
-```
+
+**Continuous Improvement Cycle**:
+1. User finds misclassification and submits feedback via `edge_correct`
+2. Correction samples accumulate in `nli_corrections` table (= user's domain-specific experience)
+3. When accumulation reaches threshold (100+ samples), trigger offline LoRA training
+4. New adapter improves NLI output quality
 
 ### Feedback-driven Learning
 
 Learn LoRA adapters from user feedback (see ADR-0012):
 
 ```python
-# Collect feedback data (ADR-0018: nli_hypothesis = claim_text)
+# Collect feedback data (ADR-0017: nli_hypothesis = claim_text)
 feedback_data = [
     {
         "premise": "Fragment from Paper A...",
-        "nli_hypothesis": "Extracted claim text...",  # ADR-0018 terminology
+        "nli_hypothesis": "Extracted claim text...",  # ADR-0017 terminology
         "correct_label": "supports",  # User correction
         "original_label": "neutral"   # Model misclassification
     },
@@ -79,13 +94,49 @@ adapter = train_lora(
 
 ### Adapter Management
 
+```mermaid
+flowchart TD
+    subgraph MCP["MCP Tools"]
+        FB["feedback(edge_correct)"]
+        CM["calibration_metrics(get_stats)"]
+    end
+    
+    subgraph Data["Training Data (Cumulative)"]
+        FB -->|correction sample| NC[(nli_corrections)]
+        NC -->|"ALL samples"| Train
+    end
+    
+    subgraph Pipeline["Offline Training"]
+        Train["Train V2<br/>(script)"] --> Shadow["Shadow Evaluation"]
+        CM -.->|Brier score| Shadow
+        Shadow --> Check{Brier improved?}
+        Check -->|Yes| Activate["Activate V2"]
+        Check -->|No| Discard["Discard V2"]
+    end
+    
+    subgraph Production["Production"]
+        V1["V1 (is_active=1)"]
+        Activate --> V2["V2 (is_active=1)"]
+        V2 -.->|rollback| V1
+    end
 ```
-~/.lyra/
-  └── adapters/
-      ├── base_nli_v1.safetensors      # Basic NLI improvement
-      ├── academic_v1.safetensors       # Academic domain
-      └── user_feedback_v3.safetensors  # Feedback learning
-```
+
+**Data Strategy**:
+- **Cumulative (default)**: V2 is trained on ALL `nli_corrections` (V1 data + new data)
+- `trained_adapter_id` column tracks which adapter used which samples (for audit/future incremental learning)
+- Future: May switch to incremental learning when samples exceed several thousand
+
+**MCP Tools Involvement**:
+- `feedback(edge_correct)`: Accumulates correction samples to `nli_corrections`
+- `calibration_metrics(get_stats)`: Provides Brier score for shadow evaluation (before production deployment)
+
+**Version Activation Flow**:
+1. Train new adapter (V2) from **entire** `nli_corrections` history
+2. Run shadow evaluation: compare V2 Brier score against V1
+3. If improved → activate V2 (`is_active=1`), deactivate V1
+4. If degraded in production → rollback to V1
+
+The `adapters` table tracks version history. Only one adapter can be active at a time.
 
 ### MCP Tool Integration Decision
 
@@ -102,14 +153,12 @@ adapter = train_lora(
 
 #### Adopted Approach
 
-```bash
-# Run LoRA training via script (offline batch)
-python scripts/train_lora.py --db data/lyra.db --output adapters/lora-v1
+**Script-based offline training** (not MCP tools):
+- Training script reads `nli_corrections`, trains adapter, writes to `adapters/`
+- User reviews shadow evaluation results before activation
+- ML Server loads adapter via API call (`/nli/adapter/load`)
 
-# After result verification, apply adapter to ML Server
-curl -X POST http://localhost:8001/nli/adapter/load \
-  -d '{"adapter_path": "adapters/lora-v1"}'
-```
+See **Adapter Management** section above for the complete version activation flow.
 
 #### Relationship with calibration_metrics
 
@@ -149,8 +198,9 @@ curl -X POST http://localhost:8001/nli/adapter/load \
 | QLoRA | Ultra-lightweight | Quality degradation risk | Future consideration |
 | **MCP Tooling** | UI integration | Long processing, GPU contention, manual verification difficulty | **Rejected** |
 
-## References
+## Related
+
+- [ADR-0012: Feedback Tool Design](0012-feedback-tool-design.md) - Edge correction for LoRA training data
 - `src/utils/nli_calibration.py` - Probability calibration implementation
 - `src/storage/schema.sql` - `nli_corrections`, `calibration_evaluations` tables
 - `src/mcp/server.py` - `calibration_metrics`, `calibration_rollback` MCP tools
-- ADR-0012: Feedback Tool Design

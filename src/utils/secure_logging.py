@@ -1,7 +1,7 @@
 """
 Secure logging utilities for Lyra.
 
-Implements L8 (Log Security Policy) per ADR-0005:
+Implements L8 (Audit Logging) per ADR-0006 (8-Layer Security Model):
 - LLM input/output logging as summaries (hash, length, preview)
 - Exception sanitization (no stack traces, internal paths)
 - Security audit logging for detection events
