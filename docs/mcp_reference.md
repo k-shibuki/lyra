@@ -30,7 +30,7 @@ These jobs run in the background and update `bayesian_truth_confidence` in the e
 
 | Tool | Description |
 |------|-------------|
-| `create_task` | Create research task with central hypothesis (ADR-0018) and optional config (budget, priority_domains) |
+| `create_task` | Create research task with central hypothesis (ADR-0017) and optional config (budget, priority_domains) |
 | `get_status` | Get task progress; supports long-polling via `wait` parameter |
 | `stop_task` | Pause task session (graceful/immediate/full modes, scope parameter) |
 
@@ -71,14 +71,29 @@ Key fields in the response:
 | `query_view` | Execute predefined SQL view template (18 views available) |
 | `list_views` | List available view templates |
 
-#### Key Views
+#### Key Views (18 available, use `list_views` for full list)
 
+**Claim Analysis:**
 | View | Description |
 |------|-------------|
 | `v_claim_evidence_summary` | Per-claim support/refute counts and bayesian_truth_confidence |
 | `v_claim_origins` | Claim provenance (which fragment/page each claim was extracted from) |
 | `v_contradictions` | Claims with conflicting evidence |
+| `v_unsupported_claims` | Claims without supporting evidence |
+
+**Evidence Chain:**
+| View | Description |
+|------|-------------|
 | `v_evidence_chain` | Full evidence chain from claims through fragments to sources |
+| `v_evidence_timeline` | Evidence organized by publication year |
+| `v_evidence_freshness` | Age of supporting evidence |
+
+**Citation Graph:**
+| View | Description |
+|------|-------------|
+| `v_hub_pages` | High-connectivity citation hubs |
+| `v_citation_flow` | Citation relationships between pages |
+| `v_bibliographic_coupling` | Papers sharing common references |
 
 ### Authentication
 
@@ -102,9 +117,12 @@ Key fields in the response:
 
 ## Related Documentation
 
-- [Architecture Overview](architecture.md)
-- [ADR-0002: Thinking-Working Separation](adr/0002-thinking-working-separation.md)
+- [Architecture Overview](architecture.md) - Full ADR index with categories
+- [ADR-0002: Thinking-Working Separation](adr/0002-thinking-working-separation.md) - Three-layer collaboration
 - [ADR-0005: Evidence Graph Structure](adr/0005-evidence-graph-structure.md) - Bayesian confidence, edge types
-- [ADR-0010: Async Search Queue](adr/0010-async-search-queue.md) - Job chaining, stop_task scope
-- [ADR-0012: Feedback Tool Design](adr/0012-feedback-tool-design.md)
-- [ADR-0016: Unified Search Sources](adr/0016-unified-search-sources.md) - Web fetch priority, citation graph
+- [ADR-0007: Human-in-the-Loop Authentication](adr/0007-human-in-the-loop-auth.md) - CAPTCHA handling, auth queue
+- [ADR-0010: Async Search Queue Architecture](adr/0010-async-search-queue.md) - Job chaining, stop_task scope
+- [ADR-0012: Feedback Tool Design](adr/0012-feedback-tool-design.md) - 3 levels, 6 actions
+- [ADR-0015: Unified Search Sources](adr/0015-unified-search-sources.md) - Web fetch priority, citation graph
+- [ADR-0016: Ranking Simplification](adr/0016-ranking-simplification.md) - Evidence Graph exploration interface
+- [ADR-0017: Task Hypothesis-First Architecture](adr/0017-task-hypothesis-first.md) - Hypothesis-driven exploration

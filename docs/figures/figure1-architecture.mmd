@@ -1,29 +1,29 @@
+%%{init: {'theme': 'neutral'}}%%
 flowchart TB
-    subgraph Host["WSL2/Linux Host"]
-        MCP["MCP Client<br/>(Claude, etc.)"]
-        Server["MCP Server<br/>+ Evidence Graph"]
+    subgraph Host["Host (WSL2/Linux)"]
+        MCP["MCP Client<br/>(AI Assistant)"]
+        Server["MCP Server"]
+        Graph["Evidence Graph<br/>(SQLite)"]
         Chrome["Chrome"]
     end
+
     subgraph Containers["Containers (Podman)"]
-        subgraph lyra-internal["lyra-internal (isolated)"]
-            Ollama["ollama<br/>qwen2.5:3b"]
-            ML["ml<br/>BGE-M3, NLI"]
-        end
-        Proxy["proxy"]
-        subgraph lyra-net["lyra-net"]
-            Tor["tor"]
-        end
+        Ollama["Ollama<br/>(LLM)"]
+        ML["ML<br/>(Embed/NLI)"]
+        Tor["Tor Proxy"]
     end
+
     Internet((Internet))
     Academic["Academic APIs<br/>(S2, OpenAlex)"]
+
     MCP <-->|stdio| Server
     Server --> Chrome
     Server --> Academic
     Chrome --> Internet
     Academic --> Internet
-    Server <-->|HTTP| Proxy
-    Proxy <--> Ollama
-    Proxy <--> ML
-    Proxy <--> Tor
-    Tor <-->|SOCKS| Internet
+    Server <--> Ollama
+    Server <--> ML
+    Chrome -.->|optional| Tor
+    Tor --> Internet
+    Server <--> Graph
 

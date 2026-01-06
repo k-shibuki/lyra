@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the integration design for the `task_hypothesis` and `nli_hypothesis` architecture change (ADR-0018).
+This document defines the integration design for the `task_hypothesis` and `nli_hypothesis` architecture change (ADR-0017).
 
 ## Terminology
 

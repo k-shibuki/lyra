@@ -23,15 +23,15 @@ Research demands auditable evidence chains—the ability to trace every claim ba
 
 I designed Lyra to separate strategic reasoning—performed by the AI assistant in the MCP client—from mechanical execution: evidence discovery, classification, and scoring (Figure 1). 
 
-![System architecture. The MCP server runs on the host; ML inference containers are network-isolated to prevent data exfiltration.](figures/figure_1.png){width="100%"}
+![System architecture. The MCP server runs on the host; ML inference containers are network-isolated to prevent data exfiltration.](figures/figure_1.png)
 
 The AI assistant handles query design and synthesis, while Lyra executes search, extraction, and NLI-based stance detection. Lyra functions as a navigation tool: it discovers and organizes relevant sources, while detailed analysis of primary sources remains the researcher's responsibility (Figure 2).
 
-![Three-layer collaboration. Strategic reasoning resides in the MCP client; Lyra executes mechanical tasks. Primary source analysis remains the researcher's responsibility.](figures/figure_2.png){width="60%"}
+![Three-layer collaboration model. The Judgment layer (human) provides domain expertise and final evaluation. The Thinking layer (MCP client) handles query design and synthesis. The Working layer (Lyra) executes mechanical tasks: search, extraction, and NLI.](figures/figure_2.png)
 
 The software incorporates three machine learning components for local inference: a 3B-parameter language model [Qwen2.5, @qwenQwen25TechnicalReport2025] for claim extraction, BGE-M3 embeddings [@chenM3EmbeddingMultiLingualityMultiFunctionality2024] for semantic search, and a DeBERTa-based classifier [@heDeBERTaDecodingenhancedBERT2021] for stance detection. The system automatically detects GPU availability and applies appropriate container configurations; while CPU-only operation is supported, GPU acceleration is strongly recommended due to significant performance differences. Lyra constructs an **evidence graph** linking extracted claims to source fragments with structured provenance metadata (Figure 3). 
 
-![Evidence graph structure. Fragments extracted from pages link to claims with NLI stance labels. Bayesian confidence aggregates weighted evidence.](figures/figure_3.png){width="100%"}
+![Evidence graph structure. Claims are extracted from fragments (ORIGIN edges track provenance). Cross-source verification via NLI creates SUPPORTS/REFUTES edges. Bayesian confidence (β) aggregates weighted evidence. CITES edges track academic citations.](figures/figure_3.png)
 
 Each claim accumulates a Bayesian confidence score calculated via Beta distribution updating [@gelmanBayesianDataAnalysis2013] over evidence edges weighted by Natural Language Inference [NLI, @bowmanLargeAnnotatedCorpus2015] judgments—automated classification of whether a text supports, refutes, or is neutral toward a claim—enabling transparent assessment of evidence quality.
 
@@ -41,7 +41,7 @@ Lyra targets academic researchers who require auditable evidence chains—the ab
 
 From a context engineering perspective—designing systems that supply AI models with accurate, relevant information—Lyra constructs a transparent evidence graph that provides AI clients with traceable information. Every claim links to source fragments, which link to page URLs, creating an auditable chain from assertion to origin. The graph explicitly represents both supporting and refuting evidence, with Bayesian confidence scores quantifying the balance. Researchers can trace any claim back to its source text and evaluate the reasoning path themselves.
 
-The software runs entirely on local hardware, eliminating dependence on external APIs and ensuring research data remains under researcher control. Multi-source search aggregates browser-based web search and academic APIs [@SemanticScholarAcademic; @priemOpenAlexFullyopenIndex2022] with Digital Object Identifier (DOI) based deduplication. A human-in-the-loop mechanism enables researchers to correct NLI judgments; these corrections are accumulated for planned domain adaptation via Low-Rank Adaptation [LoRA, @huLoRALowRankAdaptation2021] fine-tuning.
+The software runs entirely on local hardware, eliminating dependence on external APIs and ensuring research data remains under researcher control. Each research task defines a central hypothesis to verify; Lyra then finds evidence supporting or refuting this hypothesis. Multi-source search executes browser-based web search and academic APIs [@SemanticScholarAcademic; @priemOpenAlexFullyopenIndex2022] in parallel, with identifier extraction from SERP URLs enabling cross-source enrichment and DOI-based deduplication. A human-in-the-loop mechanism enables researchers to correct NLI judgments; these corrections are accumulated for planned domain adaptation via Low-Rank Adaptation [LoRA, @huLoRALowRankAdaptation2021] fine-tuning.
 
 I documented design rationale in 17 Architecture Decision Records covering local-first principles, evidence graph structure, and security models.
 

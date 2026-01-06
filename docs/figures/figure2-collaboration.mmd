@@ -1,7 +1,25 @@
-flowchart TB
-    Human["<b>Human</b><br/>Primary source analysis<br/>Final judgment"]
-    Client["<b>MCP Client</b><br/>Query design<br/>Strategy, synthesis"]
-    Lyra["<b>Lyra</b><br/>Search, extraction<br/>NLI, Evidence graph"]
-    Human <-->|Domain expertise| Client
-    Client <-->|MCP tools| Lyra
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph WORKING["Working Layer"]
+        direction TB
+        Lyra["Lyra<br/>(MCP Server)"]
+        W["Search → Extract → NLI → Store"]
+    end
+
+    subgraph THINKING["Thinking Layer"]
+        direction TB
+        MCP["MCP Client<br/>(Cursor / Claude)"]
+        T["Plan → Decide → Synthesize"]
+    end
+
+    subgraph JUDGMENT["Judgment Layer"]
+        direction TB
+        Human["Human<br/>(Researcher)"]
+        J["Evaluate → Interpret → Conclude"]
+    end
+
+    Lyra -->|"Metrics<br/>Evidence"| MCP
+    MCP -->|"Queries<br/>Commands"| Lyra
+    MCP -->|"Structured<br/>Sources"| Human
+    Human -->|"Direction<br/>Feedback"| MCP
 

@@ -1,20 +1,30 @@
+%%{init: {'theme': 'neutral'}}%%
 flowchart LR
-    subgraph Sources
-        P1[Page A]
-        P2[Page B]
+    subgraph Pages
+        P1["Page A"]
+        P2["Page B"]
     end
+
     subgraph Fragments
-        F1[Fragment 1]
-        F2[Fragment 2]
-        F3[Fragment 3]
+        F1["Fragment<br/>(from Page A)"]
+        F2["Fragment<br/>(from Page B)"]
     end
-    subgraph Claims
-        C[Claim]
-    end
-    P1 --> F1
-    P1 --> F2
-    P2 --> F3
-    F1 -->|"SUPPORTS (0.85)"| C
-    F2 -->|"REFUTES (0.72)"| C
-    F3 -->|"SUPPORTS (0.91)"| C
+
+    C["Claim"]
+
+    %% Fragment belongs to Page (implicit via page_id FK)
+    P1 -.-> F1
+    P2 -.-> F2
+
+    %% ORIGIN: provenance tracking
+    F1 ==>|ORIGIN| C
+
+    %% NLI: cross-source verification
+    F2 -->|supports / refutes| C
+
+    %% CITES: citation between pages
+    P1 -->|CITES| P2
+
+    %% EVIDENCE_SOURCE: derived (not persisted)
+    C -.->|EVIDENCE_SOURCE| P1
 

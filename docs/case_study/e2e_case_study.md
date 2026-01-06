@@ -16,13 +16,13 @@
 - ADR-0005: Evidence Graph Structure（主張-断片-ページのグラフ構造）
 - ADR-0010: Async Search Queue（非同期検索キュー）
 - ADR-0012: Feedback Tool Design（ヒューマンフィードバック）
-- **ADR-0018: Task Hypothesis-First（仮説検証モデル、query→hypothesis リネーム）**
+- **ADR-0017: Task Hypothesis-First（仮説検証モデル、query→hypothesis リネーム）**
 
 ---
 
 ## 1. ケーススタディ設計
 
-### 1.1 研究仮説 (ADR-0018: Hypothesis-First)
+### 1.1 研究仮説 (ADR-0017: Hypothesis-First)
 
 **中心仮説（英語）**:
 
@@ -122,7 +122,7 @@ Please provide:
 Cite primary sources (original papers, FDA labels, clinical guidelines).
 ```
 
-**Lyra向け（仮説検証形式）**: ADR-0018に基づき、検証対象の仮説を明示し、支持/反証クエリの両方を設計。
+**Lyra向け（仮説検証形式）**: ADR-0017に基づき、検証対象の仮説を明示し、支持/反証クエリの両方を設計。
 
 #### 2.2.2 Lyraの実行手順
 
@@ -135,7 +135,7 @@ create_task(hypothesis="DPP-4 inhibitors as add-on therapy for type 2 diabetes p
 
 **Step 2: サブクエリ設計（Cursor AI）**
 
-Cursor AIがクエリを分解し、**支持クエリと反証クエリの両方**を設計（ADR-0018: バイアス軽減）:
+Cursor AIがクエリを分解し、**支持クエリと反証クエリの両方**を設計（ADR-0017: バイアス軽減）:
 
 ```
 queue_searches(task_id, queries=[
@@ -284,13 +284,13 @@ Note: タスクは `paused` 状態になり、同じ `task_id` で `queue_search
 
 ```sql
 -- Deterministic sample of 30 Fragment->Claim edges for a task
--- ADR-0018: nli_hypothesis = claim_text (NLI判定対象)
+-- ADR-0017: nli_hypothesis = claim_text (NLI判定対象)
 SELECT
   e.id AS edge_id,
   e.nli_label,
   e.nli_edge_confidence,  -- NLI model output (calibrated)
   f.text_content AS premise,
-  c.claim_text AS nli_hypothesis  -- ADR-0018 terminology
+  c.claim_text AS nli_hypothesis  -- ADR-0017 terminology
 FROM edges e
 JOIN claims c
   ON e.target_type = 'claim' AND e.target_id = c.id
@@ -416,5 +416,5 @@ LIMIT 30;
 | 日付 | 内容 |
 |------|------|
 | 2025-12-26 | 初版作成 |
-| 2026-01-05 | ADR-0018対応（hypothesis-first, 反証クエリ追加） |
+| 2026-01-05 | ADR-0017対応（hypothesis-first, 反証クエリ追加） |
 

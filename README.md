@@ -46,16 +46,16 @@ Lyra implements a clear separation of responsibilities ([ADR-0002](docs/adr/0002
 Claims connect to evidence through a structured graph ([ADR-0005](docs/adr/0005-evidence-graph-structure.md)):
 
 ```
-Claim (hypothesis) ← Fragment (SUPPORTS/REFUTES/NEUTRAL) ← Page ← URL
+Claim ← Fragment (SUPPORTS/REFUTES/NEUTRAL) ← Page ← URL
 ```
 
-Each edge carries calibrated NLI confidence, and claims accumulate Bayesian confidence from evidence.
+Each task defines a central hypothesis to verify ([ADR-0017](docs/adr/0017-task-hypothesis-first.md)). Claims are extracted using this hypothesis as context, and NLI edges carry calibrated confidence. Claims accumulate Bayesian confidence from cross-source evidence.
 
 ## Features
 
-- 🔍 **Multi-source Search**: Academic APIs (Semantic Scholar, OpenAlex) + web engines
-- 🧠 **Evidence Extraction**: LLM claim extraction with NLI stance detection
-- 📊 **Evidence Graph**: SQLite-backed with Bayesian confidence
+- 🔍 **Multi-source Search**: Academic APIs (Semantic Scholar, OpenAlex) + web engines ([ADR-0015](docs/adr/0015-unified-search-sources.md))
+- 🧠 **Evidence Extraction**: LLM claim extraction with NLI stance detection ([ADR-0004](docs/adr/0004-local-llm-extraction-only.md))
+- 📊 **Evidence Graph**: SQLite-backed with Bayesian confidence ([ADR-0005](docs/adr/0005-evidence-graph-structure.md))
 - 🔒 **Network Isolation**: ML containers have no internet access ([ADR-0006](docs/adr/0006-eight-layer-security-model.md))
 - 🔄 **Human-in-the-Loop**: CAPTCHA handling and feedback-driven improvement ([ADR-0007](docs/adr/0007-human-in-the-loop-auth.md))
 
@@ -192,14 +192,14 @@ feedback(action="edge_correct", edge_id="...", correct_relation="supports")
 
 ## MCP Tools
 
-| Category | Tools |
-|----------|-------|
-| Task Management | `create_task`, `get_status`, `stop_task` |
-| Search | `queue_searches` |
-| Evidence Exploration | `query_sql`, `vector_search`, `query_view`, `list_views` |
-| Authentication | `get_auth_queue`, `resolve_auth` |
-| Feedback | `feedback` |
-| Calibration | `calibration_metrics`, `calibration_rollback` |
+| Category | Tools | Reference |
+|----------|-------|-----------|
+| Task Management | `create_task`, `get_status`, `stop_task` | [ADR-0010](docs/adr/0010-async-search-queue.md), [ADR-0017](docs/adr/0017-task-hypothesis-first.md) |
+| Search | `queue_searches` | [ADR-0010](docs/adr/0010-async-search-queue.md) |
+| Evidence Exploration | `query_sql`, `vector_search`, `query_view`, `list_views` | [ADR-0016](docs/adr/0016-ranking-simplification.md) |
+| Authentication | `get_auth_queue`, `resolve_auth` | [ADR-0007](docs/adr/0007-human-in-the-loop-auth.md) |
+| Feedback | `feedback` | [ADR-0012](docs/adr/0012-feedback-tool-design.md) |
+| Calibration | `calibration_metrics`, `calibration_rollback` | [ADR-0011](docs/adr/0011-lora-fine-tuning.md) |
 
 ## Commands
 
@@ -215,14 +215,16 @@ make help     # Show all commands
 
 - [Architecture Overview](docs/architecture.md) - System design and data flow
 - [MCP Tools Reference](docs/mcp_reference.md) - Tool descriptions and schemas
-- [ADR Index](docs/adr/) - 17 architecture decision records
+- [ADR Index](docs/adr/) - 17 architecture decision records (categorized index in [architecture.md](docs/architecture.md#related-adrs))
 - [Contributing Guide](.github/CONTRIBUTING.md)
 - [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Contributor Covenant 3.0
 
 Key ADRs:
-- [ADR-0002: Thinking-Working Separation](docs/adr/0002-thinking-working-separation.md)
-- [ADR-0005: Evidence Graph Structure](docs/adr/0005-evidence-graph-structure.md)
-- [ADR-0010: Async Search Queue](docs/adr/0010-async-search-queue.md)
+- [ADR-0002: Thinking-Working Separation](docs/adr/0002-thinking-working-separation.md) - Three-layer collaboration model
+- [ADR-0005: Evidence Graph Structure](docs/adr/0005-evidence-graph-structure.md) - Bayesian confidence calculation
+- [ADR-0010: Async Search Queue Architecture](docs/adr/0010-async-search-queue.md) - Background search processing
+- [ADR-0016: Ranking Simplification](docs/adr/0016-ranking-simplification.md) - Evidence Graph exploration interface
+- [ADR-0017: Task Hypothesis-First Architecture](docs/adr/0017-task-hypothesis-first.md) - Hypothesis-driven exploration
 
 ## Limitations
 

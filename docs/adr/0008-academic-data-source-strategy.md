@@ -133,20 +133,13 @@ See `src/search/academic_provider.py` for parallel search and merge logic.
 
 ### Preprint Handling
 
-| Source | Review Status | Confidence Impact |
-|--------|--------------|-------------------|
-| arXiv | Unreviewed | Reflected in uncertainty (higher) |
-| bioRxiv/medRxiv | Unreviewed | Reflected in uncertainty (higher) |
-| Published Journal | Peer-reviewed | Normal |
+| Source | Review Status |
+|--------|--------------|
+| arXiv | Unreviewed |
+| bioRxiv/medRxiv | Unreviewed |
+| Published Journal | Peer-reviewed |
 
-**Preprint Detection**: When a paper's `venue` is a preprint server (arXiv, bioRxiv, medRxiv, etc.), the metadata is flagged as unreviewed and reflected in uncertainty scoring.
-
-**Implementation note (2025-12-27)**:
-- The current implementation stores academic metadata in `pages.paper_metadata` and may surface `year/doi/venue`
-  into evidence materials, but it does **not** yet explicitly model `peer_reviewed/preprint` nor adjust
-  Bayesian uncertainty based on venue class.
-- Treating preprints as higher-uncertainty sources remains a desirable behavior, but it should be implemented
-  carefully to avoid re-introducing coarse domain/venue bias (see ADR-0005).
+When a paper's `venue` is a preprint server (arXiv, bioRxiv, medRxiv, etc.), the metadata includes review status for display purposes. However, per ADR-0005's principle, **confidence calculation does not use venue-based weighting** to avoid bias.
 
 ### API Client Configuration
 

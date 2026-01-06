@@ -524,28 +524,33 @@ print([n for n, m in model.named_modules() if "Linear" in str(type(m))])
 
 ### 9.4 継続学習方針
 
-#### v1方針（初期）: 全履歴で毎回学習
+#### 現行方針: 累積学習（全サンプル使用）
+
+**すべてのアダプタバージョン（V1, V2, V3...）は、`nli_corrections` の全サンプルで訓練する。**
 
 データ量が少ないうちは計算コストも小さいため、毎回全訂正履歴で学習し直す。
 
 ```sql
--- v1: 全サンプルを使用
-SELECT premise, hypothesis, correct_label FROM nli_corrections
+-- 累積学習: 常に全サンプルを使用
+-- V1訓練時も、V2訓練時も、同じクエリ
+SELECT premise, nli_hypothesis, correct_label FROM nli_corrections
 ```
 
-#### v2方針（将来）: 増分学習
+`trained_adapter_id` カラムは**追跡・監査用**であり、学習時の除外条件には使用しない。
 
-訂正サンプルが数千件を超えた場合、増分学習に移行する。
+#### 将来検討: 増分学習
+
+訂正サンプルが**数千件を超えた場合**、増分学習への移行を検討する。
 
 ```sql
--- v2: 未学習サンプルのみ使用
-SELECT premise, hypothesis, correct_label 
+-- 増分学習（将来）: 未学習サンプルのみ使用
+SELECT premise, nli_hypothesis, correct_label 
 FROM nli_corrections
 WHERE trained_adapter_id IS NULL
    OR trained_adapter_id < ?  -- 現在のアダプタIDより小さい
 ```
 
-**v2に必要なスキーマ（実装済み）**:
+**増分学習に必要なスキーマ（実装済み）**:
 
 ```sql
 -- アダプタ管理テーブル（新規）
@@ -582,10 +587,10 @@ SET trained_adapter_id = ?
 WHERE id IN (...);
 ```
 
-| 方針 | トリガー条件 | 計算コスト | スキーマ変更 |
-|------|-------------|-----------|-------------|
-| v1 | サンプル数 < 1000 | 低 | 不要（adaptersテーブルは使用） |
-| v2 | サンプル数 ≥ 1000 | 中 | `trained_adapter_id`を活用 |
+| 方針 | 適用条件 | 計算コスト | 備考 |
+|------|---------|-----------|------|
+| 累積（現行） | サンプル数 < 数千件 | 低〜中 | 全サンプルで毎回訓練。`trained_adapter_id`は追跡用 |
+| 増分（将来検討） | サンプル数 ≥ 数千件 | 低 | 未学習サンプルのみで訓練。`trained_adapter_id`で除外判定 |
 
 ### 9.5 シャドー推論（事前検証）
 
