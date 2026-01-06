@@ -1,0 +1,345 @@
+# navigate
+
+## Purpose
+
+Build an evidence graph iteratively using Lyra MCP tools, then synthesize a traceable research report.
+
+## When to use
+
+- Answering evidence-based questions ("Is X effective?", "Does Y cause Z?")
+- Comparing alternatives with structured evidence
+- Any research requiring source traceability and confidence scoring
+
+---
+
+## Available Tools
+
+### Lyra MCP Tools (evidence collection)
+- **Core**: `create_task`, `queue_searches`, `get_status`, `stop_task`
+- **Explore**: `vector_search`, `query_view`, `query_sql`, `list_views`
+- **Auth**: `get_auth_queue`, `resolve_auth`
+- **Admin**: `feedback`, `calibration_metrics`, `calibration_rollback`
+
+### Non-MCP Tools (analysis & exploration)
+- **Web search**: Background research, terminology, query brainstorming
+- **Browser**: Navigate to URLs, take screenshots, read full-text sources
+- **File write**: Export final report to `docs/reports/`
+
+**Key insight**: Combine Lyra (systematic evidence) with non-MCP tools (flexible exploration) for best results.
+
+---
+
+## Contract: Responsibilities & Boundaries
+
+This command operationalizes a 3-layer collaboration model:
+
+| Layer | Actor | Role |
+|-------|-------|------|
+| **Judgment** | Human | Read primary sources, make final calls, domain expertise |
+| **Thinking** | AI (you) | Design queries, decide next actions, write report |
+| **Working** | Lyra | Execute search→fetch→extract→NLI→store; report metrics/materials |
+
+### Responsibility matrix (non-negotiable)
+
+| Responsibility | AI | Lyra |
+|---|---|---|
+| Search query design / prioritization | ✅ (exclusive) | ❌ (no suggestions) |
+| Execute searches / pipeline | ❌ | ✅ |
+| Recommend "what to do next" | ✅ | ❌ (metrics only) |
+| Evidence graph exploration | ✅ (drive) | ✅ (serve data) |
+| Primary-source reading / interpretation | ✅ assist + Human decides | ❌ |
+
+**Key principle**: Lyra is a *navigation tool*. It discovers and organizes sources; detailed analysis is the researcher's role. Lyra never suggests queries or next steps—that is your job.
+
+### Terminology
+
+| Term | Definition |
+|------|------------|
+| `task_id` | Unique identifier for a task; hypothesis is fixed at creation |
+| `hypothesis` | Central claim bound to task_id; immutable after `create_task(hypothesis=...)` |
+| `query` / `queries` | Search strings submitted via `queue_searches(...)` — **this is what you optimize** |
+| `claim` | Extracted assertion stored in Lyra's evidence graph |
+
+### Bayesian confidence (`bayesian_truth_confidence`)
+
+- **0.5** = no evidence yet (prior)
+- **> 0.5** = more support; **< 0.5** = more refutation
+- Only **cross-source** NLI edges update confidence (self-citation ignored)
+- Abbreviated as "conf" in reports
+
+### Multi-task operation (optional)
+
+You may use **multiple tasks** in a single research session. Useful patterns:
+- Separate tasks for supporting vs refuting evidence
+- Sub-hypothesis tasks for complex questions
+- Exploratory task → focused verification task
+
+**Rule**: Track all `task_id`s used and list them in the final report.
+
+---
+
+## Evidence Tiers (do not mix)
+
+| Tier | Source | What it is | Allowed use |
+|---|---|---|---|
+| **T1** | Lyra Evidence Graph | Traceable chain: claim→fragment→page→URL | Only basis for "claims" in report |
+| **T2** | Web search | Background, terminology, query brainstorming | Query design, gap identification; never as direct evidence |
+| **T3** | Full-text reading (browser) | Methods/results/limitations notes | Deep analysis of key sources; critique/interpretation |
+
+### Traceability rule (hard)
+
+Any claim in the final report **MUST** be backed by T1 (a URL reachable from `v_evidence_chain` or SQL).
+
+### T1↔T2 Feedback Loop (key workflow)
+
+```
+T1 (Lyra search) → gaps/questions emerge
+    ↓
+T2 (Web search) → discover relevant concepts, papers, terminology
+    ↓
+T1 (new Lyra queries) → convert T2 findings into traceable evidence
+    ↓
+repeat until saturated
+```
+
+**Rule**: If T2 or T3 reveals an important point not yet in T1, **convert it**: design new `queue_searches` queries to retrieve it via Lyra.
+
+### When to use T3 (Full-text)
+
+- After T1 has collected sufficient evidence
+- For key sources that need deep methodological review
+- When contradictions need resolution by reading original papers
+- Use browser tools to navigate, screenshot, and read
+
+---
+
+## Workflow
+
+### Phase 1: Task Setup
+
+**New task**: If no task exists, create one with a testable hypothesis:
+```
+create_task(hypothesis="{testable_hypothesis}")
+→ record task_id
+```
+
+**Existing task**: If continuing, retrieve task_id and check status:
+```
+get_status(task_id=task_id, wait=0)
+```
+
+The hypothesis is fixed once `create_task` is called. From here, focus on **query optimization**.
+
+### Phase 2: Initial Query Design
+
+**(T2) Web search** to gather terminology, key papers, concepts. Then design queries:
+
+```
+queue_searches(task_id=task_id, queries=[
+  "{core_concept} meta-analysis",
+  "{core_concept} systematic review",
+  "{mechanism} evidence",
+  # Include refutation queries from the start (ADR-0017)
+  "{hypothesis} limitations",
+  "{hypothesis} criticism"
+])
+
+get_status(task_id=task_id, wait=30)
+```
+
+Check: `metrics.total_claims > 10` and `harvest_rate > 0.3`
+
+### Phase 3: T1↔T2 Iteration (repeat 2-5×)
+
+**Loop structure**:
+1. **T1 Analyze**: `query_view(view_name="v_claim_evidence_summary", task_id=task_id)`
+2. **Identify gaps**: 
+   - Confidence 0.4-0.6: `v_contradictions`
+   - Unsupported claims: `v_unsupported_claims`
+   - Outdated evidence: `v_outdated_evidence` (years_since_update > 5)
+3. **Time trend check**: `v_emerging_consensus` (support_trend > 0 = growing support)
+4. **(T2) Web search**: Find terminology, papers, concepts to fill gaps
+5. **T1 Convert**: `queue_searches(task_id=task_id, queries=["{gap_filling_query}"])`
+6. **If auth blocked**: `get_auth_queue(task_id=task_id)` → user solves → `resolve_auth(...)`
+
+**Exit condition**: New queries yield < 3 novel claims for 2 consecutive iterations
+
+### Phase 4: T3 Deep Dive (optional)
+
+When key sources need detailed review:
+
+1. **Select sources**: Pick high-impact papers from T1 evidence chain
+2. **Browser read**: Navigate to URLs, screenshot key figures/tables
+3. **Note limitations**: Methods, sample size, generalizability concerns
+4. **Convert findings**: If T3 reveals important uncaptured points → new T1 queries
+
+**Keep T3 notes separate from T1 claims** — they inform interpretation, not evidence.
+
+### Phase 5: Report Generation
+
+1. **Extract evidence**:
+   ```
+   query_view(view_name="v_evidence_chain", task_id=task_id)
+   query_sql(sql="SELECT claim_text, bayesian_truth_confidence FROM claims 
+                  WHERE task_id='{task_id}' AND bayesian_truth_confidence > 0.6
+                  ORDER BY bayesian_truth_confidence DESC")
+   ```
+
+2. **Extract Key Sources** (metric-based, not subjective):
+   ```
+   query_view(view_name="v_source_impact", task_id=task_id, limit=10)
+   ```
+   Use `impact_score` = claims_generated + (avg_confidence × claims_generated × 0.5) + (claims_supported × 0.3).
+   This captures both **knowledge generation** (meta-analyses, reviews) and **corroboration**.
+   **Do NOT manually curate** — use the view output directly to avoid omissions.
+
+3. **Evidence Timeline** (recommended):
+   ```
+   query_view(view_name="v_evidence_timeline", task_id=task_id)
+   ```
+   Check publication year distribution. Flag if all evidence is old (>5 years).
+
+4. **Extract References** (complete list):
+   ```
+   query_sql(sql="SELECT DISTINCT p.url, p.title
+                  FROM pages p
+                  JOIN fragments f ON f.page_id = p.id
+                  JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+                  JOIN claims c ON c.id = e.target_id AND e.target_type = 'claim'
+                  WHERE c.task_id = '{task_id}'
+                  ORDER BY p.title")
+   ```
+   Include **every** page that contributed claims for traceability.
+
+5. **Write report to file**:
+
+   Output path: `docs/reports/{YYYYMMDD_HHMMSS}.md`
+
+   ```markdown
+   # Research Report
+
+   **Date**: {YYYY-MM-DD HH:MM}  
+   **Hypothesis**: {hypothesis}
+
+   ## Verdict
+
+   {hypothesis}: **SUPPORTED** / **REFUTED** / **INCONCLUSIVE** (confidence: X.XX)
+
+   ## Key Findings
+
+   ### Supporting Evidence (T1)
+   - [Claim] (conf: X.XX) — Source: [Title](URL)
+
+   ### Refuting Evidence (T1)
+   - [Claim] (conf: X.XX) — Source: [Title](URL)
+
+   ## Unresolved Contradictions
+   - {contradiction_summary}
+
+   ## Evidence Quality Assessment
+
+   ### Temporal Distribution
+   | Year Range | Claims |
+   |------------|--------|
+   | 2020-2025  | {n}    |
+   | 2015-2019  | {n}    |
+   | <2015      | {n}    |
+
+   ### Warnings
+   - {n} claims have outdated evidence (>5 years)
+   - {n} claims have no supporting evidence
+
+   ## Methodology
+
+   | Tier | Description |
+   |------|-------------|
+   | T1 (Lyra) | All claims above — traceable to URL |
+   | T2 (Web search) | Used for query design, not cited |
+   | T3 (Full-text) | {list of papers read} |
+
+   ### Task Summary
+
+   | task_id | hypothesis | queries | pages | claims |
+   |---------|------------|---------|-------|--------|
+   | {id}    | {hyp}      | {n}     | {n}   | {n}    |
+   ```
+
+6. **Finalize**:
+   ```
+   stop_task(task_id=task_id, reason="session_completed")
+   ```
+
+---
+
+## Termination Criteria
+
+Stop iterating when **ANY** of:
+- New queries yield few novel claims (< 2-3 new claims per query) for 2 consecutive iterations
+- `bayesian_truth_confidence` of key claims stabilizes (Δ < 0.05)
+- Budget nearly exhausted (check `get_status` metrics)
+- User indicates sufficient evidence
+
+---
+
+## Principles
+
+1. **Lyra navigates, you analyze**: Lyra finds and organizes; detailed reading is your job
+2. **Seek refutation early**: Include limitation/criticism queries from the start (ADR-0017)
+3. **T1↔T2 loop**: Web search informs queries; Lyra makes evidence traceable
+4. **Trace everything**: Every claim in report links to a source (T1 only)
+5. **T3 is late-stage**: Full-text reading after T1 saturation, for key sources only
+6. **Convert, don't cite**: If T2/T3 reveals important points, design new Lyra queries
+
+---
+
+## Reference
+
+### SQL Views
+
+Use `list_views()` to discover available views. Key views:
+
+**Core Evidence Views**:
+- `v_claim_evidence_summary` — confidence per claim with support/refute counts
+- `v_contradictions` — conflicting evidence requiring resolution
+- `v_evidence_chain` — full provenance to URL
+- `v_unsupported_claims` — claims without supporting evidence
+
+**Source Evaluation Views**:
+- `v_source_impact` — ranks sources by knowledge generation + corroboration (recommended)
+- `v_source_authority` — ranks by NLI support edges (DEPRECATED for Key Sources)
+
+**Temporal Views**:
+- `v_evidence_timeline` — publication year distribution
+- `v_emerging_consensus` — claims with growing support trend
+- `v_outdated_evidence` — stale evidence needing review
+
+**Citation Network Views** (for advanced analysis):
+- `v_citation_flow` — page-to-page citation relationships
+- `v_citation_chains` — A→B→C citation paths
+- `v_bibliographic_coupling` — papers citing same sources
+
+### Auth Handling (CAPTCHA / Login)
+
+`get_auth_queue(task_id=task_id)` → user solves in browser → `resolve_auth(action="complete", target="domain", domain="...")`
+
+Other domains continue while one is blocked—don't stop prematurely.
+
+---
+
+## Admin (optional)
+
+Not part of regular workflow. Use when systematic errors are observed.
+
+### Feedback — Quality Corrections
+
+Use `feedback(action=..., ...)` when evidence quality issues are found:
+- `edge_correct` — fix wrong NLI label (`edge_id`, `correct_relation`)
+- `claim_reject` / `claim_restore` — mark claim invalid/valid (`claim_id`, `reason`)
+- `domain_block` / `domain_unblock` — block/restore domain (`domain_pattern`, `reason`)
+
+### Calibration — NLI Model Tuning
+
+- `calibration_metrics` — view NLI calibration stats and Brier scores
+- `calibration_rollback` — revert to previous calibration (destructive)
+
+Use after accumulating `edge_correct` samples to assess/adjust model quality.

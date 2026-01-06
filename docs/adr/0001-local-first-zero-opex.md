@@ -5,7 +5,9 @@
 
 ## Context
 
-Research support tools are used over extended periods. Dependence on commercial cloud APIs introduces the following risks:
+Research support tools are used over extended periods. **Lyra is not a disposable answer generator**—it builds a persistent evidence graph that accumulates across research sessions, enabling traceable, auditable conclusions that grow stronger with use.
+
+Dependence on commercial cloud APIs introduces the following risks:
 
 | Risk | Details |
 |------|---------|
@@ -65,6 +67,7 @@ Specifically:
 - **Complete Data Sovereignty**: Research data never leaves the local machine
 - **Offline Operation**: Past data available during network outages
 - **Long-term Stability**: Unaffected by external service discontinuation
+- **Evidence Accumulation**: Evidence graph persists and grows across sessions; corrections improve model quality over time (via LoRA, ADR-0011)
 
 ### Negative
 - **GPU Recommended**: NVIDIA GPU + CUDA for practical speed (CPU fallback available but 20-100x slower)

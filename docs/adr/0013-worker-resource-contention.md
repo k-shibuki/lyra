@@ -114,8 +114,8 @@ Make each academic client a singleton instead of using a shared rate limiter.
 Let the API reject requests when limits are exceeded.
 
 **Rejection Reason**: 
-- Semantic Scholar is strict at 100 req/5min
-- 2 workers × multiple tasks risks burst exceeding limits
+- Semantic Scholar: 1 req/s dedicated with API key, or 1000 req/s shared globally without
+- 2 workers × multiple tasks risks burst exceeding limits (especially without API key)
 - API-side blocking (429 responses) has long-term account impact
 
 ### C. Limit Worker Count to 1

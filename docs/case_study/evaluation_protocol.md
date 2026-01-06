@@ -154,7 +154,35 @@ Use Lyra to conduct this research.
 - **Lyra**: Thinking (cloud) + Working (local ML, Evidence Graph, Academic APIs)
 - **Claude Research**: Fully cloud-based research and synthesis
 
-### 4.1 Execution Conditions
+### 4.1 Lyra Execution Environment
+
+**Important**: Lyra is not a standalone tool. It operates as an MCP (Model Context Protocol) server that requires an AI assistant (MCP client) to orchestrate its tools.
+
+Lyra provides a reusable custom instruction ([`navigate`](navigate.md.example)) that can be used with any MCP-compatible client:
+- **Cursor IDE**: As a Cursor Command (`.cursor/commands/navigate.md`)
+- **Claude Desktop**: As a Skill (Settings → Skills)
+- **Other MCP clients**: As system prompt or custom instruction
+
+**For this case study**, we use **Cursor IDE with Cursor Commands**:
+
+| Component | Role |
+|-----------|------|
+| **Cursor IDE** | Host environment; provides AI assistant (Claude Opus 4.5) |
+| **Lyra MCP Server** | Executes search→fetch→extract→NLI→store pipeline |
+| **`navigate` Command** | Cursor Command defining workflow ([source](navigate.md.example)) |
+
+**Execution Stack**:
+```
+User Query
+    ↓
+Cursor AI (Claude Opus 4.5) — Thinking layer: plans queries, analyzes results
+    ↓ MCP tool calls
+Lyra Server — Working layer: executes searches, builds Evidence Graph
+    ↓
+Report (synthesized by Cursor AI from Evidence Graph)
+```
+
+### 4.2 Execution Conditions
 
 - Both tools receive identical prompts (Sections 3.2-3.4)
 - Lyra additionally receives the Lyra-Specific Suffix (Section 3.5)
@@ -339,6 +367,7 @@ No statistical significance tests are performed (descriptive study design).
 | 0.1 | 2025-12-28 | Initial draft |
 | 0.2 | 2025-12-29 | Added independent evaluators; blinding protocol; score sheet |
 | 0.3 | 2025-12-29 | **Major revision**: Removed qualitative evaluation entirely; expanded to 3 domains; redesigned metrics for fairness; architectural differences now descriptive only |
+| 0.4 | 2026-01-06 | Added Lyra execution environment details (Section 4.1); linked `navigate` command |
 
 ---
 
@@ -482,3 +511,4 @@ if __name__ == "__main__":
     results = asyncio.run(evaluate_output(materials, ground_truth_dois))
     print(json.dumps(results, indent=2))
 ```
+

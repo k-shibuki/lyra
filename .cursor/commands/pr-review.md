@@ -429,12 +429,37 @@ make test-check RUN_ID=<run_id_from_output>
 - [ ] Change aligns with requirements/spec
 - [ ] **No warnings remain** (required)
 
+### Merge strategy selection
+
+Determine whether to use normal merge or squash merge:
+
+```bash
+# Check commit count and quality
+git log main..<branch> --oneline | head -20
+```
+
+| Source | Pattern | Strategy |
+|--------|---------|----------|
+| Local human work | 2-5 meaningful commits | Normal merge |
+| Claude Code / Cursor Cloud Agent | 10+ micro-commits, "wip" chains | **Squash merge** |
+| Mixed | Some good, some noise | Case-by-case |
+
+**Squash indicators** (any of these → consider squash):
+
+- 10+ commits for a small change
+- Multiple "fix typo", "wip", "fixup" commits
+- Commit messages lack semantic meaning
+- Branch created by cloud agent (`cursor/*`, `claude/*`)
+
 ### Decision output template
 
 ```text
 ## Merge decision
 
 ### Conclusion: ✅ Mergeable / ❌ Changes required
+
+### Merge strategy: Normal / Squash
+- Reason: (e.g., "Cloud agent branch with 15 micro-commits")
 
 ### Reasons
 - Aligns with requirements

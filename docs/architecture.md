@@ -187,7 +187,7 @@ lyra/
 ## Related ADRs
 
 Core architecture:
-- [ADR-0001: Local-First Architecture / Zero OpEx](adr/0001-local-first-zero-opex.md) - All processing local, zero operational cost
+- [ADR-0001: Local-First Architecture / Zero OpEx](adr/0001-local-first-zero-opex.md) - Navigation tool, evidence accumulation, zero operational cost
 - [ADR-0002: Thinking-Working Separation](adr/0002-thinking-working-separation.md) - Three-layer collaboration model
 - [ADR-0003: MCP over CLI/REST](adr/0003-mcp-over-cli-rest.md) - MCP protocol selection
 - [ADR-0004: Local LLM for Extraction Only](adr/0004-local-llm-extraction-only.md) - Ollama/DeBERTa task scope

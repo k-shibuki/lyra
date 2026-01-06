@@ -68,10 +68,10 @@ Key fields in the response:
 |------|-------------|
 | `query_sql` | Execute read-only SQL against Evidence Graph |
 | `vector_search` | Semantic similarity search over fragments/claims |
-| `query_view` | Execute predefined SQL view template (18 views available) |
+| `query_view` | Execute predefined SQL view template (19 views available) |
 | `list_views` | List available view templates |
 
-#### Key Views (18 available, use `list_views` for full list)
+#### Key Views (19 available, use `list_views` for full list)
 
 **Claim Analysis:**
 | View | Description |
@@ -88,10 +88,16 @@ Key fields in the response:
 | `v_evidence_timeline` | Evidence organized by publication year |
 | `v_evidence_freshness` | Age of supporting evidence |
 
+**Source Evaluation:**
+| View | Description |
+|------|-------------|
+| `v_source_impact` | Ranks sources by knowledge generation + corroboration (recommended for Key Sources) |
+| `v_source_authority` | Ranks by NLI support edges (use `v_source_impact` instead for Key Sources) |
+
 **Citation Graph:**
 | View | Description |
 |------|-------------|
-| `v_hub_pages` | High-connectivity citation hubs |
+| `v_hub_pages` | High-connectivity citation hubs (deprecated; absorbed by `v_source_impact`) |
 | `v_citation_flow` | Citation relationships between pages |
 | `v_bibliographic_coupling` | Papers sharing common references |
 

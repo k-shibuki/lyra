@@ -29,6 +29,10 @@ For detailed architecture, see [docs/architecture.md](docs/architecture.md).
 
 ## Key Concepts
 
+### Key Principle
+
+Lyra is a *navigation tool*, not a disposable answer generator ([ADR-0001](docs/adr/0001-local-first-zero-opex.md)). It discovers and organizes sources; detailed analysis is the researcher's role. The evidence graph persists and accumulates value across sessions—corrections improve model quality over time.
+
 ### Three-Layer Collaboration
 
 Lyra implements a clear separation of responsibilities ([ADR-0002](docs/adr/0002-thinking-working-separation.md)):
@@ -38,8 +42,6 @@ Lyra implements a clear separation of responsibilities ([ADR-0002](docs/adr/0002
 | **Human** | Primary source reading, final judgment, domain expertise |
 | **AI Client** | Research planning, query design, synthesis |
 | **Lyra** | Source discovery, extraction, NLI, persistence |
-
-**Key principle**: Lyra is a *navigation tool*. It discovers and organizes sources; detailed analysis is the researcher's role.
 
 ### Evidence Graph
 
@@ -142,11 +144,39 @@ make up       # Start (auto-build first time)
 Note: `.env` is created automatically from `.env.example` on the first run of `make doctor` / `make setup` / `make up`.
 Edit `.env` if you need to customize settings.
 
+### Recommended: Academic API Settings
+
+For better rate limits on academic searches, add these to `.env`:
+
+```bash
+# Semantic Scholar: Get free API key at https://www.semanticscholar.org/product/api
+# Provides dedicated 1 req/s (vs shared global pool)
+LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY=your_key
+
+# OpenAlex: Your email for "polite pool" (10 req/s vs 1 req/s)
+LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL=your_email@example.com
+```
+
+### Local Configuration Overrides (Optional)
+
+For extensive local customization beyond environment variables, use `local.yaml`:
+
+```bash
+cp config/local.yaml.example config/local.yaml
+```
+
+Edit `config/local.yaml` to override settings from any config file (`settings.yaml`, `academic_apis.yaml`, etc.). See the example file for available options.
+
+Priority (lowest to highest):
+1. Base YAML files (`config/*.yaml`)
+2. `config/local.yaml`
+3. Environment variables (`LYRA_*` prefix)
+
 ### MCP Client Configuration
 
 ```bash
 # Cursor
-mkdir -p .cursor && cp config/mcp-config.example.json .cursor/mcp.json
+mkdir -p .cursor && cp config/mcp.json.example .cursor/mcp.json
 ```
 
 **Important**: Edit `.cursor/mcp.json` and update the path to match your installation:
@@ -164,9 +194,33 @@ mkdir -p .cursor && cp config/mcp-config.example.json .cursor/mcp.json
 
 Replace `/full/path/to/lyra` with your actual Lyra installation path (e.g., `/home/username/Projects/lyra`).
 
-For other clients, copy `config/mcp-config.example.json` to your client's config location and adjust the path accordingly.
+For other clients, copy `config/mcp.json.example` to your client's config location and adjust the path accordingly.
 
 ## Usage Example
+
+### With MCP Client
+
+The [navigate](docs/case_study/navigate.md.example) command is an example workflow for evidence-based research:
+
+```
+/navigate  (Cursor Commands)
+# or invoke as a skill in Claude Desktop, etc.
+
+User: "DPP-4 inhibitors improve HbA1c in type 2 diabetes"
+```
+
+The AI assistant (MCP Client) will:
+1. Create a task with your hypothesis
+2. Design and queue search queries (including refutation queries)
+3. Monitor evidence collection progress
+4. Analyze claims using `v_claim_evidence_summary`, `v_contradictions`
+5. Generate a traceable report with Key Sources (`v_source_impact`) and full References
+
+You can create your own commands/skills tailored to your research workflow.
+
+### Direct MCP Tool Calls
+
+For programmatic access or custom workflows:
 
 ```python
 # 1. Create task
@@ -184,9 +238,10 @@ get_status(task_id=task.task_id, wait=30)
 
 # 4. Explore evidence
 vector_search(query="cardiovascular", target="claims", task_id=task.task_id)
+query_view(view_name="v_source_impact", task_id=task.task_id)  # Key Sources
 query_view(view_name="v_contradictions", task_id=task.task_id)
 
-# 5. Provide feedback
+# 5. Provide feedback (improves model over time)
 feedback(action="edge_correct", edge_id="...", correct_relation="supports")
 ```
 
@@ -220,10 +275,10 @@ make help     # Show all commands
 - [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Contributor Covenant 3.0
 
 Key ADRs:
+- [ADR-0001: Local-First / Zero OpEx](docs/adr/0001-local-first-zero-opex.md) - Navigation tool, evidence accumulation
 - [ADR-0002: Thinking-Working Separation](docs/adr/0002-thinking-working-separation.md) - Three-layer collaboration model
 - [ADR-0005: Evidence Graph Structure](docs/adr/0005-evidence-graph-structure.md) - Bayesian confidence calculation
 - [ADR-0010: Async Search Queue Architecture](docs/adr/0010-async-search-queue.md) - Background search processing
-- [ADR-0016: Ranking Simplification](docs/adr/0016-ranking-simplification.md) - Evidence Graph exploration interface
 - [ADR-0017: Task Hypothesis-First Architecture](docs/adr/0017-task-hypothesis-first.md) - Hypothesis-driven exploration
 
 ## Limitations

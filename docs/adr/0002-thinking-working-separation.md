@@ -52,7 +52,7 @@ flowchart LR
     Human -->|"Direction<br/>Feedback"| MCP
 ```
 
-**Key principle**: Lyra is a *navigation tool*, not a reading tool. It identifies and organizes relevant sources; detailed analysis of primary sources is part of the researcher's tool-assisted workflow.
+**Key principle**: Lyra is a *navigation tool*, not a reading tool. It identifies and organizes relevant sources; detailed analysis of primary sources is part of the researcher's tool-assisted workflow. Unlike disposable answer generators, Lyra's evidence graph persists and accumulates value across sessions (see ADR-0001).
 
 ## Decision
 
