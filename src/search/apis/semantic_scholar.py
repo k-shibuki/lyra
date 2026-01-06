@@ -6,6 +6,8 @@ Primary API for citation graphs (priority=1).
 
 from typing import Any, cast
 
+import httpx
+
 from src.search.apis.base import BaseAcademicClient
 from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
 from src.utils.logging import get_logger
@@ -15,9 +17,19 @@ logger = get_logger(__name__)
 
 
 class SemanticScholarClient(BaseAcademicClient):
-    """Semantic Scholar API client."""
+    """Semantic Scholar API client.
+
+    Supports optional API key authentication via x-api-key header.
+    Configure via LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY in .env.
+
+    If API key becomes invalid (expired after 60 days of non-use, revoked, etc.),
+    the client automatically falls back to anonymous access (shared pool) with a warning.
+    """
 
     FIELDS = "paperId,title,abstract,year,authors,citationCount,referenceCount,isOpenAccess,openAccessPdf,venue,externalIds"
+
+    # HTTP status codes indicating invalid API key
+    _INVALID_KEY_STATUS_CODES = {401, 403}
 
     def __init__(self) -> None:
         """Initialize Semantic Scholar client."""
@@ -38,87 +50,153 @@ class SemanticScholarClient(BaseAcademicClient):
 
         super().__init__("semantic_scholar", base_url=base_url, timeout=timeout, headers=headers)
 
+        # Track original API key for fallback logging
+        self._original_api_key = self.api_key
+        self._api_key_fallback_logged = False
+
+        # Add x-api-key header if api_key is configured
+        # This enables authenticated access with higher rate limits
+        if self.api_key:
+            self.default_headers["x-api-key"] = self.api_key
+            logger.debug("Semantic Scholar API key configured")
+
+    async def _handle_invalid_api_key(self) -> None:
+        """Handle invalid API key by falling back to anonymous access.
+
+        Logs a warning (once) and recreates the session without the API key.
+        """
+        if not self._api_key_fallback_logged and self._original_api_key:
+            logger.warning(
+                "Semantic Scholar API key is invalid (expired or revoked). "
+                "Falling back to anonymous access (shared pool, 1000 req/s across all users). "
+                "Re-apply for a new key at https://www.semanticscholar.org/product/api if needed.",
+            )
+            self._api_key_fallback_logged = True
+
+        # Disable API key
+        self.api_key = None
+        self.default_headers.pop("x-api-key", None)
+
+        # Recreate session without API key
+        if self._session:
+            await self._session.aclose()
+            self._session = None
+
+    def _is_invalid_api_key_error(self, e: Exception) -> bool:
+        """Check if exception indicates an invalid API key."""
+        import httpx
+
+        if isinstance(e, httpx.HTTPStatusError):
+            return e.response.status_code in self._INVALID_KEY_STATUS_CODES
+        return False
+
     async def _search_impl(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers (internal implementation).
 
         Rate limiting is handled by the base class search() method.
+        If API key is invalid (401/403), automatically falls back to anonymous access.
         """
-        session = await self._get_session()
-
-        async def _search() -> dict[str, Any]:
-            response = await session.get(
-                f"{self.base_url}/paper/search",
-                params={"query": query, "limit": limit, "fields": self.FIELDS},
-            )
-            response.raise_for_status()
-            return cast(dict[str, Any], response.json())
-
-        try:
-            data = await retry_api_call(
-                _search,
-                policy=ACADEMIC_API_POLICY,
-                rate_limiter_provider=self.name,
-                max_consecutive_429=3,  # E2E fix: early fail for OpenAlex fallback
-            )
-            papers = [self._parse_paper(p) for p in data.get("data", [])]
-
-            next_cursor = data.get("next")
-            # Semantic Scholar API returns 'next' as int offset, convert to string
-            if next_cursor is not None:
-                next_cursor = str(next_cursor)
-
-            return AcademicSearchResult(
-                papers=papers,
-                total_count=data.get("total", 0),
-                next_cursor=next_cursor,
-                source_api="semantic_scholar",
-            )
-        except Exception as e:
-            # Log as warning (not error) for 429 early-fail (expected behavior for fallback)
-            from src.utils.api_retry import APIRetryError
-
-            if isinstance(e, APIRetryError) and e.last_status == 429:
-                logger.warning(
-                    "Semantic Scholar rate limited, falling back to OpenAlex only",
-                    query=query[:50],
-                )
-            else:
-                logger.error("Semantic Scholar search failed", query=query, error=str(e))
-            return AcademicSearchResult(
-                papers=[], total_count=0, next_cursor=None, source_api="semantic_scholar"
-            )
-
-    async def get_paper(self, paper_id: str) -> Paper | None:
-        """Get paper metadata."""
-        # Apply rate limiting (fix for hypothesis B)
-        from src.search.apis.rate_limiter import get_academic_rate_limiter
-
-        limiter = get_academic_rate_limiter()
-        await limiter.acquire(self.name)
-
-        try:
+        # Retry once if API key is invalid (fallback to anonymous)
+        for attempt in range(2):
             session = await self._get_session()
 
-            # Normalize paper ID for API
-            normalized_id = self._normalize_paper_id(paper_id)
-
-            async def _fetch() -> dict[str, Any]:
-                response = await session.get(
-                    f"{self.base_url}/paper/{normalized_id}", params={"fields": self.FIELDS}
+            async def _search(s: httpx.AsyncClient = session) -> dict[str, Any]:
+                response = await s.get(
+                    f"{self.base_url}/paper/search",
+                    params={"query": query, "limit": limit, "fields": self.FIELDS},
                 )
                 response.raise_for_status()
                 return cast(dict[str, Any], response.json())
 
             try:
                 data = await retry_api_call(
-                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                    _search,
+                    policy=ACADEMIC_API_POLICY,
+                    rate_limiter_provider=self.name,
+                    max_consecutive_429=3,  # E2E fix: early fail for OpenAlex fallback
                 )
-                return self._parse_paper(data)
+                papers = [self._parse_paper(p) for p in data.get("data", [])]
+
+                next_cursor = data.get("next")
+                # Semantic Scholar API returns 'next' as int offset, convert to string
+                if next_cursor is not None:
+                    next_cursor = str(next_cursor)
+
+                return AcademicSearchResult(
+                    papers=papers,
+                    total_count=data.get("total", 0),
+                    next_cursor=next_cursor,
+                    source_api="semantic_scholar",
+                )
             except Exception as e:
-                logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
-                return None
-        finally:
-            limiter.release(self.name)
+                # Check for invalid API key (401/403) - fallback to anonymous access
+                if self._is_invalid_api_key_error(e) and attempt == 0 and self.api_key:
+                    await self._handle_invalid_api_key()
+                    continue  # Retry without API key
+
+                # Log as warning (not error) for 429 early-fail (expected behavior for fallback)
+                from src.utils.api_retry import APIRetryError
+
+                if isinstance(e, APIRetryError) and e.last_status == 429:
+                    logger.warning(
+                        "Semantic Scholar rate limited, falling back to OpenAlex only",
+                        query=query[:50],
+                    )
+                else:
+                    logger.error("Semantic Scholar search failed", query=query, error=str(e))
+                return AcademicSearchResult(
+                    papers=[], total_count=0, next_cursor=None, source_api="semantic_scholar"
+                )
+
+        # Should not reach here
+        return AcademicSearchResult(
+            papers=[], total_count=0, next_cursor=None, source_api="semantic_scholar"
+        )
+
+    async def get_paper(self, paper_id: str) -> Paper | None:
+        """Get paper metadata.
+
+        If API key is invalid (401/403), automatically falls back to anonymous access.
+        """
+        # Apply rate limiting (fix for hypothesis B)
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+
+        limiter = get_academic_rate_limiter()
+
+        # Normalize paper ID for API (once, outside retry loop)
+        normalized_id = self._normalize_paper_id(paper_id)
+
+        # Retry once if API key is invalid (fallback to anonymous)
+        for attempt in range(2):
+            await limiter.acquire(self.name)
+
+            try:
+                session = await self._get_session()
+
+                async def _fetch(s: httpx.AsyncClient = session) -> dict[str, Any]:
+                    response = await s.get(
+                        f"{self.base_url}/paper/{normalized_id}", params={"fields": self.FIELDS}
+                    )
+                    response.raise_for_status()
+                    return cast(dict[str, Any], response.json())
+
+                try:
+                    data = await retry_api_call(
+                        _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                    )
+                    return self._parse_paper(data)
+                except Exception as e:
+                    # Check for invalid API key (401/403) - fallback to anonymous access
+                    if self._is_invalid_api_key_error(e) and attempt == 0 and self.api_key:
+                        await self._handle_invalid_api_key()
+                        continue  # Retry without API key
+
+                    logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
+                    return None
+            finally:
+                limiter.release(self.name)
+
+        return None
 
     def _normalize_paper_id(self, paper_id: str) -> str:
         """Normalize paper ID for Semantic Scholar API.
@@ -149,101 +227,127 @@ class SemanticScholarClient(BaseAcademicClient):
         return paper_id
 
     async def get_references(self, paper_id: str) -> list[Paper]:
-        """Get references (papers cited by this paper)."""
+        """Get references (papers cited by this paper).
+
+        If API key is invalid (401/403), automatically falls back to anonymous access.
+        """
         # Apply rate limiting
         from src.search.apis.rate_limiter import get_academic_rate_limiter
 
         limiter = get_academic_rate_limiter()
-        await limiter.acquire(self.name)
 
-        try:
-            session = await self._get_session()
+        # Normalize paper ID for API (once, outside retry loop)
+        normalized_id = self._normalize_paper_id(paper_id)
 
-            # Normalize paper ID for API
-            normalized_id = self._normalize_paper_id(paper_id)
-
-            async def _fetch() -> dict[str, Any]:
-                response = await session.get(
-                    f"{self.base_url}/paper/{normalized_id}/references",
-                    params={"fields": self.FIELDS},
-                )
-                response.raise_for_status()
-                return cast(dict[str, Any], response.json())
+        # Retry once if API key is invalid (fallback to anonymous)
+        for attempt in range(2):
+            await limiter.acquire(self.name)
 
             try:
-                data = await retry_api_call(
-                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
-                )
-                results = []
-                # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]
-                refs_list = (data.get("data") if data else None) or []
-                for ref in refs_list:
-                    if ref is None:
-                        continue
-                    cited_paper = ref.get("citedPaper")
-                    if cited_paper:
-                        try:
-                            paper = self._parse_paper(cited_paper)
-                            results.append(paper)
-                        except (ValueError, Exception) as parse_err:
-                            # Skip malformed papers (e.g., paperId=None)
-                            logger.debug("Skipping malformed reference", error=str(parse_err))
+                session = await self._get_session()
+
+                async def _fetch(s: httpx.AsyncClient = session) -> dict[str, Any]:
+                    response = await s.get(
+                        f"{self.base_url}/paper/{normalized_id}/references",
+                        params={"fields": self.FIELDS},
+                    )
+                    response.raise_for_status()
+                    return cast(dict[str, Any], response.json())
+
+                try:
+                    data = await retry_api_call(
+                        _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                    )
+                    results = []
+                    # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]
+                    refs_list = (data.get("data") if data else None) or []
+                    for ref in refs_list:
+                        if ref is None:
                             continue
-                return results
-            except Exception as e:
-                logger.warning("Failed to get references", paper_id=paper_id, error=str(e))
-                return []
-        finally:
-            limiter.release(self.name)
+                        cited_paper = ref.get("citedPaper")
+                        if cited_paper:
+                            try:
+                                paper = self._parse_paper(cited_paper)
+                                results.append(paper)
+                            except (ValueError, Exception) as parse_err:
+                                # Skip malformed papers (e.g., paperId=None)
+                                logger.debug("Skipping malformed reference", error=str(parse_err))
+                                continue
+                    return results
+                except Exception as e:
+                    # Check for invalid API key (401/403) - fallback to anonymous access
+                    if self._is_invalid_api_key_error(e) and attempt == 0 and self.api_key:
+                        await self._handle_invalid_api_key()
+                        continue  # Retry without API key
+
+                    logger.warning("Failed to get references", paper_id=paper_id, error=str(e))
+                    return []
+            finally:
+                limiter.release(self.name)
+
+        return []
 
     async def get_citations(self, paper_id: str) -> list[Paper]:
-        """Get citations (papers that cite this paper)."""
+        """Get citations (papers that cite this paper).
+
+        If API key is invalid (401/403), automatically falls back to anonymous access.
+        """
         # Apply rate limiting
         from src.search.apis.rate_limiter import get_academic_rate_limiter
 
         limiter = get_academic_rate_limiter()
-        await limiter.acquire(self.name)
 
-        try:
-            session = await self._get_session()
+        # Normalize paper ID for API (once, outside retry loop)
+        normalized_id = self._normalize_paper_id(paper_id)
 
-            # Normalize paper ID for API
-            normalized_id = self._normalize_paper_id(paper_id)
-
-            async def _fetch() -> dict[str, Any]:
-                response = await session.get(
-                    f"{self.base_url}/paper/{normalized_id}/citations",
-                    params={"fields": self.FIELDS},
-                )
-                response.raise_for_status()
-                return cast(dict[str, Any], response.json())
+        # Retry once if API key is invalid (fallback to anonymous)
+        for attempt in range(2):
+            await limiter.acquire(self.name)
 
             try:
-                data = await retry_api_call(
-                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
-                )
-                results = []
-                # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]
-                cits_list = (data.get("data") if data else None) or []
-                for cit in cits_list:
-                    # Fix for hypothesis F: skip None entries
-                    if cit is None:
-                        continue
-                    citing_paper = cit.get("citingPaper")
-                    if citing_paper:
-                        try:
-                            paper = self._parse_paper(citing_paper)
-                            results.append(paper)
-                        except (ValueError, Exception) as parse_err:
-                            # Skip malformed papers (e.g., paperId=None)
-                            logger.debug("Skipping malformed citation", error=str(parse_err))
+                session = await self._get_session()
+
+                async def _fetch(s: httpx.AsyncClient = session) -> dict[str, Any]:
+                    response = await s.get(
+                        f"{self.base_url}/paper/{normalized_id}/citations",
+                        params={"fields": self.FIELDS},
+                    )
+                    response.raise_for_status()
+                    return cast(dict[str, Any], response.json())
+
+                try:
+                    data = await retry_api_call(
+                        _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                    )
+                    results = []
+                    # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]
+                    cits_list = (data.get("data") if data else None) or []
+                    for cit in cits_list:
+                        # Fix for hypothesis F: skip None entries
+                        if cit is None:
                             continue
-                return results
-            except Exception as e:
-                logger.warning("Failed to get citations", paper_id=paper_id, error=str(e))
-                return []
-        finally:
-            limiter.release(self.name)
+                        citing_paper = cit.get("citingPaper")
+                        if citing_paper:
+                            try:
+                                paper = self._parse_paper(citing_paper)
+                                results.append(paper)
+                            except (ValueError, Exception) as parse_err:
+                                # Skip malformed papers (e.g., paperId=None)
+                                logger.debug("Skipping malformed citation", error=str(parse_err))
+                                continue
+                    return results
+                except Exception as e:
+                    # Check for invalid API key (401/403) - fallback to anonymous access
+                    if self._is_invalid_api_key_error(e) and attempt == 0 and self.api_key:
+                        await self._handle_invalid_api_key()
+                        continue  # Retry without API key
+
+                    logger.warning("Failed to get citations", paper_id=paper_id, error=str(e))
+                    return []
+            finally:
+                limiter.release(self.name)
+
+        return []
 
     def _parse_paper(self, data: dict) -> Paper:
         """Convert API response to Paper model."""

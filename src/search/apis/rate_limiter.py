@@ -209,7 +209,7 @@ class AcademicAPIRateLimiter:
         await self._ensure_provider_initialized(provider)
 
         # Use short default timeout to avoid blocking pipeline (P0 fix)
-        # Previous behavior used cursor_idle_timeout_seconds (300s), which caused
+        # Previous behavior used search_timeout_seconds (300s), which caused
         # SERP results to never be fetched when Academic API was rate-limited.
         if timeout is None:
             timeout = DEFAULT_SLOT_ACQUIRE_TIMEOUT_SECONDS

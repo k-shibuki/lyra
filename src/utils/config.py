@@ -23,7 +23,7 @@ class TaskLimitsConfig(BaseModel):
     llm_time_ratio_max: float = 0.30
     max_manual_interventions: int = 3
     max_manual_intervention_time_minutes: int = 5
-    cursor_idle_timeout_seconds: int = 180  # ADR-0002: Per-search timeout (allows full pipeline)
+    search_timeout_seconds: int = 300  # ADR-0002: Per-search timeout (allows full pipeline)
     auth_queue_ttl_hours: int = 3  # Default expiration for intervention queue items
 
 
@@ -448,7 +448,18 @@ class AcademicAPIRateLimitConfig(BaseModel):
 
 
 class AcademicAPIConfig(BaseModel):
-    """Configuration for a single academic API."""
+    """Configuration for a single academic API.
+
+    Attributes:
+        enabled: Whether this API is enabled.
+        base_url: Base URL for the API.
+        timeout_seconds: Request timeout in seconds.
+        priority: Priority for fallback (lower = higher priority).
+        rate_limit: Rate limiting configuration.
+        headers: Additional HTTP headers.
+        email: Contact email for polite pool (OpenAlex) and User-Agent.
+        api_key: API key for authenticated access (Semantic Scholar).
+    """
 
     enabled: bool = True
     base_url: str
@@ -456,7 +467,8 @@ class AcademicAPIConfig(BaseModel):
     priority: int = 999
     rate_limit: AcademicAPIRateLimitConfig | None = None
     headers: dict[str, str] | None = None
-    email: str | None = None  # For APIs requiring contact email
+    email: str | None = None  # For polite pool (OpenAlex) and User-Agent identification
+    api_key: str | None = None  # For authenticated access (Semantic Scholar x-api-key)
 
 
 class AcademicAPIsDefaultsConfig(BaseModel):
@@ -568,7 +580,7 @@ def _load_local_overrides(config_dir: Path) -> dict[str, Any]:
     Example local.yaml:
         settings:
           task_limits:
-            cursor_idle_timeout_seconds: 180
+            search_timeout_seconds: 300
         academic_apis:
           apis:
             semantic_scholar:

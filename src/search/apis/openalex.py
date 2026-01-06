@@ -23,7 +23,12 @@ _404_CACHE_TTL = 3600  # 1 hour
 
 
 class OpenAlexClient(BaseAcademicClient):
-    """OpenAlex API client."""
+    """OpenAlex API client.
+
+    Supports polite pool access via mailto query parameter.
+    Configure via LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL in .env.
+    With email configured, you get "polite pool" rate limits (10 req/s vs 1 req/s).
+    """
 
     def __init__(self) -> None:
         """Initialize OpenAlex client."""
@@ -44,6 +49,26 @@ class OpenAlexClient(BaseAcademicClient):
 
         super().__init__("openalex", base_url=base_url, timeout=timeout, headers=headers)
 
+        if self.email:
+            logger.debug("OpenAlex polite pool configured", email=self.email)
+
+    def _with_mailto(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Add mailto parameter if email is configured.
+
+        OpenAlex "polite pool" provides better rate limits when requests
+        include a mailto parameter with a valid email address.
+
+        Args:
+            params: Original query parameters
+
+        Returns:
+            Parameters with mailto added if email is configured
+        """
+        if self.email:
+            params = params.copy()
+            params["mailto"] = self.email
+        return params
+
     async def _search_impl(self, query: str, limit: int = 10) -> AcademicSearchResult:
         """Search for papers (internal implementation).
 
@@ -54,11 +79,13 @@ class OpenAlexClient(BaseAcademicClient):
         async def _search() -> dict[str, Any]:
             response = await session.get(
                 f"{self.base_url}/works",
-                params={
-                    "search": query,
-                    "per-page": limit,
-                    "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
-                },
+                params=self._with_mailto(
+                    {
+                        "search": query,
+                        "per-page": limit,
+                        "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
+                    }
+                ),
             )
             response.raise_for_status()
             return cast(dict[str, Any], response.json())
@@ -112,9 +139,11 @@ class OpenAlexClient(BaseAcademicClient):
             async def _fetch() -> dict[str, Any]:
                 response = await session.get(
                     f"{self.base_url}/works/{pid}",
-                    params={
-                        "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,referenced_works,open_access,primary_location"
-                    },
+                    params=self._with_mailto(
+                        {
+                            "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,referenced_works,open_access,primary_location"
+                        }
+                    ),
                 )
                 response.raise_for_status()
                 return cast(dict[str, Any], response.json())
@@ -157,7 +186,7 @@ class OpenAlexClient(BaseAcademicClient):
             async def _fetch() -> dict[str, Any]:
                 response = await session.get(
                     f"{self.base_url}/works/{pid}",
-                    params={"select": "id,referenced_works"},
+                    params=self._with_mailto({"select": "id,referenced_works"}),
                 )
                 response.raise_for_status()
                 return cast(dict[str, Any], response.json())
@@ -222,11 +251,13 @@ class OpenAlexClient(BaseAcademicClient):
             async def _search() -> dict[str, Any]:
                 response = await session.get(
                     f"{self.base_url}/works",
-                    params={
-                        "filter": f"cites:{pid}",
-                        "per-page": 20,
-                        "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
-                    },
+                    params=self._with_mailto(
+                        {
+                            "filter": f"cites:{pid}",
+                            "per-page": 20,
+                            "select": "id,title,abstract_inverted_index,publication_year,authorships,doi,cited_by_count,referenced_works_count,open_access,primary_location",
+                        }
+                    ),
                 )
                 response.raise_for_status()
                 return cast(dict[str, Any], response.json())

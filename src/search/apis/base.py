@@ -27,6 +27,10 @@ class BaseAcademicClient(ABC):
 
     All subclasses should use the rate-limited search method which
     automatically enforces global QPS and concurrency limits per ADR-0013.
+
+    Subclasses can access:
+        - self.email: Contact email for polite pool / User-Agent (if configured)
+        - self.api_key: API key for authenticated access (if configured)
     """
 
     def __init__(
@@ -47,32 +51,45 @@ class BaseAcademicClient(ABC):
         self.name = name
         self._session: httpx.AsyncClient | None = None
 
+        # Auth/identification fields (loaded from config)
+        self.email: str | None = None
+        self.api_key: str | None = None
+
         # Load configuration if not provided
-        if base_url is None or timeout is None:
-            try:
-                from src.utils.config import get_academic_apis_config
+        try:
+            from src.utils.config import get_academic_apis_config
 
-                config = get_academic_apis_config()
-                api_config = config.get_api_config(name)
+            config = get_academic_apis_config()
+            api_config = config.get_api_config(name)
 
-                if base_url is None:
-                    base_url = api_config.base_url
-                if timeout is None:
-                    timeout = float(api_config.timeout_seconds)
-                if headers is None and api_config.headers:
-                    headers = api_config.headers.copy()
-            except Exception as e:
-                logger.debug("Failed to load config for academic API", api=name, error=str(e))
-                if base_url is None:
-                    base_url = None  # Will be set by subclass
-                if timeout is None:
-                    timeout = 30.0
+            if base_url is None:
+                base_url = api_config.base_url
+            if timeout is None:
+                timeout = float(api_config.timeout_seconds)
+            if headers is None and api_config.headers:
+                headers = api_config.headers.copy()
+
+            # Load email and api_key from config
+            self.email = api_config.email
+            self.api_key = api_config.api_key
+        except Exception as e:
+            logger.debug("Failed to load config for academic API", api=name, error=str(e))
+            if base_url is None:
+                base_url = None  # Will be set by subclass
+            if timeout is None:
+                timeout = 30.0
 
         self.base_url = base_url
         self.timeout = timeout or 30.0
 
-        # Default headers
-        default_headers = {"User-Agent": "Lyra/1.0 (research tool; mailto:lyra@example.com)"}
+        # Build User-Agent with optional email identification
+        # Only include mailto if email is configured (no hardcoded sample email)
+        if self.email:
+            user_agent = f"Lyra/1.0 (research tool; mailto:{self.email})"
+        else:
+            user_agent = "Lyra/1.0 (research tool)"
+
+        default_headers = {"User-Agent": user_agent}
         if headers:
             default_headers.update(headers)
         self.default_headers = default_headers

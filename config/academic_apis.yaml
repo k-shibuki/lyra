@@ -1,36 +1,62 @@
 # Academic API Configuration for Lyra
 # See docs/J2_ACADEMIC_API_INTEGRATION.md §8.1
 # Rate limiting per ADR-0013: Worker Resource Contention Control
+#
+# ============================================================================
+# AUTHENTICATION / RATE LIMIT IMPROVEMENTS
+# ============================================================================
+# Configure these in .env (not here) for better rate limits:
+#
+# Semantic Scholar:
+#   LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY=your_api_key
+#   LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__EMAIL=your_email@example.com
+#   -> Get free API key at: https://www.semanticscholar.org/product/api
+#   -> Benefits: Authenticated access with dedicated rate limits
+#
+# OpenAlex:
+#   LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL=your_email@example.com
+#   -> Benefits: "Polite pool" with 10 req/s (vs ~1 req/s anonymous)
+#   -> The email is sent as `mailto` query parameter on all requests
+#
+# Without these settings, the system still works with default rate limits.
+# ============================================================================
 
 apis:
   semantic_scholar:
     enabled: true
     base_url: "https://api.semanticscholar.org/graph/v1"
     rate_limit:
-      # API limit: 100 requests per 5 minutes = 0.33 req/s
-      requests_per_interval: 100
-      interval_seconds: 300  # 5 minutes
+      # Rate limits (as of 2026-01):
+      #   - With API key: 1 req/s dedicated per user
+      #   - Without key: 1000 req/s shared across ALL anonymous users globally
+      #     (effectively much lower during busy periods)
+      # Get free API key at: https://www.semanticscholar.org/product/api
+      requests_per_interval: 1000
+      interval_seconds: 1  # 1000 req/s shared (anonymous) or 1 req/s dedicated (with key)
       # Conservative rate control for cross-API queries + 2 workers
-      # Safety calculation: 0.33 req/s / 3 (cross-API multiplier) = 0.11 req/s
-      # With margin: 0.1 req/s → 10 seconds interval
-      # Compromise: 6 seconds (0.17 req/s) for reasonable throughput
-      min_interval_seconds: 6.0  # ~0.17 req/s (50% margin)
+      # Even with 1 req/s API key limit, we use 6s intervals for safety margin
+      # (allows headroom for retries and burst absorption)
+      min_interval_seconds: 6.0  # ~0.17 req/s (conservative, well under 1 req/s limit)
       max_parallel: 1  # Global cap: only 1 S2 request at a time across all workers
     timeout_seconds: 30
     priority: 1  # Highest priority (best citation graph coverage)
+    # api_key: Set via LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY in .env
+    # email: Set via LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__EMAIL in .env
 
   openalex:
     enabled: true
     base_url: "https://api.openalex.org"
     rate_limit:
-      # OpenAlex polite pool: 10 req/s for identified users
+      # Anonymous: ~1 req/s
+      # Polite pool (with email): 10 req/s
+      # Set email via LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL in .env
       requests_per_day: 100000
-      min_interval_seconds: 0.1  # 10 req/s
+      min_interval_seconds: 0.1  # 10 req/s (assuming polite pool)
       max_parallel: 2  # More lenient than S2
     timeout_seconds: 30
     priority: 2
-    headers:
-      User-Agent: "Lyra/1.0 (research tool; mailto:lyra@example.com)"
+    # email: Set via LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL in .env
+    # Note: User-Agent is auto-generated with mailto if email is configured
 
 # Default settings
 defaults:
