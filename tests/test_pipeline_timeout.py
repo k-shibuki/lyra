@@ -75,7 +75,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=slow_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=0.1)),
             ),
         ):
             result = await pipeline.execute("test query", PipelineSearchOptions())
@@ -109,7 +109,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=slow_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=0.1)),
             ),
         ):
             result = await pipeline.execute("test query")
@@ -142,7 +142,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=slow_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=0.1)),
             ),
         ):
             result = await pipeline.execute("test query", PipelineSearchOptions())
@@ -176,7 +176,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=fast_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=10)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=10)),
             ),
         ):
             result = await pipeline.execute("test query", PipelineSearchOptions())
@@ -209,7 +209,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=slow_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=0.1)),
             ),
             patch("src.research.pipeline.logger") as mock_logger,
         ):
@@ -242,7 +242,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=failing_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=10)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=10)),
             ),
         ):
             result = await pipeline.execute("test query", PipelineSearchOptions())
@@ -277,7 +277,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=fast_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.2)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=0.2)),
             ),
         ):
             result = await pipeline.execute("test query", PipelineSearchOptions())
@@ -309,7 +309,7 @@ class TestPipelineTimeout:
             patch.object(pipeline, "_execute_impl", side_effect=slow_execute),
             patch(
                 "src.utils.config.get_settings",
-                return_value=MagicMock(task_limits=MagicMock(cursor_idle_timeout_seconds=0.1)),
+                return_value=MagicMock(task_limits=MagicMock(search_timeout_seconds=0.1)),
             ),
         ):
             result = await pipeline.execute("test query", PipelineSearchOptions())

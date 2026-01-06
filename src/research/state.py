@@ -778,7 +778,7 @@ class ExplorationState:
         from src.utils.config import get_settings
 
         settings = get_settings()
-        idle_timeout = settings.task_limits.cursor_idle_timeout_seconds
+        idle_timeout = settings.task_limits.search_timeout_seconds
         if idle_seconds >= idle_timeout:
             warnings.append(
                 f"Task idle for {int(idle_seconds)} seconds (timeout: {idle_timeout}s). "

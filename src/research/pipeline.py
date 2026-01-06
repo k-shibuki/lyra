@@ -198,7 +198,7 @@ class SearchPipeline:
         from src.utils.config import get_settings
 
         settings = get_settings()
-        timeout_seconds = settings.task_limits.cursor_idle_timeout_seconds
+        timeout_seconds = settings.task_limits.search_timeout_seconds
 
         with LogContext(task_id=self.task_id, search_id=search_id):
             logger.info(

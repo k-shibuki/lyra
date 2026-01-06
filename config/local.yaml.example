@@ -24,7 +24,7 @@
 # ENVIRONMENT VARIABLES
 # ---------------------
 # For CI/CD or containerized environments, use environment variables:
-#   LYRA_TASK_LIMITS__CURSOR_IDLE_TIMEOUT_SECONDS=180
+#   LYRA_TASK_LIMITS__SEARCH_TIMEOUT_SECONDS=300
 #   LYRA_GENERAL__LOG_LEVEL=DEBUG
 #
 # Double underscores (__) denote nested keys.
@@ -40,7 +40,7 @@ settings:
   # Task limits
   task_limits:
     budget_pages_per_task: 120
-    cursor_idle_timeout_seconds: 180  # Default: 60, extend for long searches
+    search_timeout_seconds: 300  # Default: 300
 
   # Concurrency (ADR-0013/ADR-0014)
   concurrency:
@@ -52,7 +52,7 @@ settings:
   # Browser settings
   browser:
     chrome_host: "localhost"
-    chrome_port: 9222
+    chrome_base_port: 9222  # Worker 0 = 9222, Worker 1 = 9223, etc.
 
 # =============================================================================
 # academic_apis: (overrides academic_apis.yaml)
@@ -78,8 +78,8 @@ settings:
 # engines: (overrides engines.yaml)
 # =============================================================================
 # engines:
-#   default_engine: "duckduckgo"
-#   enabled_engines:
-#     - duckduckgo
+#   default_engines:
 #     - mojeek
+#     - duckduckgo
+#     - brave
 

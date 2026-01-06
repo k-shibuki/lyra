@@ -147,7 +147,7 @@ class TestActivityTracking:
             await state._ensure_db()
 
             with patch("src.utils.config.get_settings") as mock_settings:
-                mock_settings.return_value.task_limits.cursor_idle_timeout_seconds = 300
+                mock_settings.return_value.task_limits.search_timeout_seconds = 300
 
                 status = await state.get_status()
 
@@ -176,7 +176,7 @@ class TestActivityTracking:
             state._last_activity_at = time.time() - (timeout - 1)
 
             with patch("src.utils.config.get_settings") as mock_settings:
-                mock_settings.return_value.task_limits.cursor_idle_timeout_seconds = timeout
+                mock_settings.return_value.task_limits.search_timeout_seconds = timeout
 
                 status = await state.get_status()
 
@@ -202,7 +202,7 @@ class TestActivityTracking:
             state._last_activity_at = time.time() - timeout
 
             with patch("src.utils.config.get_settings") as mock_settings:
-                mock_settings.return_value.task_limits.cursor_idle_timeout_seconds = timeout
+                mock_settings.return_value.task_limits.search_timeout_seconds = timeout
 
                 status = await state.get_status()
 
@@ -228,7 +228,7 @@ class TestActivityTracking:
             state._last_activity_at = time.time() - (timeout + 100)
 
             with patch("src.utils.config.get_settings") as mock_settings:
-                mock_settings.return_value.task_limits.cursor_idle_timeout_seconds = timeout
+                mock_settings.return_value.task_limits.search_timeout_seconds = timeout
 
                 status = await state.get_status()
 
@@ -255,7 +255,7 @@ class TestActivityTracking:
             state.record_activity()
 
             with patch("src.utils.config.get_settings") as mock_settings:
-                mock_settings.return_value.task_limits.cursor_idle_timeout_seconds = 60
+                mock_settings.return_value.task_limits.search_timeout_seconds = 60
 
                 status = await state.get_status()
 

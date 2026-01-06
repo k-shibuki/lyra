@@ -18,8 +18,8 @@ task_limits:
   max_manual_interventions: 3
   max_manual_intervention_time_minutes: 5
   # Per-search timeout for safe pipeline stop
-  # 180s allows: Academic API + SERP + identifier processing + web page fetch
-  cursor_idle_timeout_seconds: 180
+  # 300s allows: Academic API + SERP + identifier processing + web page fetch + NLI
+  search_timeout_seconds: 300
 
 # === Search Settings ===
 search:

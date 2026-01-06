@@ -19,7 +19,7 @@ Per E2E Case Study Report: These fixes address:
 | TC-EMB-01 | Fragment persisted via pipeline | Wiring – embedding called | persist_embedding called for fragment | - |
 | TC-EMB-02 | Claim persisted via pipeline | Wiring – embedding called | persist_embedding called for claim | - |
 | TC-EMB-03 | Embedding generation fails | Abnormal – exception | Processing continues, warning logged | - |
-| TC-CFG-01 | acquire(timeout=None) | Equivalence – config lookup | Uses cursor_idle_timeout_seconds | - |
+| TC-CFG-01 | acquire(timeout=None) | Equivalence – config lookup | Uses search_timeout_seconds | - |
 """
 
 import asyncio

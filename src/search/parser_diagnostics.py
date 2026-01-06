@@ -406,19 +406,19 @@ class HTMLAnalyzer:
             if test_id_attr and isinstance(test_id_attr, str):
                 if self._matches_patterns(test_id_attr, self.RESULT_CONTAINER_PATTERNS):
                     escaped_testid = _escape_css_attribute_value(test_id_attr)
-                selector = f"[data-testid={escaped_testid}]"
-                similar = self._safe_select(selector)
+                    selector = f"[data-testid={escaped_testid}]"
+                    similar = self._safe_select(selector)
 
-                candidates.append(
-                    CandidateElement(
-                        tag=elem.name,
-                        selector=selector,
-                        sample_text=self._get_sample_text(elem),
-                        occurrence_count=len(similar),
-                        selector_confidence=0.8,
-                        reason=f"data-testid matches result pattern: {test_id_attr}",
+                    candidates.append(
+                        CandidateElement(
+                            tag=elem.name,
+                            selector=selector,
+                            sample_text=self._get_sample_text(elem),
+                            occurrence_count=len(similar),
+                            selector_confidence=0.8,
+                            reason=f"data-testid matches result pattern: {test_id_attr}",
+                        )
                     )
-                )
 
         # Look for li elements within ul/ol (common list structure)
         for ul in self.soup.find_all(["ul", "ol"]):
