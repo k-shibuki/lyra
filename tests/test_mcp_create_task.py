@@ -6,7 +6,7 @@ Tests create_task handler behavior per ADR-0003 and ADR-0017 (hypothesis-first).
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|---------------------|---------------------------------------|-----------------|-------|
 || TC-CT-N-01 | Valid hypothesis, budget_pages provided | Equivalence – normal | ok=True, budget.budget_pages returned | - |
-|| TC-CT-N-02 | Valid hypothesis, default budget | Equivalence – normal | ok=True, budget_pages=120, max_seconds=1200 | Default values |
+|| TC-CT-N-02 | Valid hypothesis, default budget | Equivalence – normal | ok=True, budget_pages=500, max_seconds=3600 | Default values |
 || TC-CT-N-03 | Valid hypothesis, config omitted | Equivalence – normal | ok=True, default budget applied | - |
 || TC-CT-A-01 | Empty hypothesis string | Boundary – empty | Task created (empty allowed) | - |
 || TC-CT-A-02 | hypothesis missing | Boundary – NULL | KeyError | ADR-0017: hypothesis is required |
@@ -66,7 +66,7 @@ class TestCreateTaskValidation:
 
         // Given: Valid hypothesis without budget config (ADR-0017)
         // When: _handle_create_task is called
-        // Then: ok=True and budget uses defaults (budget_pages=120, max_seconds=1200)
+        // Then: ok=True and budget uses defaults (budget_pages=500, max_seconds=3600)
         """
         from src.mcp.tools.task import handle_create_task as _handle_create_task
 
@@ -81,8 +81,8 @@ class TestCreateTaskValidation:
             )
 
         assert result["ok"] is True
-        assert result["budget"]["budget_pages"] == 120
-        assert result["budget"]["max_seconds"] == 1200
+        assert result["budget"]["budget_pages"] == 500
+        assert result["budget"]["max_seconds"] == 3600
 
     @pytest.mark.asyncio
     async def test_create_task_config_omitted(self, test_database: Database) -> None:
@@ -105,8 +105,8 @@ class TestCreateTaskValidation:
             )
 
         assert result["ok"] is True
-        assert result["budget"]["budget_pages"] == 120
-        assert result["budget"]["max_seconds"] == 1200
+        assert result["budget"]["budget_pages"] == 500
+        assert result["budget"]["max_seconds"] == 3600
 
     @pytest.mark.asyncio
     async def test_create_task_empty_hypothesis(self, test_database: Database) -> None:

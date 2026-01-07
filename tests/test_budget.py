@@ -90,17 +90,17 @@ class TestTaskBudget:
         """Test default initialization matches ADR-0010 requirements.
 
         Verifies default values:
-        - budget_pages=120 (ADR-0010: Total pages ≤120/task)
+        - budget_pages=500 (default for longer research sessions)
         - max_llm_ratio=0.30 (ADR-0010: LLM processing ≤30%)
         """
         # Given: No specific configuration
         # When: Creating TaskBudget with only task_id
         budget = TaskBudget(task_id="test-1")
-        # Then: All defaults match ADR-0010 requirements
+        # Then: All defaults match requirements
 
         assert budget.task_id == "test-1", "task_id should be set"
         assert budget.pages_fetched == 0, "pages_fetched should start at 0"
-        assert budget.budget_pages == 120, "default budget_pages should be 120 (ADR-0010)"
+        assert budget.budget_pages == 500, "default budget_pages should be 500"
         assert budget.llm_time_seconds == 0.0, "llm_time should start at 0"
         assert budget.max_llm_ratio == 0.30, "default max_llm_ratio should be 0.30 (ADR-0010)"
         assert budget.is_active is True, "new budget should be active"

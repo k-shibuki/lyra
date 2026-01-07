@@ -253,9 +253,7 @@ async def test_source_impact_origin_edges_only(test_database: Database) -> None:
         ("edge_origin_01", "fragment", fragment_id, "claim", claim_id, "origin"),
     )
 
-    result = await view.handle_query_view(
-        {"view_name": "v_source_impact", "task_id": task_id}
-    )
+    result = await view.handle_query_view({"view_name": "v_source_impact", "task_id": task_id})
 
     assert result["ok"] is True
     assert result["row_count"] == 1
@@ -322,9 +320,7 @@ async def test_source_impact_both_origin_and_supports(test_database: Database) -
         ("edge_supports_02", "fragment", fragment_id, "claim", claim_id_2, "supports"),
     )
 
-    result = await view.handle_query_view(
-        {"view_name": "v_source_impact", "task_id": task_id}
-    )
+    result = await view.handle_query_view({"view_name": "v_source_impact", "task_id": task_id})
 
     assert result["ok"] is True
     assert result["row_count"] == 1
@@ -393,9 +389,7 @@ async def test_source_impact_multiple_pages_ordered(test_database: Database) -> 
             (f"edge_b_{i}", "fragment", "frag_b", "claim", f"claim_b_{i}", "origin"),
         )
 
-    result = await view.handle_query_view(
-        {"view_name": "v_source_impact", "task_id": task_id}
-    )
+    result = await view.handle_query_view({"view_name": "v_source_impact", "task_id": task_id})
 
     assert result["ok"] is True
     assert result["row_count"] == 2

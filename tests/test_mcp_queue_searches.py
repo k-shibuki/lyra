@@ -413,9 +413,9 @@ class TestGetStatusWithWait:
     @pytest.mark.asyncio
     async def test_get_status_wait_validation_too_large(self, test_database: Database) -> None:
         """
-        TC-QS-05: get_status with wait=61 raises InvalidParamsError.
+        TC-QS-05: get_status with wait > 300 raises InvalidParamsError.
 
-        // Given: wait > 60
+        // Given: wait exceeds maximum (300)
         // When: get_status called
         // Then: InvalidParamsError is raised
         """
@@ -433,7 +433,7 @@ class TestGetStatusWithWait:
             await _handle_get_status(
                 {
                     "task_id": "task_qs05",
-                    "wait": 181,  # Exceeds maximum of 180
+                    "wait": 301,  # Exceeds maximum of 300
                 }
             )
 
@@ -588,7 +588,7 @@ class TestQueueSearchesToolDefinition:
 
         get_status_tool = next(t for t in TOOLS if t.name == "get_status")
         assert "wait" in get_status_tool.inputSchema["properties"]
-        assert get_status_tool.inputSchema["properties"]["wait"]["maximum"] == 180
+        assert get_status_tool.inputSchema["properties"]["wait"]["maximum"] == 300
         assert get_status_tool.inputSchema["properties"]["wait"]["minimum"] == 0
 
 

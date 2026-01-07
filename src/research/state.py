@@ -259,7 +259,7 @@ class ExplorationState:
         self.task_hypothesis: str = ""
 
         # Budget tracking
-        self._budget_pages_limit = 120
+        self._budget_pages_limit = 500
         self._time_limit_seconds = 3600  # 60 minutes
         self._budget_pages_used = 0
         self._time_started: float | None = None

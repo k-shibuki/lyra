@@ -46,6 +46,36 @@ from src.utils.config import (
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def clear_lyra_env_vars() -> Generator[None]:
+    """Clear LYRA_ACADEMIC_APIS__ environment variables for test isolation.
+
+    This prevents real environment variables (e.g., in CI/containers) from
+    interfering with test expectations.
+    """
+    import src.utils.config as config_module
+
+    # Save and remove existing LYRA_ACADEMIC_APIS__ vars
+    prefix = "LYRA_ACADEMIC_APIS__"
+    saved_vars = {k: v for k, v in os.environ.items() if k.startswith(prefix)}
+    for key in saved_vars:
+        del os.environ[key]
+
+    # Clear caches before each test
+    get_academic_apis_config.cache_clear()
+    # Reset _local_overrides_cache to force reload
+    saved_local_cache = config_module._local_overrides_cache
+    config_module._local_overrides_cache = None
+
+    yield
+
+    # Restore after test
+    for key, value in saved_vars.items():
+        os.environ[key] = value
+    get_academic_apis_config.cache_clear()
+    config_module._local_overrides_cache = saved_local_cache
+
+
 @pytest.fixture
 def temp_config_dir() -> Generator[Path]:
     """Create temporary config directory."""

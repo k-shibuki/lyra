@@ -38,9 +38,12 @@ settings:
     log_level: "DEBUG"  # DEBUG, INFO, WARNING, ERROR
 
   # Task limits
+  # budget_pages_per_task: Total pages to fetch across all searches (default: 500)
+  # search_timeout_seconds: Per-search timeout for safe pipeline stop (default: 300)
+  #   Covers: Academic API + SERP + identifier processing + web page fetch + claim extraction
   task_limits:
-    budget_pages_per_task: 120
-    search_timeout_seconds: 300  # Default: 300
+    budget_pages_per_task: 500
+    search_timeout_seconds: 300
 
   # Concurrency (ADR-0013/ADR-0014)
   concurrency:

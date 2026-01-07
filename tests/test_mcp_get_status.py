@@ -413,7 +413,7 @@ class TestGetStatusWithoutExplorationState:
         assert result["metrics"]["total_pages"] == 0
         # Budget is now always populated with defaults
         assert result["budget"]["budget_pages_used"] == 0
-        assert result["budget"]["budget_pages_limit"] == 120
+        assert result["budget"]["budget_pages_limit"] == 500
         assert result["budget"]["remaining_percent"] == 100
         assert result["auth_queue"] is None
         assert result["warnings"] == []

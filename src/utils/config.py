@@ -17,7 +17,7 @@ class TaskLimitsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    budget_pages_per_task: int = 120
+    budget_pages_per_task: int = 500
     max_time_minutes_gpu: int = 60
     max_time_minutes_cpu: int = 75
     llm_time_ratio_max: float = 0.30

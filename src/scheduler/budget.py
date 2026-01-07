@@ -38,7 +38,7 @@ class TaskBudget:
 
     # Page tracking
     pages_fetched: int = 0
-    budget_pages: int = 120
+    budget_pages: int = 500
 
     # Time tracking (seconds)
     start_time: float = field(default_factory=time.time)

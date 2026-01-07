@@ -26,18 +26,16 @@ apis:
     enabled: true
     base_url: "https://api.semanticscholar.org/graph/v1"
     rate_limit:
-      # Rate limits (as of 2026-01):
-      #   - With API key: 1 req/s dedicated per user
-      #   - Without key: 1000 req/s shared across ALL anonymous users globally
-      #     (effectively much lower during busy periods)
-      # Get free API key at: https://www.semanticscholar.org/product/api
-      requests_per_interval: 1000
-      interval_seconds: 1  # 1000 req/s shared (anonymous) or 1 req/s dedicated (with key)
-      # Conservative rate control for cross-API queries + 2 workers
-      # Even with 1 req/s API key limit, we use 6s intervals for safety margin
-      # (allows headroom for retries and burst absorption)
-      min_interval_seconds: 6.0  # ~0.17 req/s (conservative, well under 1 req/s limit)
-      max_parallel: 1  # Global cap: only 1 S2 request at a time across all workers
+      # Official rate limits (https://www.semanticscholar.org/product/api):
+      #   - With API key: 1 req/s dedicated (guaranteed)
+      #   - Without key: 1000 req/s shared globally across ALL anonymous users
+      #     → Effectively unstable during busy periods; key is strongly recommended
+      #
+      # Lyra uses min_interval_seconds for actual rate control:
+      #   2.0s = 0.5 req/s (conservative, well under 1 req/s limit)
+      #   This allows headroom for retries and burst absorption.
+      min_interval_seconds: 2.0
+      max_parallel: 1  # Only 1 S2 request at a time across all workers
     timeout_seconds: 30
     priority: 1  # Highest priority (best citation graph coverage)
     # api_key: Set via LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY in .env
@@ -47,12 +45,15 @@ apis:
     enabled: true
     base_url: "https://api.openalex.org"
     rate_limit:
-      # Anonymous: ~1 req/s
-      # Polite pool (with email): 10 req/s
-      # Set email via LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL in .env
-      requests_per_day: 100000
-      min_interval_seconds: 0.1  # 10 req/s (assuming polite pool)
-      max_parallel: 2  # More lenient than S2
+      # Official rate limits (https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication):
+      #   - Anonymous: 10 req/s, 100,000 req/day
+      #   - Polite pool (with mailto): same limits, but prioritized and more stable
+      #
+      # Lyra uses min_interval_seconds for actual rate control:
+      #   0.2s = 5 req/s (conservative, well under 10 req/s limit)
+      #   This allows headroom for retries and 2-worker scenarios.
+      min_interval_seconds: 0.2
+      max_parallel: 2  # 2 concurrent requests allowed
     timeout_seconds: 30
     priority: 2
     # email: Set via LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL in .env
@@ -63,4 +64,4 @@ defaults:
   search_apis: ["semantic_scholar", "openalex"]
   citation_graph_api: "semantic_scholar"
   max_citation_depth: 2
-  max_papers_per_search: 50
+  max_papers_per_search: 100

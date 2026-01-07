@@ -11,14 +11,14 @@ general:
   
 # === Task Limits ===
 task_limits:
-  budget_pages_per_task: 120
-  max_time_minutes_gpu: 20
-  max_time_minutes_cpu: 25
-  llm_time_ratio_max: 0.30  # LLM処理≤30%
+  budget_pages_per_task: 500
+  max_time_minutes_gpu: 60
+  max_time_minutes_cpu: 60
+  llm_time_ratio_max: 0.30  # LLM processing ≤30%
   max_manual_interventions: 3
   max_manual_intervention_time_minutes: 5
-  # Per-search timeout for safe pipeline stop
-  # 300s allows: Academic API + SERP + identifier processing + web page fetch + NLI
+  # Per-search timeout for safe pipeline stop (ADR-0002)
+  # 300s allows: Academic API + SERP + identifier processing + web page fetch + claim extraction
   search_timeout_seconds: 300
 
 # === Search Settings ===
@@ -30,13 +30,13 @@ search:
   initial_query_count_gpu: 12  # 10-16
   initial_query_count_cpu: 10  # 8-12
   results_per_query: 7  # 5-10
-  exploration_depth: 3  # 標準3、高価値枝は最大4
+  exploration_depth: 3  # Standard 3, max 4 for high-value branches
   max_exploration_depth: 4
-  # 充足度判定
+  # Saturation criteria
   min_independent_sources: 3
-  min_primary_secondary_sources: 2  # 一次1件+二次1件
-  # 新規性判定
-  novelty_threshold: 0.10  # 10%未満で2サイクル継続→停止
+  min_primary_secondary_sources: 2  # 1 primary + 1 secondary
+  # Novelty criteria
+  novelty_threshold: 0.10  # <10% new for 2 cycles → stop
   novelty_cycles_to_stop: 2
 
   # Claims extraction scope - controls LLM usage for claim extraction
@@ -116,7 +116,7 @@ tor:
   socks_port: 9050
   control_port: 9051
   circuit_sticky_minutes: 15
-  max_usage_ratio: 0.20  # Tor利用≤20%
+  max_usage_ratio: 0.20  # Tor usage ≤20%
   # Only use Tor when blocked
   default_route: "direct"  # direct, tor
   
@@ -194,7 +194,7 @@ browser:
   viewport_width: 1920
   viewport_height: 1080
   
-  # Undetected ChromeDriver settings (§4.3 fallback for Cloudflare強/Turnstile)
+  # Undetected ChromeDriver settings (fallback for Cloudflare/Turnstile)
   undetected_chromedriver:
     enabled: true
     # Auto-escalate to undetected when captcha_rate exceeds this threshold
@@ -280,9 +280,9 @@ quality:
   
   # Source hierarchy weights
   source_weights:
-    primary: 1.0      # 一次資料
-    government: 0.95  # 公的機関
-    academic: 0.90    # 学術
+    primary: 1.0      # Primary sources
+    government: 0.95  # Government/official
+    academic: 0.90    # Academic
     trusted_media: 0.75
     blog: 0.50
     unknown: 0.30

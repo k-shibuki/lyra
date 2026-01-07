@@ -43,8 +43,8 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
 
     # Extract budget config
     budget_config = config.get("budget", {})
-    budget_pages = budget_config.get("budget_pages", 120)
-    max_seconds = budget_config.get("max_seconds", 1200)
+    budget_pages = budget_config.get("budget_pages", 500)
+    max_seconds = budget_config.get("max_seconds", 3600)
 
     with LogContext(task_id=task_id):
         logger.info("Creating task", hypothesis=hypothesis[:100])
@@ -97,12 +97,12 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             expected="non-empty string",
         )
 
-    # Validate wait parameter (per schema: 0-180s)
-    if wait < 0 or wait > 180:
+    # Validate wait parameter (per schema: 1-300s, 0 allowed for immediate)
+    if wait < 0 or wait > 300:
         raise InvalidParamsError(
-            "wait must be between 0 and 180",
+            "wait must be between 0 and 300",
             param_name="wait",
-            expected="integer 0-180",
+            expected="integer 0-300",
         )
 
     with LogContext(task_id=task_id):
@@ -187,7 +187,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
 
             # Get budget values for response
             budget_pages_used = budget.get("budget_pages_used", 0)
-            budget_pages_limit = budget.get("budget_pages_limit", 120)
+            budget_pages_limit = budget.get("budget_pages_limit", 500)
 
             # Get blocked domains info for transparency
             from src.filter.source_verification import get_source_verifier
@@ -232,7 +232,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                     "budget_pages_used": db_metrics.get("total_pages", budget_pages_used),
                     "budget_pages_limit": budget_pages_limit,
                     "time_used_seconds": budget.get("time_used_seconds", 0),
-                    "time_limit_seconds": budget.get("time_limit_seconds", 1200),
+                    "time_limit_seconds": budget.get("time_limit_seconds", 3600),
                     "remaining_percent": max(
                         0,
                         int(
@@ -295,11 +295,11 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "metrics": db_metrics,
                 "budget": {
                     "budget_pages_used": db_metrics.get("total_pages", 0),
-                    "budget_pages_limit": 120,
+                    "budget_pages_limit": 500,
                     "time_used_seconds": db_metrics.get("elapsed_seconds", 0),
-                    "time_limit_seconds": 1200,
+                    "time_limit_seconds": 3600,
                     "remaining_percent": max(
-                        0, int((1 - db_metrics.get("total_pages", 0) / 120) * 100)
+                        0, int((1 - db_metrics.get("total_pages", 0) / 500) * 100)
                     ),
                 },
                 "auth_queue": None,

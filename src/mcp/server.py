@@ -100,7 +100,7 @@ TOOLS = [
         description="""Create a new research task to begin evidence collection.
 
 TYPICAL FLOW (high level):
-create_task → queue_searches → get_status(wait=30) → (vector_search / query_view / query_sql) → stop_task
+create_task → queue_searches → get_status(wait=180) → (vector_search / query_view / query_sql) → stop_task
 
 WORKFLOW: This is the first step. After creating a task, use queue_searches to add search queries.
 The same task_id accumulates data across multiple searches - design queries iteratively based on results.
@@ -161,17 +161,19 @@ and refuting queries to ensure balanced evidence collection.""",
         title="Get Task Status",
         description="""Get comprehensive task status including search progress, metrics, and pending auth.
 
-POLLING STRATEGY: Use wait=30 for efficient long-polling during active exploration.
+POLLING STRATEGY: Use wait=180 (default) for efficient long-polling during active exploration.
 Use wait=0 for immediate status checks when making decisions.
 
 METRICS TO MONITOR:
-- searches[].satisfaction_score: 0.0-1.0, higher means query is well-covered
-- searches[].harvest_rate: Ratio of useful fragments found
+- searches[].satisfaction_score: 0.0-1.0, source coverage metric
+    Formula: min(1.0, (independent_sources / 3) * 0.7 + (has_primary_source ? 0.3 : 0))
+    >= 0.8 means "satisfied" (sufficient independent sources + primary source found)
+- searches[].harvest_rate: Useful fragments per page fetched (can exceed 1.0)
 - metrics.total_claims: Growing count indicates productive exploration
 - budget.remaining_percent: Stop or adjust strategy when low
 
 DECISION POINTS:
-- If satisfaction_score < 0.5: Consider refining or expanding queries
+- If satisfaction_score < 0.5: Query needs more diverse sources or primary source
 - If harvest_rate low: Try different query angles or sources
 - If pending_auth_count > 0: User needs to solve CAPTCHAs (use get_auth_queue)""",
         inputSchema={
@@ -183,10 +185,10 @@ DECISION POINTS:
                 },
                 "wait": {
                     "type": "integer",
-                    "description": "Long-polling: seconds to wait for changes before returning. 0=immediate, 30=recommended for monitoring.",
-                    "default": 0,
+                    "description": "Long-polling: seconds to wait for changes before returning. 0=immediate, 180=default for monitoring.",
+                    "default": 180,
                     "minimum": 0,
-                    "maximum": 180,
+                    "maximum": 300,
                 },
             },
             "required": ["task_id"],
@@ -211,7 +213,7 @@ Same URL/DOI content is cached and reused across queries, maximizing coverage wi
 
 EXPLORATION STRATEGY:
 1. Start with 3-5 diverse queries covering different angles of the research question
-2. Check results with get_status(wait=30) to monitor progress
+2. Check results with get_status(wait=180) to monitor progress
 3. Based on findings, add more specific or contrasting queries
 4. IMPORTANT: Include refutation queries (e.g., "X criticism", "X limitations", "against X")
    to ensure balanced evidence collection
@@ -276,7 +278,7 @@ same task_id to continue exploration in a new session.
 
 WHEN TO STOP:
 - budget.remaining_percent approaching 0
-- All key queries have satisfaction_score >= 0.7
+- Key queries have satisfaction_score >= 0.8 (satisfied: sufficient sources + primary found)
 - Sufficient claims collected (check metrics.total_claims)
 - Time constraints require wrapping up
 
