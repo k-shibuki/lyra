@@ -35,13 +35,13 @@ Lyra is a *navigation tool*, not a disposable answer generator ([ADR-0001](docs/
 
 ### Three-Layer Collaboration
 
-Lyra implements a clear separation of responsibilities ([ADR-0002](docs/adr/0002-thinking-working-separation.md)):
+Lyra implements a clear separation of responsibilities ([ADR-0002](docs/adr/0002-three-layer-collaboration-model.md)):
 
-| Layer | Role |
-|-------|------|
-| **Human** | Primary source reading, final judgment, domain expertise |
-| **AI Client** | Research planning, query design, synthesis |
-| **Lyra** | Source discovery, extraction, NLI, persistence |
+| Layer | Actor | Role |
+|-------|-------|------|
+| **Thinking** | Human | Primary source reading, final judgment, domain expertise |
+| **Reasoning** | AI Client | Research planning, query design, synthesis |
+| **Working** | Lyra | Source discovery, extraction, NLI, persistence |
 
 ### Evidence Graph
 
@@ -200,11 +200,17 @@ For other clients, copy `config/mcp.json.example` to your client's config locati
 
 ### With MCP Client
 
-The [navigate](docs/case_study/navigate.md.example) command is an example workflow for evidence-based research:
+The [navigate](docs/case_study/navigate.md.example) command is an example workflow for evidence-based research.
 
+**Setup** (Cursor):
+```bash
+# Copy the example command to your project's .cursor/commands/
+cp docs/case_study/navigate.md.example .cursor/commands/navigate.md
 ```
-/navigate  (Cursor Commands)
-# or invoke as a skill in Claude Desktop, etc.
+
+**Usage**:
+```
+/navigate  (invoke in Cursor chat)
 
 User: "DPP-4 inhibitors improve HbA1c in type 2 diabetes"
 ```
@@ -215,6 +221,8 @@ The AI assistant (MCP Client) will:
 3. Monitor evidence collection progress
 4. Analyze claims using `v_claim_evidence_summary`, `v_contradictions`
 5. Generate a traceable report with Key Sources (`v_source_impact`) and full References
+
+For Claude Desktop, add as a Skill via Settings → Skills. See [docs/case_study/navigate.md.example](docs/case_study/navigate.md.example) for the full command definition.
 
 You can create your own commands/skills tailored to your research workflow.
 
@@ -234,7 +242,7 @@ queue_searches(task_id=task.task_id, queries=[
 ])
 
 # 3. Monitor progress
-get_status(task_id=task.task_id, wait=30)
+get_status(task_id=task.task_id, wait=180)
 
 # 4. Explore evidence
 vector_search(query="cardiovascular", target="claims", task_id=task.task_id)
@@ -270,16 +278,9 @@ make help     # Show all commands
 
 - [Architecture Overview](docs/architecture.md) - System design and data flow
 - [MCP Tools Reference](docs/mcp_reference.md) - Tool descriptions and schemas
-- [ADR Index](docs/adr/) - 17 architecture decision records (categorized index in [architecture.md](docs/architecture.md#related-adrs))
+- [ADR Index](docs/adr/index.md) - 17 architecture decision records (by evolution, category, and reading order)
 - [Contributing Guide](.github/CONTRIBUTING.md)
 - [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Contributor Covenant 3.0
-
-Key ADRs:
-- [ADR-0001: Local-First / Zero OpEx](docs/adr/0001-local-first-zero-opex.md) - Navigation tool, evidence accumulation
-- [ADR-0002: Thinking-Working Separation](docs/adr/0002-thinking-working-separation.md) - Three-layer collaboration model
-- [ADR-0005: Evidence Graph Structure](docs/adr/0005-evidence-graph-structure.md) - Bayesian confidence calculation
-- [ADR-0010: Async Search Queue Architecture](docs/adr/0010-async-search-queue.md) - Background search processing
-- [ADR-0017: Task Hypothesis-First Architecture](docs/adr/0017-task-hypothesis-first.md) - Hypothesis-driven exploration
 
 ## Limitations
 

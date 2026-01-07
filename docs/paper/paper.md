@@ -27,7 +27,7 @@ I designed Lyra to separate strategic reasoning—performed by the AI assistant 
 
 The AI assistant handles query design and synthesis, while Lyra executes search, extraction, and NLI-based stance detection. Lyra functions as a navigation tool: it discovers and organizes relevant sources, while detailed analysis of primary sources remains the researcher's responsibility (Figure 2).
 
-![Three-layer collaboration model. The Judgment layer (human) provides domain expertise and final evaluation. The Thinking layer (MCP client) handles query design and synthesis. The Working layer (Lyra) executes mechanical tasks: search, extraction, and NLI.](figures/figure_2.png)
+![Three-layer collaboration model. The Thinking layer (human) provides domain expertise and final evaluation. The Reasoning layer (MCP client) handles query design and synthesis. The Working layer (Lyra) executes mechanical tasks: search, extraction, and NLI.](figures/figure_2.png)
 
 The software incorporates three machine learning components for local inference: a 3B-parameter language model [Qwen2.5, @qwenQwen25TechnicalReport2025] for claim extraction, BGE-M3 embeddings [@chenM3EmbeddingMultiLingualityMultiFunctionality2024] for semantic search, and a DeBERTa-based classifier [@heDeBERTaDecodingenhancedBERT2021] for stance detection. The system automatically detects GPU availability and applies appropriate container configurations; while CPU-only operation is supported, GPU acceleration is strongly recommended due to significant performance differences. Lyra constructs an **evidence graph** linking extracted claims to source fragments with structured provenance metadata (Figure 3). 
 

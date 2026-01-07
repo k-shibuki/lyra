@@ -9,7 +9,7 @@ Lyra exposes 13 tools via MCP (Model Context Protocol).
 ## Typical Workflow
 
 ```
-create_task → queue_searches → get_status(wait=30) → vector_search/query_view → stop_task
+create_task → queue_searches → get_status(wait=180) → vector_search/query_view → stop_task
 ```
 
 ### Job Chaining (Automatic)
@@ -124,7 +124,7 @@ Key fields in the response:
 ## Related Documentation
 
 - [Architecture Overview](architecture.md) - Full ADR index with categories
-- [ADR-0002: Thinking-Working Separation](adr/0002-thinking-working-separation.md) - Three-layer collaboration
+- [ADR-0002: Three-Layer Collaboration Model](adr/0002-three-layer-collaboration-model.md) - Three-layer collaboration
 - [ADR-0005: Evidence Graph Structure](adr/0005-evidence-graph-structure.md) - Bayesian confidence, edge types
 - [ADR-0007: Human-in-the-Loop Authentication](adr/0007-human-in-the-loop-auth.md) - CAPTCHA handling, auth queue
 - [ADR-0010: Async Search Queue Architecture](adr/0010-async-search-queue.md) - Job chaining, stop_task scope

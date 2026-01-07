@@ -94,6 +94,6 @@ flowchart TB
 
 ## Related
 
-- [ADR-0002: Thinking-Working Separation](0002-thinking-working-separation.md) - Defines role separation between MCP client and server
+- [ADR-0002: Three-Layer Collaboration Model](0002-three-layer-collaboration-model.md) - Defines role separation between MCP client and server
 - `src/mcp/server.py` - MCP server implementation
 - MCP Specification: https://modelcontextprotocol.io

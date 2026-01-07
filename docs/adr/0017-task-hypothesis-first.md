@@ -108,7 +108,7 @@ flowchart TD
 
 ## Related
 
-- [ADR-0002: Thinking-Working Separation](0002-thinking-working-separation.md) - Updated `create_task` field name
+- [ADR-0002: Three-Layer Collaboration Model](0002-three-layer-collaboration-model.md) - Updated `create_task` field name
 - [ADR-0005: Evidence Graph Structure](0005-evidence-graph-structure.md) - Updated NLI terminology
 - [ADR-0010: Async Search Queue](0010-async-search-queue.md) - Updated task/query relationship
 - [ADR-0012: Feedback Tool Design](0012-feedback-tool-design.md) - Updated `nli_corrections` schema

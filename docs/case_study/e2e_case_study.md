@@ -12,7 +12,7 @@
 
 ### 参照ADR
 
-- ADR-0002: Thinking-Working Separation（Cursor AIが思考、Lyraが作業）
+- ADR-0002: Three-Layer Collaboration Model（人間が思考、Cursor AIが推論、Lyraが作業）
 - ADR-0005: Evidence Graph Structure（主張-断片-ページのグラフ構造）
 - ADR-0010: Async Search Queue（非同期検索キュー）
 - ADR-0012: Feedback Tool Design（ヒューマンフィードバック）
@@ -159,7 +159,7 @@ queue_searches(task_id, queries=[
 **Step 3: 進捗監視**
 
 ```
-get_status(task_id, wait=30)
+get_status(task_id, wait=180)
 → 検索の進捗、収集ページ数、断片数を確認
 ```
 

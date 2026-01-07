@@ -4,10 +4,10 @@
 
 Lyra is an open-source server implementing the Model Context Protocol (MCP)—a standard interface for connecting AI assistants to external tools—that enables AI assistants to conduct desktop research with structured provenance, providing accurate and auditable evidence. The software exposes research capabilities—web search, content extraction, natural language inference, and evidence graph construction—as structured tools that MCP-compatible AI clients can invoke directly.
 
-The architecture implements a three-layer collaboration model ([ADR-0002](adr/0002-thinking-working-separation.md)):
-- **Human**: Primary source reading, final judgment, domain expertise
-- **AI Client (Thinking)**: Research planning, query design, synthesis
-- **Lyra (Working)**: Source discovery, extraction, NLI, persistence
+The architecture implements a three-layer collaboration model ([ADR-0002](adr/0002-three-layer-collaboration-model.md)):
+- **Thinking Layer (Human)**: Primary source reading, final judgment, domain expertise
+- **Reasoning Layer (MCP Client)**: Research planning, query design, synthesis
+- **Working Layer (Lyra)**: Source discovery, extraction, NLI, persistence
 
 Lyra uses a hybrid architecture where the MCP server runs on the host (WSL2/Linux) while inference services run in network-isolated containers. Search queries are processed asynchronously via a job queue ([ADR-0010](adr/0010-async-search-queue.md)), and each task defines a central hypothesis to verify ([ADR-0017](adr/0017-task-hypothesis-first.md)).
 
@@ -184,32 +184,6 @@ lyra/
 └── logs/                 # Application logs
 ```
 
-## Related ADRs
+## Related
 
-Core architecture:
-- [ADR-0001: Local-First Architecture / Zero OpEx](adr/0001-local-first-zero-opex.md) - Navigation tool, evidence accumulation, zero operational cost
-- [ADR-0002: Thinking-Working Separation](adr/0002-thinking-working-separation.md) - Three-layer collaboration model
-- [ADR-0003: MCP over CLI/REST](adr/0003-mcp-over-cli-rest.md) - MCP protocol selection
-- [ADR-0004: Local LLM for Extraction Only](adr/0004-local-llm-extraction-only.md) - Ollama/DeBERTa task scope
-
-Evidence processing:
-- [ADR-0005: Evidence Graph Structure](adr/0005-evidence-graph-structure.md) - Bayesian confidence calculation
-- [ADR-0008: Academic Data Source Strategy](adr/0008-academic-data-source-strategy.md) - S2 + OpenAlex two-pillar strategy
-- [ADR-0010: Async Search Queue Architecture](adr/0010-async-search-queue.md) - Background job processing
-- [ADR-0015: Unified Search Sources](adr/0015-unified-search-sources.md) - Parallel SERP + Academic API, ID extraction
-- [ADR-0016: Ranking Simplification](adr/0016-ranking-simplification.md) - Evidence Graph exploration interface
-- [ADR-0017: Task Hypothesis-First Architecture](adr/0017-task-hypothesis-first.md) - Hypothesis-driven exploration
-
-Security and resources:
-- [ADR-0006: 8-Layer Security Model](adr/0006-eight-layer-security-model.md) - Defense-in-depth
-- [ADR-0007: Human-in-the-Loop Authentication](adr/0007-human-in-the-loop-auth.md) - CAPTCHA handling, auth queue
-- [ADR-0013: Worker Resource Contention](adr/0013-worker-resource-contention.md) - Academic API rate limits
-- [ADR-0014: Browser SERP Resource Control](adr/0014-browser-serp-resource-control.md) - TabPool for browser isolation
-
-Quality improvement:
-- [ADR-0011: LoRA Fine-tuning Strategy](adr/0011-lora-fine-tuning.md) - NLI model domain adaptation
-- [ADR-0012: Feedback Tool Design](adr/0012-feedback-tool-design.md) - Human-in-the-loop corrections
-
-Testing (not architectural):
-- [ADR-0009: Test Layer Strategy](adr/0009-test-layer-strategy.md) - 3-layer test strategy (L1/L2/L3)
-
+- [ADR Index](adr/index.md) - Full list of Architecture Decision Records with multiple views

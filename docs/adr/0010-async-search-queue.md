@@ -54,8 +54,8 @@ sequenceDiagram
 
     Note over C: Client does other work
 
-    C->>M: get_status(task_id, wait=30)
-    M->>S: wait_for_change(30)
+    C->>M: get_status(task_id, wait=180)
+    M->>S: wait_for_change(180)
     Note over S: asyncio.Event.wait()
 
     rect rgba(0, 0, 0, 0)
@@ -122,7 +122,7 @@ sequenceDiagram
 
     rect rgba(0, 0, 0, 0)
         Note over C,S: Long Polling
-        C->>S: get_status(wait=30)
+        C->>S: get_status(wait=180)
         Note over S: Server waits for change
         S-->>C: {progress: "1/3"}
         Note right of C: Fewer requests, immediate notification

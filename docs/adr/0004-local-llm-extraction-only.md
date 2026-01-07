@@ -130,7 +130,7 @@ The Ollama provider supports JSON Schema enforcement via the `format` parameter 
 ## Related
 
 - [ADR-0001: Local-First / Zero OpEx](0001-local-first-zero-opex.md) - Zero OpEx constraints for LLM selection
-- [ADR-0002: Thinking-Working Separation](0002-thinking-working-separation.md) - Defines extraction as Working layer task
+- [ADR-0002: Three-Layer Collaboration Model](0002-three-layer-collaboration-model.md) - Defines extraction as Working layer task
 - `src/filter/ollama_provider.py` - Ollama client
 - `src/filter/llm.py` - LLM extraction processing
 - `src/filter/nli.py` - NLI judgment implementation

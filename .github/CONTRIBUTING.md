@@ -204,7 +204,7 @@ Understanding Lyra's architecture helps you contribute effectively:
 
 ### Key Concepts
 
-1. **Thinking-Working Separation** (ADR-0002): Cloud AI handles reasoning; Lyra handles mechanical execution locally
+1. **Three-Layer Collaboration Model** (ADR-0002): Human thinks, AI reasons, Lyra works—each layer has clear responsibilities
 
 2. **Evidence Graph** (ADR-0005): Claim-Fragment-Page structure with Bayesian confidence calculation
 

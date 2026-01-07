@@ -6,16 +6,16 @@ flowchart LR
         W["Search → Extract → NLI → Store"]
     end
 
-    subgraph THINKING["Thinking Layer"]
+    subgraph REASONING["Reasoning Layer"]
         direction TB
         MCP["MCP Client<br/>(Cursor / Claude)"]
-        T["Plan → Decide → Synthesize"]
+        R["Plan → Decide → Synthesize"]
     end
 
-    subgraph JUDGMENT["Judgment Layer"]
+    subgraph THINKING["Thinking Layer"]
         direction TB
         Human["Human<br/>(Researcher)"]
-        J["Evaluate → Interpret → Conclude"]
+        T["Evaluate → Interpret → Conclude"]
     end
 
     Lyra -->|"Metrics<br/>Evidence"| MCP
