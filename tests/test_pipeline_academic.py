@@ -18,6 +18,7 @@ in the SearchPipeline._execute_unified_search() method.
 | TC-PA-B-01 | abstract="" (empty string) | Boundary – empty | Treated as no abstract, fetch needed | - |
 | TC-PA-B-02 | abstract=None | Boundary – NULL | Fetch needed | - |
 | TC-PA-B-03 | entries_needing_fetch=[] | Boundary – empty | No browser search fallback | - |
+| TC-PA-B-04 | URL exists but DOI claim succeeds | Boundary – FK | Existing page_id used for fragment | FK fix |
 | TC-PA-A-01 | _persist_abstract_as_fragment() raises exception | Abnormal – exception | Exception caught, logged, processing continues | - |
 | TC-PA-A-02 | get_citation_graph() raises exception | Abnormal – exception | Exception caught, logged, processing continues | - |
 | TC-PA-A-03 | DB insert fails | Abnormal – exception | Exception handled gracefully | - |
@@ -329,6 +330,84 @@ class TestAbstractOnlyStrategy:
             # Then
             assert page_id == existing_page_id
             assert fragment_id is None
+
+    @pytest.mark.asyncio
+    async def test_persist_abstract_url_collision_uses_existing_page_id(
+        self, sample_paper_with_abstract: Paper
+    ) -> None:
+        """
+        TC-PA-B-04: When URL exists but DOI claim succeeds, use existing page_id.
+
+        // Given: claim_resource returns (True, None) but pages.url already exists
+        // When: _persist_abstract_as_fragment() is called
+        // Then: Existing page_id is fetched and used for fragment (no FK violation)
+
+        This tests the FK fix where INSERT OR IGNORE silently ignores the page
+        but we need to find the existing page_id to avoid FK constraint failure
+        on fragment insertion.
+        """
+        # Given
+        state = ExplorationState(task_id="test_task")
+        pipeline = SearchPipeline(task_id="test_task", state=state)
+
+        existing_page_id = "page_existing_url"
+
+        with patch("src.research.pipeline.get_database") as mock_get_db:
+            mock_db_instance = AsyncMock()
+            mock_get_db.return_value = mock_db_instance
+
+            # Mock: claim_resource returns True (DOI not seen before)
+            # but pages.url already exists (from different DOI or same URL)
+            mock_db_instance.claim_resource = AsyncMock(return_value=(True, None))
+
+            # Mock: insert with or_ignore silently ignores (returns the new id but URL existed)
+            mock_db_instance.insert = AsyncMock(return_value="new_id")
+
+            # Mock: fetch_one for URL lookup returns existing page
+            # Then fetch_one for fragment lookup returns None (new fragment)
+            async def fetch_one_side_effect(query: str, params: tuple) -> dict | None:
+                if "SELECT id FROM pages WHERE url = ?" in query:
+                    # URL exists - return existing page_id (different from generated one)
+                    return {"id": existing_page_id}
+                elif "fragments" in query and "abstract" in query:
+                    # Fragment doesn't exist yet
+                    return None
+                elif "SELECT task_id FROM claims" in query:
+                    # For _extract_claims_from_abstract duplicate check
+                    return None
+                return None
+
+            mock_db_instance.fetch_one = AsyncMock(side_effect=fetch_one_side_effect)
+            mock_db_instance.execute = AsyncMock()
+            mock_db_instance.complete_resource = AsyncMock()
+
+            # Mock LLM and other dependencies to avoid side effects
+            with patch(
+                "src.filter.llm.llm_extract", new=AsyncMock(return_value={"ok": True, "claims": []})
+            ):
+                with patch("src.storage.vector_store.persist_embedding", new=AsyncMock()):
+                    with patch("src.ml_client.get_ml_client") as mock_ml:
+                        mock_ml.return_value.embed = AsyncMock(return_value=[[0.0]])
+
+                        # When
+                        page_id, fragment_id = await pipeline._persist_abstract_as_fragment(
+                            paper=sample_paper_with_abstract,
+                            task_id="test_task",
+                            search_id="test_search",
+                        )
+
+            # Then: Should use existing page_id (not the generated one)
+            assert page_id == existing_page_id
+            assert fragment_id is not None
+            assert fragment_id.startswith("frag_")
+
+            # Verify fragment insert used the existing page_id
+            fragment_inserts = [
+                c for c in mock_db_instance.insert.call_args_list if c[0] and c[0][0] == "fragments"
+            ]
+            assert len(fragment_inserts) >= 1
+            fragment_data = fragment_inserts[0][0][1]
+            assert fragment_data["page_id"] == existing_page_id
 
     @pytest.mark.asyncio
     async def test_paper_with_abstract_skips_fetch(self, sample_paper_with_abstract: Paper) -> None:

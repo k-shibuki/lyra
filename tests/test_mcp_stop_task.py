@@ -564,21 +564,21 @@ class TestStopTaskRealCancellation:
     """Tests for stop_task with real worker task cancellation.
 
     These tests verify that mode=immediate actually cancels running asyncio tasks,
-    not just updating DB state.
+    not just updating DB state. Uses JobScheduler (unified execution per ADR-0010).
     """
 
     @pytest.mark.asyncio
     async def test_immediate_cancels_running_search_task(self, test_database: Database) -> None:
         """
-        TC-ST-10: mode=immediate cancels running search_action task.
+        TC-ST-10: mode=immediate cancels running job task.
 
-        // Given: Task with a registered action task in TargetQueueWorkerManager
-        // When: stop_task(mode=immediate)
-        // Then: The action asyncio.Task is cancelled (worker survives)
+        // Given: Task with a registered running job in JobScheduler
+        // When: cancel_running_jobs_for_task is called
+        // Then: The job's asyncio.Task is cancelled
         """
         import asyncio
 
-        from src.scheduler.target_worker import TargetQueueWorkerManager
+        from src.scheduler.jobs import JobScheduler
 
         db = test_database
 
@@ -588,51 +588,61 @@ class TestStopTaskRealCancellation:
             ("task_st10", "Test task", "exploring"),
         )
 
-        # Create manager
-        manager = TargetQueueWorkerManager()
+        # Create scheduler instance (don't start workers, just use for tracking)
+        scheduler = JobScheduler()
         cancel_flag = {"cancelled": False}
-        search_id = "s_st10_running"
+        job_id = "job_st10_running"
 
-        # Create a mock search_action task (not the worker itself)
-        # The worker wraps search_action in create_task() and registers that task
-        async def mock_search_action() -> None:
+        # Create a job record in DB
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (job_id, "task_st10", "target_queue", 50, "network_client", "running", "{}"),
+        )
+
+        # Create a mock job task that simulates long-running work
+        async def mock_job_task() -> None:
             try:
                 await asyncio.sleep(60)  # Long sleep
             except asyncio.CancelledError:
                 cancel_flag["cancelled"] = True
                 raise
-            finally:
-                # Mimic real worker's finally block
-                manager.unregister_job(search_id)
 
-        search_task = asyncio.create_task(mock_search_action())
-        manager.register_job(search_id, "task_st10", search_task)
+        job_task = asyncio.create_task(mock_job_task())
+        # Manually register in scheduler's tracking (simulating what _worker does)
+        scheduler._running_tasks[job_id] = job_task
 
-        # Verify job is registered
-        assert manager.running_job_count == 1
+        # Verify job is tracked
+        assert len(scheduler._running_tasks) == 1
 
         # Cancel jobs for task
-        cancelled_count = await manager.cancel_jobs_for_task("task_st10")
+        cancelled_count = await scheduler.cancel_running_jobs_for_task("task_st10")
+
+        # Wait for the cancellation to propagate
+        try:
+            await asyncio.wait_for(job_task, timeout=1.0)
+        except (asyncio.CancelledError, TimeoutError):
+            pass
 
         # Verify cancellation (wiring check)
         assert cancelled_count == 1
         assert cancel_flag["cancelled"] is True
-        assert search_task.cancelled() or search_task.done()
-        # Verify unregistration (effect check: worker's finally block calls unregister_job)
-        assert manager.running_job_count == 0
+        assert job_task.cancelled() or job_task.done()
 
     @pytest.mark.asyncio
     async def test_cancel_does_not_affect_other_tasks(self, test_database: Database) -> None:
         """
-        TC-ST-10b: Cancellation only affects the specified task's action tasks.
+        TC-ST-10b: Cancellation only affects the specified task's jobs.
 
-        // Given: Multiple tasks with running action tasks
-        // When: stop_task(mode=immediate) for one task
-        // Then: Only that task's action tasks are cancelled
+        // Given: Multiple tasks with running jobs
+        // When: cancel_running_jobs_for_task for one task
+        // Then: Only that task's jobs are cancelled
         """
         import asyncio
 
-        from src.scheduler.target_worker import TargetQueueWorkerManager
+        from src.scheduler.jobs import JobScheduler
 
         db = test_database
 
@@ -646,59 +656,68 @@ class TestStopTaskRealCancellation:
             ("task_st10_b", "Test task B", "exploring"),
         )
 
-        # Create manager with action tasks for both research tasks
-        manager = TargetQueueWorkerManager()
+        # Create scheduler instance
+        scheduler = JobScheduler()
 
-        search_a_cancelled = {"cancelled": False}
-        search_b_cancelled = {"cancelled": False}
-        search_id_a = "s_task_a"
-        search_id_b = "s_task_b"
+        job_a_cancelled = {"cancelled": False}
+        job_b_cancelled = {"cancelled": False}
+        job_id_a = "job_task_a"
+        job_id_b = "job_task_b"
 
-        # Mock search_action tasks (worker wraps these in create_task)
-        async def search_action_a() -> None:
+        # Create job records in DB
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (job_id_a, "task_st10_a", "target_queue", 50, "network_client", "running", "{}"),
+        )
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, input_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (job_id_b, "task_st10_b", "target_queue", 50, "network_client", "running", "{}"),
+        )
+
+        # Mock job tasks
+        async def job_task_a() -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
-                search_a_cancelled["cancelled"] = True
+                job_a_cancelled["cancelled"] = True
                 raise
-            finally:
-                manager.unregister_job(search_id_a)
 
-        async def search_action_b() -> None:
+        async def job_task_b() -> None:
             try:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
-                search_b_cancelled["cancelled"] = True
+                job_b_cancelled["cancelled"] = True
                 raise
-            finally:
-                manager.unregister_job(search_id_b)
 
-        search_task_a = asyncio.create_task(search_action_a())
-        search_task_b = asyncio.create_task(search_action_b())
+        task_a = asyncio.create_task(job_task_a())
+        task_b = asyncio.create_task(job_task_b())
 
-        manager.register_job(search_id_a, "task_st10_a", search_task_a)
-        manager.register_job(search_id_b, "task_st10_b", search_task_b)
+        scheduler._running_tasks[job_id_a] = task_a
+        scheduler._running_tasks[job_id_b] = task_b
 
-        assert manager.running_job_count == 2
+        assert len(scheduler._running_tasks) == 2
 
-        # Cancel only task A's search
-        cancelled_count = await manager.cancel_jobs_for_task("task_st10_a")
+        # Cancel only task A's jobs
+        cancelled_count = await scheduler.cancel_running_jobs_for_task("task_st10_a")
 
-        # Verify only task A's search was cancelled (wiring check)
+        # Verify only task A's job was cancelled (wiring check)
         assert cancelled_count == 1
-        assert search_a_cancelled["cancelled"] is True
-        assert search_b_cancelled["cancelled"] is False
-        assert not search_task_b.done()
-        # Verify only task A was unregistered (effect check)
-        assert manager.running_job_count == 1
+        assert job_a_cancelled["cancelled"] is True
+        assert job_b_cancelled["cancelled"] is False
+        assert not task_b.done()
 
         # Cleanup task B
-        search_task_b.cancel()
+        task_b.cancel()
         try:
-            await search_task_b
+            await task_b
         except asyncio.CancelledError:
             pass
-        assert manager.running_job_count == 0
 
 
 class TestStopTaskRaceCondition:

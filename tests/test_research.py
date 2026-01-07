@@ -775,8 +775,8 @@ class TestExplorationState:
             len(warning_alerts) == 1
         ), f"Should have 1 warning alert, got {len(warning_alerts)}: {status['warnings']}"
         assert (
-            "認証待ち3件" in warning_alerts[0]
-        ), f"Warning should mention '認証待ち3件', got '{warning_alerts[0]}'"
+            "3 auth pending" in warning_alerts[0]
+        ), f"Warning should mention '3 auth pending', got '{warning_alerts[0]}'"
 
     @pytest.mark.asyncio
     async def test_auth_queue_critical_threshold_by_count(self, test_database: Database) -> None:
@@ -820,8 +820,8 @@ class TestExplorationState:
             len(critical_alerts) == 1
         ), f"Should have 1 critical alert, got {len(critical_alerts)}: {status['warnings']}"
         assert (
-            "認証待ち5件" in critical_alerts[0]
-        ), f"Critical should mention '認証待ち5件', got '{critical_alerts[0]}'"
+            "5 auth pending" in critical_alerts[0]
+        ), f"Critical should mention '5 auth pending', got '{critical_alerts[0]}'"
 
     @pytest.mark.asyncio
     async def test_auth_queue_critical_threshold_by_high_priority(
@@ -861,7 +861,7 @@ class TestExplorationState:
             len(critical_alerts) == 1
         ), f"Should have 1 critical alert for high priority, got {len(critical_alerts)}: {status['warnings']}"
         assert (
-            "一次資料アクセスがブロック" in critical_alerts[0]
+            "primary source access blocked" in critical_alerts[0]
         ), f"Critical should mention primary source blocking, got '{critical_alerts[0]}'"
 
     @pytest.mark.asyncio

@@ -93,30 +93,22 @@ async def test_batch_notification_format() -> None:
         return
 
     # Simulate batch notification message (same format as BatchNotificationManager)
+    # Note: auth_type is stored but NOT displayed to user (security/privacy)
     pending_items = [
         {"domain": "duckduckgo.com", "auth_type": "cloudflare"},
         {"domain": "duckduckgo.com", "auth_type": "turnstile"},
         {"domain": "google.com", "auth_type": "recaptcha"},
     ]
 
-    by_domain: dict[str, list[dict]] = {}
-    for item in pending_items:
-        domain = item.get("domain", "unknown")
-        by_domain.setdefault(domain, []).append(item)
+    # Use unified format_batch_notification (does NOT expose auth_type)
+    from src.utils.intervention_types import format_batch_notification
 
-    total_count = len(pending_items)
-    lines = [f"Authentication required ({total_count} items)", ""]
-    for domain, items in by_domain.items():
-        types = {i.get("auth_type", "unknown") for i in items}
-        lines.append(f"{domain}: {len(items)} items ({', '.join(types)})")
-    lines.append("")
-    lines.append("After resolving, tell the AI 'CAPTCHA solved'")
+    title, message = format_batch_notification(pending_items)
 
-    message = "\n".join(lines)
     options = NotificationOptions(timeout_seconds=15)
 
     result = await provider.send(
-        title="Lyra: Auth Pending",
+        title=title,
         message=message,
         options=options,
     )

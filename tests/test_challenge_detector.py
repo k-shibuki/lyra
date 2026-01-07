@@ -45,6 +45,9 @@ Requirements tested:
 | TC-EF-N-03 | Effort high | Equivalence – normal | effort="high" | - |
 | TC-EF-B-01 | Unknown type | Boundary – default | effort="medium" | - |
 | TC-EF-B-02 | Empty string | Boundary – empty | effort="medium" | - |
+| TC-CP-A-03 | Large page with embedded reCAPTCHA | Equivalence – abnormal | is_challenge=False | Form CAPTCHA in content page |
+| TC-CP-A-04 | Large page with embedded hCaptcha | Equivalence – abnormal | is_challenge=False | Form CAPTCHA in content page |
+| TC-CP-A-05 | Large page with embedded Turnstile | Equivalence – abnormal | is_challenge=False | Form CAPTCHA in content page |
 """
 
 import pytest
@@ -297,6 +300,148 @@ class TestChallengePageDetection:
         headers = {"server": "cloudflare", "cf-ray": "abc123"}
         result = _is_challenge_page(large_html, headers)
         assert result is False
+
+    def test_large_page_with_embedded_recaptcha_not_challenge(self) -> None:
+        """Test that large content pages with embedded reCAPTCHA are not challenges.
+
+        Real-world scenario: Article pages often have comment forms protected by
+        reCAPTCHA, but the main content is accessible without solving the CAPTCHA.
+        """
+        # Given: A large content page with embedded reCAPTCHA (e.g., in comment form)
+        # When: _is_challenge_page is called
+        # Then: False is returned (not a blocking challenge)
+        large_html = (
+            """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Medical Article</title></head>
+        <body>
+            <article>
+                <h1>Understanding DPP-4 Inhibitors</h1>
+                <p>"""
+            + "Article content with substantial text. " * 700
+            + """</p>
+            </article>
+            <section id="comments">
+                <h2>Leave a Comment</h2>
+                <form action="/comments" method="post">
+                    <textarea name="comment"></textarea>
+                    <div class="g-recaptcha" data-sitekey="6LcwIw8TAAAAACP1ysM08EhCgzd6q5JAOUR1a0Go"></div>
+                    <button type="submit">Submit</button>
+                </form>
+            </section>
+        </body>
+        </html>
+        """
+        )
+        assert len(large_html) > 10000  # Verify it's a "large" page
+        result = _is_challenge_page(large_html, {})
+        assert result is False
+
+    def test_large_page_with_embedded_hcaptcha_not_challenge(self) -> None:
+        """Test that large content pages with embedded hCaptcha are not challenges."""
+        # Given: A large content page with embedded hCaptcha
+        # When: _is_challenge_page is called
+        # Then: False is returned
+        large_html = (
+            """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Research Paper</title></head>
+        <body>
+            <article>
+                <h1>Research Findings</h1>
+                <p>"""
+            + "Research content with detailed findings. " * 700
+            + """</p>
+            </article>
+            <section id="contact">
+                <form>
+                    <div class="h-captcha" data-sitekey="abc123"></div>
+                </form>
+            </section>
+        </body>
+        </html>
+        """
+        )
+        assert len(large_html) > 10000
+        result = _is_challenge_page(large_html, {})
+        assert result is False
+
+    def test_large_page_with_embedded_turnstile_not_challenge(self) -> None:
+        """Test that large content pages with embedded Turnstile are not challenges."""
+        # Given: A large content page with embedded Turnstile
+        # When: _is_challenge_page is called
+        # Then: False is returned
+        large_html = (
+            """
+        <!DOCTYPE html>
+        <html>
+        <head><title>News Article</title></head>
+        <body>
+            <article>
+                <h1>Breaking News</h1>
+                <p>"""
+            + "News content with detailed reporting. " * 700
+            + """</p>
+            </article>
+            <section id="newsletter">
+                <form>
+                    <div class="cf-turnstile" data-sitekey="abc123"></div>
+                </form>
+            </section>
+        </body>
+        </html>
+        """
+        )
+        assert len(large_html) > 10000
+        result = _is_challenge_page(large_html, {})
+        assert result is False
+
+    def test_small_page_with_recaptcha_is_challenge(self) -> None:
+        """Test that small pages with reCAPTCHA are still detected as challenges."""
+        # Given: A small page with reCAPTCHA (likely a blocking challenge)
+        # When: _is_challenge_page is called
+        # Then: True is returned
+        small_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Verify</title></head>
+        <body>
+            <div class="g-recaptcha" data-sitekey="abc123"></div>
+        </body>
+        </html>
+        """
+        assert len(small_html) < 10000  # Verify it's a "small" page
+        result = _is_challenge_page(small_html, {})
+        assert result is True
+
+    def test_cloudflare_challenge_detected_on_large_page(self) -> None:
+        """Test that explicit Cloudflare challenges are detected even on large pages.
+
+        Cloudflare challenge indicators are always blocking, regardless of page size.
+        """
+        # Given: A page with Cloudflare challenge indicators (even if somehow large)
+        # When: _is_challenge_page is called
+        # Then: True is returned
+        html = (
+            """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Just a moment...</title></head>
+        <body>
+            <div id="cf-browser-verification">
+                <p>Checking your browser before accessing example.com.</p>
+            </div>
+            """
+            + "<div>Padding content</div>" * 500
+            + """
+        </body>
+        </html>
+        """
+        )
+        result = _is_challenge_page(html, {})
+        assert result is True
 
 
 @pytest.mark.unit

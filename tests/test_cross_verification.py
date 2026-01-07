@@ -15,7 +15,7 @@ Test Perspectives Table:
 | TC-B-01    | max_pairs_per_claim=0                         | Boundary - zero          | No NLI pairs evaluated                       | -              |
 | TC-B-02    | max_domains=1                                 | Boundary - limit         | Only 1 domain's fragments used               | -              |
 | TC-B-03    | save_neutral=False                            | Config - skip neutral    | Neutral edges not saved                      | -              |
-| TC-W-01    | target_worker triggers enqueue                | Wiring - integration     | VERIFY_NLI job enqueued after target         | -              |
+| TC-W-01    | JobScheduler triggers enqueue after target    | Wiring - integration     | VERIFY_NLI job enqueued after target         | -              |
 | TC-W-02    | enqueue_verify_nli_job creates job            | Wiring - job creation    | Job submitted to scheduler                   | -              |
 """
 
@@ -660,25 +660,25 @@ class TestEnqueueVerifyNliJob:
         assert call_kwargs.kwargs["task_id"] == task_id
 
 
-class TestTargetWorkerVerifyNliTrigger:
-    """Tests for target_worker's VERIFY_NLI trigger."""
+class TestJobSchedulerVerifyNliTrigger:
+    """Tests for JobScheduler's VERIFY_NLI trigger after target_queue completion."""
 
     @pytest.mark.asyncio
     async def test_enqueue_called_after_search_success(self) -> None:
         """TC-W-01: VERIFY_NLI job is enqueued after successful search."""
-        # Given: Search result with pages_fetched > 0
-        search_result = {"status": "completed", "pages_fetched": 5}
+        # Given: Search result with pages_fetched > 0 (ok=True)
+        search_result = {"ok": True, "status": "completed", "pages_fetched": 5}
         task_id = "task_trigger"
 
-        # When: _enqueue_verify_nli_if_needed is called
-        # Patch at the actual import location (local import in function)
+        # When: JobScheduler._enqueue_verify_nli_if_needed is called
         with patch(
             "src.filter.cross_verification.enqueue_verify_nli_job",
             new_callable=AsyncMock,
         ) as mock_enqueue:
-            from src.scheduler.target_worker import _enqueue_verify_nli_if_needed
+            from src.scheduler.jobs import JobScheduler
 
-            await _enqueue_verify_nli_if_needed(task_id, search_result)
+            scheduler = JobScheduler()
+            await scheduler._enqueue_verify_nli_if_needed(task_id, search_result)
 
         # Then: enqueue was called
         mock_enqueue.assert_called_once_with(task_id=task_id)
@@ -691,26 +691,27 @@ class TestTargetWorkerVerifyNliTrigger:
         web pages, and the search_result dict may not reflect all claims.
         """
         # Given: Search result with pages_fetched = 0
-        search_result = {"status": "completed", "pages_fetched": 0}
+        search_result = {"ok": True, "status": "completed", "pages_fetched": 0}
         task_id = "task_no_pages"
 
-        # When: _enqueue_verify_nli_if_needed is called
+        # When: JobScheduler._enqueue_verify_nli_if_needed is called
         with patch(
             "src.filter.cross_verification.enqueue_verify_nli_job",
             new_callable=AsyncMock,
         ) as mock_enqueue:
-            from src.scheduler.target_worker import _enqueue_verify_nli_if_needed
+            from src.scheduler.jobs import JobScheduler
 
-            await _enqueue_verify_nli_if_needed(task_id, search_result)
+            scheduler = JobScheduler()
+            await scheduler._enqueue_verify_nli_if_needed(task_id, search_result)
 
         # Then: enqueue WAS called (verify_claims_nli handles empty gracefully)
         mock_enqueue.assert_called_once_with(task_id=task_id)
 
     @pytest.mark.asyncio
-    async def test_enqueue_failure_does_not_crash_worker(self) -> None:
-        """TC-W-01c: If enqueue fails, worker continues (no crash)."""
+    async def test_enqueue_failure_does_not_crash_scheduler(self) -> None:
+        """TC-W-01c: If enqueue fails, scheduler continues (no crash)."""
         # Given: Search result with pages_fetched > 0
-        search_result = {"status": "completed", "pages_fetched": 3}
+        search_result = {"ok": True, "status": "completed", "pages_fetched": 3}
         task_id = "task_enqueue_fail"
 
         # When: enqueue_verify_nli_job raises exception
@@ -719,10 +720,11 @@ class TestTargetWorkerVerifyNliTrigger:
             new_callable=AsyncMock,
             side_effect=Exception("Scheduler unavailable"),
         ):
-            from src.scheduler.target_worker import _enqueue_verify_nli_if_needed
+            from src.scheduler.jobs import JobScheduler
 
+            scheduler = JobScheduler()
             # Should not raise
-            await _enqueue_verify_nli_if_needed(task_id, search_result)
+            await scheduler._enqueue_verify_nli_if_needed(task_id, search_result)
 
         # Then: No exception (graceful handling)
 

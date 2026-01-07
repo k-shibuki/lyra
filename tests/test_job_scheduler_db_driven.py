@@ -1,5 +1,5 @@
 """
-Tests for DB-driven JobScheduler (restart reset and atomic claim).
+Tests for DB-driven JobScheduler (restart reset, atomic claim, TARGET_QUEUE).
 
 ## Test Perspectives Table
 
@@ -15,6 +15,12 @@ Tests for DB-driven JobScheduler (restart reset and atomic claim).
 | TC-CL-03 | Priority ordering | Normal | lower priority first | ORDER BY priority |
 | TC-CL-04 | Concurrent claims (race) | Boundary - race | only one wins | atomic UPDATE |
 | TC-CL-05 | Slot concurrency limit | Boundary - limit | respects SLOT_LIMITS | no over-claim |
+| TC-TQ-01 | TARGET_QUEUE kind=query | Wiring | routes to search_action | ADR-0010 |
+| TC-TQ-02 | TARGET_QUEUE kind=url | Wiring | routes to ingest_url_action | ADR-0010 |
+| TC-TQ-03 | TARGET_QUEUE kind=doi | Wiring | routes to ingest_doi_action | ADR-0010 |
+| TC-TQ-04 | Successful target completion | Effect | VERIFY_NLI enqueued | ADR-0005 |
+| TC-TQ-05 | Target completion | Effect | queue empty check runs | ADR-0007 |
+| TC-TQ-06 | Missing task_id | Boundary - error | ValueError raised | required field |
 """
 
 from __future__ import annotations
@@ -475,3 +481,303 @@ class TestJobSchedulerCancelRunning:
         assert cancelled_count == 1
         assert cancel_flag["cancelled"] is True
         assert task.cancelled() or task.done()
+
+
+class TestJobSchedulerTargetQueueExecution:
+    """Tests for JobScheduler TARGET_QUEUE execution (ADR-0010 unified execution)."""
+
+    @pytest.mark.asyncio
+    async def test_execute_target_queue_query_routes_to_search_action(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-TQ-01: TARGET_QUEUE with kind=query routes to search_action.
+
+        // Given: TARGET_QUEUE job with target.kind='query'
+        // When: _execute_target_queue_job is called
+        // Then: search_action is called with correct parameters (wiring check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq01", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {"kind": "query", "query": "test query", "options": {}},
+            "options": {"budget_pages": 10},
+        }
+
+        # Mock dependencies
+        mock_search = AsyncMock(return_value={"ok": True, "status": "completed"})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.search_action", mock_search),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq01",
+                cause_id="cause_01",
+            )
+
+        # Then: search_action was called
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args
+        assert call_kwargs.kwargs["task_id"] == "task_tq01"
+        assert call_kwargs.kwargs["query"] == "test query"
+        assert "budget_pages" in call_kwargs.kwargs["options"]
+
+    @pytest.mark.asyncio
+    async def test_execute_target_queue_url_routes_to_ingest_url_action(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-TQ-02: TARGET_QUEUE with kind=url routes to ingest_url_action.
+
+        // Given: TARGET_QUEUE job with target.kind='url'
+        // When: _execute_target_queue_job is called
+        // Then: ingest_url_action is called with correct parameters (wiring check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq02", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {
+                "kind": "url",
+                "url": "https://example.com/paper",
+                "depth": 1,
+                "reason": "citation_chase",
+                "context": {"source_page_id": "page_src"},
+                "policy": {},
+            },
+            "options": {},
+        }
+
+        # Mock dependencies
+        mock_ingest = AsyncMock(return_value={"ok": True, "status": "completed"})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.ingest_url_action", mock_ingest),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq02",
+                cause_id="cause_02",
+            )
+
+        # Then: ingest_url_action was called
+        mock_ingest.assert_called_once()
+        call_kwargs = mock_ingest.call_args
+        assert call_kwargs.kwargs["task_id"] == "task_tq02"
+        assert call_kwargs.kwargs["url"] == "https://example.com/paper"
+        assert call_kwargs.kwargs["depth"] == 1
+        assert call_kwargs.kwargs["reason"] == "citation_chase"
+
+    @pytest.mark.asyncio
+    async def test_execute_target_queue_doi_routes_to_ingest_doi_action(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-TQ-03: TARGET_QUEUE with kind=doi routes to ingest_doi_action.
+
+        // Given: TARGET_QUEUE job with target.kind='doi'
+        // When: _execute_target_queue_job is called
+        // Then: ingest_doi_action is called with correct parameters (wiring check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq03", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {
+                "kind": "doi",
+                "doi": "10.1234/test",
+                "reason": "citation_chase",
+                "context": {},
+            },
+            "options": {},
+        }
+
+        # Mock dependencies
+        mock_ingest_doi = AsyncMock(return_value={"ok": True, "status": "completed"})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.ingest_doi_action", mock_ingest_doi),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq03",
+                cause_id="cause_03",
+            )
+
+        # Then: ingest_doi_action was called
+        mock_ingest_doi.assert_called_once()
+        call_kwargs = mock_ingest_doi.call_args
+        assert call_kwargs.kwargs["task_id"] == "task_tq03"
+        assert call_kwargs.kwargs["doi"] == "10.1234/test"
+        assert call_kwargs.kwargs["reason"] == "citation_chase"
+
+    @pytest.mark.asyncio
+    async def test_verify_nli_enqueued_after_successful_target(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-TQ-04: VERIFY_NLI is enqueued after successful target completion.
+
+        // Given: TARGET_QUEUE job that completes successfully
+        // When: _execute_target_queue_job completes
+        // Then: _enqueue_verify_nli_if_needed is called (effect check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq04", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {"kind": "query", "query": "test", "options": {}},
+            "options": {},
+        }
+
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+        mock_enqueue = AsyncMock()
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch(
+                "src.research.pipeline.search_action",
+                AsyncMock(return_value={"ok": True, "status": "completed"}),
+            ),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", mock_enqueue),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq04",
+                cause_id="cause_04",
+            )
+
+        # Then: VERIFY_NLI was enqueued
+        mock_enqueue.assert_called_once_with("task_tq04", {"ok": True, "status": "completed"})
+
+    @pytest.mark.asyncio
+    async def test_target_queue_empty_checked_after_completion(
+        self, test_database: Database
+    ) -> None:
+        """
+        TC-TQ-05: Target queue empty check runs after job completion.
+
+        // Given: TARGET_QUEUE job
+        // When: _execute_target_queue_job completes
+        // Then: _check_target_queue_empty is called (effect check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq05", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {"kind": "query", "query": "test", "options": {}},
+            "options": {},
+        }
+
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+        mock_check_empty = AsyncMock()
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch(
+                "src.research.pipeline.search_action",
+                AsyncMock(return_value={"ok": True, "status": "completed"}),
+            ),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", mock_check_empty),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq05",
+                cause_id="cause_05",
+            )
+
+        # Then: Empty check was called
+        mock_check_empty.assert_called_once_with("task_tq05")
+
+    @pytest.mark.asyncio
+    async def test_missing_task_id_raises_error(self) -> None:
+        """
+        TC-TQ-06: TARGET_QUEUE without task_id raises ValueError.
+
+        // Given: TARGET_QUEUE job without task_id
+        // When: _execute_target_queue_job is called
+        // Then: ValueError is raised
+        """
+        from src.scheduler.jobs import JobScheduler
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {"kind": "query", "query": "test"},
+            "options": {},
+        }
+
+        with pytest.raises(ValueError, match="task_id is required"):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id=None,
+                cause_id="cause_06",
+            )

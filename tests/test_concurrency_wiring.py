@@ -8,7 +8,7 @@ These tests verify that config values are actually propagated and used.
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|----------------------|--------------------------------------|-----------------|-------|
-| TC-W-01 | config.num_workers=3 | Effect – worker count | 3 worker tasks started | TargetWorkerManager |
+| TC-W-01 | SLOT_LIMITS config   | Effect – worker count per slot | Workers per slot match limits | JobScheduler |
 | TC-W-02 | config.max_tabs=2 | Effect – tab pool | TabPool.max_tabs=2 | get_tab_pool() |
 | TC-W-04 | get_tab_pool() with config | Wiring – config propagation | max_tabs from config | - |
 """
@@ -20,67 +20,62 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-class TestTargetWorkerManagerWiring:
-    """Wiring tests for TargetWorkerManager."""
+class TestJobSchedulerWorkerWiring:
+    """Wiring tests for JobScheduler slot-based workers."""
 
     # =========================================================================
-    # TC-W-01: num_workers from config
+    # TC-W-01: Workers per slot from SLOT_LIMITS
     # =========================================================================
     @pytest.mark.asyncio
-    async def test_start_uses_num_workers_from_config(self) -> None:
-        """Test TargetWorkerManager.start() uses num_workers from config.
+    async def test_start_creates_workers_per_slot_limit(self) -> None:
+        """Test JobScheduler.start() creates workers based on SLOT_LIMITS.
 
-        Given: Config with concurrency.target_queue.num_workers=3
-        When: TargetWorkerManager.start() is called
-        Then: 3 worker tasks are created
+        Given: SLOT_LIMITS defines limits per slot
+        When: JobScheduler.start() is called
+        Then: Workers are created per slot according to limits
         """
-        from src.scheduler.target_worker import TargetQueueWorkerManager
+        from src.scheduler.jobs import SLOT_LIMITS, JobScheduler, Slot
 
-        # Given: Mock settings with num_workers=3
-        mock_settings = MagicMock()
-        mock_settings.concurrency.target_queue.num_workers = 3
+        scheduler = JobScheduler()
 
-        manager = TargetQueueWorkerManager()
-
-        # When
-        with patch("src.scheduler.target_worker.get_settings", return_value=mock_settings):
-            await manager.start()
-
-        # Then: 3 worker tasks created
         try:
-            assert len(manager._workers) == 3
-            for i, task in enumerate(manager._workers):
-                assert task.get_name() == f"target_queue_worker_{i}"
+            # When
+            await scheduler.start()
+
+            # Then: Workers created for each slot based on SLOT_LIMITS
+            for slot in Slot:
+                expected_count = SLOT_LIMITS[slot]
+                actual_count = len(scheduler._workers.get(slot, []))
+                assert (
+                    actual_count == expected_count
+                ), f"Expected {expected_count} workers for {slot.value}, got {actual_count}"
         finally:
             # Cleanup
-            await manager.stop()
+            await scheduler.stop()
 
     @pytest.mark.asyncio
-    async def test_start_uses_default_num_workers(self) -> None:
-        """Test TargetWorkerManager.start() uses default num_workers=2.
+    async def test_network_client_slot_has_expected_workers(self) -> None:
+        """Test JobScheduler creates expected network_client workers.
 
-        Given: Default config (num_workers=2)
-        When: TargetWorkerManager.start() is called
-        Then: 2 worker tasks are created
+        Given: SLOT_LIMITS[NETWORK_CLIENT] = 4
+        When: JobScheduler.start() is called
+        Then: 4 workers for network_client slot (handles target_queue)
         """
-        from src.scheduler.target_worker import TargetQueueWorkerManager
+        from src.scheduler.jobs import SLOT_LIMITS, JobScheduler, Slot
 
-        # Given: Mock settings with default num_workers=2
-        mock_settings = MagicMock()
-        mock_settings.concurrency.target_queue.num_workers = 2
+        scheduler = JobScheduler()
 
-        manager = TargetQueueWorkerManager()
-
-        # When
-        with patch("src.scheduler.target_worker.get_settings", return_value=mock_settings):
-            await manager.start()
-
-        # Then: 2 worker tasks created (default)
         try:
-            assert len(manager._workers) == 2
+            # When
+            await scheduler.start()
+
+            # Then: NETWORK_CLIENT workers match SLOT_LIMITS
+            expected = SLOT_LIMITS[Slot.NETWORK_CLIENT]
+            actual = len(scheduler._workers.get(Slot.NETWORK_CLIENT, []))
+            assert actual == expected, f"Expected {expected} network_client workers, got {actual}"
         finally:
             # Cleanup
-            await manager.stop()
+            await scheduler.stop()
 
 
 class TestTabPoolWiring:

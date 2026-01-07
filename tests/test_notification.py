@@ -26,9 +26,9 @@ Requirements tested per ADR-0007 (Safe Operation Policy):
 | TC-IM-N-03 | Initial failure count | Boundary – zero | Returns 0 | - |
 | TC-IM-N-04 | Set/get failures | Equivalence – normal | Value stored | - |
 | TC-IM-N-05 | Reset failures | Equivalence – normal | Returns to 0 | - |
-| TC-MSG-N-01 | CAPTCHA message | Equivalence – normal | Contains type/domain | - |
-| TC-MSG-N-02 | Cloudflare message | Equivalence – normal | Contains type/domain | - |
-| TC-MSG-N-03 | Login message | Equivalence – normal | In Japanese | - |
+| TC-MSG-N-01 | CAPTCHA message | Equivalence – normal | Generic title + domain | ADR-0007 |
+| TC-MSG-N-02 | Cloudflare message | Equivalence – normal | Generic title + domain | ADR-0007 |
+| TC-MSG-N-03 | Login message | Equivalence – normal | In English | Unified language |
 | TC-SK-B-01 | Skip at 0/1/2 failures | Boundary – threshold | False | - |
 | TC-SK-B-02 | Skip at 3/4 failures | Boundary – threshold | True | - |
 | TC-SK-N-01 | Active cooldown | Equivalence – normal | Skipped | - |
@@ -344,52 +344,76 @@ class TestInterventionMessages:
     """Tests for intervention message generation.
 
     Messages should be user-friendly and include relevant context.
+    Uses unified challenge messages from intervention_types module.
     """
 
-    def test_captcha_message_includes_type_and_domain(
-        self, intervention_manager: InterventionManager
-    ) -> None:
-        """Test CAPTCHA message includes intervention type and domain."""
+    def test_captcha_message_uses_generic_title(self) -> None:
+        """Test CAPTCHA message uses generic title (no type exposure)."""
+        from src.utils.intervention_types import InterventionType, get_challenge_message
+
         domain = "example.com"
+        url = "https://example.com/page"
+        msg = get_challenge_message(InterventionType.CAPTCHA)
+        title, body = msg.format_popup(domain, url)
 
-        msg = intervention_manager._build_intervention_message(
-            InterventionType.CAPTCHA,
-            "https://example.com/page",
-            domain,
-        )
+        # Title should be generic (not expose challenge type per ADR-0007)
+        assert "Manual Action Required" in title, f"Title should be generic, got: {title}"
+        assert domain in body, f"Body should contain domain '{domain}', got: {body}"
 
-        assert "CAPTCHA" in msg, f"Message should contain 'CAPTCHA', got: {msg}"
-        assert domain in msg, f"Message should contain domain '{domain}', got: {msg}"
+    def test_cloudflare_message_uses_generic_title(self) -> None:
+        """Test Cloudflare message uses generic title (no type exposure)."""
+        from src.utils.intervention_types import InterventionType, get_challenge_message
 
-    def test_cloudflare_message_includes_type_and_domain(
-        self, intervention_manager: InterventionManager
-    ) -> None:
-        """Test Cloudflare message includes intervention type and domain."""
         domain = "example.com"
+        url = "https://example.com/page"
+        msg = get_challenge_message(InterventionType.CLOUDFLARE)
+        title, body = msg.format_popup(domain, url)
 
-        msg = intervention_manager._build_intervention_message(
-            InterventionType.CLOUDFLARE,
-            "https://example.com/page",
-            domain,
-        )
+        # Title should be generic (not expose challenge type per ADR-0007)
+        assert "Manual Action Required" in title, f"Title should be generic, got: {title}"
+        assert domain in body, f"Body should contain domain '{domain}', got: {body}"
 
-        assert "Cloudflare" in msg, f"Message should contain 'Cloudflare', got: {msg}"
-        assert domain in msg, f"Message should contain domain '{domain}', got: {msg}"
+    def test_login_required_message_in_english(self) -> None:
+        """Test login required message is in English (unified language)."""
+        from src.utils.intervention_types import InterventionType, get_challenge_message
 
-    def test_login_required_message_in_japanese(
-        self, intervention_manager: InterventionManager
-    ) -> None:
-        """Test login required message is in Japanese."""
         domain = "example.com"
+        url = "https://example.com/page"
+        msg = get_challenge_message(InterventionType.LOGIN_REQUIRED)
+        title, body = msg.format_popup(domain, url)
 
-        msg = intervention_manager._build_intervention_message(
-            InterventionType.LOGIN_REQUIRED,
-            "https://example.com/page",
-            domain,
-        )
+        assert "Login" in title, f"Title should contain 'Login', got: {title}"
+        assert domain in body, f"Body should contain domain '{domain}', got: {body}"
 
-        assert "ログイン" in msg, f"Message should contain 'ログイン', got: {msg}"
-        assert domain in msg, f"Message should contain domain '{domain}', got: {msg}"
+    def test_message_includes_action_instructions(self) -> None:
+        """Test messages include resolve/skip action instructions."""
+        from src.utils.intervention_types import InterventionType, get_challenge_message
+
+        domain = "example.com"
+        url = "https://example.com/page"
+        msg = get_challenge_message(InterventionType.CAPTCHA)
+        title, body = msg.format_popup(domain, url)
+
+        assert "resolved" in body.lower(), f"Body should mention 'resolved' action, got: {body}"
+        assert "skip" in body.lower(), f"Body should mention 'skip' action, got: {body}"
+
+    def test_mcp_format_structure(self) -> None:
+        """Test MCP format returns proper structure."""
+        from src.utils.intervention_types import InterventionType, get_challenge_message
+
+        domain = "example.com"
+        url = "https://example.com/page"
+        queue_id = "iq_abc123"
+        msg = get_challenge_message(InterventionType.CAPTCHA)
+        mcp_data = msg.format_mcp(domain, url, queue_id)
+
+        assert mcp_data["challenge_detected"] is True
+        assert mcp_data["domain"] == domain
+        assert mcp_data["url"] == url
+        assert mcp_data["queue_id"] == queue_id
+        assert "actions" in mcp_data
+        assert "resolve" in mcp_data["actions"]
+        assert "skip" in mcp_data["actions"]
 
 
 # =============================================================================

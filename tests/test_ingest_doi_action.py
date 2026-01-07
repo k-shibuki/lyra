@@ -246,7 +246,7 @@ async def test_queue_targets_with_doi_kind(test_database: Database) -> None:
     assert result["ok"] is True
     assert result["queued_count"] == 1
     assert len(result["target_ids"]) == 1
-    assert result["target_ids"][0].startswith("td_")  # DOI targets have td_ prefix
+    assert result["target_ids"][0].startswith("tq_")  # All target_queue jobs use tq_ prefix
 
 
 @pytest.mark.asyncio
