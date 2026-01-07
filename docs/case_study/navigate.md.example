@@ -177,7 +177,7 @@ queue_searches(task_id=task_id, queries=[
   "{initial_query_from_phase_1}"
 ])
 
-get_status(task_id=task_id, wait=180)
+get_status(task_id=task_id, wait=60)
 ```
 
 Review results:
@@ -216,7 +216,7 @@ queue_searches(task_id=task_id, queries=[
 Wait for all queries to complete:
 
 ```
-get_status(task_id=task_id, wait=180)
+get_status(task_id=task_id, wait=180)  # wait: adjust 30-300 as needed
 ```
 
 Monitor progress:
