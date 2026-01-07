@@ -138,21 +138,21 @@ create_task(hypothesis="DPP-4 inhibitors as add-on therapy for type 2 diabetes p
 Cursor AIがクエリを分解し、**支持クエリと反証クエリの両方**を設計（ADR-0017: バイアス軽減）:
 
 ```
-queue_searches(task_id, queries=[
+queue_targets(task_id, targets=[
   # 支持クエリ（efficacy）
-  "DPP-4 inhibitors efficacy meta-analysis HbA1c reduction",
-  "sitagliptin add-on therapy insulin-treated HbA1c 7 RCT",
-  "DPP-4 inhibitors cardiovascular safety TECOS trial",
+  {"kind": "query", "query": "DPP-4 inhibitors efficacy meta-analysis HbA1c reduction"},
+  {"kind": "query", "query": "sitagliptin add-on therapy insulin-treated HbA1c 7 RCT"},
+  {"kind": "query", "query": "DPP-4 inhibitors cardiovascular safety TECOS trial"},
   
   # 反証クエリ（limitations, criticisms）
-  "DPP-4 inhibitors limitations systematic review",
-  "DPP-4 inhibitors vs GLP-1 agonists comparison disadvantages",
-  "DPP-4 inhibitors hypoglycemia risk concerns",
-  "DPP-4 inhibitors pancreatitis risk FDA warning",
+  {"kind": "query", "query": "DPP-4 inhibitors limitations systematic review"},
+  {"kind": "query", "query": "DPP-4 inhibitors vs GLP-1 agonists comparison disadvantages"},
+  {"kind": "query", "query": "DPP-4 inhibitors hypoglycemia risk concerns"},
+  {"kind": "query", "query": "DPP-4 inhibitors pancreatitis risk FDA warning"},
   
   # 一次資料（regulatory）
-  "FDA DPP-4 inhibitors approval label sitagliptin",
-  "EMA DPP-4 inhibitors EPAR assessment"
+  {"kind": "query", "query": "FDA DPP-4 inhibitors approval label sitagliptin"},
+  {"kind": "query", "query": "EMA DPP-4 inhibitors EPAR assessment"}
 ])
 ```
 
@@ -187,7 +187,7 @@ get_status(task_id)
 
 **自動クロスソース検証（VERIFY_NLI）**
 
-各 `search_queue` ジョブの完了後、Lyraは自動的に `VERIFY_NLI` ジョブをenqueueし、以下を実行:
+各 `target_queue` ジョブの完了後、Lyraは自動的に `VERIFY_NLI` ジョブをenqueueし、以下を実行:
 
 1. 新規Claimに対してベクトル検索で類似Fragmentを候補化
 2. Claimの出典ドメイン（origin）は除外（自己参照なし）
@@ -215,7 +215,7 @@ Cursor AIが `query_sql`/`vector_search` で取得した素材を統合してレ
 stop_task(task_id, reason="session_completed")
 ```
 
-Note: タスクは `paused` 状態になり、同じ `task_id` で `queue_searches` を呼び出すことで再開可能。
+Note: タスクは `paused` 状態になり、同じ `task_id` で `queue_targets` を呼び出すことで再開可能。
 
 #### 2.2.3 商用ツールの実行手順
 

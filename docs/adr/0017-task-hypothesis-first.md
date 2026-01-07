@@ -38,7 +38,7 @@ This conceptual ambiguity led to:
 | Term | Definition | Location |
 |------|------------|----------|
 | `task_hypothesis` | Central claim the task aims to verify (natural language) | `tasks.hypothesis` (DB), MCP tools |
-| `query_text` | Search string submitted to search engines | `queries.query_text` (DB), `queue_searches` |
+| `query_text` | Search string submitted to search engines | `queries.query_text` (DB), `queue_targets` |
 | `nli_hypothesis` | Hypothesis in NLI judgment (= `claim_text`) | ML server API, `nli_corrections` |
 
 ### Conceptual Model
@@ -46,8 +46,8 @@ This conceptual ambiguity led to:
 ```mermaid
 flowchart TD
     CreateTask["create_task(hypothesis)"]
-    QueueSearches["queue_searches(task_id, queries)"]
-    SearchQueue[(search_queue_jobs)]
+    QueueTargets["queue_targets(task_id, targets)"]
+    TargetQueue[(target_queue_jobs)]
     Pages[(pages)]
     ExtractClaims["LLM extract_claims"]
     Claims[(claims)]
@@ -58,10 +58,10 @@ flowchart TD
     VectorSearch["vector_search"]
     QueryView["query_view / query_sql"]
 
-    CreateTask -->|"returns task_id"| QueueSearches
-    QueueSearches --> SearchQueue
-    SearchQueue --> Pages
-    SearchQueue --> ExtractClaims
+    CreateTask -->|"returns task_id"| QueueTargets
+    QueueTargets --> TargetQueue
+    TargetQueue --> Pages
+    TargetQueue --> ExtractClaims
     Pages -->|"academic papers"| CitationGraph
     CitationGraph -->|"CITES"| Edges
     ExtractClaims -->|"context: task.hypothesis"| Claims
@@ -77,7 +77,7 @@ flowchart TD
 
 1. **Task Creation**: `create_task(hypothesis="DPP-4 inhibitors improve HbA1c in diabetics")`
 2. **Query Design**: MCP client designs search queries to find supporting/refuting evidence
-3. **Search Execution**: `queue_searches(task_id, queries=["DPP-4 inhibitors meta-analysis", ...])`
+3. **Target Execution**: `queue_targets(task_id, targets=["DPP-4 inhibitors meta-analysis", ...])`
 4. **Claim Extraction**: LLM extracts claims using `task_hypothesis` as context (focus)
 5. **Citation Graph**: Academic papers trigger `CITATION_GRAPH` job to build CITES edges
 6. **NLI Verification**: `premise=fragment.text`, `nli_hypothesis=claim.claim_text`
@@ -110,7 +110,7 @@ flowchart TD
 
 - [ADR-0002: Three-Layer Collaboration Model](0002-three-layer-collaboration-model.md) - Updated `create_task` field name
 - [ADR-0005: Evidence Graph Structure](0005-evidence-graph-structure.md) - Updated NLI terminology
-- [ADR-0010: Async Search Queue](0010-async-search-queue.md) - Updated task/query relationship
+- [ADR-0010: Async Target Queue](0010-async-search-queue.md) - Updated task/query relationship
 - [ADR-0012: Feedback Tool Design](0012-feedback-tool-design.md) - Updated `nli_corrections` schema
 - `docs/debug/hypothesis-first-integration.md` - Integration design details
 

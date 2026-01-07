@@ -1,4 +1,4 @@
-# ADR-0010: Async Search Queue Architecture
+# ADR-0010: Async Target Queue Architecture
 
 ## Date
 2025-12-10 (Updated: 2026-01-05)
@@ -34,7 +34,7 @@ Synchronous processing results in:
 
 - The queue worker is started when the MCP server starts (`run_server()` startup).
 - The queue worker is stopped (cancelled) when the MCP server shuts down (`run_server()` shutdown).
-- Number of workers is configurable via `concurrency.search_queue.num_workers` (default: 2).
+- Number of workers is configurable via `concurrency.target_queue.num_workers` (default: 2).
 
 ### Architecture
 
@@ -48,7 +48,7 @@ sequenceDiagram
     participant DB as jobs table
     participant W as Worker<br/>(coroutine)
 
-    C->>M: queue_searches([q1, q2, q3])
+    C->>M: queue_targets([q1, q2, q3])
     M->>DB: INSERT jobs (state=queued)
     M-->>C: {ok: true, queued: 3}
 
@@ -74,19 +74,25 @@ sequenceDiagram
 
 ### MCP Tool Design
 
-#### queue_searches
+#### queue_targets
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `task_id` | string | Task identifier |
-| `queries` | string[] | Search queries to execute |
+| `targets` | string[] | Search queries OR URLs to process |
 | `options.priority` | enum | `high` / `medium` / `low` (scheduling priority) |
-| `options.budget_pages` | int | Max pages per query |
+| `options.budget_pages` | int | Max pages per query (for query targets) |
+| `options.serp_engines` | string[] | SERP engines: `duckduckgo`, `mojeek`, `google`, `brave`, `ecosia`, `startpage`, `bing`. Omit for auto-selection. |
+| `options.academic_apis` | string[] | Academic APIs: `semantic_scholar`, `openalex`. Omit for default (both). |
+
+**Target types**:
+- **Query**: Plain text search query (processed through SERP + crawl + extract pipeline)
+- **URL**: Direct URL starting with `http://` or `https://` (processed through fetch + extract pipeline)
 
 **Behavior**:
-- Returns immediately with `{ok, queued_count, search_ids}`
-- Duplicate queries (same task, queued/running) are auto-skipped
-- Jobs stored in `jobs` table with `kind='search_queue'`
+- Returns immediately with `{ok, queued_count, target_ids}`
+- Duplicate targets (same task, queued/running) are auto-skipped
+- Jobs stored in `jobs` table with `kind='target_queue'`
 
 #### get_status (wait / long polling)
 
@@ -142,7 +148,7 @@ sequenceDiagram
 - Prevents duplicate processing of the same job
 
 **Cancellation Support**:
-- Running jobs are tracked by `SearchQueueWorkerManager`
+- Running jobs are tracked by `TargetQueueWorkerManager`
 - `stop_task(mode=immediate)` can cancel in-flight jobs via `asyncio.Task.cancel()`
 
 ### Error Handling
@@ -188,25 +194,25 @@ sequenceDiagram
 
 ### Storage Policy
 
-- Queue items persist in `jobs` table with `kind = 'search_queue'`
+- Queue items persist in `jobs` table with `kind = 'target_queue'`
 - Completed items store full result JSON for auditability
 
-### Job Chaining: search_queue → VERIFY_NLI / CITATION_GRAPH
+### Job Chaining: target_queue → VERIFY_NLI / CITATION_GRAPH
 
-Follow-up jobs are enqueued at different points in the search lifecycle:
+Follow-up jobs are enqueued at different points in the target processing lifecycle:
 
 ```mermaid
 flowchart TD
-    SQ_START["search_queue<br/>(running)"]
-    PIPE["SearchPipeline.execute()"]
+    TQ_START["target_queue<br/>(running)"]
+    PIPE["Pipeline.execute()"]
     ACAD["Academic paper processing"]
-    SQ_END["search_queue<br/>(completed)"]
+    TQ_END["target_queue<br/>(completed)"]
 
-    SQ_START --> PIPE
+    TQ_START --> PIPE
     PIPE --> ACAD
     ACAD -->|"enqueue during pipeline"| CG
-    ACAD --> SQ_END
-    SQ_END -->|"enqueue after completion"| NLI
+    ACAD --> TQ_END
+    TQ_END -->|"enqueue after completion"| NLI
 
     subgraph CG["CITATION_GRAPH (priority=50, slot=CPU_NLP)"]
         C1[get_citation_graph for papers]
@@ -225,25 +231,25 @@ flowchart TD
 
 **Enqueue timing**:
 - `CITATION_GRAPH`: Enqueued **during** pipeline execution (after academic paper processing)
-- `VERIFY_NLI`: Enqueued **after** search_queue job completion (from search_worker)
+- `VERIFY_NLI`: Enqueued **after** target_queue job completion (from target_worker)
 
 **Key behaviors**:
 - Both jobs run on `CPU_NLP` slot (up to 8 parallel, don't block browser/network)
 - `VERIFY_NLI`: Candidate fragments exclude claim's origin domain (no self-referencing)
 - `CITATION_GRAPH`: Uses separate budget (`citation_graph_budget_pages`) per ADR-0015
 - Duplicate `(fragment_id, claim_id)` pairs are skipped (DB unique index + application check)
-- If follow-up jobs fail, the `search_queue` result is unaffected (fire-and-forget)
+- If follow-up jobs fail, the `target_queue` result is unaffected (fire-and-forget)
 
 **Task status interactions**:
 - `paused` tasks: Already-enqueued `VERIFY_NLI` and `CITATION_GRAPH` jobs will complete
-- `stop_task(scope=search_queue_only)`: Does NOT cancel `VERIFY_NLI` or `CITATION_GRAPH` jobs
-- `stop_task(scope=all_jobs)`: Cancels all pending jobs including `VERIFY_NLI` and `CITATION_GRAPH`
-- Resuming a task with `queue_searches`: New searches may trigger additional follow-up jobs
+- `stop_task(scope=all_jobs)` (default): Cancels all pending jobs including `VERIFY_NLI` and `CITATION_GRAPH`
+- `stop_task(scope=target_queue_only)`: Does NOT cancel `VERIFY_NLI` or `CITATION_GRAPH` jobs
+- Resuming a task with `queue_targets`: New searches may trigger additional follow-up jobs
 
-### Query Deduplication
+### Target Deduplication
 
-- `queue_searches` checks for existing `queued`/`running` jobs with same query before inserting
-- Prevents redundant work from parallel workers discovering same query
+- `queue_targets` checks for existing `queued`/`running` jobs with same target before inserting
+- Prevents redundant work from parallel workers discovering same query or URL
 
 ### stop_task Semantics
 
@@ -253,10 +259,10 @@ flowchart TD
 
 | Scope | Cancelled Job Kinds | Unaffected Job Kinds |
 |-------|---------------------|---------------------|
-| `search_queue_only` (default) | `search_queue` | `verify_nli`, `citation_graph`, `embed`, `nli` |
-| `all_jobs` | All kinds for this task | None |
+| `all_jobs` (default) | All kinds for this task | None |
+| `target_queue_only` | `target_queue` | `verify_nli`, `citation_graph`, `embed`, `nli` |
 
-**Rationale**: By default, stopping a task stops only the search pipeline. Verification and citation graph jobs, which process already-collected data, are allowed to complete. This provides better data consistency and avoids wasted work.
+**Rationale**: By default, stopping a task cancels all job kinds to ensure "stop means stop". Use `target_queue_only` if you want verification and citation graph jobs to complete while only stopping new target processing.
 
 #### Mode Behavior
 
@@ -269,7 +275,7 @@ flowchart TD
 **Note**: Mode applies only to job kinds within the specified `scope`.
 
 **DB Impact on stop_task**:
-- `tasks.status` → `paused` (task is resumable; can call queue_searches again)
+- `tasks.status` → `paused` (task is resumable; can call queue_targets again)
 - `jobs.state` → `cancelled` for jobs within scope (queued jobs in all modes, running jobs in immediate/full modes)
 - `intervention_queue.status` → `cancelled` for pending auth items (always cancelled)
 - Claims/fragments already persisted remain in DB for query_sql/vector_search
@@ -303,5 +309,5 @@ flowchart TD
 
 - [ADR-0013: Worker Resource Contention](0013-worker-resource-contention.md) - Academic API resource control
 - [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - TabPool for browser SERP
-- `src/scheduler/search_worker.py` - Worker implementation
+- `src/scheduler/target_worker.py` - Worker implementation
 - `src/mcp/server.py` - MCP tool definitions

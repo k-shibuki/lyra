@@ -103,6 +103,30 @@ make mcp-logs-grep PATTERN="error"   # Search
 
 ---
 
+## Job Scheduler Semantics
+
+### Restart behavior (fail_all policy)
+
+- On MCP server startup, **all `queued`/`running` jobs are reset to `failed`** with `error_message='server_restart_reset'`.
+- Jobs do NOT auto-resume after restart. This is intentional to prevent "zombie" jobs.
+- To continue work after restart: re-submit targets via `queue_targets` or `queue_reference_candidates`.
+
+### stop_task behavior
+
+- **Default scope changed to `all_jobs`**: All job kinds are cancelled by default (not just `target_queue`).
+- Use `scope="target_queue_only"` if you want `verify_nli`/`citation_graph` to complete.
+- DB is the sole source of truth; in-memory queues are not used.
+
+### Resuming work
+
+Tasks are always resumable. To continue after `stop_task` or restart:
+
+1. Call `queue_targets` or `queue_reference_candidates` with the same `task_id`
+2. Same queries/URLs/DOIs are allowed (no duplicate blocking for previously failed/cancelled)
+3. Check `get_status(task_id=...)` for current state
+
+---
+
 ## Phase-specific debugging
 
 | Phase | Goal | Check |

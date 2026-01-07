@@ -15,7 +15,8 @@ Build an evidence graph iteratively using Lyra MCP tools, then synthesize a trac
 ## Available Tools
 
 ### Lyra MCP Tools (evidence collection)
-- **Core**: `create_task`, `queue_searches`, `get_status`, `stop_task`
+- **Core**: `create_task`, `queue_targets`, `get_status`, `stop_task`
+- **Citation Chasing**: `queue_reference_candidates` (explicit control over which references to fetch)
 - **Explore**: `vector_search`, `query_view`, `query_sql`, `list_views`
 - **Auth**: `get_auth_queue`, `resolve_auth`
 - **Admin**: `feedback`, `calibration_metrics`, `calibration_rollback`
@@ -57,7 +58,7 @@ This command operationalizes a 3-layer collaboration model:
 |------|------------|
 | `task_id` | Unique identifier for a task; hypothesis is fixed at creation |
 | `hypothesis` | Central claim bound to task_id; immutable after `create_task(hypothesis=...)` |
-| `query` / `queries` | Search strings submitted via `queue_searches(...)` — **this is what you optimize** |
+| `target` | A query or URL object submitted via `queue_targets(...)` — **this is what you optimize** |
 | `claim` | Extracted assertion stored in Lyra's evidence graph |
 
 ### Bayesian confidence (`bayesian_truth_confidence`)
@@ -88,8 +89,15 @@ You may use **multiple tasks** in a single research session. Useful patterns:
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │  Search Phase 2: Evidence (Lyra)                                │
-│  → Start with 1 query → review results → design full query set  │
-│  → Full deployment → wait for all queries to complete           │
+│  → Start with 1 query → review results → design full target set │
+│  → Full deployment → wait for all targets to complete           │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Search Phase 2.5: Citation Chasing (Optional)                  │
+│  → Query v_reference_candidates for unfetched citations         │
+│  → Select relevant references → queue URLs via queue_targets    │
+│  → Wait for completion → repeat if new references appear        │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -100,7 +108,7 @@ You may use **multiple tasks** in a single research session. Useful patterns:
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │  Report                                                         │
-│  → Cite ONLY Phase 2 evidence                                   │
+│  → Cite ONLY Phase 2/2.5 evidence                               │
 │  → Phase 3 info adds context/detail only                        │
 │  → stop_task                                                    │
 └─────────────────────────────────────────────────────────────────┘
@@ -162,8 +170,8 @@ Use **web search** (non-MCP tool) to:
 Start with **one query** to calibrate:
 
 ```
-queue_searches(task_id=task_id, queries=[
-  "{initial_query_from_phase_1}"
+queue_targets(task_id=task_id, targets=[
+  {"kind": "query", "query": "{initial_query_from_phase_1}"}
 ])
 
 get_status(task_id=task_id, wait=60)
@@ -174,9 +182,9 @@ Review results:
 - Check `metrics.total_claims` — are claims being extracted?
 - Use `query_view(view_name="v_claim_evidence_summary", task_id=task_id)` to inspect quality
 
-### 2.2 Design Full Query Set
+### 2.2 Design Full Target Set
 
-Based on initial results, design a comprehensive query set:
+Based on initial results, design a comprehensive target set:
 
 **Required query categories** (ensure coverage):
 1. **Core evidence**: `{core_concept} meta-analysis`, `{core_concept} systematic review`
@@ -185,7 +193,7 @@ Based on initial results, design a comprehensive query set:
 4. **Alternative perspectives**: `{alternative_viewpoint}`, `{competing_hypothesis}`
 5. **Gap-filling**: Specific queries addressing gaps from Phase 2.1
 
-**Before deploying, validate the query set**:
+**Before deploying, validate the target set**:
 - Does it cover both supporting AND refuting angles?
 - Are there obvious gaps given the hypothesis?
 - Is each query distinct (minimal overlap)?
@@ -193,24 +201,26 @@ Based on initial results, design a comprehensive query set:
 If validation reveals gaps, add queries. If queries seem redundant, consolidate.
 
 ```
-queue_searches(task_id=task_id, queries=[
-  "{query_1}",
-  "{query_2}",
+queue_targets(task_id=task_id, targets=[
+  {"kind": "query", "query": "{query_1}"},
+  {"kind": "query", "query": "{query_2}"},
   ...
 ])
 ```
 
+**Note**: `targets` can be search queries (strings) or direct URLs (starting with `http://` or `https://`).
+
 ### 2.3 Full Deployment & Wait
 
-Wait for all queries to complete:
+Wait for all targets to complete:
 
 ```
 get_status(task_id=task_id, wait=180) # wait: adjust 30-300 as needed
 ```
 
 Monitor progress:
-- `searches[].satisfaction_score` — 0.7+ indicates good coverage
-- `searches[].harvest_rate` — ratio of useful fragments
+- `targets[].satisfaction_score` — 0.7+ indicates good coverage
+- `targets[].harvest_rate` — ratio of useful fragments
 - `budget.remaining_percent` — resource usage
 
 **If auth blocked**: 
@@ -224,7 +234,7 @@ Other domains continue while one is blocked—don't stop prematurely.
 
 ### 2.4 Review Evidence Graph
 
-Once all queries complete, analyze the collected evidence:
+Once all targets complete, analyze the collected evidence:
 
 ```
 query_view(view_name="v_claim_evidence_summary", task_id=task_id)
@@ -232,7 +242,101 @@ query_view(view_name="v_contradictions", task_id=task_id)
 query_view(view_name="v_unsupported_claims", task_id=task_id)
 ```
 
-This review informs Phase 3 exploration — proceed to Phase 3.
+This review informs Phase 2.5 (Citation Chasing) and Phase 3 exploration.
+
+---
+
+## Search Phase 2.5: Citation Chasing (Optional)
+
+**Goal**: Acquire important references found in the References sections of fetched pages.
+
+Citation Chasing is useful when:
+- Meta-analyses and systematic reviews reference key primary studies
+- Important papers are mentioned but not yet in the evidence graph
+- You want deeper coverage of the citation network
+
+### 2.5.1 Check Readiness
+
+Before querying reference candidates, ensure the citation graph is stable:
+
+```
+get_status(task_id=task_id, wait=0)
+→ check milestones.citation_candidates_stable == true
+```
+
+If `citation_candidates_stable: false`, wait for `blockers` to clear:
+- `target_queue` — searches still running
+- `citation_graph` — citation graph jobs still processing
+- `pending_auth` — auth items blocking fetches
+
+### 2.5.2 Query Reference Candidates
+
+Check for unfetched citations:
+
+```
+query_view(view_name="v_reference_candidates", task_id=task_id, limit=20)
+```
+
+This returns pages cited by task's pages but not yet processed for this task:
+- `citation_edge_id` — ID for explicit selection
+- `candidate_url` — URL to fetch
+- `candidate_domain` — Domain of the candidate
+- `citation_context` — Text context where citation was found
+- `citing_page_url` — Page that cited this reference
+
+### 2.5.3 Select and Queue References
+
+**Option A: Using `queue_reference_candidates` (recommended)**
+
+Explicit control with minimal effort:
+
+```
+# Whitelist mode: only fetch these specific candidates
+queue_reference_candidates(task_id=task_id, include_ids=["edge_id_1", "edge_id_2"])
+
+# Blacklist mode: fetch all EXCEPT these
+queue_reference_candidates(task_id=task_id, exclude_ids=["edge_id_3"])
+
+# Dry run to preview
+queue_reference_candidates(task_id=task_id, limit=10, dry_run=true)
+```
+
+DOI URLs are automatically routed to Academic API for faster abstract-only ingestion.
+
+**Option B: Using `queue_targets` directly**
+
+For fine-grained control or mixed target types:
+
+```
+queue_targets(task_id=task_id, targets=[
+  {"kind": "url", "url": "https://example.com/paper1", "reason": "citation_chase"},
+  {"kind": "doi", "doi": "10.1234/example", "reason": "citation_chase"},
+  ...
+])
+```
+
+**Selection criteria**:
+- Prioritize primary studies and meta-analyses
+- Focus on papers from authoritative domains (pubmed.ncbi, doi.org, arxiv.org)
+- Consider citation context — is this likely relevant to your hypothesis?
+- Use DOI fast path (`kind: "doi"`) when DOI is known for faster ingestion
+
+### 2.5.4 Wait and Iterate
+
+```
+get_status(task_id=task_id, wait=120)
+→ wait until milestones.citation_candidates_stable == true
+```
+
+After completion, check for new reference candidates:
+```
+query_view(view_name="v_reference_candidates", task_id=task_id, limit=20)
+```
+
+**Iteration decision**:
+- If high-quality new candidates appear → repeat 2.5.2-2.5.3
+- If candidates are diminishing returns → proceed to Phase 3
+- Budget consideration: each URL/DOI costs budget_pages
 
 ---
 
@@ -388,6 +492,12 @@ Output path: `docs/reports/{YYYYMMDD_HHMMSS}.md`
 stop_task(task_id=task_id, reason="session_completed")
 ```
 
+**Note on `stop_task`**:
+- Default `scope="all_jobs"` cancels all job kinds (target_queue, verify_nli, citation_graph, etc.)
+- Use `scope="target_queue_only"` if you want background jobs (NLI verification, citation graph) to complete
+- Tasks are always resumable: call `queue_targets` on the same `task_id` to continue
+- After server restart, jobs are reset to `failed` and won't auto-resume
+
 ---
 
 ## Principles
@@ -427,6 +537,7 @@ Use `list_views()` to discover available views. Key views:
 - `v_citation_flow` — page-to-page citation relationships
 - `v_citation_chains` — A→B→C citation paths
 - `v_bibliographic_coupling` — papers citing same sources
+- `v_reference_candidates` — unfetched citations for Citation Chasing (requires task_id)
 
 ### Auth Handling (CAPTCHA / Login)
 

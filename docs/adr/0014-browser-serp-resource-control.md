@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0010 specifies that `SearchQueueWorker` processes searches with 2 parallel workers. Browser SERP fetching has the following **local resource contention**:
+ADR-0010 specifies that `TargetQueueWorker` processes targets with 2 parallel workers. Browser SERP fetching has the following **local resource contention**:
 
 | Resource | Constraint | Reason |
 |----------|------------|--------|

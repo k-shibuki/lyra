@@ -140,8 +140,38 @@ Citation graph processing is separated into a distinct job type with its own bud
 
 **Key behaviors**:
 - Citation graph does NOT consume search page budget
-- Graceful stop (default) does NOT cancel citation graph jobs
-- Already-enqueued citation graph jobs complete even after task is paused
+- Default `stop_task(scope=all_jobs)` DOES cancel citation graph jobs; use `scope=target_queue_only` to allow completion
+- Already-enqueued citation graph jobs complete even after task is paused (if not cancelled)
+
+### Citation Chasing (User-Controlled)
+
+Beyond automatic citation graph building, MCP clients can explicitly chase references:
+
+```mermaid
+flowchart LR
+    A["query_view<br/>(v_reference_candidates)"] --> B{"Select<br/>candidates"}
+    B --> C["queue_reference_candidates<br/>(include_ids/exclude_ids)"]
+    C --> D["target_queue<br/>processing"]
+    D --> E["New pages<br/>+ claims"]
+    E -.->|"repeat"| A
+```
+
+**Workflow**:
+1. Query `v_reference_candidates` view to see unfetched citations for the task
+2. Use `queue_reference_candidates` tool with explicit control:
+   - `include_ids`: Whitelist mode — only queue specified candidates
+   - `exclude_ids`: Blacklist mode — queue all EXCEPT specified candidates
+   - `dry_run`: Preview without enqueuing
+3. DOI fast path: URLs containing DOI are automatically routed to Academic API for abstract-only ingestion
+
+**`v_reference_candidates` semantics**:
+- Returns pages that are **cited by task's pages** but have **no claims extracted for this task**
+- Includes both placeholder pages (never fetched) and pages fetched for other tasks
+- Requires `task_id` parameter for task-scoping
+
+**DOI fast path via `queue_targets`**:
+- `kind='doi'` targets use Academic API (Semantic Scholar/OpenAlex) without web fetch
+- Faster and more reliable for academic papers with known DOI
 
 ## Related
 

@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0010 specifies that `SearchQueueWorker` processes searches with 2 parallel workers. However, resources used internally by search processing have **different concurrency constraints**:
+ADR-0010 specifies that `TargetQueueWorker` processes targets with 2 parallel workers. However, resources used internally by search processing have **different concurrency constraints**:
 
 | Resource | Constraint | Reason | Related ADR |
 |----------|------------|--------|-------------|

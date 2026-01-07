@@ -170,7 +170,7 @@ graph TB
 
 **Implementation note**:
 - `ORIGIN` is persisted to DB when a claim is extracted from a fragment. It tracks provenance (where did this claim come from?), NOT whether the claim is true. Origin edges have `nli_label=NULL` and `nli_edge_confidence=NULL` since no NLI judgment is performed.
-- `SUPPORTS/REFUTES/NEUTRAL` are created when a *different* source is found that relates to the claim. These edges carry NLI model output (`nli_hypothesis=claim_text`, per ADR-0017). **Automatic creation**: When a `search_queue` job completes, Lyra automatically enqueues a `VERIFY_NLI` job that:
+- `SUPPORTS/REFUTES/NEUTRAL` are created when a *different* source is found that relates to the claim. These edges carry NLI model output (`nli_hypothesis=claim_text`, per ADR-0017). **Automatic creation**: When a `target_queue` job completes, Lyra automatically enqueues a `VERIFY_NLI` job that:
   1. Uses vector search to find candidate fragments from other domains
   2. Excludes fragments from the claim's origin domain (no self-referencing)
   3. Runs NLI to determine stance
@@ -207,7 +207,7 @@ Current implementation uses **Beta distribution updating** (conjugate prior) wit
 - For a claim, all incoming evidence edges of type `supports/refutes/neutral` are collected.
 - Only `supports/refutes` update the posterior; `neutral` is treated as "no information".
 - **`origin` edges are NOT used in Bayesian update** - they track provenance only. A newly extracted claim starts at `bayesian_truth_confidence = 0.5` (uninformative prior) until cross-source evidence is found.
-- **Automatic verification**: After each `search_queue` completion, a `VERIFY_NLI` job runs to find cross-source evidence. This is when `bayesian_truth_confidence` begins to diverge from 0.5.
+- **Automatic verification**: After each `target_queue` completion, a `VERIFY_NLI` job runs to find cross-source evidence. This is when `bayesian_truth_confidence` begins to diverge from 0.5.
 
 Implementation-equivalent formulation:
 

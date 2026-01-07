@@ -1,6 +1,6 @@
 # MCP Tools Reference
 
-Lyra exposes 13 tools via MCP (Model Context Protocol).
+Lyra exposes 14 tools via MCP (Model Context Protocol).
 
 **Schema locations:**
 - Input schemas: `src/mcp/server.py` (`TOOLS` array)
@@ -9,15 +9,15 @@ Lyra exposes 13 tools via MCP (Model Context Protocol).
 ## Typical Workflow
 
 ```
-create_task → queue_searches → get_status(wait=180) → vector_search/query_view → stop_task
+create_task → queue_targets → get_status(wait=180) → vector_search/query_view → stop_task
 ```
 
 ### Job Chaining (Automatic)
 
-When `search_queue` jobs complete, Lyra automatically enqueues follow-up jobs:
+When `target_queue` jobs complete, Lyra automatically enqueues follow-up jobs:
 
 ```
-search_queue (completed)
+target_queue (completed)
     ├──► VERIFY_NLI (cross-source NLI verification)
     └──► CITATION_GRAPH (academic citation expansion)
 ```
@@ -43,8 +43,9 @@ Key fields in the response:
 | `status` | Task status: `created`, `exploring`, `paused`, `failed` |
 | `searches` | Per-search progress (satisfaction_score, harvest_rate) |
 | `metrics` | Totals: total_searches, total_pages, total_fragments, total_claims |
-| `jobs` | Job summary by kind (search_queue, verify_nli, citation_graph) |
+| `jobs` | Job summary by kind (target_queue, verify_nli, citation_graph) |
 | `budget` | Budget usage and remaining percent |
+| `milestones` | AI UX flags: `citation_candidates_stable`, `nli_results_stable`, `blockers` |
 
 #### stop_task Parameters
 
@@ -52,15 +53,16 @@ Key fields in the response:
 |-----------|--------|-------------|
 | `reason` | `session_completed` (default), `budget_exhausted`, `user_cancelled` | Why stopping |
 | `mode` | `graceful` (default), `immediate`, `full` | How to stop running jobs |
-| `scope` | `search_queue_only` (default), `all_jobs` | Which job kinds to cancel |
+| `scope` | `all_jobs` (default), `target_queue_only` | Which job kinds to cancel |
 
-**Task Resumability**: After `stop_task`, task status becomes `paused` (not deleted). Call `queue_searches` with the same `task_id` to resume.
+**Task Resumability**: After `stop_task`, task status becomes `paused` (not deleted). Call `queue_targets` with the same `task_id` to resume.
 
-### Search
+### Target Queue
 
 | Tool | Description |
 |------|-------------|
-| `queue_searches` | Queue multiple queries for parallel background execution |
+| `queue_targets` | Queue targets (query/url/doi) for parallel execution. Supports `kind='query'` (search), `kind='url'` (direct fetch), `kind='doi'` (Academic API fast path). |
+| `queue_reference_candidates` | Queue citation candidates from `v_reference_candidates` view. Supports whitelist (`include_ids`) or blacklist (`exclude_ids`) mode. Auto-extracts DOI from URLs for fast path. |
 
 ### Evidence Exploration
 
@@ -68,10 +70,10 @@ Key fields in the response:
 |------|-------------|
 | `query_sql` | Execute read-only SQL against Evidence Graph |
 | `vector_search` | Semantic similarity search over fragments/claims |
-| `query_view` | Execute predefined SQL view template (19 views available) |
+| `query_view` | Execute predefined SQL view template (20 views available) |
 | `list_views` | List available view templates |
 
-#### Key Views (19 available, use `list_views` for full list)
+#### Key Views (20 available, use `list_views` for full list)
 
 **Claim Analysis:**
 | View | Description |
@@ -97,6 +99,7 @@ Key fields in the response:
 **Citation Graph:**
 | View | Description |
 |------|-------------|
+| `v_reference_candidates` | Unfetched citation candidates for Citation Chasing (requires `task_id`) |
 | `v_hub_pages` | High-connectivity citation hubs (deprecated; absorbed by `v_source_impact`) |
 | `v_citation_flow` | Citation relationships between pages |
 | `v_bibliographic_coupling` | Papers sharing common references |
@@ -127,7 +130,7 @@ Key fields in the response:
 - [ADR-0002: Three-Layer Collaboration Model](adr/0002-three-layer-collaboration-model.md) - Three-layer collaboration
 - [ADR-0005: Evidence Graph Structure](adr/0005-evidence-graph-structure.md) - Bayesian confidence, edge types
 - [ADR-0007: Human-in-the-Loop Authentication](adr/0007-human-in-the-loop-auth.md) - CAPTCHA handling, auth queue
-- [ADR-0010: Async Search Queue Architecture](adr/0010-async-search-queue.md) - Job chaining, stop_task scope
+- [ADR-0010: Async Target Queue Architecture](adr/0010-async-search-queue.md) - Job chaining, stop_task scope
 - [ADR-0012: Feedback Tool Design](adr/0012-feedback-tool-design.md) - 3 levels, 6 actions
 - [ADR-0015: Unified Search Sources](adr/0015-unified-search-sources.md) - Web fetch priority, citation graph
 - [ADR-0016: Ranking Simplification](adr/0016-ranking-simplification.md) - Evidence Graph exploration interface

@@ -97,8 +97,8 @@ Exploration proceeds in an MCP client-driven loop:
 
 2. MCP Client: Designs search queries (this judgment is MCP client only)
 
-3. queue_searches(task_id, queries)
-   └─ Lyra: Queues searches, returns immediately (ADR-0010)
+3. queue_targets(task_id, targets)
+   └─ Lyra: Queues targets (queries or URLs), returns immediately (ADR-0010)
 
 4. get_status(task_id)
    └─ Lyra: Returns metrics only (no recommendations)
@@ -108,7 +108,7 @@ Exploration proceeds in an MCP client-driven loop:
 
 5. MCP Client: Evaluates situation, designs next query (repeats 3-4)
 
-6. queue_searches(task_id, queries_for_refutation)
+6. queue_targets(task_id, targets_for_refutation)
    └─ Lyra: Queues refutation searches
 
 7. stop_task(task_id)

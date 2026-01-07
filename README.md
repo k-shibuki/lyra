@@ -58,6 +58,7 @@ Each task defines a central hypothesis to verify ([ADR-0017](docs/adr/0017-task-
 - 🔍 **Multi-source Search**: Academic APIs (Semantic Scholar, OpenAlex) + web engines ([ADR-0015](docs/adr/0015-unified-search-sources.md))
 - 🧠 **Evidence Extraction**: LLM claim extraction with NLI stance detection ([ADR-0004](docs/adr/0004-local-llm-extraction-only.md))
 - 📊 **Evidence Graph**: SQLite-backed with Bayesian confidence ([ADR-0005](docs/adr/0005-evidence-graph-structure.md))
+- 📚 **Citation Chasing**: Expand evidence by selectively queuing unfetched references via `v_reference_candidates` view ([ADR-0015](docs/adr/0015-unified-search-sources.md))
 - 🔒 **Network Isolation**: ML containers have no internet access ([ADR-0006](docs/adr/0006-eight-layer-security-model.md))
 - 🔄 **Human-in-the-Loop**: CAPTCHA handling and feedback-driven improvement ([ADR-0007](docs/adr/0007-human-in-the-loop-auth.md))
 
@@ -234,11 +235,11 @@ For programmatic access or custom workflows:
 # 1. Create task
 task = create_task(hypothesis="DPP-4 inhibitors improve HbA1c in type 2 diabetes")
 
-# 2. Queue searches (async execution)
-queue_searches(task_id=task.task_id, queries=[
-    "DPP-4 inhibitors efficacy meta-analysis",
-    "DPP-4 inhibitors cardiovascular safety",
-    "DPP-4 inhibitors limitations"  # Include refutation queries
+# 2. Queue targets (async execution)
+queue_targets(task_id=task.task_id, targets=[
+    {"kind": "query", "query": "DPP-4 inhibitors efficacy meta-analysis"},
+    {"kind": "query", "query": "DPP-4 inhibitors cardiovascular safety"},
+    {"kind": "query", "query": "DPP-4 inhibitors limitations"},  # Include refutation queries
 ])
 
 # 3. Monitor progress
@@ -258,7 +259,7 @@ feedback(action="edge_correct", edge_id="...", correct_relation="supports")
 | Category | Tools | Reference |
 |----------|-------|-----------|
 | Task Management | `create_task`, `get_status`, `stop_task` | [ADR-0010](docs/adr/0010-async-search-queue.md), [ADR-0017](docs/adr/0017-task-hypothesis-first.md) |
-| Search | `queue_searches` | [ADR-0010](docs/adr/0010-async-search-queue.md) |
+| Target Queue | `queue_targets` | [ADR-0010](docs/adr/0010-async-search-queue.md) |
 | Evidence Exploration | `query_sql`, `vector_search`, `query_view`, `list_views` | [ADR-0016](docs/adr/0016-ranking-simplification.md) |
 | Authentication | `get_auth_queue`, `resolve_auth` | [ADR-0007](docs/adr/0007-human-in-the-loop-auth.md) |
 | Feedback | `feedback` | [ADR-0012](docs/adr/0012-feedback-tool-design.md) |
