@@ -2,6 +2,11 @@
 # Test Run Command Handler
 #
 # Function for handling test.sh run command.
+#
+# Reliable Completion Detection:
+#   - Wraps pytest in a subshell that writes exit_file and done_file on completion
+#   - The wrapper subshell PID is saved to pid_file
+#   - check.sh uses done_file as primary completion signal (not PID detection)
 
 cmd_run() {
     local runtime
@@ -12,10 +17,11 @@ cmd_run() {
     run_id=$(generate_run_id)
     mkdir -p "$TEST_RESULT_DIR"
 
-    local result_file
-    local pid_file
+    local result_file pid_file done_file exit_file
     result_file=$(get_result_file "$run_id")
     pid_file=$(get_pid_file "$run_id")
+    done_file=$(get_done_file "$run_id")
+    exit_file=$(get_exit_file "$run_id")
 
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
         echo "=== Cleanup ==="
@@ -41,8 +47,19 @@ cmd_run() {
     fi
 
     # Get appropriate markers for this environment
-    local markers
-    markers=$(get_pytest_markers 2>/dev/null)
+    # Skip if PYTEST_ARGS already contains -m (user-specified marker expression)
+    local has_marker_arg=false
+    for arg in "${PYTEST_ARGS[@]}"; do
+        if [[ "$arg" == "-m" ]]; then
+            has_marker_arg=true
+            break
+        fi
+    done
+
+    local markers=""
+    if [[ "$has_marker_arg" == "false" ]]; then
+        markers=$(get_pytest_markers 2>/dev/null)
+    fi
 
     # Build pytest command args (no eval; allow multiple args)
     local pytest_cmd=()
@@ -62,17 +79,32 @@ cmd_run() {
         pytest_cmd=("uv" "run" "${pytest_cmd[@]}")
     fi
 
+    # Container tool for manifest (empty for venv)
+    local container_tool=""
+    local container_name=""
+
     if [[ "$runtime" == "container" ]]; then
+        container_tool="$(detect_container_tool)"
+        container_name="$CONTAINER_NAME_SELECTED"
+        
         local escaped
         escaped="$(printf "%q " "${pytest_cmd[@]}")"
         local export_env=""
         export_env+="export IS_CLOUD_AGENT=$(printf "%q" "${IS_CLOUD_AGENT}") ; "
         export_env+="export CLOUD_AGENT_TYPE=$(printf "%q" "${CLOUD_AGENT_TYPE}") ; "
         export_env+="export PYTHONPATH=/app:\\${PYTHONPATH:-} ; "
-        # Note: Use single quotes around '$!' to prevent host-side expansion
-        container_exec_sh 'mkdir -p "'"$TEST_RESULT_DIR"'" && cd /app && '"${export_env}"' PYTHONUNBUFFERED=1 '"${escaped}"' > "'"$result_file"'" 2>&1 & echo $! > "'"$pid_file"'"'
-        write_test_state "container" "$(detect_container_tool)" "$CONTAINER_NAME_SELECTED" "$result_file" "$pid_file" "$run_id"
+        
+        # Wrapper subshell: run pytest, then write exit code and done marker
+        # The subshell PID is saved to pid_file
+        # On completion (success or failure), exit_file and done_file are created
+        # shellcheck disable=SC2016  # Intentional: $_exit_code expands inside container
+        container_exec_sh 'mkdir -p "'"$TEST_RESULT_DIR"'" && cd /app && ( '"${export_env}"' PYTHONUNBUFFERED=1 '"${escaped}"' > "'"$result_file"'" 2>&1 ; _exit_code=$? ; echo $_exit_code > "'"$exit_file"'".tmp && mv "'"$exit_file"'".tmp "'"$exit_file"'" ; touch "'"$done_file"'" ) & echo $! > "'"$pid_file"'"'
+        
+        # Write both legacy state (for backward compat) and new manifest
+        write_test_state "container" "$container_tool" "$container_name" "$result_file" "$pid_file" "$run_id"
+        write_run_manifest "$run_id" "container" "$container_tool" "$container_name" "$result_file" "$pid_file" "$done_file" "$exit_file"
     else
+        # Venv execution with wrapper subshell for done/exit markers
         (
             # shellcheck source=/dev/null
             source "${VENV_DIR}/bin/activate"
@@ -84,12 +116,25 @@ cmd_run() {
             export LYRA_RUN_ML_API_TESTS="${LYRA_RUN_ML_API_TESTS:-0}"
             export LYRA_RUN_EXTRACTOR_TESTS="${LYRA_RUN_EXTRACTOR_TESTS:-0}"
 
-            PYTHONUNBUFFERED=1 "${pytest_cmd[@]}" >"$result_file" 2>&1 &
+            # Wrapper subshell: run pytest, then write exit code and done marker
+            (
+                PYTHONUNBUFFERED=1 "${pytest_cmd[@]}" >"$result_file" 2>&1
+                _exit_code=$?
+                # Atomic write: tmp -> mv
+                echo "$_exit_code" >"${exit_file}.tmp" && mv "${exit_file}.tmp" "$exit_file"
+                touch "$done_file"
+            ) &
             echo $! >"$pid_file"
         )
+        
+        # Write both legacy state (for backward compat) and new manifest
         write_test_state "venv" "" "" "$result_file" "$pid_file" "$run_id"
+        write_run_manifest "$run_id" "venv" "" "" "$result_file" "$pid_file" "$done_file" "$exit_file"
     fi
 
+    local manifest_file
+    manifest_file=$(get_manifest_file "$run_id")
+    
     if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
         cat <<EOF
 {
@@ -99,9 +144,12 @@ cmd_run() {
   "runtime": "${runtime}",
   "result_file": "${result_file}",
   "pid_file": "${pid_file}",
+  "done_file": "${done_file}",
+  "exit_file": "${exit_file}",
+  "manifest_file": "${manifest_file}",
   "check_command": "make test-check RUN_ID=${run_id}",
   "markers": "${markers}",
-  "container_name": "${CONTAINER_NAME_SELECTED:-}"
+  "container_name": "${container_name}"
 }
 EOF
     else
@@ -110,16 +158,17 @@ EOF
         echo "  make test-check RUN_ID=${run_id}"
         echo ""
         echo "Artifacts:"
-        echo "  run_id:      ${run_id}"
-        echo "  runtime:     ${runtime}"
-        echo "  result_file: ${result_file}"
-        echo "  pid_file:    ${pid_file}"
+        echo "  run_id:       ${run_id}"
+        echo "  runtime:      ${runtime}"
+        echo "  result_file:  ${result_file}"
+        echo "  pid_file:     ${pid_file}"
+        echo "  done_file:    ${done_file}"
+        echo "  exit_file:    ${exit_file}"
+        echo "  manifest:     ${manifest_file}"
         echo ""
         echo "Tip:"
         if [[ "$runtime" == "container" ]]; then
-            local tool
-            tool=$(detect_container_tool)
-            echo "  ${tool} exec ${CONTAINER_NAME_SELECTED} tail -100 ${result_file}"
+            echo "  ${container_tool} exec ${container_name} tail -100 ${result_file}"
         else
             echo "  less -R ${result_file}"
         fi

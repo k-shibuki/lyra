@@ -23,6 +23,8 @@ export EXIT_TEST_FAILED=20       # Tests failed
 export EXIT_TEST_ERROR=21        # Test execution error (not test failure)
 export EXIT_TEST_TIMEOUT=22      # Test timeout
 export EXIT_TEST_FATAL=23        # Fatal test error (disk I/O, OOM)
+export EXIT_TEST_CRASHED=24      # Runner exited without completion marker (unexpected crash)
+export EXIT_TEST_CANCELLED=25    # Test run was explicitly cancelled via kill
 
 # Operation errors (30-39)
 export EXIT_OPERATION_FAILED=30  # Generic operation failure

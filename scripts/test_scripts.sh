@@ -280,6 +280,140 @@ test_test() {
 }
 
 # =============================================================================
+# TEST COMPLETION MARKER TESTS (manifest + done/exit based)
+# =============================================================================
+
+test_completion_markers() {
+    echo ""
+    echo "=== Testing completion marker system ==="
+    
+    # Source required modules
+    source "${SCRIPT_DIR}/common.sh"
+    source "${SCRIPT_DIR}/lib/test/state.sh"
+    
+    # Use isolated temp directory
+    local test_dir
+    test_dir=$(mktemp -d)
+    # shellcheck disable=SC2034
+    TEST_RESULT_DIR="$test_dir"
+    
+    local test_run_id
+    test_run_id="test_$(date +%s)_$$"
+    
+    # Test 1: Manifest file path generation
+    local manifest_file
+    manifest_file=$(get_manifest_file "$test_run_id")
+    if [[ "$manifest_file" == "${test_dir}/run_${test_run_id}.env" ]]; then
+        test_pass "get_manifest_file generates correct path"
+    else
+        test_fail "get_manifest_file generates correct path" "Got: $manifest_file"
+    fi
+    
+    # Test 2: Done/Exit/Cancelled file path generation
+    local done_file exit_file cancelled_file
+    done_file=$(get_done_file "$test_run_id")
+    exit_file=$(get_exit_file "$test_run_id")
+    cancelled_file=$(get_cancelled_file "$test_run_id")
+    
+    if [[ "$done_file" == "${test_dir}/done_${test_run_id}" ]] && \
+       [[ "$exit_file" == "${test_dir}/exit_${test_run_id}" ]] && \
+       [[ "$cancelled_file" == "${test_dir}/cancelled_${test_run_id}" ]]; then
+        test_pass "done/exit/cancelled file paths generated correctly"
+    else
+        test_fail "done/exit/cancelled file paths generated correctly" \
+            "done=$done_file, exit=$exit_file, cancelled=$cancelled_file"
+    fi
+    
+    # Test 3: Write and load manifest
+    local result_file="${test_dir}/result_${test_run_id}.txt"
+    local pid_file="${test_dir}/pid_${test_run_id}"
+    
+    write_run_manifest "$test_run_id" "venv" "" "" "$result_file" "$pid_file" "$done_file" "$exit_file"
+    
+    if [[ -f "$manifest_file" ]]; then
+        test_pass "write_run_manifest creates manifest file"
+    else
+        test_fail "write_run_manifest creates manifest file" "File not found"
+    fi
+    
+    # Test 4: Load manifest and verify contents
+    if load_run_manifest "$test_run_id"; then
+        if [[ "${LYRA_MANIFEST__RUN_ID}" == "$test_run_id" ]] && \
+           [[ "${LYRA_MANIFEST__RUNTIME}" == "venv" ]] && \
+           [[ "${LYRA_MANIFEST__RESULT_FILE}" == "$result_file" ]]; then
+            test_pass "load_run_manifest loads correct values"
+        else
+            test_fail "load_run_manifest loads correct values" \
+                "run_id=${LYRA_MANIFEST__RUN_ID}, runtime=${LYRA_MANIFEST__RUNTIME}"
+        fi
+    else
+        test_fail "load_run_manifest loads correct values" "load_run_manifest returned non-zero"
+    fi
+    
+    # Test 5: manifest_exists function
+    if manifest_exists "$test_run_id"; then
+        test_pass "manifest_exists returns true for existing manifest"
+    else
+        test_fail "manifest_exists returns true for existing manifest"
+    fi
+    
+    if ! manifest_exists "nonexistent_run_id"; then
+        test_pass "manifest_exists returns false for non-existing manifest"
+    else
+        test_fail "manifest_exists returns false for non-existing manifest"
+    fi
+    
+    # Test 6: Exit code mapping (from check.sh helper)
+    source "${SCRIPT_DIR}/lib/test/commands/check.sh"
+    source "${SCRIPT_DIR}/lib/exit_codes.sh"
+    
+    local mapped_code
+    mapped_code=$(map_pytest_exit_code "0")
+    if [[ "$mapped_code" == "$EXIT_SUCCESS" ]]; then
+        test_pass "map_pytest_exit_code: 0 -> EXIT_SUCCESS"
+    else
+        test_fail "map_pytest_exit_code: 0 -> EXIT_SUCCESS" "Got: $mapped_code"
+    fi
+    
+    mapped_code=$(map_pytest_exit_code "1")
+    if [[ "$mapped_code" == "$EXIT_TEST_FAILED" ]]; then
+        test_pass "map_pytest_exit_code: 1 -> EXIT_TEST_FAILED"
+    else
+        test_fail "map_pytest_exit_code: 1 -> EXIT_TEST_FAILED" "Got: $mapped_code"
+    fi
+    
+    mapped_code=$(map_pytest_exit_code "2")
+    if [[ "$mapped_code" == "$EXIT_TEST_CANCELLED" ]]; then
+        test_pass "map_pytest_exit_code: 2 -> EXIT_TEST_CANCELLED"
+    else
+        test_fail "map_pytest_exit_code: 2 -> EXIT_TEST_CANCELLED" "Got: $mapped_code"
+    fi
+    
+    mapped_code=$(map_pytest_exit_code "3")
+    if [[ "$mapped_code" == "$EXIT_TEST_ERROR" ]]; then
+        test_pass "map_pytest_exit_code: 3 -> EXIT_TEST_ERROR"
+    else
+        test_fail "map_pytest_exit_code: 3 -> EXIT_TEST_ERROR" "Got: $mapped_code"
+    fi
+    
+    # Test 7: Verify new exit codes exist
+    if [[ -n "$EXIT_TEST_CRASHED" ]] && [[ "$EXIT_TEST_CRASHED" == "24" ]]; then
+        test_pass "EXIT_TEST_CRASHED defined as 24"
+    else
+        test_fail "EXIT_TEST_CRASHED defined as 24" "Got: ${EXIT_TEST_CRASHED:-undefined}"
+    fi
+    
+    if [[ -n "$EXIT_TEST_CANCELLED" ]] && [[ "$EXIT_TEST_CANCELLED" == "25" ]]; then
+        test_pass "EXIT_TEST_CANCELLED defined as 25"
+    else
+        test_fail "EXIT_TEST_CANCELLED defined as 25" "Got: ${EXIT_TEST_CANCELLED:-undefined}"
+    fi
+    
+    # Cleanup
+    rm -rf "$test_dir"
+}
+
+# =============================================================================
 # MCP.SH TESTS
 # =============================================================================
 
@@ -373,6 +507,9 @@ main() {
         test)
             test_test
             ;;
+        completion)
+            test_completion_markers
+            ;;
         mcp)
             test_mcp
             ;;
@@ -384,12 +521,13 @@ main() {
             test_dev
             test_chrome
             test_test
+            test_completion_markers
             test_mcp
             test_doctor
             ;;
         *)
             echo "Unknown test target: $test_target"
-            echo "Usage: $0 {all|common|dev|chrome|test|mcp|doctor}"
+            echo "Usage: $0 {all|common|dev|chrome|test|completion|mcp|doctor}"
             exit 1
             ;;
     esac
