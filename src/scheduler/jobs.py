@@ -254,7 +254,14 @@ class JobScheduler:
         if priority is None:
             priority = KIND_PRIORITY[kind]
 
-        job_id = str(uuid.uuid4())
+        # Generate job ID with kind-based prefix for readability
+        uuid_suffix = uuid.uuid4().hex[:12]
+        kind_prefix = {
+            JobKind.TARGET_QUEUE: "tq_",
+            JobKind.VERIFY_NLI: "vnli_",
+            JobKind.CITATION_GRAPH: "cg_",
+        }.get(kind, "job_")
+        job_id = f"{kind_prefix}{uuid_suffix}"
 
         # Budget check for tasks with budget
         if task_id and self._budget_manager:
@@ -718,8 +725,149 @@ class JobScheduler:
 
             return await process_citation_graph(**input_data)
 
+        elif kind == JobKind.TARGET_QUEUE:
+            # Unified target queue execution (ADR-0010)
+            # Handles query, url, and doi targets
+            return await self._execute_target_queue_job(input_data, task_id, cause_id)
+
         else:
             raise ValueError(f"Unknown job kind: {kind}")
+
+    async def _execute_target_queue_job(
+        self,
+        input_data: dict[str, Any],
+        task_id: str | None,
+        cause_id: str,
+    ) -> dict[str, Any]:
+        """Execute a target_queue job.
+
+        Handles query, url, and doi target kinds per ADR-0010.
+
+        Args:
+            input_data: Job input containing target and options.
+            task_id: Task ID.
+            cause_id: Causal trace ID.
+
+        Returns:
+            Execution result dict.
+        """
+        from src.mcp.helpers import get_exploration_state
+        from src.research.pipeline import ingest_doi_action, ingest_url_action, search_action
+
+        if not task_id:
+            raise ValueError("task_id is required for TARGET_QUEUE jobs")
+
+        target = input_data.get("target", {})
+        target_kind = target.get("kind", "query")
+        options = input_data.get("options", {})
+
+        # Get exploration state
+        state = await get_exploration_state(task_id)
+
+        # Execute based on target kind
+        if target_kind == "query":
+            query = target.get("query", "")
+            query_options = target.get("options", {})
+            merged_options = {**options, **query_options}
+            merged_options["task_id"] = task_id
+
+            result = await search_action(
+                task_id=task_id,
+                query=query,
+                state=state,
+                options=merged_options,
+            )
+
+        elif target_kind == "url":
+            url = target.get("url", "")
+            depth = target.get("depth", 0)
+            reason = target.get("reason", "manual")
+            context = target.get("context", {})
+            policy = target.get("policy", {})
+            options_with_task = {**options, "task_id": task_id}
+
+            result = await ingest_url_action(
+                task_id=task_id,
+                url=url,
+                state=state,
+                depth=depth,
+                reason=reason,
+                context=context,
+                policy=policy,
+                options=options_with_task,
+            )
+
+        elif target_kind == "doi":
+            doi = target.get("doi", "")
+            reason = target.get("reason", "manual")
+            context = target.get("context", {})
+            options_with_task = {**options, "task_id": task_id}
+
+            result = await ingest_doi_action(
+                task_id=task_id,
+                doi=doi,
+                state=state,
+                reason=reason,
+                context=context,
+                options=options_with_task,
+            )
+
+        else:
+            raise ValueError(f"Unknown target kind: {target_kind}")
+
+        # Notify long polling clients
+        state.notify_status_change()
+
+        # Enqueue VERIFY_NLI job after successful completion (ADR-0005)
+        # Always enqueue - verify_claims_nli handles empty cases gracefully
+        if result.get("ok", True) and not result.get("captcha_queued"):
+            await self._enqueue_verify_nli_if_needed(task_id, result)
+
+        # Check if target queue is empty for batch notification (ADR-0007)
+        await self._check_target_queue_empty(task_id)
+
+        return result
+
+    async def _enqueue_verify_nli_if_needed(self, task_id: str, result: dict[str, Any]) -> None:
+        """Enqueue VERIFY_NLI job after target completion.
+
+        ADR-0005: Cross-source NLI verification is triggered per target_queue job.
+        """
+        try:
+            from src.filter.cross_verification import enqueue_verify_nli_job
+
+            await enqueue_verify_nli_job(task_id=task_id)
+        except Exception as e:
+            # Don't fail the target if VERIFY_NLI enqueue fails
+            logger.warning(
+                "Failed to enqueue VERIFY_NLI job",
+                task_id=task_id,
+                error=str(e),
+            )
+
+    async def _check_target_queue_empty(self, task_id: str) -> None:
+        """Check if target queue is empty and notify if so (ADR-0007).
+
+        Called after each target_queue job completes.
+        """
+        try:
+            db = await get_database()
+            row = await db.fetch_one(
+                """
+                SELECT COUNT(*) as cnt FROM jobs
+                WHERE task_id = ? AND kind = 'target_queue'
+                  AND state IN ('queued', 'running')
+                """,
+                (task_id,),
+            )
+            count = row["cnt"] if row else 0
+
+            if count == 0:
+                from src.utils.batch_notification import notify_target_queue_empty
+
+                await notify_target_queue_empty()
+        except Exception as e:
+            logger.debug("Batch notification check failed", error=str(e))
 
     async def cancel_job(self, job_id: str) -> bool:
         """Cancel a pending/queued job.
@@ -773,6 +921,65 @@ class JobScheduler:
                 logger.info("Cancelled running job", job_id=job_id, task_id=task_id)
 
         return cancelled_count
+
+    async def wait_for_task_jobs_to_complete(self, task_id: str, timeout: float = 30.0) -> int:
+        """Wait for all running jobs for a task to complete.
+
+        Used by stop_task(mode=graceful) to wait for running jobs to finish naturally.
+        Does NOT cancel the jobs, just waits for them.
+
+        Args:
+            task_id: The research task ID whose jobs to wait for.
+            timeout: Maximum time to wait in seconds.
+
+        Returns:
+            Number of jobs that were waited on.
+        """
+        db = await get_database()
+        jobs_to_wait: list[tuple[str, asyncio.Task[Any]]] = []
+
+        # Find all running jobs for this task
+        for job_id, job_task in list(self._running_tasks.items()):
+            if job_task.done():
+                continue
+            # Check if this job belongs to the task
+            job = await db.fetch_one(
+                "SELECT task_id FROM jobs WHERE id = ?",
+                (job_id,),
+            )
+            if job and job["task_id"] == task_id:
+                jobs_to_wait.append((job_id, job_task))
+
+        if not jobs_to_wait:
+            return 0
+
+        logger.info(
+            "Waiting for running jobs to complete",
+            task_id=task_id,
+            job_count=len(jobs_to_wait),
+            timeout=timeout,
+        )
+
+        # Wait for jobs to complete (with timeout)
+        tasks_to_wait = [job_task for _, job_task in jobs_to_wait]
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*tasks_to_wait, return_exceptions=True),
+                timeout=timeout,
+            )
+            logger.info(
+                "All running jobs completed",
+                task_id=task_id,
+                job_count=len(jobs_to_wait),
+            )
+        except TimeoutError:
+            logger.warning(
+                "Timeout waiting for jobs to complete (will proceed with finalization)",
+                task_id=task_id,
+                pending_count=len([t for t in tasks_to_wait if not t.done()]),
+            )
+
+        return len(jobs_to_wait)
 
     async def get_job_status(self, job_id: str) -> dict[str, Any] | None:
         """Get job status.

@@ -438,7 +438,7 @@ async def enqueue_verify_nli_job(
     """
     Enqueue a VERIFY_NLI job for cross-source verification.
 
-    Called by target_worker after successful target completion.
+    Called by JobScheduler after successful target_queue job completion.
 
     Args:
         task_id: Task ID.

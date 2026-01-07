@@ -987,7 +987,22 @@ class SearchPipeline:
                 or_ignore=True,
             )
 
-            # Insert abstract as fragment
+            # Check if page was actually inserted (URL UNIQUE constraint may have caused ignore)
+            # If not, fetch existing page_id to avoid FK constraint violation
+            existing_page = await db.fetch_one(
+                "SELECT id FROM pages WHERE url = ?",
+                (reference_url,),
+            )
+            if existing_page and existing_page["id"] != page_id:
+                # URL already existed, use existing page_id
+                page_id = existing_page["id"]
+                logger.debug(
+                    "Using existing page for URL",
+                    url=reference_url[:100],
+                    page_id=page_id,
+                )
+
+            # Insert abstract as fragment (using resolved page_id)
             fragment_id = f"frag_{uuid.uuid4().hex[:8]}"
             await db.insert(
                 "fragments",
@@ -1325,6 +1340,15 @@ class SearchPipeline:
                 auto_id=False,
                 or_ignore=True,
             )
+
+            # Check if page was actually inserted (URL UNIQUE constraint may have caused ignore)
+            # If not, fetch existing page_id to return the correct ID
+            existing_page = await db.fetch_one(
+                "SELECT id FROM pages WHERE url = ?",
+                (reference_url,),
+            )
+            if existing_page:
+                page_id = existing_page["id"]
 
             logger.debug(
                 "Created citation placeholder",

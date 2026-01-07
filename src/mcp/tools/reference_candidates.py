@@ -4,10 +4,8 @@ Handles queue_reference_candidates operation for Citation Chasing UX.
 Provides include/exclude control over v_reference_candidates.
 """
 
-import json
 import re
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from src.mcp.errors import InvalidParamsError, TaskNotFoundError
@@ -269,14 +267,17 @@ async def handle_queue_reference_candidates(args: dict[str, Any]) -> dict[str, A
                 "message": f"Dry run: {len(targets_to_queue)} candidates would be queued",
             }
 
-        # Queue targets
+        # Queue targets via JobScheduler
+        from src.scheduler.jobs import JobKind, get_scheduler
+
+        scheduler = await get_scheduler()
+
         priority_str = options.get("priority", "medium")
         priority_map = {"high": 10, "medium": 50, "low": 90}
         priority_value = priority_map.get(priority_str, 50)
 
         target_ids = []
         skipped_count = 0
-        now = datetime.now(UTC).isoformat()
 
         for item in targets_to_queue:
             target = item["target"]
@@ -310,36 +311,20 @@ async def handle_queue_reference_candidates(args: dict[str, Any]) -> dict[str, A
                 skipped_count += 1
                 continue
 
-            # Generate target ID
-            if kind == "doi":
-                target_id = f"td_{uuid.uuid4().hex[:12]}"
-            else:
-                target_id = f"tu_{uuid.uuid4().hex[:12]}"
-
             input_data = {
                 "target": target,
                 "options": {k: v for k, v in options.items() if k != "priority"},
             }
 
-            # Insert job
-            await db.execute(
-                """
-                INSERT INTO jobs
-                    (id, task_id, kind, priority, slot, state, input_json, queued_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    target_id,
-                    task_id,
-                    "target_queue",
-                    priority_value,
-                    "network_client",
-                    "queued",
-                    json.dumps(input_data, ensure_ascii=False),
-                    now,
-                ),
+            # Submit to JobScheduler (ADR-0010: unified job execution)
+            result = await scheduler.submit(
+                kind=JobKind.TARGET_QUEUE,
+                input_data=input_data,
+                priority=priority_value,
+                task_id=task_id,
             )
-            target_ids.append(target_id)
+            if result.get("accepted"):
+                target_ids.append(result["job_id"])
 
         # Update task status to exploring if needed
         if len(target_ids) > 0 and task_status in ("paused", "created"):

@@ -882,17 +882,17 @@ class ExplorationState:
         if pending_count >= 5 or high_priority_count >= 2:
             if high_priority_count >= 2:
                 alerts.append(
-                    f"[critical] 認証待ち{pending_count}件（高優先度{high_priority_count}件）: "
-                    f"一次資料アクセスがブロック中"
+                    f"[critical] {pending_count} auth pending ({high_priority_count} high priority): "
+                    f"primary source access blocked"
                 )
             else:
-                alerts.append(f"[critical] 認証待ち{pending_count}件: 探索継続に影響")
+                alerts.append(f"[critical] {pending_count} auth pending: exploration blocked")
         # Warning level: ≥3 pending
         elif pending_count >= 3:
             domain_sample = ", ".join(domains[:3])
             if len(domains) > 3:
-                domain_sample += f" 他{len(domains) - 3}件"
-            alerts.append(f"[warning] 認証待ち{pending_count}件 ({domain_sample})")
+                domain_sample += f" +{len(domains) - 3} more"
+            alerts.append(f"[warning] {pending_count} auth pending ({domain_sample})")
 
         return alerts
 

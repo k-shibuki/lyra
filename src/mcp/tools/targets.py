@@ -3,9 +3,6 @@
 Handles queue_targets operation (unified query + URL queueing).
 """
 
-import json
-import uuid
-from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import urlparse
 
@@ -329,10 +326,12 @@ async def handle_queue_targets(args: dict[str, Any]) -> dict[str, Any]:
         priority_map = {"high": 10, "medium": 50, "low": 90}
         priority_value = priority_map.get(priority_str, 50)
 
-        # Queue each target (with duplicate detection)
+        # Queue each target via JobScheduler (with duplicate detection)
+        from src.scheduler.jobs import JobKind, get_scheduler
+
+        scheduler = await get_scheduler()
         target_ids: list[str] = []
         skipped_count = 0
-        now = datetime.now(UTC).isoformat()
 
         for target in targets:
             kind = target["kind"]
@@ -362,7 +361,6 @@ async def handle_queue_targets(args: dict[str, Any]) -> dict[str, Any]:
                     skipped_count += 1
                     continue
 
-                target_id = f"tq_{uuid.uuid4().hex[:12]}"
                 input_data = {
                     "target": {
                         "kind": "query",
@@ -400,7 +398,6 @@ async def handle_queue_targets(args: dict[str, Any]) -> dict[str, Any]:
                     skipped_count += 1
                     continue
 
-                target_id = f"tu_{uuid.uuid4().hex[:12]}"
                 input_data = {
                     "target": {
                         "kind": "url",
@@ -440,7 +437,6 @@ async def handle_queue_targets(args: dict[str, Any]) -> dict[str, Any]:
                     skipped_count += 1
                     continue
 
-                target_id = f"td_{uuid.uuid4().hex[:12]}"
                 input_data = {
                     "target": {
                         "kind": "doi",
@@ -451,25 +447,15 @@ async def handle_queue_targets(args: dict[str, Any]) -> dict[str, Any]:
                     "options": {k: v for k, v in options.items() if k != "priority"},
                 }
 
-            # Insert into jobs table (kind='target_queue')
-            await db.execute(
-                """
-                INSERT INTO jobs
-                    (id, task_id, kind, priority, slot, state, input_json, queued_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    target_id,
-                    task_id,
-                    "target_queue",
-                    priority_value,
-                    "network_client",
-                    "queued",
-                    json.dumps(input_data, ensure_ascii=False),
-                    now,
-                ),
+            # Submit to JobScheduler (ADR-0010: unified job execution)
+            result = await scheduler.submit(
+                kind=JobKind.TARGET_QUEUE,
+                input_data=input_data,
+                priority=priority_value,
+                task_id=task_id,
             )
-            target_ids.append(target_id)
+            if result.get("accepted"):
+                target_ids.append(result["job_id"])
 
         query_count = sum(1 for t in targets if t["kind"] == "query")
         url_count = sum(1 for t in targets if t["kind"] == "url")

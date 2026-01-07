@@ -1112,11 +1112,10 @@ async def run_server() -> None:
 
     await load_domain_overrides_from_db()
 
-    # Start target queue workers (ADR-0010)
-    from src.scheduler.target_worker import get_worker_manager
+    # Start job scheduler (ADR-0010: unified job execution via JobScheduler)
+    from src.scheduler.jobs import get_scheduler
 
-    worker_manager = get_worker_manager()
-    await worker_manager.start()
+    scheduler = await get_scheduler()
 
     try:
         async with stdio_server() as (read_stream, write_stream):
@@ -1126,8 +1125,8 @@ async def run_server() -> None:
                 app.create_initialization_options(),
             )
     finally:
-        # Stop target queue workers
-        await worker_manager.stop()
+        # Stop job scheduler
+        await scheduler.stop()
         await close_database()
         logger.info("Lyra MCP server stopped")
 

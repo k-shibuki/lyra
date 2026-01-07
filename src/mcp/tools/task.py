@@ -20,7 +20,6 @@ from src.mcp.helpers import (
 )
 from src.mcp.response_meta import attach_meta, create_minimal_meta
 from src.research.pipeline import stop_task_action
-from src.scheduler.target_worker import get_worker_manager
 from src.storage.database import get_database
 from src.utils.logging import LogContext, ensure_logging_configured, get_logger
 
@@ -81,6 +80,28 @@ def _compute_milestones(
         "blockers": blockers,
     }
     return milestones, pending_auth_count
+
+
+def _get_pending_auth_message(pending_auth_count: int) -> str | None:
+    """Get unified message for pending auth challenges.
+
+    Returns None if no challenges pending, otherwise returns
+    a structured message for AI consumption.
+
+    Args:
+        pending_auth_count: Number of pending auth items.
+
+    Returns:
+        Message string or None.
+    """
+    if pending_auth_count == 0:
+        return None
+
+    return (
+        f"{pending_auth_count} blocking challenge(s) detected. "
+        "User action required: resolve manually then tell AI 'resolved', "
+        "or tell AI 'skip' to bypass. Use get_auth_queue for details."
+    )
 
 
 async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
@@ -281,6 +302,8 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
                 # Convenience field for agents/clients: quick check without parsing nested structures
                 "pending_auth_count": pending_auth_count,
+                # Unified message for pending auth (when count > 0)
+                "pending_auth_message": _get_pending_auth_message(pending_auth_count),
                 "metrics": {
                     "total_searches": db_metrics.get("total_searches", len(searches)),
                     "satisfied_count": metrics.get("satisfied_count", 0),
@@ -360,6 +383,8 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
                 # Convenience field for agents/clients: quick check without parsing nested structures
                 "pending_auth_count": pending_auth_count,
+                # Unified message for pending auth (when count > 0)
+                "pending_auth_message": _get_pending_auth_message(pending_auth_count),
                 "metrics": db_metrics,
                 "budget": {
                     "budget_pages_used": db_metrics.get("total_pages", 0),
@@ -591,25 +616,21 @@ async def cancel_jobs_by_scope(
         if kind_counts["queued"] > 0 or kind_counts["running"] > 0:
             counts["by_kind"][kind] = kind_counts
 
-    # Handle worker task cancellation for target_queue (TargetQueueWorkerManager)
-    manager = get_worker_manager()
+    # Handle running task cancellation via JobScheduler (unified)
+    # All job kinds (including target_queue) are now handled by JobScheduler
+    from src.scheduler.jobs import get_scheduler
+
+    scheduler = await get_scheduler()
 
     if mode == "graceful":
         # Wait for running jobs to complete naturally (don't cancel them)
-        jobs_waited = await manager.wait_for_task_jobs_to_complete(task_id, timeout=30.0)
+        # For graceful mode, we just wait - the DB update above already cancelled queued jobs
+        jobs_waited = await scheduler.wait_for_task_jobs_to_complete(task_id, timeout=30.0)
         counts["jobs_waited"] = jobs_waited
     elif mode in ("immediate", "full"):
-        # Cancel running target_queue worker tasks
-        tasks_cancelled = await manager.cancel_jobs_for_task(task_id)
-        counts["tasks_cancelled"] = tasks_cancelled
-
-        # Also cancel running jobs via JobScheduler (for non-target_queue jobs)
-        # This handles VERIFY_NLI, CITATION_GRAPH, etc.
-        from src.scheduler.jobs import get_scheduler
-
-        scheduler = await get_scheduler()
+        # Cancel all running jobs for this task via JobScheduler
         scheduler_cancelled = await scheduler.cancel_running_jobs_for_task(task_id)
-        counts["scheduler_jobs_cancelled"] = scheduler_cancelled
+        counts["tasks_cancelled"] = scheduler_cancelled
 
     return counts
 
@@ -644,80 +665,6 @@ async def cancel_target_queue_jobs(
         "tasks_cancelled": result.get("tasks_cancelled", 0),
         "jobs_waited": result.get("jobs_waited", 0),
     }
-
-
-async def _legacy_cancel_target_queue_jobs(
-    task_id: str,
-    mode: str,
-    db: Any,
-) -> dict[str, int]:
-    """
-    Legacy cancel target queue jobs implementation.
-
-    Kept for reference; cancel_target_queue_jobs now delegates to cancel_jobs_by_scope.
-    """
-    now = datetime.now(UTC).isoformat()
-    counts = {
-        "queued_cancelled": 0,
-        "running_cancelled": 0,
-        "tasks_cancelled": 0,
-        "jobs_waited": 0,
-    }
-
-    # Always cancel queued jobs (DB state only)
-    cursor = await db.execute(
-        """
-        UPDATE jobs
-        SET state = 'cancelled', finished_at = ?
-        WHERE task_id = ? AND kind = 'target_queue' AND state = 'queued'
-        """,
-        (now, task_id),
-    )
-    counts["queued_cancelled"] = getattr(cursor, "rowcount", 0)
-
-    manager = get_worker_manager()
-
-    if mode == "graceful":
-        # Wait for running jobs to complete naturally (don't cancel them)
-        jobs_waited = await manager.wait_for_task_jobs_to_complete(task_id, timeout=30.0)
-        counts["jobs_waited"] = jobs_waited
-
-    elif mode in ("immediate", "full"):
-        # Cancel running jobs: both DB state and actual asyncio.Task
-        # Step 1: Cancel running worker tasks (this triggers CancelledError)
-        tasks_cancelled = await manager.cancel_jobs_for_task(task_id)
-        counts["tasks_cancelled"] = tasks_cancelled
-
-        # Step 2: Update DB state for any running jobs that weren't tracked
-        # (defensive: handles edge cases where job wasn't registered)
-        cursor = await db.execute(
-            """
-            UPDATE jobs
-            SET state = 'cancelled', finished_at = ?
-            WHERE task_id = ? AND kind = 'target_queue' AND state = 'running'
-            """,
-            (now, task_id),
-        )
-        counts["running_cancelled"] = getattr(cursor, "rowcount", 0)
-
-        # For full mode: additional wait for any in-flight operations to drain
-        if mode == "full":
-            # Give time for cancelled tasks to propagate and clean up
-            import asyncio
-
-            await asyncio.sleep(0.5)  # Brief pause for cleanup
-
-    logger.info(
-        "Target queue jobs processed",
-        task_id=task_id,
-        mode=mode,
-        queued_cancelled=counts["queued_cancelled"],
-        running_cancelled=counts["running_cancelled"],
-        tasks_cancelled=counts.get("tasks_cancelled", 0),
-        jobs_waited=counts.get("jobs_waited", 0),
-    )
-
-    return counts
 
 
 async def cancel_auth_queue_for_task(task_id: str, db: Any) -> int:

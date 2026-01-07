@@ -310,14 +310,14 @@ CREATE INDEX IF NOT EXISTS idx_lastmile_usage_engine_date ON lastmile_usage(engi
 -- Job Scheduler
 -- ============================================================
 
--- Jobs: Scheduled jobs
+-- Jobs: Scheduled jobs (ADR-0010: unified via JobScheduler)
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     task_id TEXT,
-    kind TEXT NOT NULL,  -- serp, fetch, extract, embed, llm_fast, llm_slow, nli
+    kind TEXT NOT NULL,  -- target_queue, verify_nli, citation_graph, serp, fetch, extract, embed, llm, nli
     priority INTEGER DEFAULT 50,  -- Lower = higher priority
     slot TEXT NOT NULL,  -- gpu, browser_headful, network_client, cpu_nlp
-    state TEXT DEFAULT 'pending',  -- pending, queued, running, completed, failed, cancelled
+    state TEXT DEFAULT 'pending',  -- pending, queued, running, completed, failed, cancelled, awaiting_auth
     budget_pages INTEGER,
     budget_time_ms INTEGER,
     input_json TEXT,

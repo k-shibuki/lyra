@@ -17,7 +17,7 @@
 #   test.sh    <- common.sh, pytest, uv
 #   mcp.sh     <- common.sh, dev.sh, uv, playwright
 
-.PHONY: help setup test lint format clean up down build rebuild logs logs-f shell status clean-containers
+.PHONY: help setup test lint format clean up down build rebuild logs logs-f shell status clean-containers db-reset
 .DEFAULT_GOAL := help
 
 SHELL := /bin/bash
@@ -249,6 +249,13 @@ clean: ## Clean temporary files
 
 clean-all: clean clean-containers ## Clean everything including containers
 	rm -rf .venv 2>/dev/null || true
+
+db-reset: ## Reset database (destructive: deletes data/lyra.db, recreates on next server start)
+	@echo "WARNING: This will delete all data in data/lyra.db"
+	@echo "Press Ctrl+C to cancel, or wait 3 seconds..."
+	@sleep 3
+	rm -f data/lyra.db data/lyra.db-wal data/lyra.db-shm 2>/dev/null || true
+	@echo "Database deleted. Schema will be recreated on next server start."
 
 # =============================================================================
 # HELP
