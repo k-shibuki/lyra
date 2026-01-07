@@ -3,9 +3,9 @@ MCP Server implementation for Lyra.
 Provides tools for research operations that can be called by Cursor/LLM.
 
 Provides MCP tools per ADR-0010 async architecture:
-- Removed: search (replaced by queue_searches), notify_user, wait_for_user
-- Added: queue_searches (ADR-0010)
-- Modified: get_status (long polling with wait parameter)
+- queue_targets: Unified query + URL queueing
+- get_status: Long polling with wait parameter
+- stop_task: Task stopping (default scope=all_jobs)
 """
 
 import asyncio
@@ -25,7 +25,17 @@ logger = get_logger(__name__)
 
 # IMPORTANT:
 # Import modules that may emit logs only AFTER logging is configured.
-from src.mcp.tools import auth, calibration, feedback, search, sql, task, vector, view
+from src.mcp.tools import (
+    auth,
+    calibration,
+    feedback,
+    reference_candidates,
+    sql,
+    targets,
+    task,
+    vector,
+    view,
+)
 
 # Create MCP server instance
 app = Server("lyra")
@@ -100,13 +110,14 @@ TOOLS = [
         description="""Create a new research task to begin evidence collection.
 
 TYPICAL FLOW (high level):
-create_task → queue_searches → get_status(wait=180) → (vector_search / query_view / query_sql) → stop_task
+create_task → queue_targets → get_status(wait=180) → (vector_search / query_view / query_sql) → stop_task
 
-WORKFLOW: This is the first step. After creating a task, use queue_searches to add search queries.
-The same task_id accumulates data across multiple searches - design queries iteratively based on results.
+WORKFLOW: This is the first step. After creating a task, use queue_targets to add search queries or URLs.
+The same task_id accumulates data across multiple targets - design queries iteratively based on results.
 
 STRATEGY: Start with broad queries, then refine based on get_status metrics. Include both supporting
-and refuting queries to ensure balanced evidence collection.""",
+and refuting queries to ensure balanced evidence collection. Use v_reference_candidates view to find
+citation chase candidates and queue them as URL targets.""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -164,6 +175,14 @@ and refuting queries to ensure balanced evidence collection.""",
 POLLING STRATEGY: Use wait=180 (default) for efficient long-polling during active exploration.
 Use wait=0 for immediate status checks when making decisions.
 
+MILESTONES (AI decision flags):
+- milestones.citation_candidates_stable: true when v_reference_candidates won't change
+  (target_queue + citation_graph drained, no pending auth). Safe to query for Citation Chasing.
+- milestones.nli_results_stable: true when NLI verification jobs have drained.
+  Bayesian confidence scores are finalized.
+- milestones.blockers: List of reasons why citation_candidates_stable is false
+  (e.g., ["target_queue", "citation_graph", "pending_auth"])
+
 METRICS TO MONITOR:
 - searches[].satisfaction_score: 0.0-1.0, source coverage metric
     Formula: min(1.0, (independent_sources / 3) * 0.7 + (has_primary_source ? 0.3 : 0))
@@ -173,6 +192,7 @@ METRICS TO MONITOR:
 - budget.remaining_percent: Stop or adjust strategy when low
 
 DECISION POINTS:
+- If milestones.citation_candidates_stable: Safe to query v_reference_candidates for Citation Chasing
 - If satisfaction_score < 0.5: Query needs more diverse sources or primary source
 - If harvest_rate low: Try different query angles or sources
 - If pending_auth_count > 0: User needs to solve CAPTCHAs (use get_auth_queue)""",
@@ -204,64 +224,163 @@ DECISION POINTS:
     # 2. Research Execution (2 tools)
     # ============================================================
     Tool(
-        name="queue_searches",
-        title="Queue Search Queries",
-        description="""Queue multiple search queries for parallel background execution. Returns immediately.
+        name="queue_targets",
+        title="Queue Targets",
+        description="""Queue multiple targets (queries or URLs) for parallel background execution. Returns immediately.
 
-DUPLICATE HANDLING: Safe to queue overlapping queries - duplicates are auto-detected and skipped.
-Same URL/DOI content is cached and reused across queries, maximizing coverage without waste.
+UNIFIED API: This tool handles both search queries and direct URL ingestion (citation chasing).
+Use kind='query' for search queries, kind='url' for direct URL fetch, kind='doi' for DOI fast path.
+
+DUPLICATE HANDLING: Safe to queue overlapping targets - duplicates are auto-detected and skipped.
+Same URL/DOI content is cached and reused across targets, maximizing coverage without waste.
 
 EXPLORATION STRATEGY:
 1. Start with 3-5 diverse queries covering different angles of the research question
 2. Check results with get_status(wait=180) to monitor progress
-3. Based on findings, add more specific or contrasting queries
-4. IMPORTANT: Include refutation queries (e.g., "X criticism", "X limitations", "against X")
-   to ensure balanced evidence collection
+3. Use query_view(v_reference_candidates) to find unfetched citations
+4. Queue promising citations as URL targets for citation chasing
+5. IMPORTANT: Include refutation queries (e.g., "X criticism", "X limitations", "against X")
 
-QUERY DESIGN TIPS:
+QUERY TARGETS (kind='query'):
 - Use academic terms and paper titles when known
 - Try both English and target language queries
 - Include author names for known experts
-- Add "site:arxiv.org" or domain hints for academic sources""",
+- Add "site:arxiv.org" or domain hints for academic sources
+
+URL TARGETS (kind='url'):
+- Use for citation chasing (reason='citation_chase')
+- Or manual URL ingestion (reason='manual')
+- Set depth to track citation chain depth (0 = direct, 1+ = chased)
+
+DOI TARGETS (kind='doi'):
+- Use for Academic API fast path (abstract-only ingestion without web fetch)
+- Prioritizes Semantic Scholar, falls back to OpenAlex, then URL fetch
+- Set depth to track citation chain depth (0 = direct, 1+ = chased)""",
         inputSchema={
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID to add searches to",
+                    "description": "Task ID to add targets to",
                 },
-                "queries": {
+                "targets": {
                     "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Search queries to execute. Include both supporting and refuting angles.",
+                    "description": "Targets to queue. Each is either a query or URL target.",
                     "minItems": 1,
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "description": "Query target for search execution",
+                                "properties": {
+                                    "kind": {"type": "string", "const": "query"},
+                                    "query": {
+                                        "type": "string",
+                                        "description": "Search query string",
+                                    },
+                                    "options": {
+                                        "type": "object",
+                                        "description": "Query-specific options (override batch options)",
+                                    },
+                                },
+                                "required": ["kind", "query"],
+                            },
+                            {
+                                "type": "object",
+                                "description": "URL target for direct ingestion",
+                                "properties": {
+                                    "kind": {"type": "string", "const": "url"},
+                                    "url": {
+                                        "type": "string",
+                                        "description": "URL to fetch and process",
+                                    },
+                                    "depth": {
+                                        "type": "integer",
+                                        "default": 0,
+                                        "description": "Citation chain depth (0=direct, 1+=chased)",
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "enum": ["citation_chase", "manual"],
+                                        "default": "manual",
+                                        "description": "Why this URL is being ingested",
+                                    },
+                                    "context": {
+                                        "type": "object",
+                                        "description": "Optional context (referer, citation_context, etc.)",
+                                    },
+                                    "policy": {
+                                        "type": "object",
+                                        "description": "Optional fetch policy overrides",
+                                    },
+                                },
+                                "required": ["kind", "url"],
+                            },
+                            {
+                                "type": "object",
+                                "description": "DOI target for Academic API fast path",
+                                "properties": {
+                                    "kind": {"type": "string", "const": "doi"},
+                                    "doi": {
+                                        "type": "string",
+                                        "description": "DOI to fetch (e.g., 10.xxxx/yyyy)",
+                                    },
+                                    "depth": {
+                                        "type": "integer",
+                                        "default": 0,
+                                        "description": "Citation chain depth (0=direct, 1+=chased)",
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "enum": ["citation_chase", "manual"],
+                                        "default": "manual",
+                                        "description": "Why this DOI is being ingested",
+                                    },
+                                    "context": {
+                                        "type": "object",
+                                        "description": "Optional context (source_page_id, citation_context, etc.)",
+                                    },
+                                    "policy": {
+                                        "type": "object",
+                                        "description": "Optional fetch policy overrides",
+                                    },
+                                },
+                                "required": ["kind", "doi"],
+                            },
+                        ],
+                    },
                 },
                 "options": {
                     "type": "object",
-                    "description": "Options applied to all queries in this batch",
+                    "description": "Options applied to all targets in this batch",
                     "properties": {
-                        "engines": {
+                        "serp_engines": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Specific search engines (google, bing, duckduckgo, scholar). Omit for auto-selection.",
+                            "description": "SERP engines for query targets. Omit for auto-selection.",
+                        },
+                        "academic_apis": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Academic APIs for query targets. Omit for default (both).",
                         },
                         "budget_pages": {
                             "type": "integer",
-                            "description": "Max pages per query. Leave unset to use task default.",
+                            "description": "Max pages per target. Leave unset to use task default.",
                         },
                         "priority": {
                             "type": "string",
                             "enum": ["high", "medium", "low"],
                             "default": "medium",
-                            "description": "Scheduling priority. Use 'high' for critical queries, 'low' for exploratory.",
+                            "description": "Scheduling priority. Use 'high' for critical targets, 'low' for exploratory.",
                         },
                     },
                     "additionalProperties": False,
                 },
             },
-            "required": ["task_id", "queries"],
+            "required": ["task_id", "targets"],
         },
-        outputSchema=_load_schema("queue_searches"),
+        outputSchema=_load_schema("queue_targets"),
         annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=False,
@@ -271,9 +390,9 @@ QUERY DESIGN TIPS:
     Tool(
         name="stop_task",
         title="Stop Research Task",
-        description="""Pause a research task session. Cancels pending searches and prepares materials.
+        description="""Pause a research task session. Cancels pending targets and prepares materials.
 
-IMPORTANT: Tasks are always RESUMABLE. After stopping, you can call queue_searches with the
+IMPORTANT: Tasks are always RESUMABLE. After stopping, you can call queue_targets with the
 same task_id to continue exploration in a new session.
 
 WHEN TO STOP:
@@ -283,24 +402,25 @@ WHEN TO STOP:
 - Time constraints require wrapping up
 
 SCOPE (ADR-0015):
-- search_queue_only (default): Only cancel search_queue jobs. VERIFY_NLI and CITATION_GRAPH jobs
-  are allowed to complete. This is the recommended default for session completion.
-- all_jobs: Cancel ALL job kinds for this task (search, verify_nli, citation_graph, etc.).
+- all_jobs (default): Cancel ALL job kinds for this task (target_queue, verify_nli, citation_graph, etc.).
+  This is the recommended default to ensure "stop means stop".
+- target_queue_only: Only cancel target_queue jobs. VERIFY_NLI and CITATION_GRAPH jobs
+  are allowed to complete. Use when you want background processing to finish.
 
 MODES:
-- graceful: Cancel queued searches, wait for running searches to complete (up to 30s timeout), then finalize.
-- immediate: Cancel all searches (queued + running) immediately, then finalize. Use when budget exhausted.
-- full: Cancel all searches AND wait for ML/NLI operations to fully drain. Use for complete shutdown.
+- graceful: Cancel queued targets, wait for running targets to complete (up to 30s timeout), then finalize.
+- immediate: Cancel all targets (queued + running) immediately, then finalize. Use when budget exhausted.
+- full: Cancel all targets AND wait for ML/NLI operations to fully drain. Use for complete shutdown.
 
 DB IMPACT (on stop):
 - tasks.status → 'paused' (resumable)
 - jobs.state → 'cancelled' for queued jobs (within scope, all modes) and running jobs (immediate/full modes)
 - intervention_queue.status → 'cancelled' for pending auth items
 - Claims/fragments persisted during the task remain in DB for query_sql/vector_search.
-- With scope=search_queue_only: verify_nli and citation_graph jobs continue running and complete.
+- With scope=target_queue_only: verify_nli and citation_graph jobs continue running and complete.
 
 AFTER STOPPING: Use query_sql and vector_search tools to explore collected evidence.
-To continue exploration, call queue_searches with the same task_id.""",
+To continue exploration, call queue_targets with the same task_id.""",
         inputSchema={
             "type": "object",
             "properties": {
@@ -322,9 +442,9 @@ To continue exploration, call queue_searches with the same task_id.""",
                 },
                 "scope": {
                     "type": "string",
-                    "enum": ["search_queue_only", "all_jobs"],
-                    "default": "search_queue_only",
-                    "description": "search_queue_only=only cancel search jobs (verify_nli/citation_graph complete), all_jobs=cancel all",
+                    "enum": ["target_queue_only", "all_jobs"],
+                    "default": "all_jobs",
+                    "description": "all_jobs=cancel all job kinds, target_queue_only=only cancel target jobs (verify_nli/citation_graph complete)",
                 },
             },
             "required": ["task_id"],
@@ -334,6 +454,87 @@ To continue exploration, call queue_searches with the same task_id.""",
             readOnlyHint=False,
             destructiveHint=True,
             idempotentHint=False,
+        ),
+    ),
+    Tool(
+        name="queue_reference_candidates",
+        title="Queue Reference Candidates",
+        description="""Queue citation chase candidates from v_reference_candidates view with explicit control.
+
+CITATION CHASING: After initial search, key references may be found in page citations.
+This tool queries v_reference_candidates (pages cited but not yet processed for this task)
+and enqueues selected candidates for fetching.
+
+PREREQUISITE: Check get_status().milestones.citation_candidates_stable == true before using.
+If blockers exist (target_queue, citation_graph, pending_auth), wait for them to clear first.
+
+EXPLICIT CONTROL (UX):
+- include_ids: Whitelist mode - only queue these specific candidates
+- exclude_ids: Blacklist mode - queue all EXCEPT these candidates
+- If neither: Queue top candidates up to limit (sorted by view's ORDER BY)
+
+DOI OPTIMIZATION:
+- If candidate URL contains a DOI (doi.org/10.xxxx/...), uses kind='doi' for Academic API fast path
+- Academic API provides abstract-only ingestion without web fetch (faster, more reliable)
+- Otherwise falls back to kind='url' for web fetch
+
+DRY RUN: Set dry_run=true to preview candidates without queueing.
+
+WORKFLOW:
+1. get_status(wait=0) → check milestones.citation_candidates_stable
+2. query_view(v_reference_candidates, task_id=...) to see all candidates
+3. Review and decide which to include/exclude
+4. queue_reference_candidates(include_ids=[...]) or queue_reference_candidates(exclude_ids=[...])
+5. get_status(wait=180) to monitor progress
+6. Repeat if new candidates appear""",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID",
+                },
+                "include_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Citation edge IDs to include (whitelist mode). Mutually exclusive with exclude_ids.",
+                },
+                "exclude_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Citation edge IDs to exclude (blacklist mode). Mutually exclusive with include_ids.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Maximum candidates to enqueue (default: 10)",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "If true, return candidates without enqueuing",
+                },
+                "options": {
+                    "type": "object",
+                    "description": "Queue options",
+                    "properties": {
+                        "priority": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                            "default": "medium",
+                            "description": "Scheduling priority",
+                        },
+                    },
+                    "additionalProperties": False,
+                },
+            },
+            "required": ["task_id"],
+        },
+        outputSchema=_load_schema("queue_reference_candidates"),
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=True,
         ),
     ),
     # ============================================================
@@ -453,7 +654,7 @@ SECURITY:
             "properties": {
                 "sql": {
                     "type": "string",
-                    "description": "Read-only SQL query (single statement). Example: SELECT * FROM claims WHERE task_id = '...' LIMIT 10",
+                    "description": "Read-only SQL query (single statement). Do NOT include LIMIT clause - use options.limit instead. Example: SELECT * FROM claims WHERE task_id = '...'",
                 },
                 "options": {
                     "type": "object",
@@ -561,6 +762,9 @@ AVAILABLE VIEWS:
 - v_evidence_timeline: Evidence by publication year
 - v_emerging_consensus: Claims gaining recent support
 - v_outdated_evidence: Older evidence needing review
+- v_reference_candidates: Unfetched citations for Citation Chasing (requires task_id)
+  IMPORTANT: Check get_status().milestones.citation_candidates_stable before querying.
+  Results may change while target_queue or citation_graph jobs are running.
 
 Use query_sql for custom queries not covered by templates.""",
         inputSchema={
@@ -864,9 +1068,10 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         # Task Management
         "create_task": task.handle_create_task,
         "get_status": task.handle_get_status,
-        # Research Execution (search removed per ADR-0010, use queue_searches)
-        "queue_searches": search.handle_queue_searches,
+        # Research Execution (unified target queue)
+        "queue_targets": targets.handle_queue_targets,
         "stop_task": task.handle_stop_task,
+        "queue_reference_candidates": reference_candidates.handle_queue_reference_candidates,
         # Calibration (ADR-0012: renamed from calibrate/calibrate_rollback)
         "calibration_metrics": calibration.handle_calibration_metrics,
         "calibration_rollback": calibration.handle_calibration_rollback,
@@ -907,8 +1112,8 @@ async def run_server() -> None:
 
     await load_domain_overrides_from_db()
 
-    # Start search queue workers (ADR-0010)
-    from src.scheduler.search_worker import get_worker_manager
+    # Start target queue workers (ADR-0010)
+    from src.scheduler.target_worker import get_worker_manager
 
     worker_manager = get_worker_manager()
     await worker_manager.start()
@@ -921,7 +1126,7 @@ async def run_server() -> None:
                 app.create_initialization_options(),
             )
     finally:
-        # Stop search queue workers
+        # Stop target queue workers
         await worker_manager.stop()
         await close_database()
         logger.info("Lyra MCP server stopped")

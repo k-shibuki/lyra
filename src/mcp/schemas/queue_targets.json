@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lyra:mcp:queue_targets",
+  "title": "queue_targets Response",
+  "description": "Response schema for queue_targets tool (unified query+url queueing)",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded"
+    },
+    "queued_count": {
+      "type": "integer",
+      "description": "Number of targets queued",
+      "minimum": 0
+    },
+    "skipped_count": {
+      "type": "integer",
+      "description": "Number of duplicate targets skipped",
+      "minimum": 0
+    },
+    "target_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "IDs of queued targets (for tracking)"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable status message"
+    },
+    "task_resumed": {
+      "type": "boolean",
+      "description": "Whether the task was resumed from paused state"
+    }
+  },
+  "required": ["ok", "queued_count", "target_ids"],
+  "additionalProperties": false
+}
+

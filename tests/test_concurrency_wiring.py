@@ -8,7 +8,7 @@ These tests verify that config values are actually propagated and used.
 
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|----------------------|--------------------------------------|-----------------|-------|
-| TC-W-01 | config.num_workers=3 | Effect – worker count | 3 worker tasks started | SearchQueueWorkerManager |
+| TC-W-01 | config.num_workers=3 | Effect – worker count | 3 worker tasks started | TargetWorkerManager |
 | TC-W-02 | config.max_tabs=2 | Effect – tab pool | TabPool.max_tabs=2 | get_tab_pool() |
 | TC-W-04 | get_tab_pool() with config | Wiring – config propagation | max_tabs from config | - |
 """
@@ -20,59 +20,59 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-class TestSearchQueueWorkerManagerWiring:
-    """Wiring tests for SearchQueueWorkerManager."""
+class TestTargetWorkerManagerWiring:
+    """Wiring tests for TargetWorkerManager."""
 
     # =========================================================================
     # TC-W-01: num_workers from config
     # =========================================================================
     @pytest.mark.asyncio
     async def test_start_uses_num_workers_from_config(self) -> None:
-        """Test SearchQueueWorkerManager.start() uses num_workers from config.
+        """Test TargetWorkerManager.start() uses num_workers from config.
 
-        Given: Config with concurrency.search_queue.num_workers=3
-        When: SearchQueueWorkerManager.start() is called
+        Given: Config with concurrency.target_queue.num_workers=3
+        When: TargetWorkerManager.start() is called
         Then: 3 worker tasks are created
         """
-        from src.scheduler.search_worker import SearchQueueWorkerManager
+        from src.scheduler.target_worker import TargetQueueWorkerManager
 
         # Given: Mock settings with num_workers=3
         mock_settings = MagicMock()
-        mock_settings.concurrency.search_queue.num_workers = 3
+        mock_settings.concurrency.target_queue.num_workers = 3
 
-        manager = SearchQueueWorkerManager()
+        manager = TargetQueueWorkerManager()
 
         # When
-        with patch("src.scheduler.search_worker.get_settings", return_value=mock_settings):
+        with patch("src.scheduler.target_worker.get_settings", return_value=mock_settings):
             await manager.start()
 
         # Then: 3 worker tasks created
         try:
             assert len(manager._workers) == 3
             for i, task in enumerate(manager._workers):
-                assert task.get_name() == f"search_queue_worker_{i}"
+                assert task.get_name() == f"target_queue_worker_{i}"
         finally:
             # Cleanup
             await manager.stop()
 
     @pytest.mark.asyncio
     async def test_start_uses_default_num_workers(self) -> None:
-        """Test SearchQueueWorkerManager.start() uses default num_workers=2.
+        """Test TargetWorkerManager.start() uses default num_workers=2.
 
         Given: Default config (num_workers=2)
-        When: SearchQueueWorkerManager.start() is called
+        When: TargetWorkerManager.start() is called
         Then: 2 worker tasks are created
         """
-        from src.scheduler.search_worker import SearchQueueWorkerManager
+        from src.scheduler.target_worker import TargetQueueWorkerManager
 
         # Given: Mock settings with default num_workers=2
         mock_settings = MagicMock()
-        mock_settings.concurrency.search_queue.num_workers = 2
+        mock_settings.concurrency.target_queue.num_workers = 2
 
-        manager = SearchQueueWorkerManager()
+        manager = TargetQueueWorkerManager()
 
         # When
-        with patch("src.scheduler.search_worker.get_settings", return_value=mock_settings):
+        with patch("src.scheduler.target_worker.get_settings", return_value=mock_settings):
             await manager.start()
 
         # Then: 2 worker tasks created (default)

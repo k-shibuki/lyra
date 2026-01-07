@@ -15,17 +15,72 @@ from src.mcp.helpers import (
     get_exploration_state,
     get_metrics_from_db,
     get_pending_auth_info,
-    get_search_queue_status,
+    get_target_queue_status,
     get_task_jobs_summary,
 )
 from src.mcp.response_meta import attach_meta, create_minimal_meta
 from src.research.pipeline import stop_task_action
-from src.scheduler.search_worker import get_worker_manager
+from src.scheduler.target_worker import get_worker_manager
 from src.storage.database import get_database
 from src.utils.logging import LogContext, ensure_logging_configured, get_logger
 
 ensure_logging_configured()
 logger = get_logger(__name__)
+
+
+def _compute_milestones(
+    *,
+    queue_info: dict[str, Any],
+    pending_auth: dict[str, Any] | None,
+    jobs_summary: dict[str, Any],
+) -> tuple[dict[str, Any], int]:
+    """Compute task_id-level stability flags for AI decision-making.
+
+    Returns only the flags AI needs to decide "what can I do next?":
+    - citation_candidates_stable: Can proceed to v_reference_candidates for Citation Chasing
+    - nli_results_stable: NLI verification results are complete
+    - blockers: Why not stable (empty when all stable)
+
+    For detailed job counts, AI can inspect jobs.by_kind directly.
+    """
+
+    def _kind_drained(kind: str) -> bool:
+        k = (jobs_summary.get("by_kind") or {}).get(kind) or {}
+        return int(k.get("queued", 0)) == 0 and int(k.get("running", 0)) == 0
+
+    queue_depth = int(queue_info.get("depth", 0))
+    queue_running = int(queue_info.get("running", 0))
+    target_queue_drained = queue_depth == 0 and queue_running == 0
+
+    pending_auth_count = int((pending_auth or {}).get("pending_captchas", 0))
+    auth_cleared = pending_auth_count == 0
+
+    citation_graph_drained = _kind_drained("citation_graph")
+    nli_verification_drained = _kind_drained("verify_nli")
+
+    # citation_candidates_stable: v_reference_candidates won't grow anymore
+    citation_candidates_stable = target_queue_drained and citation_graph_drained and auth_cleared
+
+    # nli_results_stable: NLI verification is complete
+    nli_results_stable = nli_verification_drained
+
+    # Blockers: why not stable (for debugging, empty when all stable)
+    blockers: list[str] = []
+    if not target_queue_drained:
+        blockers.append("target_queue")
+    if not citation_graph_drained:
+        blockers.append("citation_graph")
+    if not auth_cleared:
+        blockers.append("pending_auth")
+    if not nli_verification_drained:
+        blockers.append("verify_nli")
+
+    milestones = {
+        "citation_candidates_stable": citation_candidates_stable,
+        "nli_results_stable": nli_results_stable,
+        "blockers": blockers,
+    }
+    return milestones, pending_auth_count
 
 
 async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
@@ -71,7 +126,7 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
                 "budget_pages": budget_pages,
                 "max_seconds": max_seconds,
             },
-            "message": f"Task created. Use queue_searches(task_id='{task_id}', queries=[...]) to start exploration.",
+            "message": f"Task created. Use queue_targets(task_id='{task_id}', targets=[{{kind:'query', query:'...'}}]) to start exploration.",
         }
         return attach_meta(response, create_minimal_meta())
 
@@ -198,8 +253,8 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get domain overrides from DB
             domain_overrides = await get_domain_overrides()
 
-            # Get search queue status (ADR-0010)
-            queue_info = await get_search_queue_status(db, task_id)
+            # Get target queue status (ADR-0010)
+            queue_info = await get_target_queue_status(db, task_id)
 
             # Get pending auth info (ADR-0007)
             pending_auth = await get_pending_auth_info(db, task_id)
@@ -210,6 +265,12 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # db_only: Always compute total_* metrics from DB, even when ExplorationState exists.
             db_metrics = await get_metrics_from_db(db, task_id)
 
+            milestones, pending_auth_count = _compute_milestones(
+                queue_info=queue_info,
+                pending_auth=pending_auth,
+                jobs_summary=jobs_summary,
+            )
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -219,7 +280,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "queue": queue_info,  # ADR-0010: Search queue status
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
                 # Convenience field for agents/clients: quick check without parsing nested structures
-                "pending_auth_count": int((pending_auth or {}).get("pending_captchas", 0)),
+                "pending_auth_count": pending_auth_count,
                 "metrics": {
                     "total_searches": db_metrics.get("total_searches", len(searches)),
                     "satisfied_count": metrics.get("satisfied_count", 0),
@@ -251,6 +312,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "blocked_domains": blocked_domains,  # Added for transparency
                 "domain_overrides": domain_overrides,  #
                 "jobs": jobs_summary,  # ADR-0015: All job kinds status
+                "milestones": milestones,  # AI UX: stable next actions for this task_id
             }
 
             # Add evidence_summary when status is completed
@@ -270,8 +332,8 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # Get domain overrides from DB
             domain_overrides = await get_domain_overrides()
 
-            # Get search queue status (ADR-0010)
-            queue_info = await get_search_queue_status(db, task_id)
+            # Get target queue status (ADR-0010)
+            queue_info = await get_target_queue_status(db, task_id)
 
             # Get pending auth info (ADR-0007)
             pending_auth = await get_pending_auth_info(db, task_id)
@@ -282,6 +344,12 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # H-D fix: Fetch metrics directly from DB when exploration state unavailable
             db_metrics = await get_metrics_from_db(db, task_id)
 
+            milestones, pending_auth_count = _compute_milestones(
+                queue_info=queue_info,
+                pending_auth=pending_auth,
+                jobs_summary=jobs_summary,
+            )
+
             response = {
                 "ok": True,
                 "task_id": task_id,
@@ -291,7 +359,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "queue": queue_info,  # ADR-0010: Search queue status
                 "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
                 # Convenience field for agents/clients: quick check without parsing nested structures
-                "pending_auth_count": int(pending_auth.get("pending_captchas", 0)),
+                "pending_auth_count": pending_auth_count,
                 "metrics": db_metrics,
                 "budget": {
                     "budget_pages_used": db_metrics.get("total_pages", 0),
@@ -308,6 +376,7 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 "blocked_domains": blocked_domains,  # Added for transparency
                 "domain_overrides": domain_overrides,  #
                 "jobs": jobs_summary,  # ADR-0015: All job kinds status
+                "milestones": milestones,  # AI UX: stable next actions for this task_id
             }
 
             # Add evidence_summary when status is completed
@@ -325,27 +394,29 @@ async def handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
     Implements ADR-0003: Finalizes task session (pauses task).
     Implements ADR-0010: Stop modes (graceful/immediate) and scope.
 
-    Scope semantics (ADR-0015):
-    - search_queue_only (default): Only cancel search_queue jobs. VERIFY_NLI,
+    Scope semantics:
+    - all_jobs (default): Cancel all job kinds for this task. This is the
+      recommended default to ensure "stop means stop".
+    - target_queue_only: Only cancel target_queue jobs. VERIFY_NLI,
       CITATION_GRAPH, and other jobs are allowed to complete.
-    - all_jobs: Cancel all job kinds for this task.
 
     Mode semantics:
     - graceful: Cancel queued jobs, wait for running jobs to complete.
     - immediate: Cancel all queued and running jobs immediately.
+    - full: Cancel all jobs AND wait for operations to drain.
 
     Reason semantics:
     - session_completed: Session ends, task paused and resumable.
     - budget_exhausted: Budget depleted, task paused and resumable.
     - user_cancelled: User explicitly cancelled, task paused.
 
-    Note: Tasks are always resumable. Use queue_searches on a paused task
-    to add more searches and continue exploration.
+    Note: Tasks are always resumable. Use queue_targets on a paused task
+    to add more targets and continue exploration.
     """
     task_id = args.get("task_id")
     reason = args.get("reason", "session_completed")
     mode = args.get("mode", "graceful")
-    scope = args.get("scope", "search_queue_only")
+    scope = args.get("scope", "all_jobs")  # Default changed to all_jobs
 
     if not task_id:
         raise InvalidParamsError(
@@ -361,11 +432,11 @@ async def handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
             expected="'graceful', 'immediate', or 'full'",
         )
 
-    if scope not in ("search_queue_only", "all_jobs"):
+    if scope not in ("target_queue_only", "all_jobs"):
         raise InvalidParamsError(
-            "scope must be 'search_queue_only' or 'all_jobs'",
+            "scope must be 'target_queue_only' or 'all_jobs'",
             param_name="scope",
-            expected="'search_queue_only' or 'all_jobs'",
+            expected="'target_queue_only' or 'all_jobs'",
         )
 
     with LogContext(task_id=task_id):
@@ -427,7 +498,7 @@ async def handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
         result["cancelled_counts"] = cancelled_counts
 
         # List unaffected job kinds for clarity
-        if scope == "search_queue_only":
+        if scope == "target_queue_only":
             result["unaffected_kinds"] = ["verify_nli", "citation_graph", "embed", "nli"]
         else:
             result["unaffected_kinds"] = []
@@ -447,15 +518,15 @@ async def cancel_jobs_by_scope(
     Args:
         task_id: The task ID.
         mode: Stop mode ('graceful', 'immediate', or 'full').
-        scope: Job scope ('search_queue_only' or 'all_jobs').
+        scope: Job scope ('target_queue_only' or 'all_jobs').
         db: Database connection.
 
     Returns:
         Dict with counts of cancelled/waited jobs by kind and state.
 
-    Scope semantics (ADR-0015):
-    - search_queue_only: Only cancel 'search_queue' jobs.
-    - all_jobs: Cancel all job kinds for this task.
+    Scope semantics:
+    - all_jobs (default): Cancel all job kinds for this task.
+    - target_queue_only: Only cancel 'target_queue' jobs.
 
     Mode semantics (ADR-0010):
     - graceful: Cancel 'queued' jobs and WAIT for running jobs to complete naturally.
@@ -465,11 +536,11 @@ async def cancel_jobs_by_scope(
     now = datetime.now(UTC).isoformat()
 
     # Determine which job kinds to cancel based on scope
-    if scope == "search_queue_only":
-        job_kinds = ["search_queue"]
+    if scope == "target_queue_only":
+        job_kinds = ["target_queue"]
     else:  # all_jobs
         job_kinds = [
-            "search_queue",
+            "target_queue",
             "verify_nli",
             "citation_graph",
             "embed",
@@ -484,6 +555,7 @@ async def cancel_jobs_by_scope(
         "queued_cancelled": 0,
         "running_cancelled": 0,
         "tasks_cancelled": 0,
+        "scheduler_jobs_cancelled": 0,
         "jobs_waited": 0,
         "by_kind": {},
     }
@@ -519,7 +591,7 @@ async def cancel_jobs_by_scope(
         if kind_counts["queued"] > 0 or kind_counts["running"] > 0:
             counts["by_kind"][kind] = kind_counts
 
-    # Handle worker task cancellation for search_queue
+    # Handle worker task cancellation for target_queue (TargetQueueWorkerManager)
     manager = get_worker_manager()
 
     if mode == "graceful":
@@ -527,22 +599,30 @@ async def cancel_jobs_by_scope(
         jobs_waited = await manager.wait_for_task_jobs_to_complete(task_id, timeout=30.0)
         counts["jobs_waited"] = jobs_waited
     elif mode in ("immediate", "full"):
-        # Cancel running worker tasks (this triggers CancelledError)
+        # Cancel running target_queue worker tasks
         tasks_cancelled = await manager.cancel_jobs_for_task(task_id)
         counts["tasks_cancelled"] = tasks_cancelled
+
+        # Also cancel running jobs via JobScheduler (for non-target_queue jobs)
+        # This handles VERIFY_NLI, CITATION_GRAPH, etc.
+        from src.scheduler.jobs import get_scheduler
+
+        scheduler = await get_scheduler()
+        scheduler_cancelled = await scheduler.cancel_running_jobs_for_task(task_id)
+        counts["scheduler_jobs_cancelled"] = scheduler_cancelled
 
     return counts
 
 
-async def cancel_search_queue_jobs(
+async def cancel_target_queue_jobs(
     task_id: str,
     mode: str,
     db: Any,
 ) -> dict[str, int]:
     """
-    Cancel search queue jobs for a task based on stop mode.
+    Cancel target queue jobs for a task based on stop mode.
 
-    DEPRECATED: Use cancel_jobs_by_scope with scope='search_queue_only' instead.
+    DEPRECATED: Use cancel_jobs_by_scope with scope='target_queue_only' instead.
 
     Args:
         task_id: The task ID.
@@ -557,7 +637,7 @@ async def cancel_search_queue_jobs(
     - immediate: Cancel both 'queued' and 'running' jobs immediately via asyncio.Task.cancel().
     - full: Cancel all jobs (like immediate) AND wait for ML/NLI operations to drain.
     """
-    result = await cancel_jobs_by_scope(task_id, mode, "search_queue_only", db)
+    result = await cancel_jobs_by_scope(task_id, mode, "target_queue_only", db)
     return {
         "queued_cancelled": result.get("queued_cancelled", 0),
         "running_cancelled": result.get("running_cancelled", 0),
@@ -566,15 +646,15 @@ async def cancel_search_queue_jobs(
     }
 
 
-async def _legacy_cancel_search_queue_jobs(
+async def _legacy_cancel_target_queue_jobs(
     task_id: str,
     mode: str,
     db: Any,
 ) -> dict[str, int]:
     """
-    Legacy cancel search queue jobs implementation.
+    Legacy cancel target queue jobs implementation.
 
-    Kept for reference; cancel_search_queue_jobs now delegates to cancel_jobs_by_scope.
+    Kept for reference; cancel_target_queue_jobs now delegates to cancel_jobs_by_scope.
     """
     now = datetime.now(UTC).isoformat()
     counts = {
@@ -589,7 +669,7 @@ async def _legacy_cancel_search_queue_jobs(
         """
         UPDATE jobs
         SET state = 'cancelled', finished_at = ?
-        WHERE task_id = ? AND kind = 'search_queue' AND state = 'queued'
+        WHERE task_id = ? AND kind = 'target_queue' AND state = 'queued'
         """,
         (now, task_id),
     )
@@ -614,7 +694,7 @@ async def _legacy_cancel_search_queue_jobs(
             """
             UPDATE jobs
             SET state = 'cancelled', finished_at = ?
-            WHERE task_id = ? AND kind = 'search_queue' AND state = 'running'
+            WHERE task_id = ? AND kind = 'target_queue' AND state = 'running'
             """,
             (now, task_id),
         )
@@ -628,7 +708,7 @@ async def _legacy_cancel_search_queue_jobs(
             await asyncio.sleep(0.5)  # Brief pause for cleanup
 
     logger.info(
-        "Search queue jobs processed",
+        "Target queue jobs processed",
         task_id=task_id,
         mode=mode,
         queued_cancelled=counts["queued_cancelled"],

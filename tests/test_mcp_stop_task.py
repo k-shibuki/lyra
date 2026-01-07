@@ -23,11 +23,11 @@ Tests the stop_task tool's graceful/immediate mode per ADR-0010 and scope per AD
 | TC-ST-15 | reason=user_cancelled | Equivalence – normal | final_status=cancelled | explicit cancel |
 | TC-ST-16 | stop_task updates DB status | Equivalence – normal | tasks.status=paused | DB wiring |
 | TC-ST-17 | is_resumable in response | Equivalence – normal | is_resumable=True | resumable flag |
-| TC-SC-01 | scope not specified | Boundary – default | scope=search_queue_only | default scope |
+| TC-SC-01 | scope not specified | Boundary – default | scope=all_jobs | default scope (changed from target_queue_only) |
 | TC-SC-02 | scope=all_jobs | Equivalence – normal | all kinds cancelled | full scope |
 | TC-SC-03 | scope=invalid | Boundary – invalid | InvalidParamsError | validation |
-| TC-SC-04 | scope=search_queue_only | Equivalence – normal | cancelled_counts.by_kind | counts breakdown |
-| TC-SC-05 | scope=search_queue_only | Equivalence – normal | unaffected_kinds in response | transparency |
+| TC-SC-04 | scope=target_queue_only | Equivalence – normal | cancelled_counts.by_kind | counts breakdown |
+| TC-SC-05 | scope=target_queue_only | Equivalence – normal | unaffected_kinds in response | transparency |
 | TC-SC-06 | scope=all_jobs | Equivalence – normal | unaffected_kinds=[] | empty list |
 """
 
@@ -146,7 +146,7 @@ class TestStopTaskGracefulMode:
                 (
                     f"s_st01_{i}",
                     "task_st01",
-                    "search_queue",
+                    "target_queue",
                     50,
                     "network_client",
                     "queued",
@@ -167,7 +167,7 @@ class TestStopTaskGracefulMode:
 
         # Verify all queued jobs are cancelled
         rows = await db.fetch_all(
-            "SELECT state FROM jobs WHERE task_id = ? AND kind = 'search_queue'",
+            "SELECT state FROM jobs WHERE task_id = ? AND kind = 'target_queue'",
             ("task_st01",),
         )
         for row in rows:
@@ -202,7 +202,7 @@ class TestStopTaskGracefulMode:
             (
                 "s_st07_running",
                 "task_st07",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "running",
@@ -256,7 +256,7 @@ class TestStopTaskGracefulMode:
             (
                 "s_st04_queued",
                 "task_st04",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "queued",
@@ -272,7 +272,7 @@ class TestStopTaskGracefulMode:
             (
                 "s_st04_running",
                 "task_st04",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "running",
@@ -341,7 +341,7 @@ class TestStopTaskImmediateMode:
                 (
                     f"s_st02_{i}",
                     "task_st02",
-                    "search_queue",
+                    "target_queue",
                     50,
                     "network_client",
                     "queued",
@@ -362,7 +362,7 @@ class TestStopTaskImmediateMode:
 
         # Verify all jobs are cancelled
         rows = await db.fetch_all(
-            "SELECT state FROM jobs WHERE task_id = ? AND kind = 'search_queue'",
+            "SELECT state FROM jobs WHERE task_id = ? AND kind = 'target_queue'",
             ("task_st02",),
         )
         for row in rows:
@@ -397,7 +397,7 @@ class TestStopTaskImmediateMode:
             (
                 "s_st03_running",
                 "task_st03",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "running",
@@ -459,7 +459,7 @@ class TestStopTaskFullMode:
             (
                 "s_full_01_queued",
                 "task_full_01",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "queued",
@@ -475,7 +475,7 @@ class TestStopTaskFullMode:
             (
                 "s_full_01_running",
                 "task_full_01",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "running",
@@ -497,7 +497,7 @@ class TestStopTaskFullMode:
 
         # Verify all jobs are cancelled
         rows = await db.fetch_all(
-            "SELECT state FROM jobs WHERE task_id = ? AND kind = 'search_queue'",
+            "SELECT state FROM jobs WHERE task_id = ? AND kind = 'target_queue'",
             ("task_full_01",),
         )
         for row in rows:
@@ -572,13 +572,13 @@ class TestStopTaskRealCancellation:
         """
         TC-ST-10: mode=immediate cancels running search_action task.
 
-        // Given: Task with a registered search_action task in SearchQueueWorkerManager
+        // Given: Task with a registered action task in TargetQueueWorkerManager
         // When: stop_task(mode=immediate)
-        // Then: The search_action asyncio.Task is cancelled (worker survives)
+        // Then: The action asyncio.Task is cancelled (worker survives)
         """
         import asyncio
 
-        from src.scheduler.search_worker import SearchQueueWorkerManager
+        from src.scheduler.target_worker import TargetQueueWorkerManager
 
         db = test_database
 
@@ -589,7 +589,7 @@ class TestStopTaskRealCancellation:
         )
 
         # Create manager
-        manager = SearchQueueWorkerManager()
+        manager = TargetQueueWorkerManager()
         cancel_flag = {"cancelled": False}
         search_id = "s_st10_running"
 
@@ -624,15 +624,15 @@ class TestStopTaskRealCancellation:
     @pytest.mark.asyncio
     async def test_cancel_does_not_affect_other_tasks(self, test_database: Database) -> None:
         """
-        TC-ST-10b: Cancellation only affects the specified task's search_action tasks.
+        TC-ST-10b: Cancellation only affects the specified task's action tasks.
 
-        // Given: Multiple tasks with running search_action tasks
+        // Given: Multiple tasks with running action tasks
         // When: stop_task(mode=immediate) for one task
-        // Then: Only that task's search_action tasks are cancelled
+        // Then: Only that task's action tasks are cancelled
         """
         import asyncio
 
-        from src.scheduler.search_worker import SearchQueueWorkerManager
+        from src.scheduler.target_worker import TargetQueueWorkerManager
 
         db = test_database
 
@@ -646,8 +646,8 @@ class TestStopTaskRealCancellation:
             ("task_st10_b", "Test task B", "exploring"),
         )
 
-        # Create manager with search_action tasks for both research tasks
-        manager = SearchQueueWorkerManager()
+        # Create manager with action tasks for both research tasks
+        manager = TargetQueueWorkerManager()
 
         search_a_cancelled = {"cancelled": False}
         search_b_cancelled = {"cancelled": False}
@@ -735,7 +735,7 @@ class TestStopTaskRaceCondition:
             (
                 "s_st11_cancelled",
                 "task_st11",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "cancelled",  # Already cancelled
@@ -797,7 +797,7 @@ class TestStopTaskRaceCondition:
             (
                 "s_st11b_cancelled",
                 "task_st11b",
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "cancelled",
@@ -1151,13 +1151,13 @@ class TestStopTaskScope:
     """Tests for stop_task scope parameter (ADR-0015)."""
 
     @pytest.mark.asyncio
-    async def test_scope_default_is_search_queue_only(self, test_database: Database) -> None:
+    async def test_scope_default_is_all_jobs(self, test_database: Database) -> None:
         """
-        TC-SC-01: Default scope is search_queue_only.
+        TC-SC-01: Default scope is all_jobs (changed from target_queue_only).
 
-        // Given: Task with search_queue and verify_nli jobs
+        // Given: Task with target_queue and verify_nli jobs
         // When: stop_task without scope
-        // Then: scope='search_queue_only' in response, verify_nli NOT cancelled
+        // Then: scope='all_jobs' in response, all jobs cancelled
         """
         from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
@@ -1169,11 +1169,11 @@ class TestStopTaskScope:
             ("task_scope_01", "Test task", "exploring"),
         )
 
-        # Create search_queue job
+        # Create target_queue job
         await db.execute(
             """
             INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at)
-            VALUES (?, ?, 'search_queue', 25, 'network_client', 'queued', datetime('now'))
+            VALUES (?, ?, 'target_queue', 25, 'network_client', 'queued', datetime('now'))
             """,
             ("sq_scope_01", "task_scope_01"),
         )
@@ -1194,9 +1194,9 @@ class TestStopTaskScope:
         )
 
         assert result["ok"] is True
-        assert result.get("scope") == "search_queue_only"
+        assert result.get("scope") == "all_jobs"
 
-        # Verify search_queue job is cancelled
+        # Verify target_queue job is cancelled
         row = await db.fetch_one(
             "SELECT state FROM jobs WHERE id = ?",
             ("sq_scope_01",),
@@ -1204,20 +1204,20 @@ class TestStopTaskScope:
         assert row is not None
         assert row["state"] == "cancelled"
 
-        # Verify verify_nli job is NOT cancelled
+        # Verify verify_nli job is ALSO cancelled (default scope is now all_jobs)
         row = await db.fetch_one(
             "SELECT state FROM jobs WHERE id = ?",
             ("vn_scope_01",),
         )
         assert row is not None
-        assert row["state"] == "queued"  # Still queued, not cancelled
+        assert row["state"] == "cancelled"
 
     @pytest.mark.asyncio
     async def test_scope_all_jobs_cancels_verify_nli(self, test_database: Database) -> None:
         """
         TC-SC-02: scope=all_jobs cancels verify_nli jobs.
 
-        // Given: Task with search_queue and verify_nli jobs
+        // Given: Task with target_queue and verify_nli jobs
         // When: stop_task(scope='all_jobs')
         // Then: Both job kinds cancelled
         """
@@ -1231,11 +1231,11 @@ class TestStopTaskScope:
             ("task_scope_02", "Test task", "exploring"),
         )
 
-        # Create search_queue job
+        # Create target_queue job
         await db.execute(
             """
             INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at)
-            VALUES (?, ?, 'search_queue', 25, 'network_client', 'queued', datetime('now'))
+            VALUES (?, ?, 'target_queue', 25, 'network_client', 'queued', datetime('now'))
             """,
             ("sq_scope_02", "task_scope_02"),
         )
@@ -1309,9 +1309,9 @@ class TestStopTaskScope:
         """
         TC-SC-04: cancelled_counts includes by_kind breakdown.
 
-        // Given: Task with multiple search_queue jobs
+        // Given: Task with multiple target_queue jobs
         // When: stop_task
-        // Then: cancelled_counts.by_kind.search_queue shows counts
+        // Then: cancelled_counts.by_kind.target_queue shows counts
         """
         from src.mcp.tools.task import handle_stop_task as _handle_stop_task
 
@@ -1323,12 +1323,12 @@ class TestStopTaskScope:
             ("task_scope_04", "Test task", "exploring"),
         )
 
-        # Create multiple search_queue jobs
+        # Create multiple target_queue jobs
         for i in range(3):
             await db.execute(
                 """
                 INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at)
-                VALUES (?, ?, 'search_queue', 25, 'network_client', 'queued', datetime('now'))
+                VALUES (?, ?, 'target_queue', 25, 'network_client', 'queued', datetime('now'))
                 """,
                 (f"sq_scope_04_{i}", "task_scope_04"),
             )
@@ -1342,7 +1342,7 @@ class TestStopTaskScope:
         assert result["ok"] is True
         assert "cancelled_counts" in result
         assert result["cancelled_counts"]["queued_cancelled"] == 3
-        assert "search_queue" in result["cancelled_counts"]["by_kind"]
+        assert "target_queue" in result["cancelled_counts"]["by_kind"]
 
     @pytest.mark.asyncio
     async def test_unaffected_kinds_in_response(self, test_database: Database) -> None:
@@ -1350,7 +1350,7 @@ class TestStopTaskScope:
         TC-SC-05: unaffected_kinds lists job kinds NOT cancelled.
 
         // Given: Task
-        // When: stop_task(scope='search_queue_only')
+        // When: stop_task(scope='target_queue_only')
         // Then: unaffected_kinds includes verify_nli, citation_graph
         """
         from src.mcp.tools.task import handle_stop_task as _handle_stop_task
@@ -1366,7 +1366,7 @@ class TestStopTaskScope:
         result = await _handle_stop_task(
             {
                 "task_id": "task_scope_05",
-                "scope": "search_queue_only",
+                "scope": "target_queue_only",
             }
         )
 

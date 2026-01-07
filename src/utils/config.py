@@ -339,15 +339,15 @@ class MetricsConfig(BaseModel):
 # === Concurrency Configuration (ADR-0013/ADR-0014) ===
 
 
-class SearchQueueConcurrencyConfig(BaseModel):
-    """Search queue worker concurrency configuration.
+class TargetQueueConcurrencyConfig(BaseModel):
+    """Target queue worker concurrency configuration.
 
     Per ADR-0010: Config-driven worker count.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    num_workers: int = Field(default=2, ge=1, description="Number of parallel search queue workers")
+    num_workers: int = Field(default=2, ge=1, description="Number of parallel target queue workers")
 
 
 class BrowserSerpConcurrencyConfig(BaseModel):
@@ -413,14 +413,14 @@ class ConcurrencyConfig(BaseModel):
     Per ADR-0013/ADR-0014: Config-driven concurrency + Safe Auto-Backoff.
 
     Attributes:
-        search_queue: Search queue worker settings (num_workers).
+        target_queue: Target queue worker settings (num_workers).
         browser_serp: Browser SERP tab pool settings (max_tabs).
         backoff: Auto-backoff settings for error recovery.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    search_queue: SearchQueueConcurrencyConfig = Field(default_factory=SearchQueueConcurrencyConfig)
+    target_queue: TargetQueueConcurrencyConfig = Field(default_factory=TargetQueueConcurrencyConfig)
     browser_serp: BrowserSerpConcurrencyConfig = Field(default_factory=BrowserSerpConcurrencyConfig)
     backoff: BackoffConfig = Field(default_factory=BackoffConfig)
 
@@ -812,7 +812,7 @@ def get_num_workers() -> int:
     Returns:
         Number of workers configured.
     """
-    return get_settings().concurrency.search_queue.num_workers
+    return get_settings().concurrency.target_queue.num_workers
 
 
 def get_chrome_port(worker_id: int) -> int:
@@ -848,7 +848,7 @@ def get_all_chrome_ports() -> list[int]:
     """
     settings = get_settings()
     base = settings.browser.chrome_base_port
-    n = settings.concurrency.search_queue.num_workers
+    n = settings.concurrency.target_queue.num_workers
     return [base + i for i in range(n)]
 
 

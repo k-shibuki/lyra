@@ -28,8 +28,8 @@
     },
     "scope": {
       "type": "string",
-      "enum": ["search_queue_only", "all_jobs"],
-      "description": "Scope of job cancellation (ADR-0015). search_queue_only = only search jobs cancelled, verify_nli/citation_graph allowed to complete. all_jobs = all job kinds cancelled."
+      "enum": ["target_queue_only", "all_jobs"],
+      "description": "Scope of job cancellation. all_jobs (default) = all job kinds cancelled. target_queue_only = only target jobs cancelled, verify_nli/citation_graph allowed to complete."
     },
     "cancelled_counts": {
       "type": "object",
@@ -38,6 +38,7 @@
         "queued_cancelled": {"type": "integer"},
         "running_cancelled": {"type": "integer"},
         "tasks_cancelled": {"type": "integer"},
+        "scheduler_jobs_cancelled": {"type": "integer"},
         "jobs_waited": {"type": "integer"},
         "by_kind": {
           "type": "object",
@@ -57,7 +58,7 @@
     "unaffected_kinds": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Job kinds NOT cancelled by this stop (when scope=search_queue_only)."
+      "description": "Job kinds NOT cancelled by this stop (when scope=target_queue_only)."
     },
     "summary": {
       "type": "object",
@@ -74,7 +75,7 @@
     },
     "is_resumable": {
       "type": "boolean",
-      "description": "Always true. Task can be resumed by calling queue_searches with the same task_id."
+      "description": "Always true. Task can be resumed by calling queue_targets with the same task_id."
     }
   },
   "required": ["ok", "task_id", "final_status"],

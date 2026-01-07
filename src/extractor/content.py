@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from src.extractor.html_normalizer import normalize_html
 from src.storage.database import get_database
 from src.utils.logging import get_logger
 
@@ -82,12 +83,18 @@ async def _extract_html(
         if html is None:
             return {"ok": False, "error": "No content to extract"}
 
+        # Normalize HTML before extraction (removes script/style/noscript noise)
+        normalized_html = normalize_html(html)
+
         # Extract main content
+        # Note: include_links=False to avoid trafilatura's link embedding warnings
+        # ("missing link attribute"). Citation links are extracted separately via
+        # CitationDetector which uses LinkExtractor on raw HTML.
         extracted = trafilatura.extract(
-            html,
+            normalized_html,
             include_comments=False,
             include_tables=True,
-            include_links=True,
+            include_links=False,
             include_images=False,
             output_format="txt",
             favor_precision=True,
@@ -103,8 +110,8 @@ async def _extract_html(
                 "error": "Could not extract content",
             }
 
-        # Extract metadata
-        metadata = trafilatura.extract_metadata(html)
+        # Extract metadata (use normalized HTML for consistency)
+        metadata = trafilatura.extract_metadata(normalized_html)
 
         title = None
         language = None

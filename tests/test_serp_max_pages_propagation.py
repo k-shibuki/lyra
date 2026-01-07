@@ -116,7 +116,7 @@ class TestSerpMaxPagesWiringToSearchSerp:
 
         state = MagicMock()
         ex = SearchExecutor(task_id="task_x", state=state)
-        ex._engines = ["mojeek"]
+        ex._serp_engines = ["mojeek"]
         ex._search_job_id = "job_1"
         ex._serp_max_pages = 4
 

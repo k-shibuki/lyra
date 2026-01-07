@@ -2,9 +2,16 @@
 Job scheduler for Lyra.
 Manages job queues, slots, and resource allocation.
 Implements budget control per ADR-0010 and ADR-0003.
+
+DB-Driven Architecture:
+- DB is the sole source of truth for job state.
+- Workers poll DB for queued jobs and claim them atomically.
+- In-memory queue is NOT used; submit() only inserts into DB.
+- Restart resets all queued/running jobs to failed (no auto-resume).
 """
 
 import asyncio
+import json
 import time
 import uuid
 from datetime import UTC, datetime
@@ -28,7 +35,7 @@ class JobKind(str, Enum):
 
     Note:
         Per ADR-0004: LLM_FAST/LLM_SLOW are unified into LLM (single 3B model).
-        Per ADR-0010: SEARCH_QUEUE added for async search queue architecture.
+        Per ADR-0010: TARGET_QUEUE for async target queue architecture (query + URL).
         Per ADR-0005: VERIFY_NLI added for automatic cross-source NLI verification.
         Per ADR-0015: CITATION_GRAPH added for deferred citation graph processing.
     """
@@ -39,7 +46,7 @@ class JobKind(str, Enum):
     EMBED = "embed"
     LLM = "llm"  # Single LLM job type (per ADR-0004)
     NLI = "nli"
-    SEARCH_QUEUE = "search_queue"  # Async search queue (per ADR-0010)
+    TARGET_QUEUE = "target_queue"  # Async target queue - query + URL (per ADR-0010)
     VERIFY_NLI = "verify_nli"  # Cross-source NLI verification (per ADR-0005)
     CITATION_GRAPH = "citation_graph"  # Deferred citation graph processing (per ADR-0015)
 
@@ -73,7 +80,7 @@ KIND_TO_SLOT = {
     JobKind.EMBED: Slot.GPU,
     JobKind.LLM: Slot.GPU,  # Single LLM slot (per ADR-0004)
     JobKind.NLI: Slot.CPU_NLP,
-    JobKind.SEARCH_QUEUE: Slot.NETWORK_CLIENT,  # Async search queue (per ADR-0010)
+    JobKind.TARGET_QUEUE: Slot.NETWORK_CLIENT,  # Async target queue (per ADR-0010)
     JobKind.VERIFY_NLI: Slot.CPU_NLP,  # Cross-source NLI verification (per ADR-0005)
     JobKind.CITATION_GRAPH: Slot.CPU_NLP,  # Deferred citation graph (per ADR-0015)
 }
@@ -86,7 +93,7 @@ KIND_PRIORITY = {
     JobKind.EMBED: 40,
     JobKind.LLM: 60,  # Single LLM priority (per ADR-0004)
     JobKind.NLI: 35,
-    JobKind.SEARCH_QUEUE: 25,  # Between FETCH and EXTRACT (per ADR-0010)
+    JobKind.TARGET_QUEUE: 25,  # Between FETCH and EXTRACT (per ADR-0010)
     JobKind.VERIFY_NLI: 45,  # After EMBED, before LLM (per ADR-0005)
     JobKind.CITATION_GRAPH: 50,  # After VERIFY_NLI, before LLM (per ADR-0015)
 }
@@ -104,33 +111,46 @@ EXCLUSIVE_SLOTS = [
     {Slot.GPU, Slot.BROWSER_HEADFUL},
 ]
 
+# Polling interval for DB-driven workers
+DB_POLL_INTERVAL_SECONDS = 0.5
+
 
 class JobScheduler:
-    """Job scheduler with slot-based resource management and budget control."""
+    """Job scheduler with slot-based resource management and budget control.
+
+    DB-Driven Architecture:
+    - submit() inserts job into DB only (no in-memory queue).
+    - Workers poll DB for 'queued' jobs and claim atomically.
+    - On startup, stale queued/running jobs are reset to 'failed'.
+    """
 
     def __init__(self) -> None:
         self._settings = get_settings()
-        self._queues: dict[Slot, asyncio.PriorityQueue] = {}
-        self._running: dict[Slot, set[str]] = {}
-        self._workers: dict[Slot, list[asyncio.Task]] = {}
+        self._workers: dict[Slot, list[asyncio.Task[None]]] = {}
         self._lock = asyncio.Lock()
         self._started = False
         self._budget_manager: BudgetManager | None = None
 
+        # Running job tracking for cancellation (job_id -> asyncio.Task)
+        self._running_tasks: dict[str, asyncio.Task[Any]] = {}
+
         # Job timing for LLM ratio tracking
         self._job_start_times: dict[str, float] = {}
 
-        # Initialize queues and running sets
-        for slot in Slot:
-            self._queues[slot] = asyncio.PriorityQueue()
-            self._running[slot] = set()
-
     async def start(self) -> None:
-        """Start the scheduler workers."""
+        """Start the scheduler workers.
+
+        On startup:
+        1. Reset stale queued/running jobs to 'failed' (server_restart_reset).
+        2. Start worker coroutines that poll DB for jobs.
+        """
         if self._started:
             return
 
         self._started = True
+
+        # Reset stale jobs on startup (fail_all policy)
+        await self._reset_inflight_jobs_on_startup()
 
         # Initialize budget manager
         self._budget_manager = await get_budget_manager()
@@ -138,13 +158,47 @@ class JobScheduler:
         # Start worker tasks for each slot
         for slot in Slot:
             limit = SLOT_LIMITS[slot]
-            workers = []
+            workers: list[asyncio.Task[None]] = []
             for i in range(limit):
                 task = asyncio.create_task(self._worker(slot, i))
                 workers.append(task)
             self._workers[slot] = workers
 
         logger.info("Job scheduler started")
+
+    async def _reset_inflight_jobs_on_startup(self) -> None:
+        """Reset all queued/running jobs to 'failed' on startup.
+
+        This ensures:
+        - No jobs auto-resume after restart (fail_all policy).
+        - get_status.milestones won't be blocked by orphaned queued jobs.
+        """
+        db = await get_database()
+        now = datetime.now(UTC).isoformat()
+
+        # Update all queued/running jobs to failed
+        cursor = await db.execute(
+            """
+            UPDATE jobs
+            SET state = ?, finished_at = ?, error_message = ?
+            WHERE state IN (?, ?)
+            """,
+            (
+                JobState.FAILED.value,
+                now,
+                "server_restart_reset",
+                JobState.QUEUED.value,
+                JobState.RUNNING.value,
+            ),
+        )
+        reset_count = getattr(cursor, "rowcount", 0)
+
+        if reset_count > 0:
+            logger.warning(
+                "Reset stale jobs on startup",
+                reset_count=reset_count,
+                policy="fail_all",
+            )
 
     async def stop(self) -> None:
         """Stop the scheduler."""
@@ -179,6 +233,8 @@ class JobScheduler:
         cause_id: str | None = None,
     ) -> dict[str, Any]:
         """Submit a job for execution.
+
+        DB-Driven: Only inserts job into DB. Workers poll DB for jobs.
 
         Args:
             kind: Job kind.
@@ -217,8 +273,8 @@ class JobScheduler:
                     "reason": f"budget_{budget_reason}",
                 }
 
-        # Check exclusivity
-        can_queue = await self._check_exclusivity(slot)
+        # Check exclusivity (via DB running count)
+        can_queue = await self._check_exclusivity_db(slot)
         if not can_queue:
             return {
                 "accepted": False,
@@ -226,7 +282,7 @@ class JobScheduler:
                 "reason": "exclusive_slot_busy",
             }
 
-        # Store job in database
+        # Store job in database (DB is the only queue)
         db = await get_database()
         await db.insert(
             "jobs",
@@ -237,14 +293,11 @@ class JobScheduler:
                 "priority": priority,
                 "slot": slot.value,
                 "state": JobState.QUEUED.value,
-                "input_json": str(input_data),
+                "input_json": json.dumps(input_data),  # Use proper JSON serialization
                 "queued_at": datetime.now(UTC).isoformat(),
                 "cause_id": cause_id,
             },
         )
-
-        # Add to queue
-        await self._queues[slot].put((priority, job_id, input_data, kind, task_id, cause_id))
 
         logger.info(
             "Job submitted",
@@ -259,7 +312,7 @@ class JobScheduler:
             "job_id": job_id,
             "slot": slot.value,
             "priority": priority,
-            "eta": await self._estimate_eta(slot),
+            "eta": await self._estimate_eta_db(slot),
         }
 
     async def _check_budget(
@@ -301,8 +354,8 @@ class JobScheduler:
 
         return True, None
 
-    async def _check_exclusivity(self, slot: Slot) -> bool:
-        """Check if slot can accept jobs based on exclusivity rules.
+    async def _check_exclusivity_db(self, slot: Slot) -> bool:
+        """Check if slot can accept jobs based on exclusivity rules (DB-based).
 
         Args:
             slot: Target slot.
@@ -310,17 +363,27 @@ class JobScheduler:
         Returns:
             True if slot can accept jobs.
         """
-        async with self._lock:
-            for exclusive_group in EXCLUSIVE_SLOTS:
-                if slot in exclusive_group:
-                    # Check if any other slot in the group is busy
-                    for other_slot in exclusive_group:
-                        if other_slot != slot and len(self._running[other_slot]) > 0:
+        db = await get_database()
+
+        for exclusive_group in EXCLUSIVE_SLOTS:
+            if slot in exclusive_group:
+                # Check if any other slot in the group has running jobs
+                for other_slot in exclusive_group:
+                    if other_slot != slot:
+                        row = await db.fetch_one(
+                            """
+                            SELECT COUNT(*) as cnt FROM jobs
+                            WHERE slot = ? AND state = ?
+                            """,
+                            (other_slot.value, JobState.RUNNING.value),
+                        )
+                        count = row["cnt"] if row else 0
+                        if count > 0:
                             return False
         return True
 
-    async def _estimate_eta(self, slot: Slot) -> str:
-        """Estimate time until job starts.
+    async def _estimate_eta_db(self, slot: Slot) -> str:
+        """Estimate time until job starts (DB-based).
 
         Args:
             slot: Target slot.
@@ -328,18 +391,110 @@ class JobScheduler:
         Returns:
             ETA string.
         """
-        queue_size = self._queues[slot].qsize()
-        running_count = len(self._running[slot])
+        db = await get_database()
+
+        # Count queued jobs for this slot
+        queued_row = await db.fetch_one(
+            "SELECT COUNT(*) as cnt FROM jobs WHERE slot = ? AND state = ?",
+            (slot.value, JobState.QUEUED.value),
+        )
+        queued_count = queued_row["cnt"] if queued_row else 0
+
+        # Count running jobs for this slot
+        running_row = await db.fetch_one(
+            "SELECT COUNT(*) as cnt FROM jobs WHERE slot = ? AND state = ?",
+            (slot.value, JobState.RUNNING.value),
+        )
+        running_count = running_row["cnt"] if running_row else 0
+
         limit = SLOT_LIMITS[slot]
 
         # Simple estimate: assume each job takes 30 seconds
-        waiting = max(0, queue_size - (limit - running_count))
+        waiting = max(0, queued_count - (limit - running_count))
         eta_seconds = waiting * 30
 
         if eta_seconds < 60:
             return f"{eta_seconds}s"
         else:
             return f"{eta_seconds // 60}m"
+
+    async def _claim_next_job(
+        self, slot: Slot
+    ) -> tuple[str, JobKind, dict[str, Any], str | None, str | None] | None:
+        """Claim the next queued job for a slot atomically.
+
+        Uses UPDATE with WHERE state='queued' and rowcount check for atomicity.
+        ORDER BY priority ASC, queued_at ASC for FIFO within priority.
+
+        Args:
+            slot: Target slot.
+
+        Returns:
+            Tuple of (job_id, kind, input_data, task_id, cause_id) or None if no job.
+        """
+        db = await get_database()
+        now = datetime.now(UTC).isoformat()
+
+        # Check exclusivity before claiming
+        if not await self._check_exclusivity_db(slot):
+            return None
+
+        # Check slot concurrency limit
+        running_row = await db.fetch_one(
+            "SELECT COUNT(*) as cnt FROM jobs WHERE slot = ? AND state = ?",
+            (slot.value, JobState.RUNNING.value),
+        )
+        running_count = running_row["cnt"] if running_row else 0
+        if running_count >= SLOT_LIMITS[slot]:
+            return None
+
+        # Find next queued job for this slot
+        job = await db.fetch_one(
+            """
+            SELECT id, kind, input_json, task_id, cause_id
+            FROM jobs
+            WHERE slot = ? AND state = ?
+            ORDER BY priority ASC, queued_at ASC
+            LIMIT 1
+            """,
+            (slot.value, JobState.QUEUED.value),
+        )
+
+        if not job:
+            return None
+
+        job_id = job["id"]
+        kind_str = job["kind"]
+        input_json = job["input_json"]
+        task_id = job["task_id"]
+        cause_id = job["cause_id"]
+
+        # Atomic claim: UPDATE with WHERE state='queued'
+        cursor = await db.execute(
+            """
+            UPDATE jobs
+            SET state = ?, started_at = ?
+            WHERE id = ? AND state = ?
+            """,
+            (JobState.RUNNING.value, now, job_id, JobState.QUEUED.value),
+        )
+
+        # Check if claim succeeded (another worker may have claimed it)
+        if getattr(cursor, "rowcount", 0) == 0:
+            return None
+
+        # Parse input_json
+        try:
+            input_data = json.loads(input_json) if input_json else {}
+        except (json.JSONDecodeError, TypeError):
+            # Fallback for legacy str(dict) format
+            try:
+                input_data = eval(input_json) if input_json else {}  # noqa: S307
+            except Exception:
+                input_data = {}
+
+        kind = JobKind(kind_str)
+        return (job_id, kind, input_data, task_id, cause_id)
 
     async def _record_budget_consumption(
         self,
@@ -388,6 +543,8 @@ class JobScheduler:
     async def _worker(self, slot: Slot, worker_id: int) -> None:
         """Worker coroutine for a slot.
 
+        DB-Driven: Polls DB for queued jobs instead of in-memory queue.
+
         Args:
             slot: Slot to work on.
             worker_id: Worker ID within slot.
@@ -396,61 +553,83 @@ class JobScheduler:
 
         while self._started:
             try:
-                # Get job from queue
-                priority, job_id, input_data, kind, task_id, cause_id = await asyncio.wait_for(
-                    self._queues[slot].get(),
-                    timeout=1.0,
-                )
+                # Poll DB for next job
+                claimed = await self._claim_next_job(slot)
 
-                # Check exclusivity before running
-                if not await self._check_exclusivity(slot):
-                    # Re-queue the job
-                    await self._queues[slot].put(
-                        (priority, job_id, input_data, kind, task_id, cause_id)
-                    )
-                    await asyncio.sleep(1.0)
+                if claimed is None:
+                    # No job available, wait before polling again
+                    await asyncio.sleep(DB_POLL_INTERVAL_SECONDS)
                     continue
 
-                # Mark as running
-                async with self._lock:
-                    self._running[slot].add(job_id)
+                job_id, kind, input_data, task_id, cause_id = claimed
 
                 # Record start time for budget tracking
                 job_start_time = time.time()
                 self._job_start_times[job_id] = job_start_time
 
-                # Update job state
-                db = await get_database()
-                await db.update(
-                    "jobs",
-                    {"state": JobState.RUNNING.value, "started_at": datetime.now(UTC).isoformat()},
-                    "id = ?",
-                    (job_id,),
-                )
-
                 logger.info("Job started", job_id=job_id, kind=kind.value, slot=slot.value)
 
+                # Create task for execution (for cancellation tracking)
+                # Bind loop variables to avoid B023
+                _kind = kind
+                _input_data = input_data
+                _task_id = task_id
+                _cause_id = cause_id
+
+                async def execute_job(
+                    job_kind: JobKind = _kind,
+                    job_input: dict[str, Any] = _input_data,
+                    job_task_id: str | None = _task_id,
+                    job_cause_id: str | None = _cause_id,
+                ) -> dict[str, Any]:
+                    with CausalTrace(job_cause_id) as trace:
+                        return await self._execute_job(job_kind, job_input, job_task_id, trace.id)
+
+                exec_task = asyncio.create_task(execute_job())
+                self._running_tasks[job_id] = exec_task
+
                 # Execute job
+                db = await get_database()
                 try:
-                    with CausalTrace(cause_id) as trace:
-                        result = await self._execute_job(kind, input_data, task_id, trace.id)
+                    result = await exec_task
 
-                    # Record budget consumption
-                    await self._record_budget_consumption(task_id, kind, job_start_time)
+                    # Re-check job state before marking completed (stop_task may have cancelled)
+                    current_state = await db.fetch_one(
+                        "SELECT state FROM jobs WHERE id = ?",
+                        (job_id,),
+                    )
+                    if current_state and current_state["state"] == JobState.CANCELLED.value:
+                        logger.info("Job was cancelled during execution", job_id=job_id)
+                    else:
+                        # Record budget consumption
+                        await self._record_budget_consumption(task_id, kind, job_start_time)
 
-                    # Mark as completed
+                        # Mark as completed
+                        await db.update(
+                            "jobs",
+                            {
+                                "state": JobState.COMPLETED.value,
+                                "finished_at": datetime.now(UTC).isoformat(),
+                                "output_json": json.dumps(result) if result else None,
+                            },
+                            "id = ?",
+                            (job_id,),
+                        )
+                        logger.info("Job completed", job_id=job_id, kind=kind.value)
+
+                except asyncio.CancelledError:
+                    # Job was cancelled (by cancel_running_jobs)
                     await db.update(
                         "jobs",
                         {
-                            "state": JobState.COMPLETED.value,
+                            "state": JobState.CANCELLED.value,
                             "finished_at": datetime.now(UTC).isoformat(),
-                            "output_json": str(result),
+                            "error_message": "cancelled_by_stop_task",
                         },
                         "id = ?",
                         (job_id,),
                     )
-
-                    logger.info("Job completed", job_id=job_id, kind=kind.value)
+                    logger.info("Job cancelled", job_id=job_id, kind=kind.value)
 
                 except Exception as e:
                     # Mark as failed
@@ -464,18 +643,13 @@ class JobScheduler:
                         "id = ?",
                         (job_id,),
                     )
-
                     logger.error("Job failed", job_id=job_id, kind=kind.value, error=str(e))
 
                 finally:
                     # Cleanup
                     self._job_start_times.pop(job_id, None)
-                    # Remove from running
-                    async with self._lock:
-                        self._running[slot].discard(job_id)
+                    self._running_tasks.pop(job_id, None)
 
-            except TimeoutError:
-                continue
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -548,7 +722,7 @@ class JobScheduler:
             raise ValueError(f"Unknown job kind: {kind}")
 
     async def cancel_job(self, job_id: str) -> bool:
-        """Cancel a pending job.
+        """Cancel a pending/queued job.
 
         Args:
             job_id: Job ID to cancel.
@@ -560,7 +734,10 @@ class JobScheduler:
 
         result = await db.update(
             "jobs",
-            {"state": JobState.CANCELLED.value},
+            {
+                "state": JobState.CANCELLED.value,
+                "finished_at": datetime.now(UTC).isoformat(),
+            },
             "id = ? AND state IN ('pending', 'queued')",
             (job_id,),
         )
@@ -569,6 +746,33 @@ class JobScheduler:
             logger.info("Job cancelled", job_id=job_id)
             return True
         return False
+
+    async def cancel_running_jobs_for_task(self, task_id: str) -> int:
+        """Cancel all running jobs for a task.
+
+        Used by stop_task(mode=immediate/full) to cancel in-flight jobs.
+
+        Args:
+            task_id: Task ID.
+
+        Returns:
+            Number of jobs cancelled.
+        """
+        cancelled_count = 0
+        db = await get_database()
+
+        for job_id, task in list(self._running_tasks.items()):
+            # Check if this job belongs to the task
+            job = await db.fetch_one(
+                "SELECT task_id FROM jobs WHERE id = ?",
+                (job_id,),
+            )
+            if job and job["task_id"] == task_id:
+                task.cancel()
+                cancelled_count += 1
+                logger.info("Cancelled running job", job_id=job_id, task_id=task_id)
+
+        return cancelled_count
 
     async def get_job_status(self, job_id: str) -> dict[str, Any] | None:
         """Get job status.

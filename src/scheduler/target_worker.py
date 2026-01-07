@@ -1,13 +1,17 @@
 """
-Search queue worker for Lyra.
+Target queue worker for Lyra.
 
-Background worker that processes search queue jobs (kind='search_queue').
-Implements async search execution per ADR-0010.
+Background worker that processes target queue jobs (kind='target_queue').
+Implements async search/URL execution per ADR-0010.
+
+Handles both target kinds:
+- kind='query': Search query execution
+- kind='url': Direct URL ingestion (citation chasing)
 
 Worker lifecycle:
 - Started when run_server() starts
 - Stopped (cancelled) when run_server() shuts down
-- Runs 2 workers for parallel execution
+- Runs configurable number of workers for parallel execution
 """
 
 import asyncio
@@ -31,29 +35,29 @@ EMPTY_QUEUE_POLL_INTERVAL = 1.0
 ERROR_RECOVERY_DELAY = 5.0
 
 
-async def _enqueue_verify_nli_if_needed(task_id: str, search_result: dict) -> None:
+async def _enqueue_verify_nli_if_needed(task_id: str, result: dict) -> None:
     """
-    Enqueue VERIFY_NLI job after search completion.
+    Enqueue VERIFY_NLI job after target completion.
 
-    Always enqueues for completed searches - the verify_claims_nli function
+    Always enqueues for completed targets - the verify_claims_nli function
     queries the DB for claims and handles empty cases gracefully.
     This ensures Academic API-extracted claims (which may not appear in
-    the search_result dict) are also verified.
+    the result dict) are also verified.
 
-    ADR-0005: Cross-source NLI verification is triggered per search_queue job.
+    ADR-0005: Cross-source NLI verification is triggered per target_queue job.
 
     Args:
         task_id: Task ID.
-        search_result: Result dict from search_action (used for logging only).
+        result: Result dict from search_action/ingest_url_action (used for logging only).
     """
-    # Log what the search produced (for debugging)
-    pages_fetched = search_result.get("pages_fetched", 0)
-    status = search_result.get("status", "unknown")
+    # Log what the target produced (for debugging)
+    pages_fetched = result.get("pages_fetched", 0)
+    status = result.get("status", "unknown")
 
     logger.debug(
-        "Enqueuing VERIFY_NLI job after search completion",
+        "Enqueuing VERIFY_NLI job after target completion",
         task_id=task_id,
-        search_status=status,
+        target_status=status,
         pages_fetched=pages_fetched,
     )
 
@@ -62,7 +66,7 @@ async def _enqueue_verify_nli_if_needed(task_id: str, search_result: dict) -> No
 
         await enqueue_verify_nli_job(task_id=task_id)
     except Exception as e:
-        # Don't fail the search if VERIFY_NLI enqueue fails
+        # Don't fail the target if VERIFY_NLI enqueue fails
         logger.warning(
             "Failed to enqueue VERIFY_NLI job",
             task_id=task_id,
@@ -82,22 +86,22 @@ async def _get_exploration_state(task_id: str) -> ExplorationState:
     return state
 
 
-async def _search_queue_worker(worker_id: int) -> None:
+async def _target_queue_worker(worker_id: int) -> None:
     """
-    Search queue worker coroutine.
+    Target queue worker coroutine.
 
-    Processes jobs from the search queue (kind='search_queue') in priority order.
+    Processes jobs from the target queue (kind='target_queue') in priority order.
 
     Scheduling policy:
     - priority ASC (high first), then queued_at ASC (FIFO within same priority)
-    - No per-task sequential guarantee (a task may have multiple searches in parallel)
+    - No per-task sequential guarantee (a task may have multiple targets in parallel)
 
     Claim semantics:
     - Uses compare-and-swap (CAS) to atomically claim jobs
     - Prevents two workers from processing the same job
 
     Cancellation support (ADR-0010 mode=immediate):
-    - Registers running jobs with SearchQueueWorkerManager for cancellation tracking
+    - Registers running jobs with TargetQueueWorkerManager for cancellation tracking
     - Uses conditional UPDATE (WHERE state='running') to prevent overwriting cancelled state
 
     Args:
@@ -105,7 +109,7 @@ async def _search_queue_worker(worker_id: int) -> None:
     """
     from src.research.pipeline import search_action
 
-    logger.info("Search queue worker started", worker_id=worker_id)
+    logger.info("Target queue worker started", worker_id=worker_id)
 
     while True:
         try:
@@ -117,7 +121,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                 """
                 SELECT id, task_id, input_json
                 FROM jobs
-                WHERE kind = 'search_queue' AND state = 'queued'
+                WHERE kind = 'target_queue' AND state = 'queued'
                 ORDER BY priority ASC, queued_at ASC
                 LIMIT 1
                 """
@@ -126,9 +130,9 @@ async def _search_queue_worker(worker_id: int) -> None:
             if row is None:
                 # Queue is empty - notify batch notification manager (ADR-0007)
                 try:
-                    from src.utils.batch_notification import notify_search_queue_empty
+                    from src.utils.batch_notification import notify_target_queue_empty
 
-                    await notify_search_queue_empty()
+                    await notify_target_queue_empty()
                 except Exception as e:
                     logger.debug("Batch notification failed", error=str(e))
 
@@ -136,7 +140,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                 await asyncio.sleep(EMPTY_QUEUE_POLL_INTERVAL)
                 continue
 
-            search_id = row["id"]
+            target_id = row["id"]
             task_id = row["task_id"]
             input_json = row["input_json"]
 
@@ -146,7 +150,8 @@ async def _search_queue_worker(worker_id: int) -> None:
             except json.JSONDecodeError:
                 input_data = {}
 
-            query = input_data.get("query", "")
+            target = input_data.get("target", {})
+            target_kind = target.get("kind", "query")
             options = input_data.get("options", {})
 
             # Attempt to claim the job (CAS)
@@ -157,7 +162,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                 SET state = 'running', started_at = ?
                 WHERE id = ? AND state = 'queued'
                 """,
-                (datetime.now(UTC).isoformat(), search_id),
+                (datetime.now(UTC).isoformat(), target_id),
             )
 
             # Check if we won the race
@@ -166,19 +171,33 @@ async def _search_queue_worker(worker_id: int) -> None:
                 # Another worker claimed it - retry loop
                 logger.debug(
                     "Job claimed by another worker",
-                    search_id=search_id,
+                    target_id=target_id,
                     worker_id=worker_id,
                 )
                 continue
 
-            with LogContext(task_id=task_id, search_id=search_id):
-                logger.info(
-                    "Processing search from queue",
-                    search_id=search_id,
-                    task_id=task_id,
-                    query=query[:100] if query else "",
-                    worker_id=worker_id,
-                )
+            with LogContext(task_id=task_id, target_id=target_id):
+                # Log differently based on target kind
+                if target_kind == "query":
+                    query = target.get("query", "")
+                    logger.info(
+                        "Processing query target from queue",
+                        target_id=target_id,
+                        task_id=task_id,
+                        query=query[:100] if query else "",
+                        worker_id=worker_id,
+                    )
+                else:
+                    url = target.get("url", "")
+                    logger.info(
+                        "Processing URL target from queue",
+                        target_id=target_id,
+                        task_id=task_id,
+                        url=url[:100] if url else "",
+                        reason=target.get("reason", "manual"),
+                        depth=target.get("depth", 0),
+                        worker_id=worker_id,
+                    )
 
                 # Get exploration state
                 try:
@@ -186,7 +205,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                 except Exception as e:
                     logger.error(
                         "Failed to get exploration state",
-                        search_id=search_id,
+                        target_id=target_id,
                         task_id=task_id,
                         error=str(e),
                     )
@@ -200,36 +219,96 @@ async def _search_queue_worker(worker_id: int) -> None:
                         (
                             datetime.now(UTC).isoformat(),
                             f"Failed to get exploration state: {e}",
-                            search_id,
+                            target_id,
                         ),
                     )
                     continue
 
-                # Execute search with job tracking for cancellation support
-                # Wrap search_action in a separate task so we can cancel it
-                # without killing the worker itself (ADR-0010 mode=immediate)
-                # ADR-0007: Pass search_job_id for CAPTCHA queue integration
-                # ADR-0014 Phase 3: Pass worker_id for context isolation
-                options_with_job = {
-                    **options,
-                    "task_id": task_id,
-                    "search_job_id": search_id,
-                    "worker_id": worker_id,
-                }
+                # Execute target based on kind
                 manager = get_worker_manager()
-                search_task = asyncio.create_task(
-                    search_action(
-                        task_id=task_id,
-                        query=query,
-                        state=state,
-                        options=options_with_job,
-                    ),
-                    name=f"search_action_{search_id}",
-                )
-                manager.register_job(search_id, task_id, search_task)
+
+                if target_kind == "query":
+                    # Query target: Execute search_action
+                    query = target.get("query", "")
+                    query_options = target.get("options", {})
+                    merged_options = {**options, **query_options}
+
+                    # ADR-0007: Pass target_job_id for CAPTCHA queue integration
+                    # ADR-0014 Phase 3: Pass worker_id for context isolation
+                    options_with_job = {
+                        **merged_options,
+                        "task_id": task_id,
+                        "target_job_id": target_id,
+                        "worker_id": worker_id,
+                    }
+                    target_task = asyncio.create_task(
+                        search_action(
+                            task_id=task_id,
+                            query=query,
+                            state=state,
+                            options=options_with_job,
+                        ),
+                        name=f"search_action_{target_id}",
+                    )
+                elif target_kind == "url":
+                    # URL target: Execute ingest_url_action
+                    from src.research.pipeline import ingest_url_action
+
+                    url = target.get("url", "")
+                    depth = target.get("depth", 0)
+                    reason = target.get("reason", "manual")
+                    context = target.get("context", {})
+                    policy = target.get("policy", {})
+
+                    options_with_job = {
+                        **options,
+                        "task_id": task_id,
+                        "target_job_id": target_id,
+                        "worker_id": worker_id,
+                    }
+                    target_task = asyncio.create_task(
+                        ingest_url_action(
+                            task_id=task_id,
+                            url=url,
+                            state=state,
+                            depth=depth,
+                            reason=reason,
+                            context=context,
+                            policy=policy,
+                            options=options_with_job,
+                        ),
+                        name=f"ingest_url_action_{target_id}",
+                    )
+                else:
+                    # DOI target: Execute ingest_doi_action
+                    from src.research.pipeline import ingest_doi_action
+
+                    doi = target.get("doi", "")
+                    reason = target.get("reason", "manual")
+                    context = target.get("context", {})
+
+                    options_with_job = {
+                        **options,
+                        "task_id": task_id,
+                        "target_job_id": target_id,
+                        "worker_id": worker_id,
+                    }
+                    target_task = asyncio.create_task(
+                        ingest_doi_action(
+                            task_id=task_id,
+                            doi=doi,
+                            state=state,
+                            reason=reason,
+                            context=context,
+                            options=options_with_job,
+                        ),
+                        name=f"ingest_doi_action_{target_id}",
+                    )
+
+                manager.register_job(target_id, task_id, target_task)
 
                 try:
-                    result = await search_task
+                    result = await target_task
 
                     # ADR-0007: Check if CAPTCHA was queued - set awaiting_auth state
                     if result.get("captcha_queued"):
@@ -242,14 +321,14 @@ async def _search_queue_worker(worker_id: int) -> None:
                             (
                                 datetime.now(UTC).isoformat(),
                                 json.dumps(result, ensure_ascii=False),
-                                search_id,
+                                target_id,
                             ),
                         )
                         if getattr(cursor, "rowcount", 0) > 0:
                             state.notify_status_change()
                             logger.info(
-                                "Search awaiting auth (CAPTCHA queued)",
-                                search_id=search_id,
+                                "Target awaiting auth (CAPTCHA queued)",
+                                target_id=target_id,
                                 task_id=task_id,
                                 queue_id=result.get("queue_id"),
                             )
@@ -265,15 +344,15 @@ async def _search_queue_worker(worker_id: int) -> None:
                             (
                                 datetime.now(UTC).isoformat(),
                                 json.dumps(result, ensure_ascii=False),
-                                search_id,
+                                target_id,
                             ),
                         )
 
                         if getattr(cursor, "rowcount", 0) == 0:
                             # Job was cancelled while we were processing - don't log as completed
                             logger.info(
-                                "Search completion skipped (job already cancelled)",
-                                search_id=search_id,
+                                "Target completion skipped (job already cancelled)",
+                                target_id=target_id,
                                 task_id=task_id,
                             )
                         else:
@@ -281,9 +360,10 @@ async def _search_queue_worker(worker_id: int) -> None:
                             state.notify_status_change()
 
                             logger.info(
-                                "Search completed from queue",
-                                search_id=search_id,
+                                "Target completed from queue",
+                                target_id=target_id,
                                 task_id=task_id,
+                                target_kind=target_kind,
                                 status=result.get("status"),
                                 pages_fetched=result.get("pages_fetched"),
                             )
@@ -293,7 +373,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                             await _enqueue_verify_nli_if_needed(task_id, result)
 
                 except asyncio.CancelledError:
-                    # stop_task(mode=immediate) cancelled this search_task
+                    # stop_task(mode=immediate) cancelled this target_task
                     # The worker itself continues running (does NOT break)
                     await db.execute(
                         """
@@ -301,7 +381,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                         SET state = 'cancelled', finished_at = ?
                         WHERE id = ? AND state = 'running'
                         """,
-                        (datetime.now(UTC).isoformat(), search_id),
+                        (datetime.now(UTC).isoformat(), target_id),
                     )
 
                     # Notify long polling clients
@@ -311,14 +391,14 @@ async def _search_queue_worker(worker_id: int) -> None:
                         pass  # Ignore notification errors during cancellation
 
                     logger.info(
-                        "Search cancelled from queue",
-                        search_id=search_id,
+                        "Target cancelled from queue",
+                        target_id=target_id,
                         task_id=task_id,
                     )
                     # Do NOT re-raise: worker continues to next job
 
                 except Exception as e:
-                    # Search failed - update state to 'failed'
+                    # Target failed - update state to 'failed'
                     await db.execute(
                         """
                         UPDATE jobs
@@ -328,7 +408,7 @@ async def _search_queue_worker(worker_id: int) -> None:
                         (
                             datetime.now(UTC).isoformat(),
                             str(e)[:1000],  # Truncate long error messages
-                            search_id,
+                            target_id,
                         ),
                     )
 
@@ -336,37 +416,38 @@ async def _search_queue_worker(worker_id: int) -> None:
                     state.notify_status_change()
 
                     logger.error(
-                        "Search failed from queue",
-                        search_id=search_id,
+                        "Target failed from queue",
+                        target_id=target_id,
                         task_id=task_id,
+                        target_kind=target_kind,
                         error=str(e),
                         exc_info=True,
                     )
 
                 finally:
                     # Always unregister job when done (success, failure, or cancel)
-                    manager.unregister_job(search_id)
+                    manager.unregister_job(target_id)
 
         except asyncio.CancelledError:
             # Worker shutdown
-            logger.info("Search queue worker shutting down", worker_id=worker_id)
+            logger.info("Target queue worker shutting down", worker_id=worker_id)
             break
 
         except Exception as e:
             # Worker-level error - log and continue
             logger.error(
-                "Search queue worker error",
+                "Target queue worker error",
                 worker_id=worker_id,
                 error=str(e),
                 exc_info=True,
             )
             await asyncio.sleep(ERROR_RECOVERY_DELAY)
 
-    logger.info("Search queue worker stopped", worker_id=worker_id)
+    logger.info("Target queue worker stopped", worker_id=worker_id)
 
 
-class SearchQueueWorkerManager:
-    """Manages lifecycle of search queue workers.
+class TargetQueueWorkerManager:
+    """Manages lifecycle of target queue workers.
 
     Provides start/stop methods for integration with run_server().
     Also tracks running jobs for cancellation support (ADR-0010 mode=immediate).
@@ -375,48 +456,48 @@ class SearchQueueWorkerManager:
     def __init__(self) -> None:
         self._workers: list[asyncio.Task[None]] = []
         self._started = False
-        # Running job tracking: search_id -> (task_id, asyncio.Task)
+        # Running job tracking: target_id -> (task_id, asyncio.Task)
         # Used by cancel_jobs_for_task() for mode=immediate cancellation
         self._running_jobs: dict[str, tuple[str, asyncio.Task[Any]]] = {}
 
-    def register_job(self, search_id: str, task_id: str, job_task: asyncio.Task[Any]) -> None:
-        """Register a running search job for cancellation tracking.
+    def register_job(self, target_id: str, task_id: str, job_task: asyncio.Task[Any]) -> None:
+        """Register a running target job for cancellation tracking.
 
-        Called by worker when it starts processing a search.
+        Called by worker when it starts processing a target.
 
         Args:
-            search_id: The search job ID (jobs.id).
+            target_id: The target job ID (jobs.id).
             task_id: The research task ID (tasks.id).
-            job_task: The asyncio.Task running the search_action.
+            job_task: The asyncio.Task running the search_action/ingest_url_action.
         """
-        self._running_jobs[search_id] = (task_id, job_task)
+        self._running_jobs[target_id] = (task_id, job_task)
         logger.debug(
             "Registered running job",
-            search_id=search_id,
+            target_id=target_id,
             task_id=task_id,
             total_running=len(self._running_jobs),
         )
 
-    def unregister_job(self, search_id: str) -> None:
-        """Unregister a completed/failed/cancelled search job.
+    def unregister_job(self, target_id: str) -> None:
+        """Unregister a completed/failed/cancelled target job.
 
-        Called by worker when search processing finishes (any outcome).
+        Called by worker when target processing finishes (any outcome).
 
         Args:
-            search_id: The search job ID to unregister.
+            target_id: The target job ID to unregister.
         """
-        if search_id in self._running_jobs:
-            del self._running_jobs[search_id]
+        if target_id in self._running_jobs:
+            del self._running_jobs[target_id]
             logger.debug(
                 "Unregistered job",
-                search_id=search_id,
+                target_id=target_id,
                 total_running=len(self._running_jobs),
             )
 
     async def cancel_jobs_for_task(self, task_id: str) -> int:
-        """Cancel all running search jobs for a specific task.
+        """Cancel all running target jobs for a specific task.
 
-        Used by stop_task(mode=immediate) to cancel in-flight searches.
+        Used by stop_task(mode=immediate) to cancel in-flight targets.
 
         Args:
             task_id: The research task ID whose jobs should be cancelled.
@@ -428,9 +509,9 @@ class SearchQueueWorkerManager:
         jobs_to_cancel: list[tuple[str, asyncio.Task[Any]]] = []
 
         # Find all jobs for this task
-        for search_id, (job_task_id, job_task) in list(self._running_jobs.items()):
+        for target_id, (job_task_id, job_task) in list(self._running_jobs.items()):
             if job_task_id == task_id and not job_task.done():
-                jobs_to_cancel.append((search_id, job_task))
+                jobs_to_cancel.append((target_id, job_task))
 
         if not jobs_to_cancel:
             return 0
@@ -439,13 +520,13 @@ class SearchQueueWorkerManager:
         await asyncio.sleep(0)
 
         # Cancel each job
-        for search_id, job_task in jobs_to_cancel:
+        for target_id, job_task in jobs_to_cancel:
             if not job_task.done():
                 job_task.cancel()
                 cancelled_count += 1
                 logger.info(
-                    "Cancelled running search job",
-                    search_id=search_id,
+                    "Cancelled running target job",
+                    target_id=target_id,
                     task_id=task_id,
                 )
 
@@ -468,7 +549,7 @@ class SearchQueueWorkerManager:
         return cancelled_count
 
     async def wait_for_task_jobs_to_complete(self, task_id: str, timeout: float = 30.0) -> int:
-        """Wait for all running search jobs for a task to complete.
+        """Wait for all running target jobs for a task to complete.
 
         Used by stop_task(mode=graceful) to wait for running jobs to finish naturally.
         Does NOT cancel the jobs, just waits for them.
@@ -483,9 +564,9 @@ class SearchQueueWorkerManager:
         jobs_to_wait: list[tuple[str, asyncio.Task[Any]]] = []
 
         # Find all jobs for this task
-        for search_id, (job_task_id, job_task) in list(self._running_jobs.items()):
+        for target_id, (job_task_id, job_task) in list(self._running_jobs.items()):
             if job_task_id == task_id and not job_task.done():
-                jobs_to_wait.append((search_id, job_task))
+                jobs_to_wait.append((target_id, job_task))
 
         if not jobs_to_wait:
             return 0
@@ -519,7 +600,7 @@ class SearchQueueWorkerManager:
         return len(jobs_to_wait)
 
     async def start(self) -> None:
-        """Start all search queue workers."""
+        """Start all target queue workers."""
         if self._started:
             return
 
@@ -529,22 +610,22 @@ class SearchQueueWorkerManager:
 
         # Read num_workers from config (ADR-0010)
         settings = get_settings()
-        num_workers = settings.concurrency.search_queue.num_workers
+        num_workers = settings.concurrency.target_queue.num_workers
 
         for i in range(num_workers):
             task = asyncio.create_task(
-                _search_queue_worker(i),
-                name=f"search_queue_worker_{i}",
+                _target_queue_worker(i),
+                name=f"target_queue_worker_{i}",
             )
             self._workers.append(task)
 
         logger.info(
-            "Search queue workers started",
+            "Target queue workers started",
             num_workers=num_workers,
         )
 
     async def stop(self) -> None:
-        """Stop all search queue workers gracefully."""
+        """Stop all target queue workers gracefully."""
         if not self._started:
             return
 
@@ -563,7 +644,7 @@ class SearchQueueWorkerManager:
 
         self._workers = []
         self._running_jobs = {}
-        logger.info("Search queue workers stopped")
+        logger.info("Target queue workers stopped")
 
     @property
     def is_running(self) -> bool:
@@ -577,12 +658,12 @@ class SearchQueueWorkerManager:
 
 
 # Global manager instance
-_worker_manager: SearchQueueWorkerManager | None = None
+_worker_manager: TargetQueueWorkerManager | None = None
 
 
-def get_worker_manager() -> SearchQueueWorkerManager:
+def get_worker_manager() -> TargetQueueWorkerManager:
     """Get or create the global worker manager."""
     global _worker_manager
     if _worker_manager is None:
-        _worker_manager = SearchQueueWorkerManager()
+        _worker_manager = TargetQueueWorkerManager()
     return _worker_manager

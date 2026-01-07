@@ -811,6 +811,25 @@ CREATE INDEX IF NOT EXISTS idx_resource_index_status ON resource_index(status);
 CREATE INDEX IF NOT EXISTS idx_resource_index_page ON resource_index(page_id);
 CREATE INDEX IF NOT EXISTS idx_resource_index_type_value ON resource_index(identifier_type, identifier_value);
 
+-- Task Pages: Task-scoped page associations for Citation Chasing
+-- Tracks which pages belong to a task (for v_reference_candidates view scope)
+CREATE TABLE IF NOT EXISTS task_pages (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    page_id TEXT NOT NULL,
+    reason TEXT NOT NULL,  -- 'serp', 'academic_api', 'citation_chase', 'manual'
+    depth INTEGER DEFAULT 0,  -- 0 = direct (SERP/API/manual), 1+ = citation chase depth
+    source_page_id TEXT,  -- Page that cited this one (for citation_chase)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(task_id, page_id),
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (page_id) REFERENCES pages(id),
+    FOREIGN KEY (source_page_id) REFERENCES pages(id)
+);
+CREATE INDEX IF NOT EXISTS idx_task_pages_task ON task_pages(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_pages_page ON task_pages(page_id);
+CREATE INDEX IF NOT EXISTS idx_task_pages_reason ON task_pages(reason);
+
 -- ============================================================
 -- Metrics Views
 -- ============================================================

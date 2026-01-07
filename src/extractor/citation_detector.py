@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from src.crawler.bfs import LinkExtractor, LinkType
+from src.extractor.html_normalizer import get_effective_base_url
 from src.filter.llm_security import validate_llm_output
 from src.filter.ollama_provider import create_ollama_provider
 from src.filter.provider import LLMOptions, get_llm_registry
@@ -78,10 +79,13 @@ class CitationDetector:
         - Extract outbound links from HTML (prefer BODY/HEADING links).
         - Ask local LLM (Ollama) to classify each link as citation YES/NO.
         """
+        # Resolve effective base URL (respects <base href="..."> if present)
+        effective_base_url = get_effective_base_url(html, base_url)
+
         # Extract outbound links (include external links; allow PDFs).
         links = self._link_extractor.extract_links(
             html,
-            base_url,
+            effective_base_url,
             source_domain,
             same_domain_only=False,
             allow_pdf=True,
@@ -98,7 +102,7 @@ class CitationDetector:
                 continue
             if link.link_type not in (LinkType.BODY, LinkType.HEADING):
                 continue
-            if link.url == base_url:
+            if link.url == effective_base_url:
                 continue
             candidates.append(link)
             if len(candidates) >= self._max_candidates:

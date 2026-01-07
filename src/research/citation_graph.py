@@ -43,10 +43,10 @@ async def enqueue_citation_graph_job(
     if not paper_ids:
         return None
 
-    from src.scheduler.jobs import JobKind, JobScheduler
+    from src.scheduler.jobs import JobKind, get_scheduler
 
     db = await get_database()
-    scheduler = JobScheduler()
+    scheduler = await get_scheduler()
 
     input_data = {
         "task_id": task_id,
@@ -56,11 +56,13 @@ async def enqueue_citation_graph_job(
     }
 
     # Check if job already exists for this search_id (avoid duplicates)
-    # Look for any citation_graph job with same search_id
+    # Only consider active jobs (queued/running/completed) - failed/cancelled can be re-enqueued
     existing = await db.fetch_one(
         """
         SELECT id FROM jobs
-        WHERE kind = 'citation_graph' AND input_json LIKE ?
+        WHERE kind = 'citation_graph'
+          AND state IN ('queued', 'running', 'completed')
+          AND input_json LIKE ?
         """,
         (f'%"search_id": "{search_id}"%',),
     )
@@ -69,7 +71,7 @@ async def enqueue_citation_graph_job(
         logger.debug("Citation graph job already exists", job_id=existing_id)
         return None
 
-    # Submit job (job_id is auto-generated)
+    # Submit job (job_id is auto-generated) via global scheduler
     result = await scheduler.submit(
         kind=JobKind.CITATION_GRAPH,
         input_data=input_data,
@@ -127,14 +129,17 @@ async def process_citation_graph(
     paper_to_page_map: dict[str, str] = {}
 
     for paper_id in paper_ids:
-        # Find page by paper_id in paper_metadata JSON
+        # Find page by paper_id in paper_metadata JSON.
+        # Prefer JSON extraction (exact match) over LIKE (substring) to avoid false positives.
         row = await db.fetch_one(
             """
             SELECT id FROM pages
-            WHERE paper_metadata LIKE ?
+            WHERE paper_metadata IS NOT NULL
+              AND json_valid(paper_metadata)
+              AND json_extract(paper_metadata, '$.paper_id') = ?
             LIMIT 1
             """,
-            (f'%"paper_id": "{paper_id}"%',),
+            (paper_id,),
         )
         if row:
             page_id = row["id"] if isinstance(row, dict) else row[0]

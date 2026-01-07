@@ -150,11 +150,11 @@ class TestBatchNotificationManager:
         assert manager._notification_timer is not None
 
     @pytest.mark.asyncio
-    async def test_on_search_queue_empty_triggers_notification(self) -> None:
-        """Test on_search_queue_empty triggers batch notification.
+    async def test_on_target_queue_empty_triggers_notification(self) -> None:
+        """Test on_target_queue_empty triggers batch notification.
 
         Given: BatchNotificationManager with pending items
-        When: on_search_queue_empty() is called
+        When: on_target_queue_empty() is called
         Then: Notification is sent (send_toast is called)
         """
         # Given
@@ -171,7 +171,7 @@ class TestBatchNotificationManager:
             with patch("src.utils.intervention_manager._get_manager") as mock_mgr:
                 mock_send_toast = AsyncMock()
                 mock_mgr.return_value.send_toast = mock_send_toast
-                await manager.on_search_queue_empty()
+                await manager.on_target_queue_empty()
 
         # Then: Verify send_toast was called (notification was sent)
         # Note: _notified is reset to False by _reset() after notification
@@ -182,7 +182,7 @@ class TestBatchNotificationManager:
         """Test that notifications are not sent twice.
 
         Given: BatchNotificationManager that already notified
-        When: on_search_queue_empty() is called again
+        When: on_target_queue_empty() is called again
         Then: No additional notification is sent
         """
         # Given
@@ -196,7 +196,7 @@ class TestBatchNotificationManager:
         with patch("src.utils.intervention_manager._get_manager") as mock_mgr:
             mock_send = AsyncMock()
             mock_mgr.return_value.send_toast = mock_send
-            await manager.on_search_queue_empty()
+            await manager.on_target_queue_empty()
 
         # Then
         mock_send.assert_not_called()
@@ -368,7 +368,7 @@ class TestRequeueAwaitingAuthJobs:
             (
                 job_id,
                 task_id,
-                "search_queue",
+                "target_queue",
                 "awaiting_auth",
                 0,
                 "{}",
@@ -503,7 +503,7 @@ class TestGetPendingAuthInfo:
             (
                 "job_1",
                 task_id,
-                "search_queue",
+                "target_queue",
                 "awaiting_auth",
                 0,
                 "{}",

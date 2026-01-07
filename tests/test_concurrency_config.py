@@ -30,13 +30,13 @@ from src.utils.config import (
     BrowserSerpBackoffConfig,
     BrowserSerpConcurrencyConfig,
     ConcurrencyConfig,
-    SearchQueueConcurrencyConfig,
     Settings,
+    TargetQueueConcurrencyConfig,
 )
 
 
-class TestSearchQueueConcurrencyConfig:
-    """Tests for SearchQueueConcurrencyConfig."""
+class TestTargetQueueConcurrencyConfig:
+    """Tests for TargetQueueConcurrencyConfig."""
 
     # =========================================================================
     # TC-C-01: Valid config with defaults
@@ -45,11 +45,11 @@ class TestSearchQueueConcurrencyConfig:
         """Test default configuration values.
 
         Given: No explicit values provided
-        When: SearchQueueConcurrencyConfig is created
+        When: TargetQueueConcurrencyConfig is created
         Then: Default num_workers=2 is set
         """
         # Given/When
-        config = SearchQueueConcurrencyConfig()
+        config = TargetQueueConcurrencyConfig()
 
         # Then
         assert config.num_workers == 2
@@ -65,7 +65,7 @@ class TestSearchQueueConcurrencyConfig:
         Then: Config is valid with num_workers=1
         """
         # Given/When
-        config = SearchQueueConcurrencyConfig(num_workers=1)
+        config = TargetQueueConcurrencyConfig(num_workers=1)
 
         # Then
         assert config.num_workers == 1
@@ -82,7 +82,7 @@ class TestSearchQueueConcurrencyConfig:
         """
         # Given/When/Then
         with pytest.raises(ValidationError) as exc_info:
-            SearchQueueConcurrencyConfig(num_workers=0)
+            TargetQueueConcurrencyConfig(num_workers=0)
 
         # Verify error message contains constraint info
         error_str = str(exc_info.value)
@@ -99,7 +99,7 @@ class TestSearchQueueConcurrencyConfig:
         Then: Config is valid (no upper limit)
         """
         # Given/When
-        config = SearchQueueConcurrencyConfig(num_workers=10)
+        config = TargetQueueConcurrencyConfig(num_workers=10)
 
         # Then
         assert config.num_workers == 10
@@ -240,7 +240,7 @@ class TestConcurrencyConfig:
         config = ConcurrencyConfig()
 
         # Then
-        assert config.search_queue.num_workers == 2
+        assert config.target_queue.num_workers == 2
         assert config.browser_serp.max_tabs == 1
         assert config.backoff.academic_api.recovery_stable_seconds == 60
         assert config.backoff.browser_serp.decrease_step == 1
@@ -259,7 +259,7 @@ class TestConcurrencyConfig:
         settings = Settings()
 
         # Then
-        assert settings.concurrency.search_queue.num_workers == 2
+        assert settings.concurrency.target_queue.num_workers == 2
         assert settings.concurrency.browser_serp.max_tabs == 1
 
     # =========================================================================
@@ -287,7 +287,7 @@ class TestConcurrencyConfig:
         Then: Custom values are preserved
         """
         # Given
-        search_queue = SearchQueueConcurrencyConfig(num_workers=5)
+        target_queue = TargetQueueConcurrencyConfig(num_workers=5)
         browser_serp = BrowserSerpConcurrencyConfig(max_tabs=3)
         backoff = BackoffConfig(
             academic_api=AcademicAPIBackoffConfig(
@@ -299,13 +299,13 @@ class TestConcurrencyConfig:
 
         # When
         config = ConcurrencyConfig(
-            search_queue=search_queue,
+            target_queue=target_queue,
             browser_serp=browser_serp,
             backoff=backoff,
         )
 
         # Then
-        assert config.search_queue.num_workers == 5
+        assert config.target_queue.num_workers == 5
         assert config.browser_serp.max_tabs == 3
         assert config.backoff.academic_api.recovery_stable_seconds == 120
         assert config.backoff.academic_api.decrease_step == 2

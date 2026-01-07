@@ -876,7 +876,7 @@ class TestGetStatusJobsSummary:
             "total_completed": 5,
             "total_failed": 0,
             "by_kind": {
-                "search_queue": {"queued": 1, "running": 0, "completed": 3},
+                "target_queue": {"queued": 1, "running": 0, "completed": 3},
                 "verify_nli": {"queued": 1, "running": 1, "completed": 2},
             },
         }
@@ -903,7 +903,7 @@ class TestGetStatusJobsSummary:
                         new=AsyncMock(return_value=mock_metrics),
                     ):
                         with patch(
-                            "src.mcp.tools.task.get_search_queue_status",
+                            "src.mcp.tools.task.get_target_queue_status",
                             new=AsyncMock(return_value={"depth": 0, "running": 0, "items": []}),
                         ):
                             with patch(
@@ -928,7 +928,7 @@ class TestGetStatusJobsSummary:
         assert result["jobs"]["total_running"] == 1
         assert result["jobs"]["total_completed"] == 5
         assert "by_kind" in result["jobs"]
-        assert "search_queue" in result["jobs"]["by_kind"]
+        assert "target_queue" in result["jobs"]["by_kind"]
         assert "verify_nli" in result["jobs"]["by_kind"]
 
     @pytest.mark.asyncio
@@ -977,7 +977,7 @@ class TestGetStatusJobsSummary:
                         new=AsyncMock(return_value=mock_metrics),
                     ):
                         with patch(
-                            "src.mcp.tools.task.get_search_queue_status",
+                            "src.mcp.tools.task.get_target_queue_status",
                             new=AsyncMock(return_value={"depth": 0, "running": 0, "items": []}),
                         ):
                             with patch(

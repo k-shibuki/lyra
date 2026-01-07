@@ -7,12 +7,14 @@ Replaces execute_subquery and execute_refutation MCPtools with a single `search`
 See ADR-0002, ADR-0003.
 """
 
+from __future__ import annotations
+
 import asyncio
 import re
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from src.research.executor import PRIMARY_SOURCE_DOMAINS, REFUTATION_SUFFIXES, SearchExecutor
 from src.research.state import ExplorationState
@@ -105,9 +107,12 @@ class SearchPipelineResult:
 class PipelineSearchOptions:
     """Options for search execution."""
 
-    engines: list[str] | None = None  # Use None for Lyra-selected engines
+    # SERP engines (duckduckgo, mojeek, google, brave, ecosia, startpage, bing)
+    # Use None for Lyra-selected engines
+    serp_engines: list[str] | None = None
+    # Academic APIs (semantic_scholar, openalex). Use None for default (both).
+    academic_apis: list[str] | None = None
     # NOTE: AcademicSearchProvider expects `options.limit` (see src/search/academic_provider.py).
-    # This dataclass is passed through that interface via duck-typing.
     limit: int = 10  # Max results per Academic API query
     budget_pages: int | None = None
     # SERP pagination:
@@ -339,7 +344,7 @@ class SearchPipeline:
             query=query,
             priority="high" if options.seek_primary else "medium",
             budget_pages=budget_pages,
-            engines=options.engines,
+            serp_engines=options.serp_engines,
             serp_max_pages=options.serp_max_pages,
             search_job_id=options.search_job_id,  # ADR-0007
         )
@@ -684,12 +689,19 @@ class SearchPipeline:
                 # NOTE: This is a SERP result count, not a page budget.
                 limit=20,
                 task_id=self.task_id,
-                engines=options.engines,
+                engines=options.serp_engines,  # SERP engines only
                 serp_max_pages=options.serp_max_pages,
                 worker_id=options.worker_id,
             )
 
-            academic_task = academic_provider.search(query, cast(Any, options))
+            # Build separate options for academic provider (no SERP engines mixing)
+            from src.search.provider import SearchProviderOptions
+
+            academic_options = SearchProviderOptions(
+                engines=options.academic_apis,  # Academic APIs only
+                limit=options.limit,
+            )
+            academic_task = academic_provider.search(query, academic_options)
 
             # Execute in parallel
             try:
@@ -932,12 +944,17 @@ class SearchPipeline:
 
         # Prepare paper_metadata JSON
         paper_metadata = {
+            # Critical integration contract:
+            # - citation_graph jobs refer to papers by Paper.id (e.g., "s2:...", "openalex:...")
+            # - process_citation_graph resolves paper_id -> page_id via pages.paper_metadata.paper_id
+            "paper_id": paper.id,
             "doi": paper.doi,
             "arxiv_id": paper.arxiv_id,
             "authors": [
                 {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
                 for a in paper.authors
             ],
+            "title": paper.title,
             "year": paper.year,
             "venue": paper.venue,
             "citation_count": paper.citation_count,
@@ -985,6 +1002,16 @@ class SearchPipeline:
                 },
                 auto_id=False,
                 or_ignore=True,
+            )
+
+            # Register in task_pages for Citation Chasing scope (Academic API)
+            task_page_id = f"tp_{uuid.uuid4().hex[:8]}"
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO task_pages (id, task_id, page_id, reason, depth)
+                VALUES (?, ?, ?, 'academic_api', 0)
+                """,
+                (task_page_id, task_id, page_id),
             )
 
             # Persist fragment embedding for semantic search (vector_search)
@@ -1254,6 +1281,9 @@ class SearchPipeline:
 
             # Prepare minimal paper_metadata JSON
             paper_metadata = {
+                # Keep the same contract as _persist_abstract_as_fragment:
+                # citation_graph resolves citing pages by pages.paper_metadata.paper_id.
+                "paper_id": paper.id,
                 "doi": paper.doi,
                 "arxiv_id": paper.arxiv_id,
                 "authors": (
@@ -1264,6 +1294,7 @@ class SearchPipeline:
                     if paper.authors
                     else []
                 ),
+                "title": paper.title,
                 "year": paper.year,
                 "venue": paper.venue,
                 "citation_count": paper.citation_count,
@@ -1544,7 +1575,8 @@ async def search_action(
     # Convert options dict to PipelineSearchOptions
     search_options = PipelineSearchOptions()
     if options:
-        search_options.engines = options.get("engines")
+        search_options.serp_engines = options.get("serp_engines")
+        search_options.academic_apis = options.get("academic_apis")
         search_options.budget_pages = options.get("budget_pages")
         search_options.serp_max_pages = int(options.get("serp_max_pages", 2))
         search_options.seek_primary = options.get("seek_primary", False)
@@ -1616,5 +1648,931 @@ async def stop_task_action(
                 "primary_source_ratio": evidence_graph_summary.get("primary_source_ratio", 0.0),
             },
             "is_resumable": finalize_result.get("is_resumable", True),
-            "message": f"Task paused. Resume with queue_searches(task_id='{task_id}', queries=[...]).",
+            "message": f"Task paused. Resume with queue_targets(task_id='{task_id}', targets=[...]).",
+        }
+
+
+async def _reprocess_existing_page_for_claims(
+    db: Database,
+    task_id: str,
+    page_id: str,
+    html_path: str,
+    url: str,
+    domain: str,
+    depth: int,
+    run_citation_detector: bool,
+) -> dict[str, Any]:
+    """
+    Reprocess an already-fetched page to extract claims for a new task.
+
+    This is called when a page exists in DB with html_path but has no
+    claims extracted for the current task (task未Claim condition).
+
+    Args:
+        db: Database instance
+        task_id: Task ID to extract claims for
+        page_id: Existing page ID
+        html_path: Path to cached HTML
+        url: Page URL
+        domain: Page domain
+        depth: Citation chain depth
+        run_citation_detector: Whether to run citation detector
+
+    Returns:
+        Ingestion result dict
+    """
+    from pathlib import Path
+    from urllib.parse import urlparse
+
+    from src.extractor.content import extract_content
+
+    fragments_extracted = 0
+    claims_extracted = 0
+    citations_detected = 0
+
+    try:
+        extract_result = await extract_content(
+            input_path=html_path,
+        )
+
+        if extract_result.get("ok", False):
+            text = extract_result.get("text", "")
+            title = extract_result.get("title", "")
+
+            if text:
+                # Check if fragment already exists for this page
+                existing_fragment = await db.fetch_one(
+                    "SELECT id FROM fragments WHERE page_id = ? LIMIT 1",
+                    (page_id,),
+                )
+
+                if existing_fragment:
+                    fragment_id = (
+                        existing_fragment["id"]
+                        if isinstance(existing_fragment, dict)
+                        else existing_fragment[0]
+                    )
+                else:
+                    # Create new fragment
+                    fragment_id = f"f_{uuid.uuid4().hex[:8]}"
+                    await db.insert(
+                        "fragments",
+                        {
+                            "id": fragment_id,
+                            "page_id": page_id,
+                            "text_content": text[:2000],
+                            "fragment_type": "paragraph",
+                            "heading_context": title[:200] if title else None,
+                        },
+                        or_ignore=True,
+                    )
+                fragments_extracted = 1
+
+                # Extract claims using LLM for THIS task
+                from src.filter.llm import llm_extract
+
+                try:
+                    passages = [{"id": fragment_id, "text": text[:4000]}]
+                    llm_result = await llm_extract(
+                        passages=passages,
+                        task="extract_claims",
+                    )
+                    claims = llm_result.get("claims", [])
+
+                    for claim_data in claims:
+                        claim_id = f"c_{uuid.uuid4().hex[:8]}"
+                        claim_text = (
+                            claim_data.get("claim", "")
+                            if isinstance(claim_data, dict)
+                            else str(claim_data)
+                        )
+                        confidence = (
+                            claim_data.get("confidence", 0.5)
+                            if isinstance(claim_data, dict)
+                            else 0.5
+                        )
+
+                        await db.insert(
+                            "claims",
+                            {
+                                "id": claim_id,
+                                "task_id": task_id,
+                                "claim_text": claim_text[:1000],
+                                "llm_claim_confidence": confidence,
+                            },
+                            or_ignore=True,
+                        )
+
+                        # Create origin edge from fragment to claim
+                        from src.filter.evidence_graph import add_claim_evidence
+
+                        await add_claim_evidence(
+                            claim_id=claim_id,
+                            fragment_id=fragment_id,
+                            relation="origin",
+                            nli_label=None,
+                            nli_edge_confidence=confidence,
+                            task_id=task_id,
+                        )
+
+                        claims_extracted += 1
+
+                except Exception as e:
+                    logger.warning(
+                        "LLM claim extraction failed during reprocess",
+                        url=url[:80],
+                        error=str(e),
+                    )
+
+                # Run citation detector if enabled
+                if run_citation_detector:
+                    try:
+                        from src.extractor.citation_detector import CitationDetector
+                        from src.utils.config import get_settings as _get_settings
+
+                        citation_settings = _get_settings()
+                        wc = citation_settings.search.web_citation_detection
+
+                        if wc.enabled:
+                            html_content = Path(html_path).read_text(
+                                encoding="utf-8", errors="ignore"
+                            )
+
+                            max_candidates = int(wc.max_candidates_per_page)
+                            if max_candidates <= 0:
+                                max_candidates = 10_000
+
+                            detector = CitationDetector(max_candidates=max_candidates)
+                            detected = await detector.detect_citations(
+                                html=html_content,
+                                base_url=url,
+                                source_domain=domain,
+                            )
+
+                            citations = [d for d in detected if d.is_citation]
+                            if wc.max_edges_per_page > 0:
+                                citations = citations[: int(wc.max_edges_per_page)]
+
+                            for c in citations:
+                                target_url = c.url
+                                target_domain = (
+                                    urlparse(target_url).netloc or ""
+                                ).lower() or "unknown"
+
+                                # Create placeholder page for citation target
+                                existing = await db.fetch_one(
+                                    "SELECT id FROM pages WHERE url = ?",
+                                    (target_url,),
+                                )
+                                if existing:
+                                    target_page_id = (
+                                        existing["id"]
+                                        if isinstance(existing, dict)
+                                        else existing[0]
+                                    )
+                                else:
+                                    target_page_id = f"page_{uuid.uuid4().hex[:8]}"
+                                    await db.insert(
+                                        "pages",
+                                        {
+                                            "id": target_page_id,
+                                            "url": target_url,
+                                            "domain": target_domain,
+                                        },
+                                        auto_id=False,
+                                        or_ignore=True,
+                                    )
+
+                                # Create citation edge (page→page via 'cites' relation)
+                                from src.storage.database import get_database as _get_db
+
+                                _db = await _get_db()
+                                edge_id = f"cites_{uuid.uuid4().hex[:8]}"
+                                await _db.insert(
+                                    "edges",
+                                    {
+                                        "id": edge_id,
+                                        "source_type": "page",
+                                        "source_id": page_id,
+                                        "target_type": "page",
+                                        "target_id": target_page_id,
+                                        "relation": "cites",
+                                        "citation_context": (
+                                            c.link_text[:500] if c.link_text else None
+                                        ),
+                                        "citation_source": "extraction",
+                                    },
+                                    or_ignore=True,
+                                )
+                                citations_detected += 1
+
+                    except Exception as e:
+                        logger.warning(
+                            "Citation detection failed during reprocess",
+                            url=url[:80],
+                            error=str(e),
+                        )
+
+    except Exception as e:
+        logger.warning(
+            "Content extraction failed during reprocess",
+            url=url[:80],
+            error=str(e),
+        )
+
+    logger.info(
+        "URL reprocessed for claims",
+        url=url[:100],
+        page_id=page_id,
+        fragments=fragments_extracted,
+        claims=claims_extracted,
+        citations=citations_detected,
+    )
+
+    return {
+        "ok": True,
+        "url": url,
+        "page_id": str(page_id),
+        "pages_fetched": 0,  # No new fetch
+        "fragments_extracted": fragments_extracted,
+        "claims_extracted": claims_extracted,
+        "citations_detected": citations_detected,
+        "status": "reprocessed",
+        "message": "Existing page reprocessed for this task",
+    }
+
+
+async def ingest_url_action(
+    task_id: str,
+    url: str,
+    state: ExplorationState,
+    depth: int = 0,
+    reason: str = "manual",
+    context: dict[str, Any] | None = None,
+    policy: dict[str, Any] | None = None,
+    options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Unified API for URL ingestion action (citation chasing).
+
+    Entry point for direct URL processing. Fetches a URL, extracts content,
+    generates claims, and optionally runs citation detection.
+
+    This is the URL counterpart to search_action - it processes a single URL
+    through the full pipeline without going through SERP search.
+
+    Args:
+        task_id: The task ID.
+        url: URL to fetch and process.
+        state: The exploration state manager.
+        depth: Citation chain depth (0 = direct/manual, 1+ = chased from another page).
+        reason: Why this URL is being ingested:
+            - "citation_chase": Discovered as citation from another page.
+            - "manual": Manually specified by user/AI.
+        context: Optional context dict:
+            - referer: Referring page URL.
+            - citation_context: Text context where citation was found.
+        policy: Optional fetch policy overrides:
+            - skip_if_exists: Skip if page already has html_path (default: True).
+            - run_citation_detector: Run citation detector (default: True for depth < max_depth).
+        options: Optional options dict:
+            - task_id: Task ID (for CAPTCHA queue).
+            - target_job_id: Target job ID (for auto-requeue on resolve).
+            - worker_id: Worker ID (for context isolation).
+
+    Returns:
+        Ingestion result dict with:
+        - ok: True if successful
+        - url: The URL processed
+        - page_id: Page ID in DB
+        - pages_fetched: Number of pages fetched (0 or 1)
+        - fragments_extracted: Number of fragments extracted
+        - claims_extracted: Number of claims extracted
+        - citations_detected: Number of citations detected
+        - status: "completed" | "skipped" | "failed"
+    """
+    from pathlib import Path
+    from urllib.parse import urlparse
+
+    from src.crawler.fetcher import fetch_url
+    from src.extractor.content import extract_content
+    from src.storage.database import get_database
+
+    with LogContext(task_id=task_id):
+        logger.info(
+            "Ingesting URL",
+            url=url[:100],
+            depth=depth,
+            reason=reason,
+        )
+
+        context = context or {}
+        policy = policy or {}
+        options = options or {}
+
+        # Extract options
+        worker_id = options.get("worker_id", 0)
+        # target_job_id reserved for future CAPTCHA requeue support
+
+        # Policy defaults
+        skip_if_exists = policy.get("skip_if_exists", True)
+        max_depth = policy.get("max_citation_depth", 2)  # Default max depth for citation chasing
+        run_citation_detector = policy.get("run_citation_detector", depth < max_depth)
+
+        db = await get_database()
+
+        # Parse URL to get domain
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower()
+        except Exception:
+            domain = "unknown"
+
+        # Check if page already exists with content
+        existing_page = await db.fetch_one(
+            "SELECT id, html_path FROM pages WHERE url = ?",
+            (url,),
+        )
+
+        if existing_page:
+            page_id = existing_page["id"] if isinstance(existing_page, dict) else existing_page[0]
+            html_path = (
+                existing_page["html_path"] if isinstance(existing_page, dict) else existing_page[1]
+            )
+
+            if html_path and skip_if_exists:
+                # Check if claims have been extracted for THIS task (task未Claim check)
+                existing_origin = await db.fetch_one(
+                    """
+                    SELECT 1 FROM fragments f
+                    JOIN edges e ON e.source_type = 'fragment' AND e.source_id = f.id
+                                 AND e.relation = 'origin'
+                    JOIN claims c ON e.target_type = 'claim' AND e.target_id = c.id
+                                 AND c.task_id = ?
+                    WHERE f.page_id = ?
+                    LIMIT 1
+                    """,
+                    (task_id, page_id),
+                )
+
+                if existing_origin:
+                    logger.info(
+                        "URL already processed with claims for this task, skipping",
+                        url=url[:100],
+                        page_id=page_id,
+                    )
+                    return {
+                        "ok": True,
+                        "url": url,
+                        "page_id": str(page_id),
+                        "pages_fetched": 0,
+                        "fragments_extracted": 0,
+                        "claims_extracted": 0,
+                        "citations_detected": 0,
+                        "status": "skipped",
+                        "message": "Page already exists with claims for this task",
+                    }
+                else:
+                    # Page exists but no claims for this task - reprocess without fetching
+                    logger.info(
+                        "URL fetched but no claims for this task, reprocessing",
+                        url=url[:100],
+                        page_id=page_id,
+                    )
+                    # Register in task_pages
+                    source_page_id = context.get("source_page_id") if context else None
+                    task_page_id = f"tp_{uuid.uuid4().hex[:8]}"
+                    await db.execute(
+                        """
+                        INSERT OR IGNORE INTO task_pages (id, task_id, page_id, reason, depth, source_page_id)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (task_page_id, task_id, page_id, reason, depth, source_page_id),
+                    )
+
+                    # Jump directly to claim extraction (skip fetch)
+                    return await _reprocess_existing_page_for_claims(
+                        db=db,
+                        task_id=task_id,
+                        page_id=page_id,
+                        html_path=html_path,
+                        url=url,
+                        domain=domain,
+                        depth=depth,
+                        run_citation_detector=run_citation_detector,
+                    )
+        else:
+            page_id = None
+
+        # Fetch URL
+        try:
+            fetch_result = await fetch_url(
+                url=url,
+                task_id=task_id,
+                worker_id=worker_id,
+            )
+        except Exception as e:
+            logger.error(
+                "URL fetch failed",
+                url=url[:100],
+                error=str(e),
+            )
+            return {
+                "ok": False,
+                "url": url,
+                "page_id": str(page_id) if page_id else None,
+                "pages_fetched": 0,
+                "fragments_extracted": 0,
+                "claims_extracted": 0,
+                "citations_detected": 0,
+                "status": "failed",
+                "error": str(e),
+            }
+
+        # Check if fetch was successful
+        if not fetch_result.get("ok", False):
+            error_msg = fetch_result.get("error", "Unknown fetch error")
+            # Check for CAPTCHA queue
+            if fetch_result.get("captcha_queued"):
+                return {
+                    "ok": True,
+                    "url": url,
+                    "page_id": (
+                        str(fetch_result.get("page_id")) if fetch_result.get("page_id") else None
+                    ),
+                    "pages_fetched": 0,
+                    "fragments_extracted": 0,
+                    "claims_extracted": 0,
+                    "citations_detected": 0,
+                    "status": "awaiting_auth",
+                    "captcha_queued": True,
+                    "queue_id": fetch_result.get("queue_id"),
+                    "message": "CAPTCHA detected, queued for resolution",
+                }
+            return {
+                "ok": False,
+                "url": url,
+                "page_id": (
+                    str(fetch_result.get("page_id")) if fetch_result.get("page_id") else None
+                ),
+                "pages_fetched": 0,
+                "fragments_extracted": 0,
+                "claims_extracted": 0,
+                "citations_detected": 0,
+                "status": "failed",
+                "error": error_msg,
+            }
+
+        page_id = fetch_result.get("page_id")
+        html_path = fetch_result.get("html_path")
+
+        # Register in task_pages for Citation Chasing scope
+        source_page_id = context.get("source_page_id") if context else None
+        task_page_id = f"tp_{uuid.uuid4().hex[:8]}"
+        await db.execute(
+            """
+            INSERT OR IGNORE INTO task_pages (id, task_id, page_id, reason, depth, source_page_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (task_page_id, task_id, page_id, reason, depth, source_page_id),
+        )
+
+        # Also register in resource_index for deduplication
+        await db.execute(
+            """
+            INSERT OR IGNORE INTO resource_index (task_id, identifier_type, identifier_value, page_id, status)
+            VALUES (?, 'url', ?, ?, 'completed')
+            """,
+            (task_id, url, page_id),
+        )
+
+        # Extract content
+        fragments_extracted = 0
+        claims_extracted = 0
+        citations_detected = 0
+
+        if html_path:
+            try:
+                extract_result = await extract_content(
+                    input_path=html_path,
+                )
+
+                if extract_result.get("ok", False):
+                    text = extract_result.get("text", "")
+                    title = extract_result.get("title", "")
+
+                    if text:
+                        # Save fragment
+                        fragment_id = f"f_{uuid.uuid4().hex[:8]}"
+                        await db.insert(
+                            "fragments",
+                            {
+                                "id": fragment_id,
+                                "page_id": page_id,
+                                "text_content": text[:2000],
+                                "fragment_type": "paragraph",
+                                "heading_context": title[:200] if title else None,
+                            },
+                            or_ignore=True,
+                        )
+                        fragments_extracted = 1
+
+                        # Extract claims using LLM
+                        from src.filter.llm import llm_extract
+
+                        try:
+                            passages = [{"id": fragment_id, "text": text[:4000]}]
+                            llm_result = await llm_extract(
+                                passages=passages,
+                                task="extract_claims",
+                            )
+                            claims = llm_result.get("claims", [])
+
+                            for claim_data in claims:
+                                claim_id = f"c_{uuid.uuid4().hex[:8]}"
+                                claim_text = (
+                                    claim_data.get("claim", "")
+                                    if isinstance(claim_data, dict)
+                                    else str(claim_data)
+                                )
+                                confidence = (
+                                    claim_data.get("confidence", 0.5)
+                                    if isinstance(claim_data, dict)
+                                    else 0.5
+                                )
+
+                                await db.insert(
+                                    "claims",
+                                    {
+                                        "id": claim_id,
+                                        "task_id": task_id,
+                                        "claim_text": claim_text[:1000],
+                                        "llm_claim_confidence": confidence,
+                                    },
+                                    or_ignore=True,
+                                )
+
+                                # Create origin edge from fragment to claim
+                                from src.filter.evidence_graph import add_claim_evidence
+
+                                await add_claim_evidence(
+                                    claim_id=claim_id,
+                                    fragment_id=fragment_id,
+                                    relation="origin",
+                                    nli_label=None,
+                                    nli_edge_confidence=confidence,
+                                    task_id=task_id,
+                                )
+
+                                claims_extracted += 1
+
+                        except Exception as e:
+                            logger.warning(
+                                "LLM claim extraction failed",
+                                url=url[:80],
+                                error=str(e),
+                            )
+
+                        # Run citation detector if enabled
+                        if run_citation_detector and html_path:
+                            try:
+                                from src.extractor.citation_detector import CitationDetector
+                                from src.filter.evidence_graph import add_citation
+                                from src.utils.config import get_settings as _get_settings
+
+                                citation_settings = _get_settings()
+                                wc = citation_settings.search.web_citation_detection
+
+                                if wc.enabled:
+                                    html_content = Path(html_path).read_text(
+                                        encoding="utf-8", errors="ignore"
+                                    )
+
+                                    max_candidates = int(wc.max_candidates_per_page)
+                                    if max_candidates <= 0:
+                                        max_candidates = 10_000
+
+                                    detector = CitationDetector(max_candidates=max_candidates)
+                                    detected = await detector.detect_citations(
+                                        html=html_content,
+                                        base_url=url,
+                                        source_domain=domain,
+                                    )
+
+                                    citations = [d for d in detected if d.is_citation]
+                                    if wc.max_edges_per_page > 0:
+                                        citations = citations[: int(wc.max_edges_per_page)]
+
+                                    for c in citations:
+                                        target_url = c.url
+                                        target_domain = (
+                                            urlparse(target_url).netloc or ""
+                                        ).lower() or "unknown"
+
+                                        # Check/create target page
+                                        is_new, existing_page_id = await db.claim_resource(
+                                            identifier_type="url",
+                                            identifier_value=target_url,
+                                            task_id=task_id,
+                                            worker_id=worker_id,
+                                        )
+
+                                        if not is_new and existing_page_id:
+                                            target_page_id = existing_page_id
+                                        elif not is_new:
+                                            existing = await db.fetch_one(
+                                                "SELECT id FROM pages WHERE url = ?",
+                                                (target_url,),
+                                            )
+                                            if existing and existing.get("id"):
+                                                target_page_id = str(existing["id"])
+                                            else:
+                                                continue
+                                        else:
+                                            if not wc.create_placeholder_pages:
+                                                continue
+                                            inserted_id = await db.insert(
+                                                "pages",
+                                                {
+                                                    "url": target_url,
+                                                    "domain": target_domain,
+                                                },
+                                                or_ignore=True,
+                                            )
+                                            if not inserted_id:
+                                                continue
+                                            target_page_id = str(inserted_id)
+
+                                            await db.complete_resource(
+                                                identifier_type="url",
+                                                identifier_value=target_url,
+                                                page_id=target_page_id,
+                                            )
+
+                                        await add_citation(
+                                            source_type="page",
+                                            source_id=str(page_id),
+                                            page_id=target_page_id,
+                                            task_id=task_id,
+                                            citation_source="extraction",
+                                            citation_context=(c.context or "")[:500],
+                                        )
+                                        citations_detected += 1
+
+                                    logger.debug(
+                                        "Citation detection completed",
+                                        url=url[:80],
+                                        citations_total=len(detected),
+                                        citations_added=citations_detected,
+                                    )
+
+                            except Exception as e:
+                                logger.warning(
+                                    "Citation detection failed",
+                                    url=url[:80],
+                                    error=str(e),
+                                )
+
+            except Exception as e:
+                logger.warning(
+                    "Content extraction failed",
+                    url=url[:80],
+                    error=str(e),
+                )
+
+        logger.info(
+            "URL ingestion completed",
+            url=url[:100],
+            page_id=page_id,
+            fragments=fragments_extracted,
+            claims=claims_extracted,
+            citations=citations_detected,
+        )
+
+        return {
+            "ok": True,
+            "url": url,
+            "page_id": str(page_id) if page_id else None,
+            "pages_fetched": 1,
+            "fragments_extracted": fragments_extracted,
+            "claims_extracted": claims_extracted,
+            "citations_detected": citations_detected,
+            "status": "completed",
+        }
+
+
+async def ingest_doi_action(
+    task_id: str,
+    doi: str,
+    state: ExplorationState,
+    reason: str = "manual",
+    context: dict[str, Any] | None = None,
+    options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Unified API for DOI ingestion action (Academic API fast path).
+
+    Entry point for direct DOI processing. Attempts to fetch paper metadata
+    from Academic APIs (Semantic Scholar, OpenAlex) and persist abstract
+    without full web fetch.
+
+    This is the DOI counterpart to ingest_url_action - it prioritizes
+    Academic API metadata over web scraping for faster, more reliable
+    ingestion of academic papers.
+
+    Args:
+        task_id: The task ID.
+        doi: DOI to fetch (e.g., "10.1234/example").
+        state: The exploration state manager.
+        reason: Why this DOI is being ingested:
+            - "citation_chase": Discovered as citation from another page.
+            - "manual": Manually specified by user/AI.
+        context: Optional context dict:
+            - source_page_id: Page that cited this DOI.
+            - citation_context: Text context where citation was found.
+        options: Optional options dict:
+            - task_id: Task ID (for CAPTCHA queue).
+            - target_job_id: Target job ID (for auto-requeue on resolve).
+            - worker_id: Worker ID (for context isolation).
+
+    Returns:
+        Ingestion result dict with:
+        - ok: True if successful
+        - doi: The DOI processed
+        - page_id: Page ID in DB
+        - pages_fetched: Number of pages fetched (0 or 1)
+        - fragments_extracted: Number of fragments extracted
+        - claims_extracted: Number of claims extracted
+        - status: "completed" | "skipped" | "failed" | "fallback_url"
+        - source: "academic_api" | "url_fallback"
+    """
+    from src.storage.database import get_database
+
+    with LogContext(task_id=task_id):
+        logger.info(
+            "Ingesting DOI via Academic API",
+            doi=doi,
+            reason=reason,
+        )
+
+        context = context or {}
+        options = options or {}
+
+        worker_id = options.get("worker_id", 0)
+        db = await get_database()
+
+        # Normalize DOI
+        doi = doi.strip().lower()
+
+        # Check if already processed (via resource_index with doi type)
+        is_new, existing_page_id = await db.claim_resource(
+            identifier_type="doi",
+            identifier_value=doi,
+            task_id=task_id,
+            worker_id=worker_id,
+        )
+
+        if not is_new and existing_page_id:
+            # Already processed - check if claims exist for this task
+            existing_origin = await db.fetch_one(
+                """
+                SELECT 1 FROM fragments f
+                JOIN edges e ON e.source_type = 'fragment' AND e.source_id = f.id
+                             AND e.relation = 'origin'
+                JOIN claims c ON e.target_type = 'claim' AND e.target_id = c.id
+                             AND c.task_id = ?
+                WHERE f.page_id = ?
+                LIMIT 1
+                """,
+                (task_id, existing_page_id),
+            )
+
+            if existing_origin:
+                logger.info(
+                    "DOI already processed with claims for this task, skipping",
+                    doi=doi,
+                    page_id=existing_page_id,
+                )
+                return {
+                    "ok": True,
+                    "doi": doi,
+                    "page_id": str(existing_page_id),
+                    "pages_fetched": 0,
+                    "fragments_extracted": 0,
+                    "claims_extracted": 0,
+                    "status": "skipped",
+                    "source": "academic_api",
+                    "message": "DOI already processed with claims for this task",
+                }
+            else:
+                # Page exists but no claims for this task - need to re-extract claims
+                logger.info(
+                    "DOI page exists but no claims for this task, re-extracting",
+                    doi=doi,
+                    page_id=existing_page_id,
+                )
+                # Continue to claim extraction below
+
+        # Try Academic API first
+        try:
+            from src.search.academic_provider import AcademicSearchProvider
+
+            provider = AcademicSearchProvider()
+            try:
+                paper = await provider.get_paper_by_doi(doi)
+            finally:
+                await provider.close()
+
+            if paper and paper.abstract:
+                # Success - persist abstract as fragment
+                pipeline = SearchPipeline(task_id, state)
+                page_id, fragment_id = await pipeline._persist_abstract_as_fragment(
+                    paper=paper,
+                    task_id=task_id,
+                    search_id=f"doi_{doi[:20]}",
+                    worker_id=worker_id,
+                )
+
+                if page_id:
+                    # Register in task_pages
+                    source_page_id = context.get("source_page_id")
+                    task_page_id = f"tp_{uuid.uuid4().hex[:8]}"
+                    await db.execute(
+                        """
+                        INSERT OR IGNORE INTO task_pages (id, task_id, page_id, reason, depth, source_page_id)
+                        VALUES (?, ?, ?, ?, 0, ?)
+                        """,
+                        (task_page_id, task_id, page_id, reason, source_page_id),
+                    )
+
+                    # Claims are extracted in _persist_abstract_as_fragment via _extract_claims_from_abstract
+                    # Count them
+                    claims_count = await db.fetch_one(
+                        """
+                        SELECT COUNT(*) as cnt FROM claims c
+                        JOIN edges e ON e.target_type = 'claim' AND e.target_id = c.id
+                                     AND e.relation = 'origin'
+                        JOIN fragments f ON e.source_type = 'fragment' AND e.source_id = f.id
+                        WHERE f.page_id = ? AND c.task_id = ?
+                        """,
+                        (page_id, task_id),
+                    )
+                    claims_extracted = claims_count.get("cnt", 0) if claims_count else 0
+
+                    logger.info(
+                        "DOI ingestion completed via Academic API",
+                        doi=doi,
+                        page_id=page_id,
+                        claims=claims_extracted,
+                    )
+
+                    return {
+                        "ok": True,
+                        "doi": doi,
+                        "page_id": str(page_id),
+                        "pages_fetched": 1 if fragment_id else 0,
+                        "fragments_extracted": 1 if fragment_id else 0,
+                        "claims_extracted": claims_extracted,
+                        "status": "completed",
+                        "source": "academic_api",
+                    }
+
+        except Exception as e:
+            logger.warning(
+                "Academic API lookup failed for DOI, falling back to URL",
+                doi=doi,
+                error=str(e),
+            )
+
+        # Fallback: Try URL-based fetch via doi.org
+        doi_url = f"https://doi.org/{doi}"
+        logger.info(
+            "Falling back to URL fetch for DOI",
+            doi=doi,
+            url=doi_url,
+        )
+
+        # Use ingest_url_action for fallback
+        url_result = await ingest_url_action(
+            task_id=task_id,
+            url=doi_url,
+            state=state,
+            depth=0,
+            reason=reason,
+            context=context,
+            policy={"skip_if_exists": False},  # Force re-fetch since Academic API failed
+            options=options,
+        )
+
+        # Adjust response to indicate fallback
+        return {
+            "ok": url_result.get("ok", False),
+            "doi": doi,
+            "page_id": url_result.get("page_id"),
+            "pages_fetched": url_result.get("pages_fetched", 0),
+            "fragments_extracted": url_result.get("fragments_extracted", 0),
+            "claims_extracted": url_result.get("claims_extracted", 0),
+            "status": "fallback_url" if url_result.get("ok") else "failed",
+            "source": "url_fallback",
+            "error": url_result.get("error"),
         }

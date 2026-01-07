@@ -180,11 +180,11 @@ async def get_metrics_from_db(db: Any, task_id: str) -> dict[str, Any]:
         }
 
 
-async def get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
-    """Get search queue status for a task.
+async def get_target_queue_status(db: Any, task_id: str) -> dict[str, Any]:
+    """Get target queue status for a task.
 
     Returns queue depth, running count, and item details.
-    Per ADR-0010: Search queue status in get_status response.
+    Per ADR-0010: Target queue status in get_status response.
 
     Args:
         db: Database connection.
@@ -198,7 +198,7 @@ async def get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
             """
             SELECT id, input_json, state, priority, queued_at, started_at, finished_at
             FROM jobs
-            WHERE task_id = ? AND kind = 'search_queue'
+            WHERE task_id = ? AND kind = 'target_queue'
             ORDER BY priority ASC, queued_at ASC
             """,
             (task_id,),
@@ -227,12 +227,16 @@ async def get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
                 started_at = row[5]
                 finished_at = row[6]
 
-            # Parse input to get query
+            # Parse input to get query/url based on target kind
             query = ""
             if input_json:
                 try:
                     input_data = json.loads(input_json)
-                    query = input_data.get("query", "")
+                    target = input_data.get("target", {})
+                    if target.get("kind") == "query":
+                        query = target.get("query", "")
+                    elif target.get("kind") == "url":
+                        query = target.get("url", "")[:100]  # Truncate long URLs
                 except json.JSONDecodeError:
                     pass
 
@@ -260,7 +264,7 @@ async def get_search_queue_status(db: Any, task_id: str) -> dict[str, Any]:
             "items": items,
         }
     except Exception as e:
-        logger.warning("Failed to get search queue status", error=str(e))
+        logger.warning("Failed to get target queue status", error=str(e))
         return {
             "depth": 0,
             "running": 0,
@@ -363,7 +367,7 @@ async def get_pending_auth_info(db: Any, task_id: str) -> dict[str, Any]:
         cursor = await db.execute(
             """
             SELECT COUNT(*) as count FROM jobs
-            WHERE task_id = ? AND kind = 'search_queue' AND state = 'awaiting_auth'
+            WHERE task_id = ? AND kind = 'target_queue' AND state = 'awaiting_auth'
             """,
             (task_id,),
         )

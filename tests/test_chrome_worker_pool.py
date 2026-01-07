@@ -147,7 +147,7 @@ class TestChromeWorkerPoolConfig:
         """
         # Given
         settings = get_settings()
-        num_workers = settings.concurrency.search_queue.num_workers
+        num_workers = settings.concurrency.target_queue.num_workers
         base_port = settings.browser.chrome_base_port
         expected_ports = [base_port + i for i in range(num_workers)]
 
@@ -166,7 +166,7 @@ class TestChromeWorkerPoolConfig:
         """
         # Given
         settings = get_settings()
-        expected_num_workers = settings.concurrency.search_queue.num_workers
+        expected_num_workers = settings.concurrency.target_queue.num_workers
 
         # When
         actual_num_workers = get_num_workers()

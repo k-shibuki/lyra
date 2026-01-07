@@ -35,12 +35,12 @@ class TestEnqueueCitationGraphJob:
             (task_id, "Test query", "exploring"),
         )
 
-        # When: Enqueue citation graph job
-        with patch("src.scheduler.jobs.JobScheduler") as mock_scheduler_cls:
-            mock_scheduler = MagicMock()
-            mock_scheduler.submit = AsyncMock(return_value={"job_id": f"cg_{search_id}"})
-            mock_scheduler_cls.return_value = mock_scheduler
+        # When: Enqueue citation graph job (via get_scheduler)
+        mock_scheduler = MagicMock()
+        mock_scheduler.submit = AsyncMock(return_value={"job_id": f"cg_{search_id}"})
 
+        # Patch at src.scheduler.jobs where get_scheduler is defined
+        with patch("src.scheduler.jobs.get_scheduler", new=AsyncMock(return_value=mock_scheduler)):
             from src.research.citation_graph import enqueue_citation_graph_job
 
             job_id = await enqueue_citation_graph_job(
@@ -72,11 +72,11 @@ class TestEnqueueCitationGraphJob:
         assert job_id is None
 
     @pytest.mark.asyncio
-    async def test_enqueue_duplicate_returns_none(self, test_database: Database) -> None:
-        """TC-A-02: Duplicate job is not created."""
+    async def test_enqueue_duplicate_queued_returns_none(self, test_database: Database) -> None:
+        """TC-A-02: Duplicate job (queued) is not created."""
         import json
 
-        # Given: Job already exists with matching search_id in input_json
+        # Given: Job already exists with matching search_id in input_json (state=queued)
         db = test_database
         task_id = "task_cg_03"
         search_id = "sq_cg_03"
@@ -99,12 +99,12 @@ class TestEnqueueCitationGraphJob:
             (job_id, task_id, input_json),
         )
 
-        # When: Try to enqueue again
-        with patch("src.scheduler.jobs.JobScheduler") as mock_scheduler_cls:
-            mock_scheduler = MagicMock()
-            mock_scheduler.submit = AsyncMock(return_value={"job_id": "new_job"})
-            mock_scheduler_cls.return_value = mock_scheduler
+        # When: Try to enqueue again (via get_scheduler)
+        mock_scheduler = MagicMock()
+        mock_scheduler.submit = AsyncMock(return_value={"job_id": "new_job"})
 
+        # Patch at src.scheduler.jobs where get_scheduler is defined
+        with patch("src.scheduler.jobs.get_scheduler", new=AsyncMock(return_value=mock_scheduler)):
             from src.research.citation_graph import enqueue_citation_graph_job
 
             result = await enqueue_citation_graph_job(
@@ -114,9 +114,56 @@ class TestEnqueueCitationGraphJob:
                 paper_ids=["paper1"],
             )
 
-        # Then: No new job created
+        # Then: No new job created (duplicate with active state)
         assert result is None
         mock_scheduler.submit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_enqueue_after_failed_allows_retry(self, test_database: Database) -> None:
+        """TC-A-03: Re-enqueue is allowed when previous job failed."""
+        import json
+
+        # Given: Job already exists but is failed
+        db = test_database
+        task_id = "task_cg_retry"
+        search_id = "sq_cg_retry"
+        job_id = f"cg_{search_id}"
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            (task_id, "Test query", "exploring"),
+        )
+
+        # Insert failed job with input_json containing the search_id
+        input_json = json.dumps(
+            {"task_id": task_id, "search_id": search_id, "query": "Test", "paper_ids": []}
+        )
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at, input_json)
+            VALUES (?, ?, 'citation_graph', 50, 'cpu_nlp', 'failed', datetime('now'), ?)
+            """,
+            (job_id, task_id, input_json),
+        )
+
+        # When: Try to enqueue again (via get_scheduler)
+        mock_scheduler = MagicMock()
+        mock_scheduler.submit = AsyncMock(return_value={"job_id": "new_job"})
+
+        # Patch at src.scheduler.jobs where get_scheduler is defined
+        with patch("src.scheduler.jobs.get_scheduler", new=AsyncMock(return_value=mock_scheduler)):
+            from src.research.citation_graph import enqueue_citation_graph_job
+
+            result = await enqueue_citation_graph_job(
+                task_id=task_id,
+                search_id=search_id,
+                query="Test query",
+                paper_ids=["paper1"],
+            )
+
+        # Then: New job created (failed state allows re-enqueue)
+        assert result is not None
+        mock_scheduler.submit.assert_called_once()
 
 
 class TestJobKindCitationGraph:

@@ -4,7 +4,7 @@ Tests for resource deduplication across workers.
 Covers:
 - claim_resource/complete_resource/fail_resource/get_resource APIs
 - Race condition handling with INSERT OR IGNORE pattern
-- Query deduplication in queue_searches
+- Query deduplication in queue_targets
 - Integration with pipeline and executor
 """
 
@@ -338,14 +338,14 @@ class TestInsertOrIgnore:
         assert resource["task_id"] == "task_001"
 
 
-class TestQueueSearchesDedup:
-    """Test query deduplication in queue_searches handler."""
+class TestQueueTargetsDedup:
+    """Test query deduplication in queue_targets handler."""
 
     @pytest.mark.asyncio
     async def test_duplicate_query_is_skipped(self, test_database: Database) -> None:
         """
         Given: Query 'foo' already queued for task
-        When: queue_searches called with same query
+        When: queue_targets called with same query
         Then: Query not duplicated in jobs table
         """
         # Given: Query 'foo' already queued for task
@@ -366,7 +366,7 @@ class TestQueueSearchesDedup:
             (
                 "s_first",
                 task_id,
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "queued",
@@ -374,11 +374,11 @@ class TestQueueSearchesDedup:
             ),
         )
 
-        # When: Check for duplicate (simulating queue_searches logic)
+        # When: Check for duplicate (simulating queue_targets logic)
         existing = await db.fetch_one(
             """
             SELECT id FROM jobs
-            WHERE task_id = ? AND kind = 'search_queue'
+            WHERE task_id = ? AND kind = 'target_queue'
               AND state IN ('queued', 'running')
               AND json_extract(input_json, '$.query') = ?
             """,
@@ -416,7 +416,7 @@ class TestQueueSearchesDedup:
             (
                 "s_task1",
                 task_1,
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "queued",
@@ -428,7 +428,7 @@ class TestQueueSearchesDedup:
         existing = await db.fetch_one(
             """
             SELECT id FROM jobs
-            WHERE task_id = ? AND kind = 'search_queue'
+            WHERE task_id = ? AND kind = 'target_queue'
               AND state IN ('queued', 'running')
               AND json_extract(input_json, '$.query') = ?
             """,
@@ -463,7 +463,7 @@ class TestQueueSearchesDedup:
             (
                 "s_completed",
                 task_id,
-                "search_queue",
+                "target_queue",
                 50,
                 "network_client",
                 "completed",  # Already completed
@@ -475,7 +475,7 @@ class TestQueueSearchesDedup:
         existing = await db.fetch_one(
             """
             SELECT id FROM jobs
-            WHERE task_id = ? AND kind = 'search_queue'
+            WHERE task_id = ? AND kind = 'target_queue'
               AND state IN ('queued', 'running')
               AND json_extract(input_json, '$.query') = ?
             """,

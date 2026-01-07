@@ -354,6 +354,86 @@ async def test_respects_max_candidates_limit() -> None:
 
 
 @pytest.mark.asyncio
+async def test_resolves_relative_links_with_base_href() -> None:
+    """Test that relative links are resolved using <base href> when present.
+
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|----------------------|-------------|-----------------|-------|
+    | TC-B-01 | `<base href>` in HTML | Boundary – URL/base | Relative links resolved to base href | - |
+    """
+    # Given: HTML with <base href> and relative link
+    reset_llm_registry()
+    provider = FakeLLMProvider(reply="YES", ok=True)
+    get_llm_registry().register(cast(LLMProvider, provider), set_default=True)
+
+    html = """
+    <html>
+    <head>
+      <base href="https://cdn.example.org/articles/2024/">
+    </head>
+    <body>
+      <main>
+        <p>Reference: <a href="../references/source.html">Source</a></p>
+      </main>
+    </body>
+    </html>
+    """
+
+    detector = CitationDetector(max_candidates=10)
+
+    # When: detect_citations is called with a different base_url
+    results = await detector.detect_citations(
+        html=html,
+        base_url="https://example.com/article",  # fallback URL (should be overridden)
+        source_domain="example.com",
+    )
+
+    # Then: Link is resolved relative to <base href>, not the fallback base_url
+    assert len(results) == 1
+    # Resolved URL: https://cdn.example.org/articles/2024/../references/source.html
+    # Which normalizes to: https://cdn.example.org/articles/references/source.html
+    assert "cdn.example.org" in results[0].url
+    assert "references/source.html" in results[0].url
+
+
+@pytest.mark.asyncio
+async def test_uses_fallback_url_when_no_base_href() -> None:
+    """Test that fallback URL is used when no <base href> is present.
+
+    | Case ID | Input / Precondition | Perspective | Expected Result | Notes |
+    |---------|----------------------|-------------|-----------------|-------|
+    | TC-N-04 | No `<base href>` | Equivalence – normal | Relative links resolved to fallback URL | - |
+    """
+    # Given: HTML without <base href> and relative link
+    reset_llm_registry()
+    provider = FakeLLMProvider(reply="YES", ok=True)
+    get_llm_registry().register(cast(LLMProvider, provider), set_default=True)
+
+    html = """
+    <html>
+    <body>
+      <main>
+        <p>Reference: <a href="https://external.org/doc">External Doc</a></p>
+      </main>
+    </body>
+    </html>
+    """
+
+    detector = CitationDetector(max_candidates=10)
+
+    # When: detect_citations is called
+    results = await detector.detect_citations(
+        html=html,
+        base_url="https://example.com/article",
+        source_domain="example.com",
+    )
+
+    # Then: Link is correctly detected (absolute URL unchanged)
+    assert len(results) == 1
+    assert results[0].url == "https://external.org/doc"
+
+
+@pytest.mark.asyncio
 async def test_includes_heading_link_type() -> None:
     # Given: outbound link in HEADING (should be candidate)
     reset_llm_registry()

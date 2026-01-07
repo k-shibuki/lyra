@@ -415,6 +415,55 @@ class AcademicSearchProvider(BaseSearchProvider):
 
         return papers, citations
 
+    async def get_paper_by_doi(self, doi: str) -> Paper | None:
+        """Get paper metadata by DOI.
+
+        Tries Semantic Scholar first (higher priority), then OpenAlex.
+        Returns the first successful result with abstract.
+
+        Args:
+            doi: DOI string (e.g., "10.1234/example")
+
+        Returns:
+            Paper object with metadata and abstract, or None if not found
+        """
+        # Normalize DOI
+        doi = doi.strip().lower()
+
+        # Try Semantic Scholar first (usually has better abstracts)
+        try:
+            s2_client = await self._get_client("semantic_scholar")
+            paper = await s2_client.get_paper(f"DOI:{doi}")
+            if paper and paper.abstract:
+                logger.debug(
+                    "Found paper via Semantic Scholar",
+                    doi=doi,
+                    has_abstract=True,
+                )
+                return paper
+        except Exception as e:
+            logger.debug("Semantic Scholar lookup failed", doi=doi, error=str(e))
+
+        # Try OpenAlex
+        try:
+            oa_client = await self._get_client("openalex")
+            paper = await oa_client.get_paper(f"https://doi.org/{doi}")
+            if paper and paper.abstract:
+                logger.debug(
+                    "Found paper via OpenAlex",
+                    doi=doi,
+                    has_abstract=True,
+                )
+                return paper
+        except Exception as e:
+            logger.debug("OpenAlex lookup failed", doi=doi, error=str(e))
+
+        logger.warning(
+            "Paper not found in any Academic API",
+            doi=doi,
+        )
+        return None
+
     async def get_health(self) -> Any:
         """Get health status."""
         from src.search.provider import HealthStatus

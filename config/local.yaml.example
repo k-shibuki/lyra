@@ -47,8 +47,8 @@ settings:
 
   # Concurrency (ADR-0013/ADR-0014)
   concurrency:
-    search_queue:
-      num_workers: 2  # Parallel search workers
+    target_queue:
+      num_workers: 2  # Parallel target workers
     browser_serp:
       max_tabs: 2  # Concurrent browser tabs
 

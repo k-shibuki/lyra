@@ -256,7 +256,7 @@ class SearchExecutor:
         priority: str = "medium",
         budget_pages: int | None = None,
         budget_time_seconds: int | None = None,
-        engines: list[str] | None = None,
+        serp_engines: list[str] | None = None,
         serp_max_pages: int = 2,
         search_job_id: str | None = None,
     ) -> SearchExecutionResult:
@@ -268,14 +268,15 @@ class SearchExecutor:
             priority: Execution priority (high/medium/low).
             budget_pages: Optional page budget for this search.
             budget_time_seconds: Optional time budget for this search.
+            serp_engines: SERP engine names (e.g., google, duckduckgo). None for auto.
             serp_max_pages: Maximum SERP pages to fetch per query.
             search_job_id: Search job ID for CAPTCHA queue auto-requeue (ADR-0007).
 
         Returns:
             SearchExecutionResult with execution results.
         """
-        # Store engines and job ID for use in _execute_search
-        self._engines = engines
+        # Store serp_engines and job ID for use in _execute_search
+        self._serp_engines = serp_engines
         self._search_job_id = search_job_id  # ADR-0007
         self._serp_max_pages = serp_max_pages
 
@@ -472,12 +473,12 @@ class SearchExecutor:
         )
 
         try:
-            # Pass engines and job ID if specified (ADR-0007)
+            # Pass serp_engines and job ID if specified (ADR-0007)
             results = await search_serp(
                 query=query,
                 limit=10,
                 task_id=self.task_id,
-                engines=getattr(self, "_engines", None),
+                engines=getattr(self, "_serp_engines", None),
                 search_job_id=getattr(self, "_search_job_id", None),
                 serp_max_pages=getattr(self, "_serp_max_pages", 1),
             )
@@ -601,6 +602,18 @@ class SearchExecutor:
                 is_primary_source=is_primary,
                 is_independent=is_independent,
             )
+
+            # Register in task_pages for Citation Chasing scope (SERP fetch)
+            page_id = fetch_result.get("page_id")
+            if page_id and self._db:
+                task_page_id = f"tp_{uuid.uuid4().hex[:8]}"
+                await self._db.execute(
+                    """
+                    INSERT OR IGNORE INTO task_pages (id, task_id, page_id, reason, depth)
+                    VALUES (?, ?, ?, 'serp', 0)
+                    """,
+                    (task_page_id, self.task_id, page_id),
+                )
 
             # Extract content
             html_path = fetch_result.get("html_path")

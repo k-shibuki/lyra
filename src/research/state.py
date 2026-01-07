@@ -320,7 +320,7 @@ class ExplorationState:
     def notify_status_change(self) -> None:
         """Notify waiting clients that status has changed.
 
-        Called by SearchQueueWorker when a search completes, fails, or is cancelled.
+        Called by TargetQueueWorker when a job completes, fails, or is cancelled.
         Wakes up any get_status(wait=N) calls waiting on this task.
 
         Per ADR-0010: Long polling implementation using asyncio.Event.

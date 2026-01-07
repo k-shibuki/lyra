@@ -38,10 +38,10 @@
     },
     "queue": {
       "type": "object",
-      "description": "Search queue status (ADR-0010)",
+      "description": "Target queue status (ADR-0010)",
       "properties": {
-        "depth": {"type": "integer", "description": "Number of queued searches"},
-        "running": {"type": "integer", "description": "Number of running searches"},
+        "depth": {"type": "integer", "description": "Number of queued targets"},
+        "running": {"type": "integer", "description": "Number of running targets"},
         "items": {
           "type": "array",
           "items": {
@@ -171,7 +171,7 @@
         "total_failed": {"type": "integer", "description": "Total failed jobs across all kinds"},
         "by_kind": {
           "type": "object",
-          "description": "Breakdown by job kind (search_queue, verify_nli, citation_graph, etc.)",
+          "description": "Breakdown by job kind (target_queue, verify_nli, citation_graph, etc.)",
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -186,6 +186,27 @@
           }
         }
       },
+      "additionalProperties": false
+    },
+    "milestones": {
+      "type": "object",
+      "description": "AI decision flags: 'what can I do next?' Check citation_candidates_stable before Citation Chasing, nli_results_stable before using NLI results. For detailed job counts, see jobs.by_kind.",
+      "properties": {
+        "citation_candidates_stable": {
+          "type": "boolean",
+          "description": "True when v_reference_candidates is stable (target_queue + citation_graph drained + auth cleared). Safe to proceed with Citation Chasing."
+        },
+        "nli_results_stable": {
+          "type": "boolean",
+          "description": "True when verify_nli jobs have drained. NLI verification results are complete."
+        },
+        "blockers": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["target_queue", "citation_graph", "pending_auth", "verify_nli"]},
+          "description": "Active blockers preventing stability. Empty when all stable."
+        }
+      },
+      "required": ["citation_candidates_stable", "nli_results_stable", "blockers"],
       "additionalProperties": false
     }
   },
