@@ -10,15 +10,15 @@ This sequence diagram captures the cross-module integration between:
 ```mermaid
 sequenceDiagram
   participant MCP as MCPClient
-  participant TQ as TargetQueueWorker
+  participant JS as JobScheduler
   participant PL as ResearchPipeline
   participant AAP as AcademicSearchProvider
   participant DB as SQLiteDB
   participant CG as CitationGraphJob
   participant EG as EvidenceGraph
 
-  MCP->>TQ: queue_targets(kind=query/doi/url)
-  TQ->>PL: search_action / ingest_doi_action / ingest_url_action
+  MCP->>JS: queue_targets(kind=query/doi/url)
+  JS->>PL: search_action / ingest_doi_action / ingest_url_action
 
   alt Academic(S2/OpenAlex/DOI)
     PL->>AAP: search()/get_paper_by_doi()

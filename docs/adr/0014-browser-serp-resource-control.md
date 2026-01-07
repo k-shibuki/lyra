@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0010 specifies that `TargetQueueWorker` processes targets with 2 parallel workers. Browser SERP fetching has the following **local resource contention**:
+ADR-0010 specifies that `JobScheduler` processes `TARGET_QUEUE` jobs on the `NETWORK_CLIENT` slot (default: 4 parallel workers). Browser SERP fetching has the following **local resource contention**:
 
 | Resource | Constraint | Reason |
 |----------|------------|--------|

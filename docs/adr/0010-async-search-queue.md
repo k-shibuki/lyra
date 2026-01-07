@@ -1,7 +1,7 @@
 # ADR-0010: Async Target Queue Architecture
 
 ## Date
-2025-12-10 (Updated: 2026-01-05)
+2025-12-10 (Updated: 2026-01-07)
 
 ## Context
 
@@ -32,9 +32,11 @@ Synchronous processing results in:
 
 ### Worker Lifecycle
 
-- The queue worker is started when the MCP server starts (`run_server()` startup).
-- The queue worker is stopped (cancelled) when the MCP server shuts down (`run_server()` shutdown).
-- Number of workers is configurable via `concurrency.target_queue.num_workers` (default: 2).
+- All job execution is managed by the unified `JobScheduler` (`src/scheduler/jobs.py`)
+- JobScheduler is started when the MCP server starts (`run_server()` startup via `get_scheduler()`)
+- JobScheduler is stopped when the MCP server shuts down (`run_server()` finally block)
+- TARGET_QUEUE jobs run on the `NETWORK_CLIENT` slot (default: 4 concurrent workers)
+- Worker count per slot is controlled by `SLOT_LIMITS` in `jobs.py`
 
 ### Architecture
 
@@ -148,8 +150,8 @@ sequenceDiagram
 - Prevents duplicate processing of the same job
 
 **Cancellation Support**:
-- Running jobs are tracked by `TargetQueueWorkerManager`
-- `stop_task(mode=immediate)` can cancel in-flight jobs via `asyncio.Task.cancel()`
+- Running jobs are tracked by `JobScheduler._running_tasks`
+- `stop_task(mode=immediate)` cancels in-flight jobs via `scheduler.cancel_running_jobs_for_task()`
 
 ### Error Handling
 
@@ -231,7 +233,7 @@ flowchart TD
 
 **Enqueue timing**:
 - `CITATION_GRAPH`: Enqueued **during** pipeline execution (after academic paper processing)
-- `VERIFY_NLI`: Enqueued **after** target_queue job completion (from target_worker)
+- `VERIFY_NLI`: Enqueued **after** target_queue job completion (by `JobScheduler._execute_target_queue_job`)
 
 **Key behaviors**:
 - Both jobs run on `CPU_NLP` slot (up to 8 parallel, don't block browser/network)
@@ -309,5 +311,5 @@ flowchart TD
 
 - [ADR-0013: Worker Resource Contention](0013-worker-resource-contention.md) - Academic API resource control
 - [ADR-0014: Browser SERP Resource Control](0014-browser-serp-resource-control.md) - TabPool for browser SERP
-- `src/scheduler/target_worker.py` - Worker implementation
+- `src/scheduler/jobs.py` - Unified JobScheduler (TARGET_QUEUE execution)
 - `src/mcp/server.py` - MCP tool definitions
