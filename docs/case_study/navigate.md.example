@@ -46,8 +46,8 @@ This command operationalizes a 3-layer collaboration model:
 
 | Layer | Actor | Role |
 |-------|-------|------|
-| **Judgment** | Human | Read primary sources, make final calls, domain expertise |
-| **Thinking** | AI (you) | Design queries, decide next actions, write report |
+| **Thinking** | Human | Read primary sources, make final calls, domain expertise |
+| **Reasoning** | AI (you) | Design queries, decide next actions, write report |
 | **Working** | Lyra | Execute search→fetch→extract→NLI→store; report metrics/materials |
 
 ### Responsibility matrix (non-negotiable)
@@ -89,206 +89,315 @@ You may use **multiple tasks** in a single research session. Useful patterns:
 
 ---
 
-## Evidence Tiers (do not mix)
-
-| Tier | Source | What it is | Allowed use |
-|---|---|---|---|
-| **T1** | Lyra Evidence Graph | Traceable chain: claim→fragment→page→URL | Only basis for "claims" in report |
-| **T2** | Web search | Background, terminology, query brainstorming | Query design, gap identification; never as direct evidence |
-| **T3** | Full-text reading (browser) | Methods/results/limitations notes | Deep analysis of key sources; critique/interpretation |
-
-### Traceability rule (hard)
-
-Any claim in the final report **MUST** be backed by T1 (a URL reachable from `v_evidence_chain` or SQL).
-
-### T1↔T2 Feedback Loop (key workflow)
+## Workflow Overview
 
 ```
-T1 (Lyra search) → gaps/questions emerge
-    ↓
-T2 (Web search) → discover relevant concepts, papers, terminology
-    ↓
-T1 (new Lyra queries) → convert T2 findings into traceable evidence
-    ↓
-repeat until saturated
+┌─────────────────────────────────────────────────────────────────┐
+│  Search Phase 1: Scout (Web search)                             │
+│  → Explore terminology, gather context, design initial query    │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Search Phase 2: Evidence (Lyra)                                │
+│  → Start with 1 query → review results → design full query set  │
+│  → Full deployment → wait for all queries to complete           │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Search Phase 3: Deep Dive (Browser/Web search integration)     │
+│  → Read primary sources as needed                               │
+│  → If discoveries emerge → return to Phase 1 to grow graph      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Report                                                         │
+│  → Cite ONLY Phase 2 evidence                                   │
+│  → Phase 3 info adds context/detail only                        │
+│  → stop_task                                                    │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-**Rule**: If T2 or T3 reveals an important point not yet in T1, **convert it**: design new `queue_searches` queries to retrieve it via Lyra.
-
-### When to use T3 (Full-text)
-
-- After T1 has collected sufficient evidence
-- For key sources that need deep methodological review
-- When contradictions need resolution by reading original papers
-- Use browser tools to navigate, screenshot, and read
 
 ---
 
-## Workflow
+## Evidence Sources (do not mix in citations)
 
-### Phase 1: Task Setup
+| Source | Phase | What it is | Allowed use |
+|---|---|---|---|
+| **Lyra Evidence Graph** | Phase 2 | Traceable chain: claim→fragment→page→URL | **Only basis for citations** in report |
+| **Web search** | Phase 1/3 | Background, terminology, query brainstorming | Query design, gap identification; **never as direct evidence** |
+| **Full-text reading (browser)** | Phase 3 | Methods/results/limitations notes | Deep analysis of key sources; adds context to Phase 2 claims |
 
-**New task**: If no task exists, create one with a testable hypothesis:
+### Traceability rule (hard)
+
+Any claim in the final report **MUST** be backed by Lyra evidence (a URL reachable from `v_evidence_chain` or SQL).
+
+---
+
+## Search Phase 1: Scout
+
+**Goal**: Explore the topic, gather terminology, and design an effective initial query.
+
+### 1.1 Create Task
+
+**New task**: Create one with a testable hypothesis:
 ```
 create_task(hypothesis="{testable_hypothesis}")
 → record task_id
 ```
 
-**Existing task**: If continuing, retrieve task_id and check status:
+**Existing task**: Retrieve task_id and check status:
 ```
 get_status(task_id=task_id, wait=0)
 ```
 
 The hypothesis is fixed once `create_task` is called. From here, focus on **query optimization**.
 
-### Phase 2: Initial Query Design
+### 1.2 Web Search Exploration
 
-**(T2) Web search** to gather terminology, key papers, concepts. Then design queries:
+Use **web search** (non-MCP tool) to:
+- Understand domain terminology
+- Identify key papers, authors, concepts
+- Find both supporting and refuting perspectives (ADR-0017)
+- Brainstorm effective search queries
 
-```
-queue_searches(task_id=task_id, queries=[
-  "{core_concept} meta-analysis",
-  "{core_concept} systematic review",
-  "{mechanism} evidence",
-  # Include refutation queries from the start (ADR-0017)
-  "{hypothesis} limitations",
-  "{hypothesis} criticism"
-])
-
-get_status(task_id=task_id, wait=30)
-```
-
-Check: `metrics.total_claims > 10` and `harvest_rate > 0.3`
-
-### Phase 3: T1↔T2 Iteration (repeat 2-5×)
-
-**Loop structure**:
-1. **T1 Analyze**: `query_view(view_name="v_claim_evidence_summary", task_id=task_id)`
-2. **Identify gaps**: 
-   - Confidence 0.4-0.6: `v_contradictions`
-   - Unsupported claims: `v_unsupported_claims`
-   - Outdated evidence: `v_outdated_evidence` (years_since_update > 5)
-3. **Time trend check**: `v_emerging_consensus` (support_trend > 0 = growing support)
-4. **(T2) Web search**: Find terminology, papers, concepts to fill gaps
-5. **T1 Convert**: `queue_searches(task_id=task_id, queries=["{gap_filling_query}"])`
-6. **If auth blocked**: `get_auth_queue(task_id=task_id)` → user solves → `resolve_auth(...)`
-
-**Exit condition**: New queries yield < 3 novel claims for 2 consecutive iterations
-
-### Phase 4: T3 Deep Dive (optional)
-
-When key sources need detailed review:
-
-1. **Select sources**: Pick high-impact papers from T1 evidence chain
-2. **Browser read**: Navigate to URLs, screenshot key figures/tables
-3. **Note limitations**: Methods, sample size, generalizability concerns
-4. **Convert findings**: If T3 reveals important uncaptured points → new T1 queries
-
-**Keep T3 notes separate from T1 claims** — they inform interpretation, not evidence.
-
-### Phase 5: Report Generation
-
-1. **Extract evidence**:
-   ```
-   query_view(view_name="v_evidence_chain", task_id=task_id)
-   query_sql(sql="SELECT claim_text, bayesian_truth_confidence FROM claims 
-                  WHERE task_id='{task_id}' AND bayesian_truth_confidence > 0.6
-                  ORDER BY bayesian_truth_confidence DESC")
-   ```
-
-2. **Extract Key Sources** (metric-based, not subjective):
-   ```
-   query_view(view_name="v_source_impact", task_id=task_id, limit=10)
-   ```
-   Use `impact_score` = claims_generated + (avg_confidence × claims_generated × 0.5) + (claims_supported × 0.3).
-   This captures both **knowledge generation** (meta-analyses, reviews) and **corroboration**.
-   **Do NOT manually curate** — use the view output directly to avoid omissions.
-
-3. **Evidence Timeline** (recommended):
-   ```
-   query_view(view_name="v_evidence_timeline", task_id=task_id)
-   ```
-   Check publication year distribution. Flag if all evidence is old (>5 years).
-
-4. **Extract References** (complete list):
-   ```
-   query_sql(sql="SELECT DISTINCT p.url, p.title
-                  FROM pages p
-                  JOIN fragments f ON f.page_id = p.id
-                  JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
-                  JOIN claims c ON c.id = e.target_id AND e.target_type = 'claim'
-                  WHERE c.task_id = '{task_id}'
-                  ORDER BY p.title")
-   ```
-   Include **every** page that contributed claims for traceability.
-
-5. **Write report to file**:
-
-   Output path: `docs/reports/{YYYYMMDD_HHMMSS}.md`
-
-   ```markdown
-   # Research Report
-
-   **Date**: {YYYY-MM-DD HH:MM}  
-   **Hypothesis**: {hypothesis}
-
-   ## Verdict
-
-   {hypothesis}: **SUPPORTED** / **REFUTED** / **INCONCLUSIVE** (confidence: X.XX)
-
-   ## Key Findings
-
-   ### Supporting Evidence (T1)
-   - [Claim] (conf: X.XX) — Source: [Title](URL)
-
-   ### Refuting Evidence (T1)
-   - [Claim] (conf: X.XX) — Source: [Title](URL)
-
-   ## Unresolved Contradictions
-   - {contradiction_summary}
-
-   ## Evidence Quality Assessment
-
-   ### Temporal Distribution
-   | Year Range | Claims |
-   |------------|--------|
-   | 2020-2025  | {n}    |
-   | 2015-2019  | {n}    |
-   | <2015      | {n}    |
-
-   ### Warnings
-   - {n} claims have outdated evidence (>5 years)
-   - {n} claims have no supporting evidence
-
-   ## Methodology
-
-   | Tier | Description |
-   |------|-------------|
-   | T1 (Lyra) | All claims above — traceable to URL |
-   | T2 (Web search) | Used for query design, not cited |
-   | T3 (Full-text) | {list of papers read} |
-
-   ### Task Summary
-
-   | task_id | hypothesis | queries | pages | claims |
-   |---------|------------|---------|-------|--------|
-   | {id}    | {hyp}      | {n}     | {n}   | {n}    |
-   ```
-
-6. **Finalize**:
-   ```
-   stop_task(task_id=task_id, reason="session_completed")
-   ```
+**Output**: A single, well-crafted initial query for Phase 2.
 
 ---
 
-## Termination Criteria
+## Search Phase 2: Evidence
 
-Stop iterating when **ANY** of:
-- New queries yield few novel claims (< 2-3 new claims per query) for 2 consecutive iterations
-- `bayesian_truth_confidence` of key claims stabilizes (Δ < 0.05)
-- Budget nearly exhausted (check `get_status` metrics)
-- User indicates sufficient evidence
+**Goal**: Build the traceable evidence graph systematically.
+
+### 2.1 Initial Query (Probe)
+
+Start with **one query** to calibrate:
+
+```
+queue_searches(task_id=task_id, queries=[
+  "{initial_query_from_phase_1}"
+])
+
+get_status(task_id=task_id, wait=180)
+```
+
+Review results:
+- Check `harvest_rate` — is this query productive?
+- Check `metrics.total_claims` — are claims being extracted?
+- Use `query_view(view_name="v_claim_evidence_summary", task_id=task_id)` to inspect quality
+
+### 2.2 Design Full Query Set
+
+Based on initial results, design a comprehensive query set:
+
+**Required query categories** (ensure coverage):
+1. **Core evidence**: `{core_concept} meta-analysis`, `{core_concept} systematic review`
+2. **Mechanism**: `{mechanism} evidence`, `{mechanism} study`
+3. **Refutation** (ADR-0017): `{hypothesis} limitations`, `{hypothesis} criticism`
+4. **Alternative perspectives**: `{alternative_viewpoint}`, `{competing_hypothesis}`
+5. **Gap-filling**: Specific queries addressing gaps from Phase 2.1
+
+**Before deploying, validate the query set**:
+- Does it cover both supporting AND refuting angles?
+- Are there obvious gaps given the hypothesis?
+- Is each query distinct (minimal overlap)?
+
+If validation reveals gaps, add queries. If queries seem redundant, consolidate.
+
+```
+queue_searches(task_id=task_id, queries=[
+  "{query_1}",
+  "{query_2}",
+  ...
+])
+```
+
+### 2.3 Full Deployment & Wait
+
+Wait for all queries to complete:
+
+```
+get_status(task_id=task_id, wait=180)
+```
+
+Monitor progress:
+- `searches[].satisfaction_score` — 0.7+ indicates good coverage
+- `searches[].harvest_rate` — ratio of useful fragments
+- `budget.remaining_percent` — resource usage
+
+**If auth blocked**: 
+```
+get_auth_queue(task_id=task_id)
+→ user solves CAPTCHA in browser
+→ resolve_auth(action="complete", target="domain", domain="...")
+```
+
+Other domains continue while one is blocked—don't stop prematurely.
+
+### 2.4 Review Evidence Graph
+
+Once all queries complete, analyze the collected evidence:
+
+```
+query_view(view_name="v_claim_evidence_summary", task_id=task_id)
+query_view(view_name="v_contradictions", task_id=task_id)
+query_view(view_name="v_unsupported_claims", task_id=task_id)
+```
+
+This review informs Phase 3 exploration — proceed to Phase 3.
+
+---
+
+## Search Phase 3: Deep Dive
+
+**Goal**: Verify key sources and discover new angles to strengthen the evidence graph.
+
+### 3.1 Primary Source Reading
+
+Use browser tools to read full-text sources:
+
+1. **Select sources**: Pick high-impact papers from evidence chain
+   ```
+   query_view(view_name="v_source_impact", task_id=task_id, limit=10)
+   ```
+
+2. **Browser read**: Navigate to URLs, screenshot key figures/tables
+   ```
+   browser_navigate(url="{source_url}")
+   browser_snapshot()
+   browser_take_screenshot()
+   ```
+
+3. **Note observations**: Methods, sample size, limitations, generalizability
+
+### 3.2 Additional Web Search
+
+Use web search to:
+- Clarify terminology discovered in Phase 2
+- Find related concepts not yet captured
+- Identify contradicting viewpoints
+
+### 3.3 Loop Back Decision
+
+After Phase 3 exploration, ask: **Did I discover information that should be in the evidence graph but isn't?**
+
+**If YES** — discoveries exist that warrant new queries:
+```
+→ Return to Phase 1: Scout
+   - Formulate new queries based on discoveries
+   - Execute Phase 2 with additional queries
+   - Grow the evidence graph
+```
+
+**If NO** — no new information to add:
+```
+→ Proceed to Report
+```
+
+This is a binary decision based on discoveries, not a subjective "is it enough?" judgment.
+
+---
+
+## Report
+
+**Goal**: Synthesize findings with full traceability.
+
+### Extract Evidence
+
+```
+query_view(view_name="v_evidence_chain", task_id=task_id)
+query_sql(sql="SELECT claim_text, bayesian_truth_confidence FROM claims 
+               WHERE task_id='{task_id}' AND bayesian_truth_confidence > 0.6
+               ORDER BY bayesian_truth_confidence DESC")
+```
+
+### Extract Key Sources
+
+Use metric-based selection (not subjective curation):
+```
+query_view(view_name="v_source_impact", task_id=task_id, limit=10)
+```
+
+`impact_score` = claims_generated + (avg_confidence × claims_generated × 0.5) + (claims_supported × 0.3)
+
+### Evidence Timeline
+
+```
+query_view(view_name="v_evidence_timeline", task_id=task_id)
+```
+
+Flag if all evidence is old (>5 years).
+
+### Extract References
+
+Complete list of all sources:
+```
+query_sql(sql="SELECT DISTINCT p.url, p.title
+               FROM pages p
+               JOIN fragments f ON f.page_id = p.id
+               JOIN edges e ON e.source_id = f.id AND e.source_type = 'fragment'
+               JOIN claims c ON c.id = e.target_id AND e.target_type = 'claim'
+               WHERE c.task_id = '{task_id}'
+               ORDER BY p.title")
+```
+
+### Write Report
+
+Output path: `docs/reports/{YYYYMMDD_HHMMSS}.md`
+
+```markdown
+# Research Report
+
+**Date**: {YYYY-MM-DD HH:MM}  
+**Hypothesis**: {hypothesis}
+
+## Verdict
+
+{hypothesis}: **SUPPORTED** / **REFUTED** / **INCONCLUSIVE** (confidence: X.XX)
+
+## Key Findings
+
+### Supporting Evidence (Phase 2 — Lyra)
+- [Claim] (conf: X.XX) — Source: [Title](URL)
+
+### Refuting Evidence (Phase 2 — Lyra)
+- [Claim] (conf: X.XX) — Source: [Title](URL)
+
+## Unresolved Contradictions
+- {contradiction_summary}
+
+## Evidence Quality Assessment
+
+### Temporal Distribution
+| Year Range | Claims |
+|------------|--------|
+| 2020-2025  | {n}    |
+| 2015-2019  | {n}    |
+| <2015      | {n}    |
+
+### Warnings
+- {n} claims have outdated evidence (>5 years)
+- {n} claims have no supporting evidence
+
+## Methodology
+
+| Phase | Description |
+|-------|-------------|
+| Phase 1 (Scout) | Web search for query design — not cited |
+| Phase 2 (Evidence) | All claims above — traceable to URL via Lyra |
+| Phase 3 (Deep Dive) | {list of papers read for context} |
+
+### Task Summary
+
+| task_id | hypothesis | queries | pages | claims |
+|---------|------------|---------|-------|--------|
+| {id}    | {hyp}      | {n}     | {n}   | {n}    |
+```
+
+### Finalize
+
+```
+stop_task(task_id=task_id, reason="session_completed")
+```
 
 ---
 
@@ -296,10 +405,11 @@ Stop iterating when **ANY** of:
 
 1. **Lyra navigates, you analyze**: Lyra finds and organizes; detailed reading is your job
 2. **Seek refutation early**: Include limitation/criticism queries from the start (ADR-0017)
-3. **T1↔T2 loop**: Web search informs queries; Lyra makes evidence traceable
-4. **Trace everything**: Every claim in report links to a source (T1 only)
-5. **T3 is late-stage**: Full-text reading after T1 saturation, for key sources only
-6. **Convert, don't cite**: If T2/T3 reveals important points, design new Lyra queries
+3. **Probe → validate → deploy**: Start with 1 query, design full set, validate coverage, then deploy
+4. **Trace everything**: Every claim in report links to a Phase 2 source only
+5. **Phase 3 enriches, not replaces**: Deep dive adds context to Phase 2 claims, not new citations
+6. **Loop to grow**: Discoveries in Phase 3 feed back into Phase 1→2 to become traceable
+7. **Objective termination**: Task ends when all searches complete and report is written — no subjective "is it enough?" criteria
 
 ---
 

@@ -151,7 +151,7 @@ Use Lyra to conduct this research.
 
 **Same Model Comparison**: Both tools use Claude Opus 4.5 as the reasoning engine, isolating architectural differences:
 
-- **Lyra**: Thinking (cloud) + Working (local ML, Evidence Graph, Academic APIs)
+- **Lyra**: Reasoning (cloud LLM) + Working (local ML, Evidence Graph, Academic APIs)
 - **Claude Research**: Fully cloud-based research and synthesis
 
 ### 4.1 Lyra Execution Environment
@@ -175,7 +175,7 @@ Lyra provides a reusable custom instruction ([`navigate`](navigate.md.example)) 
 ```
 User Query
     ↓
-Cursor AI (Claude Opus 4.5) — Thinking layer: plans queries, analyzes results
+Cursor AI (Claude Opus 4.5) — Reasoning layer: plans queries, analyzes results
     ↓ MCP tool calls
 Lyra Server — Working layer: executes searches, builds Evidence Graph
     ↓
