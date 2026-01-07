@@ -196,6 +196,11 @@ def _is_challenge_page(content: str, headers: dict) -> bool:
     - Cookie consent banners that reference CAPTCHA services
     - Article content mentioning CAPTCHA/security topics
     - Third-party scripts with CAPTCHA-related URLs
+    - Embedded CAPTCHA widgets in forms (comment forms, contact forms)
+
+    Key insight: True challenge pages are typically small (< 10KB) because they
+    block content. Large pages with CAPTCHA widgets usually have the widget
+    embedded in a form (e.g., comment form) and don't block content access.
 
     Args:
         content: Page content.
@@ -205,9 +210,15 @@ def _is_challenge_page(content: str, headers: dict) -> bool:
         True if challenge detected.
     """
     content_lower = content.lower()
+    content_size = len(content)
+
+    # Threshold for "large page" - pages above this size likely have real content
+    # and any CAPTCHA widget is probably embedded in a form, not blocking access
+    LARGE_PAGE_THRESHOLD = 10000  # 10KB
 
     # Cloudflare challenge page indicators (highly specific)
     # These patterns indicate an ACTIVE challenge, not just a reference
+    # These are always blocking, regardless of page size
     cloudflare_challenge_indicators = [
         "cf-browser-verification",  # Cloudflare verification element
         "_cf_chl_opt",  # Cloudflare challenge options
@@ -227,6 +238,8 @@ def _is_challenge_page(content: str, headers: dict) -> bool:
 
     # CAPTCHA widget indicators (must be active widgets, not references)
     # Look for iframe sources or specific widget containers
+    # Only treat as blocking challenge if page is small (likely a challenge page)
+    # Large pages with these indicators likely have embedded form CAPTCHAs
     active_captcha_indicators = [
         'src="https://hcaptcha.com',  # hCaptcha iframe
         'src="https://www.hcaptcha.com',
@@ -239,15 +252,23 @@ def _is_challenge_page(content: str, headers: dict) -> bool:
     ]
 
     if any(ind in content_lower for ind in active_captcha_indicators):
+        # Large pages with CAPTCHA widgets are likely content pages with
+        # embedded form protection (comment forms, contact forms, etc.)
+        # These don't block content access, so don't treat as challenge
+        if content_size >= LARGE_PAGE_THRESHOLD:
+            return False
         return True
 
     # Turnstile indicators (Cloudflare's CAPTCHA alternative)
+    # Same logic: only blocking on small pages
     turnstile_indicators = [
         'class="cf-turnstile"',  # Turnstile widget container
         "challenges.cloudflare.com/turnstile",  # Turnstile script URL
     ]
 
     if any(ind in content_lower for ind in turnstile_indicators):
+        if content_size >= LARGE_PAGE_THRESHOLD:
+            return False
         return True
 
     # Server header check - only for small pages (challenge pages are typically tiny)

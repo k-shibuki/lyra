@@ -803,20 +803,26 @@ class WSLBridgeProvider(BaseNotificationProvider):
         start_time = time.time()
 
         # Escape for PowerShell
+        # For BurntToast: Use `n (backtick-n) for newlines in PowerShell strings
+        # For NotifyIcon: Newlines work directly
         title_escaped = title.replace("'", "''").replace('"', '`"').replace("\n", " ")
-        message_escaped = message.replace("'", "''").replace('"', '`"').replace("\n", "\\n")
+        message_escaped = message.replace("'", "''").replace('"', '`"')
+        # BurntToast uses backtick-n for newlines within PowerShell strings
+        message_for_burnttoast = message_escaped.replace("\n", "`n")
+        # NotifyIcon balloon tips work with actual newlines
+        message_for_notifyicon = message_escaped
 
         # Try BurntToast first (better notifications), fallback to NotifyIcon
         ps_script = f"""
 if (Get-Module -ListAvailable -Name BurntToast) {{
     Import-Module BurntToast
-    New-BurntToastNotification -Text '{title_escaped}', '{message_escaped}' -Sound 'Reminder'
+    New-BurntToastNotification -Text '{title_escaped}', '{message_for_burnttoast}' -Sound 'Reminder'
 }} else {{
     Add-Type -AssemblyName System.Windows.Forms
     $balloon = New-Object System.Windows.Forms.NotifyIcon
     $balloon.Icon = [System.Drawing.SystemIcons]::Warning
     $balloon.BalloonTipTitle = '{title_escaped}'
-    $balloon.BalloonTipText = '{message_escaped}'
+    $balloon.BalloonTipText = '{message_for_notifyicon}'
     $balloon.BalloonTipIcon = 'Warning'
     $balloon.Visible = $true
     $balloon.ShowBalloonTip({options.timeout_seconds * 1000})

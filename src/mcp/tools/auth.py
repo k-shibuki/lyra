@@ -44,6 +44,8 @@ async def handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
     Implements ADR-0003: Get pending authentication queue.
     Supports grouping by domain/type and priority filtering.
     """
+    from src.utils.intervention_types import format_batch_notification, get_challenge_message
+
     task_id = args.get("task_id")
     group_by = args.get("group_by", "none")
     priority_filter = args.get("priority_filter", "all")
@@ -55,6 +57,19 @@ async def handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
         task_id=task_id,
         priority=priority_filter if priority_filter != "all" else None,
     )
+
+    # Enrich items with challenge message
+    for item in items:
+        auth_type = item.get("auth_type", "unknown")
+        msg = get_challenge_message(auth_type)
+        item["message"] = {
+            "description": msg.description,
+            "action_resolve": msg.action_resolve,
+            "action_skip": msg.action_skip,
+        }
+
+    # Build summary message for AI
+    _, summary = format_batch_notification(items)
 
     # Group if requested
     if group_by == "domain":
@@ -70,6 +85,7 @@ async def handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
             "group_by": "domain",
             "groups": grouped,
             "total_count": len(items),
+            "summary": summary,
         }
 
     elif group_by == "type":
@@ -85,6 +101,7 @@ async def handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
             "group_by": "type",
             "groups": grouped,
             "total_count": len(items),
+            "summary": summary,
         }
 
     else:  # no grouping
@@ -93,6 +110,7 @@ async def handle_get_auth_queue(args: dict[str, Any]) -> dict[str, Any]:
             "group_by": "none",
             "items": items,
             "total_count": len(items),
+            "summary": summary,
         }
 
 

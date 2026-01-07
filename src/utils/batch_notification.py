@@ -84,20 +84,10 @@ class BatchNotificationManager:
             self._reset()
             return
 
-        # Group by domain
-        by_domain: dict[str, list[dict]] = {}
-        for item in pending:
-            domain = item.get("domain", "unknown")
-            by_domain.setdefault(domain, []).append(item)
+        # Use unified message format
+        from src.utils.intervention_types import format_batch_notification
 
-        # Build notification message
-        total_count = len(pending)
-        lines = [f"認証が必要です（{total_count}件）", ""]
-        for domain, items in by_domain.items():
-            types = {i.get("auth_type", "unknown") for i in items}
-            lines.append(f"{domain}: {len(items)}件 ({', '.join(types)})")
-        lines.append("")
-        lines.append("解決後、AIに「CAPTCHA解決した」と伝えてください")
+        title, body = format_batch_notification(pending)
 
         # Send toast notification
         # Import here to avoid circular dependency
@@ -105,14 +95,20 @@ class BatchNotificationManager:
 
         manager = _get_manager()
         await manager.send_toast(
-            "Lyra: 認証待ち",
-            "\n".join(lines),
+            title,
+            body,
             timeout_seconds=15,
         )
 
+        # Group by domain for logging
+        by_domain: dict[str, list[dict]] = {}
+        for item in pending:
+            domain = item.get("domain", "unknown")
+            by_domain.setdefault(domain, []).append(item)
+
         logger.info(
             "Batch notification sent",
-            total_count=total_count,
+            total_count=len(pending),
             domains=list(by_domain.keys()),
         )
 

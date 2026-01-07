@@ -17,6 +17,7 @@ from src.utils.intervention_types import (
     InterventionResult,
     InterventionStatus,
     InterventionType,
+    get_challenge_message,
 )
 from src.utils.logging import get_logger
 from src.utils.notification_provider import (
@@ -118,18 +119,15 @@ class InterventionManager:
             }
             self._pending_interventions[intervention_id] = intervention_state
 
-            # Build notification message (no timeout info)
-            if message is None:
-                message = self._build_intervention_message(intervention_type, url, domain)
+            # Build notification message using unified challenge messages
+            challenge_msg = get_challenge_message(intervention_type)
+            title, notification_msg = challenge_msg.format_popup(domain, url)
 
-            notification_msg = (
-                f"{message}\n\n"
-                f"URL: {url}\n"
-                f"完了後、Cursorで complete_authentication を呼んでください"
-            )
+            # Override with custom message if provided
+            if message is not None:
+                notification_msg = f"{message}\n\nURL: {url}"
 
             # Step 1: Send toast notification
-            title = f"Lyra: {intervention_type.value.upper()}"
             notification_sent = await self.send_toast(
                 title,
                 notification_msg,
@@ -156,32 +154,6 @@ class InterventionManager:
                 status=InterventionStatus.PENDING,
                 notes="Awaiting user completion via complete_authentication",
             )
-
-    def _build_intervention_message(
-        self,
-        intervention_type: InterventionType,
-        url: str,
-        domain: str,
-    ) -> str:
-        """Build user-friendly intervention message.
-
-        Args:
-            intervention_type: Type of intervention.
-            url: Target URL.
-            domain: Target domain.
-
-        Returns:
-            User-friendly message.
-        """
-        messages = {
-            InterventionType.CAPTCHA: f"CAPTCHAの解決が必要です\nサイト: {domain}",
-            InterventionType.LOGIN_REQUIRED: f"ログインが必要です\nサイト: {domain}",
-            InterventionType.COOKIE_BANNER: f"Cookie同意が必要です\nサイト: {domain}",
-            InterventionType.CLOUDFLARE: f"Cloudflareチャレンジが必要です\nサイト: {domain}",
-            InterventionType.TURNSTILE: f"Turnstile認証が必要です\nサイト: {domain}",
-            InterventionType.JS_CHALLENGE: f"JavaScript検証が必要です\nサイト: {domain}",
-        }
-        return messages.get(intervention_type, f"手動操作が必要です\nサイト: {domain}")
 
     async def _bring_tab_to_front(self, page: Page) -> bool:
         """Bring browser window to front using safe methods.
