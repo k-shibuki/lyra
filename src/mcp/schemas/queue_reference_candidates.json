@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueueReferenceCandidatesResponse",
+  "description": "Response from queue_reference_candidates tool",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded"
+    },
+    "queued_count": {
+      "type": "integer",
+      "description": "Number of candidates queued"
+    },
+    "skipped_count": {
+      "type": "integer",
+      "description": "Number of duplicates skipped"
+    },
+    "target_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "IDs of queued target jobs"
+    },
+    "candidates": {
+      "type": "array",
+      "description": "List of candidates (queued or previewed)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "citation_edge_id": {
+            "type": "string",
+            "description": "Edge ID for include/exclude"
+          },
+          "url": {
+            "type": "string",
+            "description": "Candidate URL"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["doi", "url"],
+            "description": "Target kind (doi for Academic API, url for web fetch)"
+          },
+          "doi": {
+            "type": ["string", "null"],
+            "description": "Extracted DOI if available"
+          },
+          "citing_url": {
+            "type": "string",
+            "description": "URL of the page that cited this candidate"
+          },
+          "citation_context": {
+            "type": ["string", "null"],
+            "description": "Text context where citation was found"
+          }
+        }
+      }
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "Whether this was a dry run (no actual queueing)"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable status message"
+    },
+    "summary": {
+      "type": "object",
+      "description": "Summary statistics",
+      "properties": {
+        "total_candidates": {
+          "type": "integer",
+          "description": "Total candidates found"
+        },
+        "doi_targets": {
+          "type": "integer",
+          "description": "Candidates with DOI (Academic API path)"
+        },
+        "url_targets": {
+          "type": "integer",
+          "description": "Candidates without DOI (web fetch path)"
+        }
+      }
+    }
+  },
+  "required": ["ok", "queued_count", "dry_run", "message"]
+}
+

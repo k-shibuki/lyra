@@ -1,0 +1,70 @@
+-- Reference candidates: Pages cited by task's pages that need claim extraction
+-- For Citation Chasing workflow: shows pages that:
+--   1. Are cited by pages in this task (via 'cites' edges)
+--   2. Do NOT have any origin edges for this task (claims not yet extracted)
+--   3. Are not already in task_pages for this task (not queued/processed)
+--
+-- "Strong requirement": Even if html_path exists (page fetched), if no claims
+-- have been extracted for THIS task, the page should appear as a candidate.
+--
+-- Requires task_id parameter for scoping
+
+{% if not task_id %}
+-- ERROR: task_id is required for v_reference_candidates
+SELECT 'ERROR: task_id parameter is required' AS error;
+{% else %}
+SELECT
+    e.id AS citation_edge_id,  -- Stable ID for include/exclude in queue_reference_candidates
+    p.id AS candidate_page_id,
+    p.url AS candidate_url,
+    p.domain AS candidate_domain,
+    p.html_path AS candidate_html_path,  -- NULL = not fetched, non-NULL = fetched
+    e.citation_context,
+    e.citation_source,
+    sp.id AS citing_page_id,
+    sp.url AS citing_page_url,
+    sp.domain AS citing_domain,
+    tp.depth AS citing_depth,
+    tp.reason AS citing_reason,
+    e.created_at AS citation_created_at
+FROM pages p
+-- Join to edges where p is the target of a 'cites' relation
+JOIN edges e ON e.target_id = p.id
+            AND e.target_type = 'page'
+            AND e.relation = 'cites'
+-- Join to source page (the one that cited p)
+JOIN pages sp ON sp.id = e.source_id
+             AND e.source_type = 'page'
+-- Join to task_pages to scope by task (only citations from task's pages)
+JOIN task_pages tp ON tp.page_id = sp.id
+                  AND tp.task_id = '{{ task_id }}'
+WHERE
+  -- Exclude non-fetchable URLs
+  p.url NOT LIKE 'javascript:%'
+  AND p.url NOT LIKE 'mailto:%'
+  AND p.url NOT LIKE '#%'
+  AND p.url NOT LIKE 'tel:%'
+  -- Exclude candidates already in task_pages (already queued/processed for this task)
+  AND NOT EXISTS (
+      SELECT 1 FROM task_pages tp2
+      WHERE tp2.task_id = '{{ task_id }}'
+        AND tp2.page_id = p.id
+  )
+  -- "Task未Claim保証": Exclude candidates that have origin edges for this task
+  -- Origin edges connect fragment→claim and indicate claims were extracted
+  -- We check if ANY fragment from candidate page has origin edge to a claim in this task
+  AND NOT EXISTS (
+      SELECT 1
+      FROM fragments f
+      JOIN edges oe ON oe.source_type = 'fragment'
+                   AND oe.source_id = f.id
+                   AND oe.relation = 'origin'
+      JOIN claims c ON oe.target_type = 'claim'
+                   AND oe.target_id = c.id
+                   AND c.task_id = '{{ task_id }}'
+      WHERE f.page_id = p.id
+  )
+ORDER BY
+    tp.depth ASC,  -- Prefer shallower chains first
+    e.created_at DESC  -- Then newer citations
+{% endif %}

@@ -78,6 +78,7 @@ def _get_view_description(view_name: str) -> str:
         "v_citation_age_gap": "Gap between citing and cited publication years",
         "v_evidence_freshness": "Recency of evidence supporting claims",
         "v_claim_origins": "Claim provenance: which fragment/page each claim was extracted from",
+        "v_reference_candidates": "Citation targets without claims extracted for this task - includes fetched pages needing re-processing (requires task_id)",
     }
     return descriptions.get(view_name, "")
 

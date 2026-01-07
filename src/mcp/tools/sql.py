@@ -54,6 +54,21 @@ def validate_sql_text(sql: str) -> None:
             raise ValueError(f"Forbidden SQL keyword detected: {pattern}")
 
 
+def strip_limit_clause(sql: str) -> str:
+    """Remove any trailing LIMIT clause from SQL to avoid conflicts with auto-added LIMIT.
+
+    Args:
+        sql: SQL query string.
+
+    Returns:
+        SQL string with LIMIT clause removed.
+    """
+    # Pattern matches LIMIT [number] [OFFSET number] at end of query
+    # Handles: LIMIT 10, LIMIT 10 OFFSET 5, LIMIT 10, 5
+    pattern = r"\s+LIMIT\s+\d+(?:\s*,\s*\d+|\s+OFFSET\s+\d+)?\s*;?\s*$"
+    return re.sub(pattern, "", sql, flags=re.IGNORECASE)
+
+
 def _get_underlying_sqlite3_connection(conn: aiosqlite.Connection) -> sqlite3.Connection:
     """
     Return the underlying sqlite3.Connection from an aiosqlite connection.
@@ -220,7 +235,9 @@ async def handle_query_sql(args: dict[str, Any]) -> dict[str, Any]:
             install_sqlite_guards(conn, timeout_ms=timeout_ms, max_vm_steps=max_vm_steps)
 
             # Execute query with limit (wrapped in asyncio.wait_for for timeout)
-            sql_with_limit = f"{sql.rstrip(';')} LIMIT {limit + 1}"
+            # Strip any user-provided LIMIT clause to avoid duplication
+            sql_clean = strip_limit_clause(sql.rstrip(";"))
+            sql_with_limit = f"{sql_clean} LIMIT {limit + 1}"
 
             try:
                 cursor = await asyncio.wait_for(
