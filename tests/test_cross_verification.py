@@ -15,7 +15,7 @@ Test Perspectives Table:
 | TC-B-01    | max_pairs_per_claim=0                         | Boundary - zero          | No NLI pairs evaluated                       | -              |
 | TC-B-02    | max_domains=1                                 | Boundary - limit         | Only 1 domain's fragments used               | -              |
 | TC-B-03    | save_neutral=False                            | Config - skip neutral    | Neutral edges not saved                      | -              |
-| TC-W-01    | search_worker triggers enqueue                | Wiring - integration     | VERIFY_NLI job enqueued after search         | -              |
+| TC-W-01    | target_worker triggers enqueue                | Wiring - integration     | VERIFY_NLI job enqueued after target         | -              |
 | TC-W-02    | enqueue_verify_nli_job creates job            | Wiring - job creation    | Job submitted to scheduler                   | -              |
 """
 
@@ -660,8 +660,8 @@ class TestEnqueueVerifyNliJob:
         assert call_kwargs.kwargs["task_id"] == task_id
 
 
-class TestSearchWorkerVerifyNliTrigger:
-    """Tests for search_worker's VERIFY_NLI trigger."""
+class TestTargetWorkerVerifyNliTrigger:
+    """Tests for target_worker's VERIFY_NLI trigger."""
 
     @pytest.mark.asyncio
     async def test_enqueue_called_after_search_success(self) -> None:
@@ -676,7 +676,7 @@ class TestSearchWorkerVerifyNliTrigger:
             "src.filter.cross_verification.enqueue_verify_nli_job",
             new_callable=AsyncMock,
         ) as mock_enqueue:
-            from src.scheduler.search_worker import _enqueue_verify_nli_if_needed
+            from src.scheduler.target_worker import _enqueue_verify_nli_if_needed
 
             await _enqueue_verify_nli_if_needed(task_id, search_result)
 
@@ -699,7 +699,7 @@ class TestSearchWorkerVerifyNliTrigger:
             "src.filter.cross_verification.enqueue_verify_nli_job",
             new_callable=AsyncMock,
         ) as mock_enqueue:
-            from src.scheduler.search_worker import _enqueue_verify_nli_if_needed
+            from src.scheduler.target_worker import _enqueue_verify_nli_if_needed
 
             await _enqueue_verify_nli_if_needed(task_id, search_result)
 
@@ -719,7 +719,7 @@ class TestSearchWorkerVerifyNliTrigger:
             new_callable=AsyncMock,
             side_effect=Exception("Scheduler unavailable"),
         ):
-            from src.scheduler.search_worker import _enqueue_verify_nli_if_needed
+            from src.scheduler.target_worker import _enqueue_verify_nli_if_needed
 
             # Should not raise
             await _enqueue_verify_nli_if_needed(task_id, search_result)

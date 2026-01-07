@@ -660,7 +660,7 @@ class TestSchemas:
 
         NOTE: Per ADR-0010:
         - Removed: search, notify_user, wait_for_user
-        - Added: queue_searches, feedback
+        - Added: queue_targets, feedback
         - Renamed: calibrate → calibration_metrics
 
         Schema file names may differ from tool names (legacy naming).
@@ -668,7 +668,7 @@ class TestSchemas:
         tools = [
             "create_task",
             "get_status",
-            "queue_searches",
+            "queue_targets",
             "stop_task",
             "query_sql",
             "vector_search",

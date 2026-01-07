@@ -48,8 +48,8 @@ class BatchNotificationManager:
                     domain=domain,
                 )
 
-    async def on_search_queue_empty(self) -> None:
-        """Called when the search queue becomes empty.
+    async def on_target_queue_empty(self) -> None:
+        """Called when the target queue becomes empty.
 
         Triggers immediate batch notification if there are pending items.
         """
@@ -137,9 +137,9 @@ def _get_batch_notification_manager() -> BatchNotificationManager:
     return _batch_notification_manager
 
 
-async def notify_search_queue_empty() -> None:
-    """Notify batch manager that search queue is empty.
+async def notify_target_queue_empty() -> None:
+    """Notify batch manager that target queue is empty.
 
-    Called by SearchQueueWorkerManager when queue becomes empty.
+    Called by TargetQueueWorkerManager when queue becomes empty.
     """
-    await _get_batch_notification_manager().on_search_queue_empty()
+    await _get_batch_notification_manager().on_target_queue_empty()
