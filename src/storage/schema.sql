@@ -13,6 +13,66 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 
 -- ============================================================
+-- Bibliographic Metadata (Normalized)
+-- ============================================================
+
+-- Works: Normalized bibliographic metadata
+-- This is the single source of truth for academic paper metadata.
+-- All bibliographic fields are only populated when actually retrieved from source.
+CREATE TABLE IF NOT EXISTS works (
+    canonical_id TEXT PRIMARY KEY,  -- doi:xxx, meta:xxx, title:xxx, etc.
+    title TEXT NOT NULL,
+    year INTEGER,
+    published_date TEXT,  -- ISO format date
+    venue TEXT,  -- Journal/Conference name
+    doi TEXT,  -- Normalized DOI (no URL prefix)
+    citation_count INTEGER DEFAULT 0,
+    reference_count INTEGER DEFAULT 0,
+    is_open_access BOOLEAN DEFAULT 0,
+    oa_url TEXT,
+    pdf_url TEXT,
+    source_api TEXT NOT NULL,  -- Best source: semantic_scholar, openalex, web
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_works_doi ON works(doi);
+CREATE INDEX IF NOT EXISTS idx_works_year ON works(year);
+CREATE INDEX IF NOT EXISTS idx_works_source_api ON works(source_api);
+
+-- Work Authors: Authors with preserved order
+-- Position 0 = first author (used for author_display)
+CREATE TABLE IF NOT EXISTS work_authors (
+    id TEXT PRIMARY KEY,
+    canonical_id TEXT NOT NULL,
+    position INTEGER NOT NULL,  -- 0 = first author
+    name TEXT NOT NULL,
+    affiliation TEXT,
+    orcid TEXT,  -- ORCID iD (without URL prefix)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (canonical_id) REFERENCES works(canonical_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_work_authors_canonical ON work_authors(canonical_id);
+CREATE INDEX IF NOT EXISTS idx_work_authors_position ON work_authors(canonical_id, position);
+
+-- Work Identifiers: Provider-specific identifiers for lookup
+-- Maps provider paper IDs (s2:xxx, openalex:Wxxx) to canonical_id
+CREATE TABLE IF NOT EXISTS work_identifiers (
+    id TEXT PRIMARY KEY,
+    canonical_id TEXT NOT NULL,
+    provider TEXT NOT NULL,  -- semantic_scholar, openalex, web
+    provider_paper_id TEXT NOT NULL,  -- s2:xxx, openalex:Wxxx, etc.
+    doi TEXT,  -- DOI from this provider
+    pmid TEXT,
+    pmcid TEXT,
+    arxiv_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(provider, provider_paper_id),
+    FOREIGN KEY (canonical_id) REFERENCES works(canonical_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_work_identifiers_canonical ON work_identifiers(canonical_id);
+CREATE INDEX IF NOT EXISTS idx_work_identifiers_provider_paper ON work_identifiers(provider_paper_id);
+CREATE INDEX IF NOT EXISTS idx_work_identifiers_doi ON work_identifiers(doi);
+
+-- ============================================================
 -- Core Tables
 -- ============================================================
 
@@ -73,20 +133,21 @@ CREATE INDEX IF NOT EXISTS idx_serp_query ON serp_items(query_id);
 CREATE INDEX IF NOT EXISTS idx_serp_url ON serp_items(url);
 
 -- Pages: Fetched pages
+-- canonical_id links to works table for academic pages (replaces paper_metadata JSON)
 CREATE TABLE IF NOT EXISTS pages (
     id TEXT PRIMARY KEY,
     url TEXT NOT NULL UNIQUE,
     final_url TEXT,  -- After redirects
     domain TEXT NOT NULL,
-    page_type TEXT,  -- article, knowledge, forum, list, login_wall, etc.
-    fetch_method TEXT,  -- http_client, browser_headless, browser_headful
+    page_type TEXT,  -- article, knowledge, forum, list, login_wall, academic_paper, etc.
+    fetch_method TEXT,  -- http_client, browser_headless, browser_headful, academic_api
     http_status INTEGER,
     content_type TEXT,
     content_hash TEXT,  -- SHA256 of content
     content_length INTEGER,
     title TEXT,
-    -- Academic paper metadata (Abstract Only strategy; stored as JSON string)
-    paper_metadata TEXT,
+    -- Academic paper reference (normalized; replaces paper_metadata JSON)
+    canonical_id TEXT,  -- FK to works.canonical_id (NULL for non-academic pages)
     language TEXT,
     fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     warc_path TEXT,
@@ -97,16 +158,18 @@ CREATE TABLE IF NOT EXISTS pages (
     last_modified TEXT,
     headers_json TEXT,
     error_message TEXT,
-    cause_id TEXT
+    cause_id TEXT,
+    FOREIGN KEY (canonical_id) REFERENCES works(canonical_id)
 );
 CREATE INDEX IF NOT EXISTS idx_pages_domain ON pages(domain);
 CREATE INDEX IF NOT EXISTS idx_pages_url ON pages(url);
+CREATE INDEX IF NOT EXISTS idx_pages_canonical ON pages(canonical_id);
 
 -- Fragments: Extracted text fragments
 CREATE TABLE IF NOT EXISTS fragments (
     id TEXT PRIMARY KEY,
     page_id TEXT NOT NULL,
-    fragment_type TEXT NOT NULL,  -- paragraph, heading, list, table, quote, figure, code
+    fragment_type TEXT NOT NULL,  -- paragraph, heading, list, table, quote, figure, code, abstract
     position INTEGER,  -- Order in page
     text_content TEXT NOT NULL,
     heading_context TEXT,  -- Parent heading (legacy, single string)
@@ -163,7 +226,6 @@ CREATE TABLE IF NOT EXISTS edges (
     target_type TEXT NOT NULL,
     target_id TEXT NOT NULL,
     relation TEXT NOT NULL,  -- origin, supports, refutes, neutral, cites
-    -- NOTE: legacy "confidence" column removed; use nli_edge_confidence for NLI-derived edges
     nli_label TEXT,  -- From NLI model (supports/refutes/neutral); NULL for origin/cites
     nli_edge_confidence REAL,  -- NLI model output (calibrated); used in Bayesian update
     -- Academic / citation metadata
@@ -174,7 +236,7 @@ CREATE TABLE IF NOT EXISTS edges (
     -- Domain category for ranking adjustment (see DomainCategory enum in domain_policy.py)
     source_domain_category TEXT,  -- PRIMARY/GOVERNMENT/ACADEMIC/TRUSTED/LOW/UNVERIFIED/BLOCKED
     target_domain_category TEXT,
-    -- Human correction metadata ( / )
+    -- Human correction metadata
     edge_human_corrected BOOLEAN DEFAULT 0,
     edge_correction_reason TEXT,
     edge_corrected_at TEXT,
@@ -403,7 +465,6 @@ CREATE INDEX IF NOT EXISTS idx_event_log_type ON event_log(event_type);
 CREATE INDEX IF NOT EXISTS idx_event_log_timestamp ON event_log(timestamp);
 
 -- LLM Extraction Errors: Track parse/validation failures for audit/debug
--- NOTE: This is added via schema.sql change; per user instruction DB is recreated, not migrated.
 CREATE TABLE IF NOT EXISTS llm_extraction_errors (
     id TEXT PRIMARY KEY,
     task_id TEXT,
@@ -715,7 +776,7 @@ CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_source ON calibration_eva
 CREATE INDEX IF NOT EXISTS idx_calibration_evaluations_evaluated_at ON calibration_evaluations(evaluated_at);
 
 -- ============================================================
--- Feedback & Override Tables ( / , 20)
+-- Feedback & Override Tables
 -- ============================================================
 
 -- LoRA adapter management (ADR-0011: LoRA fine-tuning)
@@ -880,6 +941,7 @@ LEFT JOIN task_metrics tm ON t.id = tm.task_id;
 
 -- ============================================================
 -- Evidence Graph Exploration Views (ADR: Sd_EVIDENCE_GRAPH_EXPLORATION)
+-- Uses normalized works table instead of paper_metadata JSON
 -- ============================================================
 
 -- 1) Claim evidence aggregation (task-scoped via claims.task_id)
@@ -953,6 +1015,7 @@ WHERE s.evidence_count = 0;
 
 -- 3b) Claim origins (provenance: which fragment/page a claim was extracted from)
 -- Use this view to trace where claims came from. Separate from NLI evidence.
+-- Includes bibliographic metadata from works table.
 CREATE VIEW IF NOT EXISTS v_claim_origins AS
 SELECT
     c.task_id,
@@ -966,6 +1029,18 @@ SELECT
     p.url,
     p.domain,
     p.title AS page_title,
+    -- Bibliographic metadata from works table
+    w.year,
+    w.venue,
+    w.doi,
+    w.source_api,
+    -- Author display: first author + et al.
+    CASE
+        WHEN (SELECT COUNT(*) FROM work_authors wa WHERE wa.canonical_id = w.canonical_id) = 0 THEN 'unknown'
+        WHEN (SELECT COUNT(*) FROM work_authors wa WHERE wa.canonical_id = w.canonical_id) = 1 
+            THEN (SELECT wa.name FROM work_authors wa WHERE wa.canonical_id = w.canonical_id LIMIT 1)
+        ELSE (SELECT wa.name FROM work_authors wa WHERE wa.canonical_id = w.canonical_id ORDER BY wa.position LIMIT 1) || ' et al.'
+    END AS author_display,
     e.created_at AS origin_created_at
 FROM claims c
 JOIN edges e
@@ -976,11 +1051,14 @@ JOIN edges e
 JOIN fragments f
   ON e.source_id = f.id
 JOIN pages p
-  ON f.page_id = p.id;
+  ON f.page_id = p.id
+LEFT JOIN works w
+  ON p.canonical_id = w.canonical_id;
 
 -- 4) Evidence chain (fragment -> claim with page provenance)
 -- NOTE: Only NLI evidence edges (supports/refutes/neutral) are included.
 -- For provenance (origin), use v_claim_origins.
+-- Includes bibliographic metadata from works table.
 CREATE VIEW IF NOT EXISTS v_evidence_chain AS
 SELECT
     c.task_id,
@@ -993,7 +1071,20 @@ SELECT
     p.url,
     p.domain,
     c.id AS claim_id,
-    c.claim_text
+    c.claim_text,
+    -- Bibliographic metadata from works table
+    w.year,
+    w.venue,
+    w.doi,
+    w.source_api,
+    -- Author display: first author + et al.
+    CASE
+        WHEN w.canonical_id IS NULL THEN NULL
+        WHEN (SELECT COUNT(*) FROM work_authors wa WHERE wa.canonical_id = w.canonical_id) = 0 THEN 'unknown'
+        WHEN (SELECT COUNT(*) FROM work_authors wa WHERE wa.canonical_id = w.canonical_id) = 1 
+            THEN (SELECT wa.name FROM work_authors wa WHERE wa.canonical_id = w.canonical_id LIMIT 1)
+        ELSE (SELECT wa.name FROM work_authors wa WHERE wa.canonical_id = w.canonical_id ORDER BY wa.position LIMIT 1) || ' et al.'
+    END AS author_display
 FROM edges e
 JOIN claims c
   ON e.target_type = 'claim'
@@ -1003,6 +1094,8 @@ JOIN fragments f
  AND e.source_id = f.id
 JOIN pages p
   ON f.page_id = p.id
+LEFT JOIN works w
+  ON p.canonical_id = w.canonical_id
 WHERE e.source_type = 'fragment'
   AND e.target_type = 'claim'
   AND e.relation IN ('supports', 'refutes', 'neutral');  -- Exclude origin
@@ -1109,7 +1202,7 @@ LEFT JOIN inbound i ON i.page_id = ep.page_id
 WHERE COALESCE(i.cited_by_count, 0) = 0;
 
 -- Helper CTE: evidence rows with extracted publication year (nullable)
--- NOTE: Uses JSON1 if available; invalid JSON yields NULL.
+-- Uses normalized works table instead of paper_metadata JSON.
 -- Only NLI evidence edges (supports/refutes/neutral) are included. Origin excluded.
 CREATE VIEW IF NOT EXISTS v__evidence_with_year AS
 SELECT
@@ -1120,11 +1213,7 @@ SELECT
     f.id AS fragment_id,
     p.id AS page_id,
     p.domain,
-    CASE
-      WHEN p.paper_metadata IS NOT NULL AND json_valid(p.paper_metadata)
-        THEN CAST(json_extract(p.paper_metadata, '$.year') AS INTEGER)
-      ELSE NULL
-    END AS year
+    w.year
 FROM edges e
 JOIN claims c
   ON e.target_type = 'claim'
@@ -1134,6 +1223,8 @@ JOIN fragments f
  AND e.source_id = f.id
 JOIN pages p
   ON f.page_id = p.id
+LEFT JOIN works w
+  ON p.canonical_id = w.canonical_id
 WHERE e.source_type = 'fragment'
   AND e.target_type = 'claim'
   AND e.relation IN ('supports', 'refutes', 'neutral');  -- Exclude origin
@@ -1207,6 +1298,7 @@ SELECT
 FROM support_years;
 
 -- 13) Source authority (simple composite score)
+-- Uses normalized works table for year extraction.
 CREATE VIEW IF NOT EXISTS v_source_authority AS
 WITH base AS (
   SELECT
@@ -1218,13 +1310,10 @@ WITH base AS (
       h.claims_supported,
       h.citation_count,
       h.cited_by_count,
-      CASE
-        WHEN p.paper_metadata IS NOT NULL AND json_valid(p.paper_metadata)
-          THEN CAST(json_extract(p.paper_metadata, '$.year') AS INTEGER)
-        ELSE NULL
-      END AS year
+      w.year
   FROM v_hub_pages h
   JOIN pages p ON p.id = h.page_id
+  LEFT JOIN works w ON w.canonical_id = p.canonical_id
 )
 SELECT
     task_id,
@@ -1314,24 +1403,19 @@ FROM c
 GROUP BY task_id, decade;
 
 -- 15) Citation age gap (citing year - cited year)
+-- Uses normalized works table for year extraction.
 CREATE VIEW IF NOT EXISTS v_citation_age_gap AS
 WITH years AS (
   SELECT
       e.source_id AS citing_page_id,
       e.target_id AS cited_page_id,
-      CASE
-        WHEN p1.paper_metadata IS NOT NULL AND json_valid(p1.paper_metadata)
-          THEN CAST(json_extract(p1.paper_metadata, '$.year') AS INTEGER)
-        ELSE NULL
-      END AS citing_year,
-      CASE
-        WHEN p2.paper_metadata IS NOT NULL AND json_valid(p2.paper_metadata)
-          THEN CAST(json_extract(p2.paper_metadata, '$.year') AS INTEGER)
-        ELSE NULL
-      END AS cited_year
+      w1.year AS citing_year,
+      w2.year AS cited_year
   FROM edges e
   JOIN pages p1 ON p1.id = e.source_id
   JOIN pages p2 ON p2.id = e.target_id
+  LEFT JOIN works w1 ON w1.canonical_id = p1.canonical_id
+  LEFT JOIN works w2 ON w2.canonical_id = p2.canonical_id
   WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
 )
 SELECT
@@ -1369,4 +1453,3 @@ SELECT
     MAX(CASE WHEN e.relation = 'refutes' AND e.year >= (cur.current_year - 2) THEN 1 ELSE 0 END) AS has_recent_refutation
 FROM e, cur
 GROUP BY e.task_id, e.claim_id;
-

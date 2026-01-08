@@ -262,5 +262,18 @@ Reasons:
 
 ## Related
 
-- `src/storage/schema.sql` - Graph schema (edges, claims, fragments tables)
+- `src/storage/schema.sql` - Graph schema (edges, claims, fragments, works, work_authors, work_identifiers tables)
 - `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)
+- `src/storage/works.py` - Bibliographic metadata persistence (works/work_authors/work_identifiers)
+
+### Bibliographic Metadata (Academic Papers)
+
+Academic paper metadata is stored in normalized tables linked via `pages.canonical_id`:
+
+| Table | Purpose |
+|-------|---------|
+| `works` | Canonical work metadata (title, year, venue, doi, citation_count) |
+| `work_authors` | Authors with position (name, affiliation, orcid) |
+| `work_identifiers` | Provider IDs (s2:xxx, openalex:Wxxx) → canonical_id mapping |
+
+SQL views (`v_evidence_chain`, `v_claim_origins`) join these tables to provide `author_display` (e.g., "Smith, John et al.") for reports.

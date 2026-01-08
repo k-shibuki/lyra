@@ -1275,10 +1275,8 @@ class EvidenceGraph:
 
         # Enrich node metadata from DB for correct integration behavior:
         # - independent_sources should work for FRAGMENT->CLAIM evidence edges (needs fragment.page_id)
-        # - evidence_years should work for academic sources (needs pages.paper_metadata.year)
+        # - evidence_years should work for academic sources (needs pages.canonical_id → works.year)
         try:
-            import json
-
             fragment_ids: list[str] = []
             page_ids: list[str] = []
 
@@ -1308,38 +1306,36 @@ class EvidenceGraph:
             page_meta: dict[str, dict[str, Any]] = {}
             if all_page_ids:
                 placeholders = ",".join(["?"] * len(all_page_ids))
+                # Join with works table to get bibliographic metadata
                 rows = await db.fetch_all(
-                    f"SELECT id, domain, paper_metadata FROM pages WHERE id IN ({placeholders})",
+                    f"""
+                    SELECT p.id, p.domain, p.canonical_id,
+                           w.year, w.doi, w.venue, w.source_api
+                    FROM pages p
+                    LEFT JOIN works w ON p.canonical_id = w.canonical_id
+                    WHERE p.id IN ({placeholders})
+                    """,
                     tuple(all_page_ids),
                 )
                 for r in rows:
                     pid = r.get("id")
                     if pid:
-                        page_meta[str(pid)] = r
+                        page_meta[str(pid)] = dict(r)
 
-            def _extract_academic_fields(paper_metadata: Any) -> dict[str, Any]:
-                if not paper_metadata:
-                    return {}
-                try:
-                    pm = paper_metadata
-                    if isinstance(pm, str):
-                        pm = json.loads(pm)
-                    if not isinstance(pm, dict):
-                        return {}
-                    out: dict[str, Any] = {}
-                    if (y := pm.get("year")) is not None:
-                        out["year"] = y
-                    if doi := pm.get("doi"):
-                        out["doi"] = doi
-                    if venue := pm.get("venue"):
-                        out["venue"] = venue
-                    if api := pm.get("source_api"):
-                        out["source_api"] = api
-                    if pm.get("doi") or pm.get("venue") or pm.get("year") is not None:
-                        out["is_academic"] = True
-                    return out
-                except Exception:
-                    return {}
+            def _extract_academic_fields(meta: dict[str, Any]) -> dict[str, Any]:
+                """Extract academic fields from page+works metadata."""
+                out: dict[str, Any] = {}
+                if (y := meta.get("year")) is not None:
+                    out["year"] = y
+                if doi := meta.get("doi"):
+                    out["doi"] = doi
+                if venue := meta.get("venue"):
+                    out["venue"] = venue
+                if api := meta.get("source_api"):
+                    out["source_api"] = api
+                if meta.get("doi") or meta.get("venue") or meta.get("year") is not None:
+                    out["is_academic"] = True
+                return out
 
             # Apply metadata to PAGE nodes
             for node_id in list(self._graph.nodes()):
@@ -1353,9 +1349,7 @@ class EvidenceGraph:
                 domain = meta.get("domain") or ""
                 if domain:
                     self._graph.nodes[node_id]["domain"] = str(domain).lower()
-                self._graph.nodes[node_id].update(
-                    _extract_academic_fields(meta.get("paper_metadata"))
-                )
+                self._graph.nodes[node_id].update(_extract_academic_fields(meta))
 
             # Apply metadata to FRAGMENT nodes (page_id + academic fields from its page)
             for node_id in list(self._graph.nodes()):
@@ -1373,9 +1367,7 @@ class EvidenceGraph:
                 domain = meta.get("domain") or ""
                 if domain:
                     self._graph.nodes[node_id]["domain"] = str(domain).lower()
-                self._graph.nodes[node_id].update(
-                    _extract_academic_fields(meta.get("paper_metadata"))
-                )
+                self._graph.nodes[node_id].update(_extract_academic_fields(meta))
 
             # D) Derive EVIDENCE_SOURCE edges (Claim→Page) from fragment→claim edges
             #    - For each fragment→claim edge, look up fragment's page_id
@@ -1546,7 +1538,6 @@ async def add_claim_evidence(
     # Best-effort: enrich fragment node with page metadata so independent_sources/time metadata
     # can be computed correctly without requiring a reload.
     try:
-        import json
 
         frag_row = await db.fetch_one(
             "SELECT page_id FROM fragments WHERE id = ?",
@@ -1558,8 +1549,14 @@ async def add_claim_evidence(
             if fragment_node in graph._graph.nodes:
                 graph._graph.nodes[fragment_node]["page_id"] = page_id
 
+                # Get page domain and bibliographic metadata from works table
                 page_row = await db.fetch_one(
-                    "SELECT domain, paper_metadata FROM pages WHERE id = ?",
+                    """
+                    SELECT p.domain, w.year, w.doi, w.venue, w.source_api
+                    FROM pages p
+                    LEFT JOIN works w ON p.canonical_id = w.canonical_id
+                    WHERE p.id = ?
+                    """,
                     (page_id,),
                 )
                 if page_row:
@@ -1567,23 +1564,21 @@ async def add_claim_evidence(
                     if domain:
                         graph._graph.nodes[fragment_node]["domain"] = str(domain).lower()
 
-                    pm = page_row.get("paper_metadata")
-                    try:
-                        if isinstance(pm, str) and pm:
-                            pm = json.loads(pm)
-                        if isinstance(pm, dict):
-                            if (y := pm.get("year")) is not None:
-                                graph._graph.nodes[fragment_node]["year"] = y
-                            if doi := pm.get("doi"):
-                                graph._graph.nodes[fragment_node]["doi"] = doi
-                            if venue := pm.get("venue"):
-                                graph._graph.nodes[fragment_node]["venue"] = venue
-                            if api := pm.get("source_api"):
-                                graph._graph.nodes[fragment_node]["source_api"] = api
-                            if pm.get("doi") or pm.get("venue") or pm.get("year") is not None:
-                                graph._graph.nodes[fragment_node]["is_academic"] = True
-                    except Exception:
-                        pass
+                    # Apply bibliographic metadata from works table
+                    if (y := page_row.get("year")) is not None:
+                        graph._graph.nodes[fragment_node]["year"] = y
+                    if doi := page_row.get("doi"):
+                        graph._graph.nodes[fragment_node]["doi"] = doi
+                    if venue := page_row.get("venue"):
+                        graph._graph.nodes[fragment_node]["venue"] = venue
+                    if api := page_row.get("source_api"):
+                        graph._graph.nodes[fragment_node]["source_api"] = api
+                    if (
+                        page_row.get("doi")
+                        or page_row.get("venue")
+                        or page_row.get("year") is not None
+                    ):
+                        graph._graph.nodes[fragment_node]["is_academic"] = True
     except Exception:
         pass
 
