@@ -171,6 +171,48 @@ class BrowserFetcher:
 
         logger.debug("BrowserFetcher initialized", worker_id=worker_id)
 
+    async def _cleanup_stale_browser(self) -> None:
+        """Cleanup stale browser references for reconnection.
+
+        Called when browser.is_connected() returns False, indicating
+        that Chrome was closed by user or crashed.
+        """
+        logger.info("Cleaning up stale browser for reconnection", worker_id=self._worker_id)
+
+        try:
+            if self._headful_context:
+                await self._headful_context.close()
+        except Exception:
+            pass
+        try:
+            if self._headful_browser:
+                await self._headful_browser.close()
+        except Exception:
+            pass
+        try:
+            if self._headless_context:
+                await self._headless_context.close()
+        except Exception:
+            pass
+        try:
+            if self._headless_browser:
+                await self._headless_browser.close()
+        except Exception:
+            pass
+        try:
+            if self._playwright:
+                await self._playwright.stop()
+        except Exception:
+            pass
+
+        self._playwright = None
+        self._headful_browser = None
+        self._headful_context = None
+        self._headless_browser = None
+        self._headless_context = None
+
+        logger.info("Stale browser cleaned up, ready for reconnection", worker_id=self._worker_id)
+
     async def _ensure_browser(
         self,
         headful: bool = False,
@@ -189,6 +231,19 @@ class BrowserFetcher:
             Tuple of (browser, context).
         """
         from playwright.async_api import async_playwright
+
+        # Check if existing browser connection is stale (user closed Chrome)
+        if self._headful_browser is not None:
+            try:
+                is_connected = self._headful_browser.is_connected()
+            except Exception:
+                is_connected = False
+            if not is_connected:
+                logger.warning(
+                    "Browser disconnected, cleaning up for reconnection",
+                    worker_id=self._worker_id,
+                )
+                await self._cleanup_stale_browser()
 
         if self._playwright is None:
             self._playwright = await async_playwright().start()
@@ -224,10 +279,14 @@ class BrowserFetcher:
 
                 logger.debug("Attempting CDP connection", url=cdp_url)
                 try:
-                    # Add timeout to prevent hanging
+                    # Pass timeout directly to connect_over_cdp
+                    # asyncio.wait_for alone doesn't work for Playwright's internal blocking
                     self._headful_browser = await asyncio.wait_for(
-                        self._playwright.chromium.connect_over_cdp(cdp_url),
-                        timeout=5.0,  # 5 second timeout for CDP connection
+                        self._playwright.chromium.connect_over_cdp(
+                            cdp_url,
+                            timeout=5000,  # 5 seconds in milliseconds (Playwright uses ms)
+                        ),
+                        timeout=6.0,  # Slightly longer asyncio timeout as safety net
                     )
                     logger.info("Connected to Chrome via CDP (headful)", url=cdp_url)
                     cdp_connected = True
@@ -258,9 +317,13 @@ class BrowserFetcher:
                         )
                         while time.monotonic() - start_time < timeout:
                             try:
+                                # Pass timeout directly to connect_over_cdp
                                 self._headful_browser = await asyncio.wait_for(
-                                    self._playwright.chromium.connect_over_cdp(cdp_url),
-                                    timeout=2.0,  # 2 second timeout per attempt
+                                    self._playwright.chromium.connect_over_cdp(
+                                        cdp_url,
+                                        timeout=2000,  # 2 seconds in milliseconds
+                                    ),
+                                    timeout=3.0,  # Slightly longer asyncio timeout as safety net
                                 )
                                 elapsed = time.monotonic() - start_time
                                 logger.info(

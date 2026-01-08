@@ -39,7 +39,10 @@ start_chrome_worker_wsl() {
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--disable-background-networking',
-                '--disable-sync'
+                '--disable-sync',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding'
             ) -PassThru -ErrorAction Stop
             'SUCCESS'
         } catch {
@@ -95,6 +98,9 @@ start_chrome_worker_linux() {
         --no-default-browser-check \
         --disable-background-networking \
         --disable-sync \
+        --disable-background-timer-throttling \
+        --disable-backgrounding-occluded-windows \
+        --disable-renderer-backgrounding \
         > /dev/null 2>&1 &
 
     local host=""
@@ -142,7 +148,10 @@ start_chrome_wsl() {
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--disable-background-networking',
-                '--disable-sync'
+                '--disable-sync',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding'
             ) -PassThru -ErrorAction Stop
             'SUCCESS'
         } catch {
@@ -262,6 +271,9 @@ EOF
         --no-default-browser-check \
         --disable-background-networking \
         --disable-sync \
+        --disable-background-timer-throttling \
+        --disable-backgrounding-occluded-windows \
+        --disable-renderer-backgrounding \
         > /dev/null 2>&1 &
 
     if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then

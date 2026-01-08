@@ -256,6 +256,16 @@ class BrowserSearchProvider(BaseSearchProvider):
         Raises:
             CDPConnectionError: If CDP connection fails after auto-start attempt.
         """
+        # BUG-001a fix: Check if existing browser connection is stale
+        if self._browser is not None:
+            try:
+                is_connected = self._browser.is_connected()
+            except Exception:
+                is_connected = False
+            if not is_connected:
+                logger.warning("Browser disconnected, cleaning up for reconnection...")
+                await self._cleanup_stale_browser()
+
         if self._playwright is None:
             try:
                 from playwright.async_api import async_playwright
@@ -277,12 +287,15 @@ class BrowserSearchProvider(BaseSearchProvider):
                 # First attempt to connect
                 try:
                     # IMPORTANT: When CDP is down, Playwright's connect_over_cdp can hang.
-                    # Enforce a short timeout so we can fall back to chrome.sh auto-start.
+                    # Pass timeout directly to connect_over_cdp (Playwright uses ms)
                     import asyncio
 
                     self._browser = await asyncio.wait_for(
-                        self._playwright.chromium.connect_over_cdp(cdp_url),
-                        timeout=2.0,
+                        self._playwright.chromium.connect_over_cdp(
+                            cdp_url,
+                            timeout=2000,  # 2 seconds in milliseconds
+                        ),
+                        timeout=3.0,  # Slightly longer asyncio timeout as safety net
                     )
                     cdp_connected = True
                     self._cdp_connected = True
@@ -306,9 +319,13 @@ class BrowserSearchProvider(BaseSearchProvider):
 
                         while time.monotonic() - start_time < timeout:
                             try:
+                                # Pass timeout directly to connect_over_cdp
                                 self._browser = await asyncio.wait_for(
-                                    self._playwright.chromium.connect_over_cdp(cdp_url),
-                                    timeout=2.0,
+                                    self._playwright.chromium.connect_over_cdp(
+                                        cdp_url,
+                                        timeout=2000,  # 2 seconds in milliseconds
+                                    ),
+                                    timeout=3.0,  # Slightly longer asyncio timeout as safety net
                                 )
                                 cdp_connected = True
                                 self._cdp_connected = True
@@ -380,6 +397,42 @@ class BrowserSearchProvider(BaseSearchProvider):
             except Exception as e:
                 logger.error("Failed to initialize browser", error=str(e))
                 raise
+
+    async def _cleanup_stale_browser(self) -> None:
+        """Cleanup stale browser references for reconnection.
+
+        Called when browser.is_connected() returns False, indicating
+        that Chrome was closed by user or crashed.
+        """
+        # BUG-001a fix: Clear TabPool first (it holds stale tab references)
+        try:
+            await self._tab_pool.clear()
+        except Exception as e:
+            logger.debug("Failed to clear TabPool", error=str(e))
+
+        try:
+            if self._context:
+                await self._context.close()
+        except Exception:
+            pass
+        try:
+            if self._browser:
+                await self._browser.close()
+        except Exception:
+            pass
+        try:
+            if self._playwright:
+                await self._playwright.stop()
+        except Exception:
+            pass
+
+        self._playwright = None
+        self._browser = None
+        self._context = None
+        self._page = None
+        self._cdp_connected = False
+
+        logger.info("Stale browser cleaned up, ready for reconnection")
 
     def _get_user_agent(self) -> str:
         """Get user agent string matching the current platform's Chrome."""
@@ -1427,6 +1480,21 @@ class BrowserSearchProvider(BaseSearchProvider):
                 query=query[:50],
                 error=str(e),
             )
+
+            # BUG-001a fix: Detect browser disconnection errors and reset state
+            error_str = str(e).lower()
+            if (
+                "browser has been closed" in error_str
+                or "target closed" in error_str
+                or "context or browser" in error_str
+            ):
+                logger.warning("Browser disconnect detected, will reconnect on next search")
+                # Reset state so next _ensure_browser() will reconnect
+                self._playwright = None
+                self._browser = None
+                self._context = None
+                self._page = None
+                self._cdp_connected = False
 
             return SearchResponse(
                 results=[],

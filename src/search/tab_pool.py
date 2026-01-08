@@ -566,6 +566,47 @@ class TabPool:
             effective_max_tabs=backoff.effective_max_tabs,
         )
 
+    async def clear(self) -> None:
+        """Clear all tab references without closing the pool.
+
+        Called when browser connection is stale and needs to be re-established.
+        This clears all tab references so that new tabs will be created
+        on the next acquire() call.
+
+        BUG-001a: This is needed because when Chrome is closed by user,
+        the TabPool holds stale tab references that cause errors.
+        """
+        # Cancel held tabs check task
+        if self._held_tabs_check_task and not self._held_tabs_check_task.done():
+            self._held_tabs_check_task.cancel()
+            try:
+                await self._held_tabs_check_task
+            except asyncio.CancelledError:
+                pass
+
+        # Clear held tabs (don't try to close - browser is already gone)
+        self._held_tabs.clear()
+
+        async with self._lock:
+            # Clear all tab references (don't try to close - browser is already gone)
+            self._tabs.clear()
+
+            # Clear available queue
+            while not self._available_tabs.empty():
+                try:
+                    self._available_tabs.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+
+            # Reset active count
+            self._active_count = 0
+            self._slot_available.set()
+
+        logger.info(
+            "TabPool cleared for browser reconnection",
+            backoff_active=self._backoff_state.backoff_active,
+        )
+
     async def close(self) -> None:
         """Close all tabs and cleanup resources.
 
