@@ -96,7 +96,8 @@ class TestMCPIdleWarning:
         ):
             from src.mcp.tools.task import handle_get_status as _handle_get_status
 
-            result = await _handle_get_status({"task_id": "test_task"})
+            # Use detail="full" to get idle_seconds
+            result = await _handle_get_status({"task_id": "test_task", "detail": "full"})
 
             assert "idle_seconds" in result
             assert result["idle_seconds"] == 100
@@ -196,7 +197,8 @@ class TestMCPIdleWarning:
         ):
             from src.mcp.tools.task import handle_get_status as _handle_get_status
 
-            result = await _handle_get_status({"task_id": "test_task"})
+            # Use detail="full" to get idle_seconds
+            result = await _handle_get_status({"task_id": "test_task", "detail": "full"})
 
             assert "warnings" in result
             assert len(result["warnings"]) > 0

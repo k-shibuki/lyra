@@ -1506,3 +1506,247 @@ class TestTabPoolHeldTabs:
 
         # Then: No tab held
         assert len(pool._held_tabs) == 0
+
+
+# =============================================================================
+# TabPool.clear() Tests (BUG-001a: Browser Reconnection)
+# =============================================================================
+
+
+class TestTabPoolClear:
+    """Tests for TabPool.clear() method.
+
+    BUG-001a: When browser is closed by user, TabPool holds stale tab references.
+    clear() is called during browser reconnection to reset tab state.
+
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result |
+    |---------|----------------------|-------------|-----------------|
+    | TC-CLR-01 | TabPool with active tab | Equivalence | tabs cleared |
+    | TC-CLR-02 | TabPool with held tabs | Equivalence | held tabs cleared |
+    | TC-CLR-03 | Empty TabPool | Boundary | No error |
+    | TC-CLR-04 | Closed TabPool | Boundary | No error (graceful) |
+    | TC-CLR-05 | TabPool with multiple tabs | Equivalence | All tabs cleared |
+    """
+
+    @pytest.fixture(autouse=True)
+    async def reset_pool(self) -> None:
+        """Reset global tab pool before each test."""
+        await reset_tab_pool()
+
+    def _create_mock_context(self) -> MagicMock:
+        """Create a mock BrowserContext."""
+        mock_context = MagicMock()
+        mock_pages: list[MagicMock] = []
+
+        async def new_page() -> MagicMock:
+            mock_page = MagicMock()
+            mock_page.is_closed.return_value = False
+            mock_page.close = AsyncMock()
+            mock_pages.append(mock_page)
+            return mock_page
+
+        mock_context.new_page = new_page
+        mock_context._mock_pages = mock_pages
+        return mock_context
+
+    # =========================================================================
+    # TC-CLR-01: clear() clears active tab
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_clear_clears_active_tab(self) -> None:
+        """Test clear() clears active tab references.
+
+        Given: A TabPool with 1 acquired tab that was released
+        When: clear() is called
+        Then: tabs list is empty, available queue is empty, active_count=0
+        """
+        # Given: Pool with acquired and released tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+        pool.release(tab)
+
+        assert pool.total_count == 1
+        assert pool._available_tabs.qsize() == 1
+
+        # When: Clear
+        await pool.clear()
+
+        # Then: All tab references cleared
+        assert pool.total_count == 0
+        assert pool._available_tabs.qsize() == 0
+        assert pool._active_count == 0
+
+        # Pool is still usable (not closed)
+        assert pool._closed is False
+
+    # =========================================================================
+    # TC-CLR-02: clear() clears held tabs
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_clear_clears_held_tabs(self) -> None:
+        """Test clear() clears held CAPTCHA tabs.
+
+        Given: A TabPool with a held CAPTCHA tab
+        When: clear() is called
+        Then: held_tabs dict is cleared, check task cancelled
+        """
+        # Given: Pool with held tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+
+        pool.hold_for_captcha(
+            tab=tab,
+            queue_id="test-queue-id",
+            engine="duckduckgo",
+            task_id="test-task",
+            expires_at=time.time() + 3600,
+        )
+
+        assert len(pool._held_tabs) == 1
+        assert pool._held_tabs_check_task is not None
+
+        # When: Clear
+        await pool.clear()
+
+        # Then: Held tabs cleared
+        assert len(pool._held_tabs) == 0
+
+    # =========================================================================
+    # TC-CLR-03: clear() on empty pool is no-op
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_clear_empty_pool_is_noop(self) -> None:
+        """Test clear() on empty pool is no-op.
+
+        Given: An empty TabPool
+        When: clear() is called
+        Then: No error, state unchanged
+        """
+        # Given: Empty pool
+        pool = TabPool(max_tabs=1)
+        assert pool.total_count == 0
+
+        # When: Clear (should not raise)
+        await pool.clear()
+
+        # Then: Still empty
+        assert pool.total_count == 0
+        assert pool._closed is False
+
+    # =========================================================================
+    # TC-CLR-04: clear() after close is graceful (implicit via pool state)
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_clear_preserves_pool_usability(self) -> None:
+        """Test clear() preserves pool usability (unlike close()).
+
+        Given: A TabPool with tabs that has been cleared
+        When: acquire() is called after clear()
+        Then: New tab can be acquired (pool not closed)
+        """
+        # Given: Pool with tab, then cleared
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+        pool.release(tab)
+
+        await pool.clear()
+
+        # When: Acquire after clear
+        new_tab = await pool.acquire(mock_context)
+
+        # Then: Acquisition succeeds
+        assert new_tab is not None
+        assert pool.total_count == 1
+
+        # Cleanup
+        pool.release(new_tab)
+        await pool.close()
+
+    # =========================================================================
+    # TC-CLR-05: clear() clears multiple tabs
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_clear_clears_multiple_tabs(self) -> None:
+        """Test clear() clears multiple tabs.
+
+        Given: A TabPool with multiple tabs (max_tabs=3)
+        When: clear() is called
+        Then: All tabs are cleared
+        """
+        # Given: Pool with multiple tabs
+        pool = TabPool(max_tabs=3)
+        mock_context = self._create_mock_context()
+
+        tab1 = await pool.acquire(mock_context)
+        tab2 = await pool.acquire(mock_context)
+        pool.release(tab1)
+        pool.release(tab2)
+
+        assert pool.total_count == 2
+        assert pool._available_tabs.qsize() == 2
+
+        # When: Clear
+        await pool.clear()
+
+        # Then: All tabs cleared
+        assert pool.total_count == 0
+        assert pool._available_tabs.qsize() == 0
+        assert pool._active_count == 0
+
+    # =========================================================================
+    # TC-CLR-06: clear() resets slot_available event
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_clear_resets_slot_available(self) -> None:
+        """Test clear() resets slot_available event.
+
+        Given: A TabPool with active count > 0
+        When: clear() is called
+        Then: active_count is reset to 0, slot_available is set
+        """
+        # Given: Pool with active tab (simulated)
+        pool = TabPool(max_tabs=1)
+        pool._active_count = 1
+        pool._slot_available.clear()
+
+        # When: Clear
+        await pool.clear()
+
+        # Then: Active count reset, slot available
+        assert pool._active_count == 0
+        assert pool._slot_available.is_set()
+
+    # =========================================================================
+    # Effect test: clear() does not call tab.close() (browser already gone)
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_clear_does_not_close_tabs(self) -> None:
+        """Test clear() does not call tab.close() (browser already gone).
+
+        Given: A TabPool with tabs
+        When: clear() is called
+        Then: tab.close() is NOT called (unlike close() method)
+
+        This is important because when browser is disconnected, the tab
+        references are stale and calling close() on them would fail.
+        """
+        # Given: Pool with tab
+        pool = TabPool(max_tabs=1)
+        mock_context = self._create_mock_context()
+        tab = await pool.acquire(mock_context)
+        pool.release(tab)
+
+        # When: Clear
+        await pool.clear()
+
+        # Then: tab.close() was NOT called
+        # (cast to MagicMock for assertion - tab is from mock_context.new_page)
+        assert hasattr(tab, "close")
+        tab.close.assert_not_called()  # type: ignore[attr-defined]
+
+        # Cleanup (pool is still usable)
+        await pool.close()

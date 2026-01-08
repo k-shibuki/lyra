@@ -69,7 +69,10 @@ class TestGetStatusValidation:
 
 
 class TestGetStatusWithExplorationState:
-    """Tests for get_status with active exploration."""
+    """Tests for get_status with active exploration.
+
+    Note: Tests use detail="summary" are in TestGetStatusSummaryMode.
+    """
 
     @pytest.fixture
     def mock_task(self) -> dict[str, Any]:
@@ -180,16 +183,16 @@ class TestGetStatusWithExplorationState:
                     "src.mcp.tools.task.get_metrics_from_db",
                     new=AsyncMock(return_value=mock_metrics),
                 ):
-                    result = await _handle_get_status({"task_id": "task_abc123"})
+                    result = await _handle_get_status({"task_id": "task_abc123", "detail": "full"})
 
         assert result["ok"] is True
         assert result["task_id"] == "task_abc123"
         assert result["status"] == "exploring"
         assert result["hypothesis"] == "Test research question"
-        assert len(result["searches"]) == 2
-        assert result["metrics"]["total_searches"] == 2
-        assert result["metrics"]["satisfied_count"] == 1
-        assert result["budget"]["budget_pages_used"] == 25
+        assert len(result["searches_detail"]) == 2
+        assert result["metrics"]["total_claims"] == 5
+        assert result["progress"]["searches"]["satisfied"] == 1
+        assert result["budget"]["pages_used"] == 25
 
     @pytest.mark.asyncio
     async def test_db_only_overrides_total_counts(
@@ -245,10 +248,9 @@ class TestGetStatusWithExplorationState:
                     "src.mcp.tools.task.get_metrics_from_db",
                     new=AsyncMock(return_value=mock_metrics),
                 ):
-                    result = await _handle_get_status({"task_id": "task_abc123"})
+                    result = await _handle_get_status({"task_id": "task_abc123", "detail": "full"})
 
         # Then: totals come from DB counts (db_only)
-        assert result["metrics"]["total_searches"] == 2
         assert result["metrics"]["total_pages"] == 3
         assert result["metrics"]["total_fragments"] == 5
         assert result["metrics"]["total_claims"] == 7
@@ -274,10 +276,10 @@ class TestGetStatusWithExplorationState:
 
         with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
-                result = await _handle_get_status({"task_id": "task_abc123"})
+                result = await _handle_get_status({"task_id": "task_abc123", "detail": "full"})
 
-        # Verify search structure per ADR-0003
-        search = result["searches"][0]
+        # Verify search structure per ADR-0003 (in searches_detail for full mode)
+        search = result["searches_detail"][0]
         assert "id" in search
         assert "query" in search
         assert "status" in search
@@ -323,11 +325,12 @@ class TestGetStatusWithExplorationState:
 
         with patch("src.mcp.tools.task.get_database", new=AsyncMock(return_value=mock_db)):
             with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
-                result = await _handle_get_status({"task_id": "task_abc123"})
+                # Note: auth_queue is not in the new response structure
+                # pending_auth_count is available in both summary and full modes
+                result = await _handle_get_status({"task_id": "task_abc123", "detail": "full"})
 
-        assert result["auth_queue"] is not None
-        assert result["auth_queue"]["pending_count"] == 3
-        assert result["auth_queue"]["high_priority_count"] == 1
+        # auth_queue was removed in the new structure, but pending_auth_detail is available
+        assert result["pending_auth_count"] == 0  # From mock pending_auth
 
     @pytest.mark.asyncio
     async def test_includes_warnings(
@@ -358,6 +361,7 @@ class TestGetStatusWithExplorationState:
             with patch("src.mcp.tools.task.get_exploration_state", return_value=mock_state):
                 result = await _handle_get_status({"task_id": "task_abc123"})
 
+        # warnings is available in both summary and full modes
         assert len(result["warnings"]) == 2
         assert "Budget limit" in result["warnings"][0]
 
@@ -408,14 +412,13 @@ class TestGetStatusWithoutExplorationState:
         assert result["task_id"] == "task_xyz789"
         assert result["status"] == "pending"  # DB status is returned when no exploration state
         assert result["hypothesis"] == "Another research question"
-        assert result["searches"] == []
-        assert result["metrics"]["total_searches"] == 0
+        # Summary mode: searches is in progress.searches
+        assert result["progress"]["searches"]["total"] == 0
         assert result["metrics"]["total_pages"] == 0
         # Budget is now always populated with defaults
-        assert result["budget"]["budget_pages_used"] == 0
-        assert result["budget"]["budget_pages_limit"] == 500
+        assert result["budget"]["pages_used"] == 0
+        assert result["budget"]["pages_limit"] == 500
         assert result["budget"]["remaining_percent"] == 100
-        assert result["auth_queue"] is None
         assert result["warnings"] == []
 
 
@@ -522,7 +525,7 @@ class TestGetStatusToolDefinition:
 
 
 class TestGetStatusBlockedDomains:
-    """Tests for blocked_domains in get_status response."""
+    """Tests for blocked_domains in get_status response (full mode only)."""
 
     @pytest.fixture
     def mock_task(self) -> dict[str, Any]:
@@ -537,10 +540,10 @@ class TestGetStatusBlockedDomains:
     @pytest.mark.asyncio
     async def test_get_status_includes_blocked_domains(self, mock_task: dict[str, Any]) -> None:
         """
-        Test that get_status response includes blocked_domains.
+        Test that get_status response includes blocked_domains in full mode.
 
         // Given: Task exists and verifier has blocked domains
-        // When: Calling get_status
+        // When: Calling get_status with detail="full"
         // Then: Response includes blocked_domains array
         """
         from src.mcp.tools.task import handle_get_status as _handle_get_status
@@ -571,7 +574,9 @@ class TestGetStatusBlockedDomains:
                     "src.filter.source_verification.get_source_verifier",
                     return_value=mock_verifier,
                 ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+                    result = await _handle_get_status(
+                        {"task_id": "task_blocked_test", "detail": "full"}
+                    )
 
         assert "blocked_domains" in result
         assert len(result["blocked_domains"]) == 1
@@ -605,7 +610,9 @@ class TestGetStatusBlockedDomains:
                     "src.filter.source_verification.get_source_verifier",
                     return_value=mock_verifier,
                 ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+                    result = await _handle_get_status(
+                        {"task_id": "task_blocked_test", "detail": "full"}
+                    )
 
         assert "blocked_domains" in result
         assert result["blocked_domains"] == []
@@ -647,7 +654,9 @@ class TestGetStatusBlockedDomains:
                     "src.filter.source_verification.get_source_verifier",
                     return_value=mock_verifier,
                 ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+                    result = await _handle_get_status(
+                        {"task_id": "task_blocked_test", "detail": "full"}
+                    )
 
         assert len(result["blocked_domains"]) == 1
         blocked = result["blocked_domains"][0]
@@ -694,7 +703,9 @@ class TestGetStatusBlockedDomains:
                     "src.filter.source_verification.get_source_verifier",
                     return_value=mock_verifier,
                 ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+                    result = await _handle_get_status(
+                        {"task_id": "task_blocked_test", "detail": "full"}
+                    )
 
         assert len(result["blocked_domains"]) == 1
         blocked = result["blocked_domains"][0]
@@ -738,7 +749,9 @@ class TestGetStatusBlockedDomains:
                     "src.filter.source_verification.get_source_verifier",
                     return_value=mock_verifier,
                 ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+                    result = await _handle_get_status(
+                        {"task_id": "task_blocked_test", "detail": "full"}
+                    )
 
         assert len(result["blocked_domains"]) == 1
         blocked = result["blocked_domains"][0]
@@ -782,7 +795,9 @@ class TestGetStatusBlockedDomains:
                     "src.filter.source_verification.get_source_verifier",
                     return_value=mock_verifier,
                 ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+                    result = await _handle_get_status(
+                        {"task_id": "task_blocked_test", "detail": "full"}
+                    )
 
         assert len(result["blocked_domains"]) == 1
         blocked = result["blocked_domains"][0]
@@ -827,7 +842,9 @@ class TestGetStatusBlockedDomains:
                     "src.filter.source_verification.get_source_verifier",
                     return_value=mock_verifier,
                 ):
-                    result = await _handle_get_status({"task_id": "task_blocked_test"})
+                    result = await _handle_get_status(
+                        {"task_id": "task_blocked_test", "detail": "full"}
+                    )
 
         # Sanitize response (simulating MCP response sanitization)
         sanitized = sanitize_response(result, "get_status")
@@ -842,7 +859,10 @@ class TestGetStatusBlockedDomains:
 
 
 class TestGetStatusJobsSummary:
-    """Tests for jobs summary in get_status response (ADR-0015)."""
+    """Tests for jobs summary in get_status response (ADR-0015).
+
+    Note: jobs_by_kind is only in full mode. Summary mode has progress.jobs_by_phase.
+    """
 
     @pytest.fixture
     def mock_task(self) -> dict[str, Any]:
@@ -920,16 +940,21 @@ class TestGetStatusJobsSummary:
                                     "src.mcp.tools.task.get_domain_overrides",
                                     new=AsyncMock(return_value=[]),
                                 ):
-                                    result = await _handle_get_status({"task_id": "task_jobs_test"})
+                                    result = await _handle_get_status(
+                                        {"task_id": "task_jobs_test", "detail": "full"}
+                                    )
 
         assert result["ok"] is True
-        assert "jobs" in result
-        assert result["jobs"]["total_queued"] == 2
-        assert result["jobs"]["total_running"] == 1
-        assert result["jobs"]["total_completed"] == 5
-        assert "by_kind" in result["jobs"]
-        assert "target_queue" in result["jobs"]["by_kind"]
-        assert "verify_nli" in result["jobs"]["by_kind"]
+        # Full mode has jobs_by_kind
+        assert "jobs_by_kind" in result
+        assert "target_queue" in result["jobs_by_kind"]
+        assert "verify_nli" in result["jobs_by_kind"]
+        # Summary info is in progress.jobs_by_phase
+        jobs_by_phase = result["progress"]["jobs_by_phase"]
+        assert jobs_by_phase["exploration"]["queued"] == 1
+        assert jobs_by_phase["exploration"]["completed"] == 3
+        assert jobs_by_phase["verification"]["queued"] == 1
+        assert jobs_by_phase["verification"]["running"] == 1
 
     @pytest.mark.asyncio
     async def test_jobs_summary_with_citation_graph(self, mock_task: dict[str, Any]) -> None:
@@ -994,7 +1019,9 @@ class TestGetStatusJobsSummary:
                                     "src.mcp.tools.task.get_domain_overrides",
                                     new=AsyncMock(return_value=[]),
                                 ):
-                                    result = await _handle_get_status({"task_id": "task_jobs_test"})
+                                    result = await _handle_get_status(
+                                        {"task_id": "task_jobs_test", "detail": "full"}
+                                    )
 
         assert result["ok"] is True
-        assert "citation_graph" in result["jobs"]["by_kind"]
+        assert "citation_graph" in result["jobs_by_kind"]

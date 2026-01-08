@@ -227,10 +227,10 @@ class TestGetStatusDomainOverrides:
             },
         )
 
-        # When: call get_status
-        result = await _handle_get_status({"task_id": task_id})
+        # When: call get_status with detail="full" to get domain_overrides
+        result = await _handle_get_status({"task_id": task_id, "detail": "full"})
 
-        # Then: domain_overrides contains the rule
+        # Then: domain_overrides contains the rule (full mode only)
         assert result["ok"] is True
         assert "domain_overrides" in result
         overrides = result["domain_overrides"]

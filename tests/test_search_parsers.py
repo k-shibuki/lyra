@@ -35,6 +35,7 @@ from src.search.parser_config import (
 )
 from src.search.parsers import (
     BingParser,
+    BraveParser,
     DuckDuckGoParser,
     EcosiaParser,
     MojeekParser,
@@ -960,4 +961,172 @@ class TestBingParserRegistry:
 
         assert "bing" in parsers, f"bing not in {parsers}"
 
-        assert "bing" in parsers, f"bing not in {parsers}"
+
+# ============================================================================
+# No Results Detection Tests (Brave)
+# ============================================================================
+
+
+class TestNoResultsDetection:
+    """Tests for 'no results' page detection.
+
+    This feature allows parsers to detect when a search engine returns
+    a "no results" page, and return an empty result set instead of an error.
+    """
+
+    def test_detect_no_results_brave_japanese(self) -> None:
+        """TC-N-01: Test Brave 'no results' detection for Japanese message.
+
+        // Given: Brave parser and HTML containing Japanese 'no results' message
+        // When: parse() is called
+        // Then: Returns success with empty results (not error)
+        """
+        # Given: Brave parser
+        parser = BraveParser()
+
+        # Given: HTML with Japanese "no results" message
+        html = """
+        <html>
+        <body>
+            <div id="results">
+                <section>検索結果はあまり多くありませんでした</section>
+            </div>
+        </body>
+        </html>
+        """
+
+        # When: Parse the HTML
+        result = parser.parse(html, "test query")
+
+        # Then: Should return success with empty results
+        assert result.ok is True, f"Expected ok=True, got {result.ok}. Error: {result.error}"
+        assert len(result.results) == 0, f"Expected 0 results, got {len(result.results)}"
+        assert result.is_captcha is False
+
+    def test_detect_no_results_brave_english(self) -> None:
+        """TC-N-02: Test Brave 'no results' detection for English message.
+
+        // Given: Brave parser and HTML containing English 'no results' message
+        // When: parse() is called
+        // Then: Returns success with empty results (not error)
+        """
+        # Given: Brave parser
+        parser = BraveParser()
+
+        # Given: HTML with English "no results" message
+        html = """
+        <html>
+        <body>
+            <div id="results">
+                <section>not many results matched your search</section>
+            </div>
+        </body>
+        </html>
+        """
+
+        # When: Parse the HTML
+        result = parser.parse(html, "test query")
+
+        # Then: Should return success with empty results
+        assert result.ok is True, f"Expected ok=True, got {result.ok}. Error: {result.error}"
+        assert len(result.results) == 0
+        assert result.is_captcha is False
+
+    def test_detect_no_results_brave_json_marker(self) -> None:
+        """TC-N-03: Test Brave 'no results' detection for JS data marker.
+
+        // Given: Brave parser and HTML containing noResults:true marker
+        // When: parse() is called
+        // Then: Returns success with empty results (not error)
+        """
+        # Given: Brave parser
+        parser = BraveParser()
+
+        # Given: HTML with JS data marker indicating no results
+        html = """
+        <html>
+        <head>
+            <script>
+                var data = {noResults:true, query:"test"};
+            </script>
+        </head>
+        <body>
+            <div id="results"></div>
+        </body>
+        </html>
+        """
+
+        # When: Parse the HTML
+        result = parser.parse(html, "test query")
+
+        # Then: Should return success with empty results
+        assert result.ok is True, f"Expected ok=True, got {result.ok}. Error: {result.error}"
+        assert len(result.results) == 0
+        assert result.is_captcha is False
+
+    def test_no_results_not_triggered_for_normal_results(self) -> None:
+        """TC-N-04: Test that 'no results' detection doesn't trigger for normal pages.
+
+        // Given: Brave parser and HTML with actual results (no 'no results' markers)
+        // When: parse() is called
+        // Then: Should fail because results_container selector fails (no .snippet elements)
+        """
+        # Given: Brave parser
+        parser = BraveParser()
+
+        # Given: Normal HTML without results but also without "no results" markers
+        html = """
+        <html>
+        <body>
+            <div id="results">
+                <p>Some other content</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        # When: Parse the HTML
+        result = parser.parse(html, "test query")
+
+        # Then: Should fail because required selectors not found (not treated as "no results")
+        assert result.ok is False
+
+    def test_detect_no_results_method_directly(self) -> None:
+        """TC-N-05: Test detect_no_results method directly.
+
+        // Given: Brave parser config with no_results_patterns
+        // When: detect_no_results called with matching HTML
+        // Then: Returns (True, pattern_type)
+        """
+        # Given: Brave parser
+        parser = BraveParser()
+
+        # Given: HTML with "no results" marker
+        html = "var config = {noResults:true, data: {}};"
+
+        # When: Call detect_no_results directly
+        is_no_results, no_results_type = parser.detect_no_results(html)
+
+        # Then: Should detect "no results"
+        assert is_no_results is True
+        assert no_results_type == "no_results"
+
+    def test_no_results_patterns_not_configured_returns_false(self) -> None:
+        """TC-N-06: Test that parsers without no_results_patterns return False.
+
+        // Given: DuckDuckGo parser (no no_results_patterns configured)
+        // When: detect_no_results called
+        // Then: Returns (False, None)
+        """
+        # Given: DuckDuckGo parser (no no_results_patterns)
+        parser = DuckDuckGoParser()
+
+        # Given: HTML that would match Brave's patterns
+        html = "var config = {noResults:true, data: {}};"
+
+        # When: Call detect_no_results
+        is_no_results, no_results_type = parser.detect_no_results(html)
+
+        # Then: Should not detect (patterns not configured for DDG)
+        assert is_no_results is False
+        assert no_results_type is None

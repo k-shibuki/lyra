@@ -116,13 +116,13 @@ class TestGetStatusIntegration:
             ):
                 result = await _handle_get_status({"task_id": task_id})
 
-        # Verify response structure
+        # Verify response structure (summary mode)
         assert result["ok"] is True
         assert result["task_id"] == task_id
         assert result["hypothesis"] == "integration test hypothesis"
         assert "metrics" in result
         assert "budget" in result
-        assert "searches" in result
+        assert "progress" in result  # summary mode has progress instead of searches
 
     @pytest.mark.asyncio
     async def test_get_status_without_exploration_returns_minimal(
@@ -155,8 +155,8 @@ class TestGetStatusIntegration:
 
         assert result["ok"] is True
         assert result["task_id"] == task_id
-        assert result["searches"] == []
-        assert result["metrics"]["total_searches"] == 0
+        assert result["progress"]["searches"]["total"] == 0  # summary mode
+        assert result["metrics"]["total_pages"] == 0
 
 
 @pytest.mark.integration

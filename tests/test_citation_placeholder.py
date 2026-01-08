@@ -22,7 +22,6 @@ Implements the plan for "Academic Citation Placeholder Auto-Fetch".
 | TC-PH-A-04 | insert returns None | Abnormal – DB behavior | Returns None (insert failed silently) | - |
 """
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -155,12 +154,9 @@ class TestCitationPlaceholderCreation:
             assert data["fetch_method"] == "citation_graph"
             assert data["url"] == "https://doi.org/10.1234/cited.paper.123"
             assert data["title"] == "Cited Paper Without Abstract"
-
-            # Verify paper_metadata contains expected fields
-            paper_metadata = json.loads(data["paper_metadata"])
-            assert paper_metadata["doi"] == "10.1234/cited.paper.123"
-            assert paper_metadata["year"] == 2020
-            assert paper_metadata["citation_count"] == 150
+            # canonical_id should be set (normalized storage)
+            assert "canonical_id" in data
+            assert data["canonical_id"].startswith("doi:")
 
     @pytest.mark.asyncio
     async def test_create_placeholder_no_doi_uses_oa_url(self, sample_paper_no_doi: Paper) -> None:
@@ -283,7 +279,7 @@ class TestCitationPlaceholderCreation:
 
         // Given: Paper with authors=[]
         // When: _create_citation_placeholder() is called
-        // Then: paper_metadata.authors = []
+        // Then: work_authors table has 0 entries for this canonical_id
         """
         # Given
         state = ExplorationState(task_id="test_task")
@@ -312,6 +308,7 @@ class TestCitationPlaceholderCreation:
             mock_get_db.return_value = mock_db
             mock_db.fetch_one = AsyncMock(return_value=None)
             mock_db.insert = AsyncMock(return_value="page_empty_authors")
+            mock_db.execute = AsyncMock()  # For persist_work calls
 
             # When
             page_id = await pipeline._create_citation_placeholder(
@@ -321,10 +318,11 @@ class TestCitationPlaceholderCreation:
 
             # Then
             assert page_id is not None
-            insert_call = mock_db.insert.call_args
-            data = insert_call[0][1]
-            paper_metadata = json.loads(data["paper_metadata"])
-            assert paper_metadata["authors"] == []
+            # Verify page insert was called with canonical_id
+            insert_calls = [c for c in mock_db.insert.call_args_list if c[0][0] == "pages"]
+            assert len(insert_calls) >= 1
+            data = insert_calls[0][0][1]
+            assert "canonical_id" in data
 
 
 # =============================================================================

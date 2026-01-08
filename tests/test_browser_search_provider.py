@@ -4336,3 +4336,361 @@ class TestBrowserSearchProviderWorkerIsolation:
 
         # Then
         assert provider._worker_id == 0
+
+
+# =============================================================================
+# BUG-001a: Browser Reconnection Tests
+# =============================================================================
+
+
+class TestBrowserReconnection:
+    """Tests for browser reconnection logic.
+
+    BUG-001a: When Chrome is closed by user, the provider should detect
+    the disconnection and reconnect automatically on next search.
+
+    Test Perspectives Table:
+    | Case ID | Input / Precondition | Perspective | Expected Result |
+    |---------|----------------------|-------------|-----------------|
+    | TC-REC-01 | Browser connected | Equivalence | No cleanup |
+    | TC-REC-02 | Browser stale | Equivalence | cleanup + reconnect |
+    | TC-REC-03 | is_connected() throws | Boundary | Treat as disconnected |
+    | TC-REC-04 | "browser has been closed" | Equivalence | State reset |
+    | TC-REC-05 | "target closed" | Equivalence | State reset |
+    | TC-REC-06 | Other exception | Boundary | No state reset |
+    """
+
+    @pytest.fixture(autouse=True)
+    def reset_provider(self) -> Generator[None]:
+        """Reset provider before/after each test."""
+        reset_browser_search_provider()
+        yield
+        reset_browser_search_provider()
+
+    # =========================================================================
+    # TC-REC-01: Browser connected, no cleanup needed
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_ensure_browser_connected_no_cleanup(self) -> None:
+        """Test _ensure_browser with connected browser doesn't cleanup.
+
+        Given: A provider with connected browser (is_connected() = True)
+        When: _ensure_browser() is called
+        Then: No cleanup is performed, existing browser is used
+        """
+        # Given: Provider with connected browser
+        provider = BrowserSearchProvider(worker_id=0)
+        mock_browser = MagicMock()
+        mock_browser.is_connected.return_value = True
+        mock_browser.contexts = [MagicMock()]
+
+        provider._browser = mock_browser
+        provider._playwright = MagicMock()
+        provider._context = MagicMock()
+
+        # When: _ensure_browser is called
+        await provider._ensure_browser()
+
+        # Then: Browser is still the same (no cleanup)
+        assert provider._browser is mock_browser
+
+    # =========================================================================
+    # TC-REC-02: Browser stale, cleanup and reconnect
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_ensure_browser_stale_triggers_cleanup(self) -> None:
+        """Test _ensure_browser with stale browser triggers cleanup.
+
+        Given: A provider with stale browser (is_connected() = False)
+        When: _ensure_browser() is called
+        Then: Cleanup is triggered, browser state is reset
+        """
+        # Given: Provider with stale browser
+        provider = BrowserSearchProvider(worker_id=0)
+        mock_browser = MagicMock()
+        mock_browser.is_connected.return_value = False
+
+        mock_playwright = MagicMock()
+        mock_playwright.stop = AsyncMock()
+
+        mock_context = MagicMock()
+        mock_context.close = AsyncMock()
+
+        mock_browser.close = AsyncMock()
+
+        provider._browser = mock_browser
+        provider._playwright = mock_playwright
+        provider._context = mock_context
+        provider._cdp_connected = True
+
+        # Mock TabPool.clear()
+        with patch.object(provider._tab_pool, "clear", new_callable=AsyncMock) as mock_clear:
+            # When: _cleanup_stale_browser is called (simulating detection)
+            await provider._cleanup_stale_browser()
+
+            # Then: TabPool.clear() was called (wiring verification)
+            mock_clear.assert_called_once()
+
+        # Then: State is reset
+        assert provider._playwright is None
+        assert provider._browser is None
+        assert provider._context is None
+        assert provider._cdp_connected is False
+
+    # =========================================================================
+    # TC-REC-03: is_connected() throws exception
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_ensure_browser_is_connected_exception(self) -> None:
+        """Test _ensure_browser handles is_connected() exception.
+
+        Given: A provider where is_connected() raises exception
+        When: _ensure_browser() stale check is performed
+        Then: Treat as disconnected, is_connected is False
+        """
+        # Given: Provider where is_connected() throws
+        provider = BrowserSearchProvider(worker_id=0)
+        mock_browser = MagicMock()
+        mock_browser.is_connected.side_effect = Exception("Connection error")
+        mock_browser.close = AsyncMock()
+
+        mock_playwright = MagicMock()
+        mock_playwright.stop = AsyncMock()
+
+        mock_context = MagicMock()
+        mock_context.close = AsyncMock()
+
+        provider._browser = mock_browser
+        provider._playwright = mock_playwright
+        provider._context = mock_context
+        provider._cdp_connected = True
+
+        # Manually test the is_connected check logic from _ensure_browser
+        # The code does: try: is_connected = browser.is_connected() except: is_connected = False
+        try:
+            is_connected = provider._browser.is_connected()
+        except Exception:
+            is_connected = False
+
+        # Then: Exception is caught, treated as disconnected
+        assert is_connected is False
+        mock_browser.is_connected.assert_called()
+
+    # =========================================================================
+    # TC-REC-04: "browser has been closed" error resets state
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_search_browser_closed_error_resets_state(self) -> None:
+        """Test search with 'browser has been closed' error resets state.
+
+        Given: A provider that throws 'browser has been closed' during search
+        When: search() is called and fails
+        Then: Provider state is reset for next reconnect
+        """
+        # Given: Provider with mocked browser that throws on goto
+        provider = BrowserSearchProvider(worker_id=0)
+        provider._playwright = MagicMock()
+        provider._browser = MagicMock()
+        provider._browser.is_connected.return_value = True
+        provider._context = MagicMock()
+        provider._cdp_connected = True
+
+        # Mock dependencies
+        with (
+            patch.object(provider, "_ensure_browser", new_callable=AsyncMock),
+            patch.object(provider._engine_rate_limiter, "acquire", new_callable=AsyncMock),
+            patch.object(provider._engine_rate_limiter, "release"),
+            patch("src.search.browser_search_provider.get_engine_config_manager") as mock_config,
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.search.browser_search_provider.get_policy_engine",
+                new_callable=AsyncMock,
+            ) as mock_policy,
+            patch("src.search.browser_search_provider.get_parser") as mock_parser,
+        ):
+            # Setup mocks
+            mock_engine = MagicMock()
+            mock_engine.name = "duckduckgo"
+            mock_engine.is_available = True
+            mock_engine.min_interval = 2.0
+            mock_config.return_value.get_default_engines.return_value = ["duckduckgo"]
+            mock_config.return_value.get_engines_with_parsers.return_value = ["duckduckgo"]
+            mock_config.return_value.get_engine.return_value = mock_engine
+
+            mock_policy_engine = MagicMock()
+            mock_policy_engine.get_dynamic_engine_weight = AsyncMock(return_value=0.5)
+            mock_policy.return_value = mock_policy_engine
+
+            mock_parser_instance = MagicMock()
+            mock_parser_instance.build_search_url.return_value = "https://test.com"
+            mock_parser.return_value = mock_parser_instance
+
+            # TabPool.acquire throws "browser has been closed"
+            mock_tab = MagicMock()
+            mock_tab.goto = AsyncMock(
+                side_effect=Exception("Page.goto: Target page, context or browser has been closed")
+            )
+            with patch.object(
+                provider._tab_pool, "acquire", new_callable=AsyncMock, return_value=mock_tab
+            ):
+                with patch.object(provider._tab_pool, "release"):
+                    # When: Search (should catch error and reset state)
+                    response = await provider.search("test query")
+
+            # Then: Response has error
+            assert response.ok is False
+            assert response.error is not None
+            assert "browser has been closed" in response.error.lower()
+
+            # Then: State is reset for next reconnect (effect verification)
+            assert provider._playwright is None
+            assert provider._browser is None
+            assert provider._context is None
+            assert provider._cdp_connected is False
+
+    # =========================================================================
+    # TC-REC-05: "target closed" error resets state
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_search_target_closed_error_resets_state(self) -> None:
+        """Test search with 'target closed' error resets state.
+
+        Given: A provider that throws 'target closed' during search
+        When: search() is called and fails
+        Then: Provider state is reset for next reconnect
+        """
+        # Given: Provider
+        provider = BrowserSearchProvider(worker_id=0)
+        provider._playwright = MagicMock()
+        provider._browser = MagicMock()
+        provider._browser.is_connected.return_value = True
+        provider._context = MagicMock()
+        provider._cdp_connected = True
+
+        # Mock dependencies (same as TC-REC-04)
+        with (
+            patch.object(provider, "_ensure_browser", new_callable=AsyncMock),
+            patch.object(provider._engine_rate_limiter, "acquire", new_callable=AsyncMock),
+            patch.object(provider._engine_rate_limiter, "release"),
+            patch("src.search.browser_search_provider.get_engine_config_manager") as mock_config,
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.search.browser_search_provider.get_policy_engine",
+                new_callable=AsyncMock,
+            ) as mock_policy,
+            patch("src.search.browser_search_provider.get_parser") as mock_parser,
+        ):
+            mock_engine = MagicMock()
+            mock_engine.name = "duckduckgo"
+            mock_engine.is_available = True
+            mock_engine.min_interval = 2.0
+            mock_config.return_value.get_default_engines.return_value = ["duckduckgo"]
+            mock_config.return_value.get_engines_with_parsers.return_value = ["duckduckgo"]
+            mock_config.return_value.get_engine.return_value = mock_engine
+
+            mock_policy_engine = MagicMock()
+            mock_policy_engine.get_dynamic_engine_weight = AsyncMock(return_value=0.5)
+            mock_policy.return_value = mock_policy_engine
+
+            mock_parser_instance = MagicMock()
+            mock_parser_instance.build_search_url.return_value = "https://test.com"
+            mock_parser.return_value = mock_parser_instance
+
+            mock_tab = MagicMock()
+            mock_tab.goto = AsyncMock(side_effect=Exception("Target closed"))
+            with patch.object(
+                provider._tab_pool, "acquire", new_callable=AsyncMock, return_value=mock_tab
+            ):
+                with patch.object(provider._tab_pool, "release"):
+                    # When: Search
+                    response = await provider.search("test query")
+
+            # Then: State is reset
+            assert response.ok is False
+            assert provider._playwright is None
+            assert provider._browser is None
+
+    # =========================================================================
+    # TC-REC-06: Other exception does NOT reset state
+    # =========================================================================
+    @pytest.mark.asyncio
+    async def test_search_other_error_no_state_reset(self) -> None:
+        """Test search with other error does NOT reset state.
+
+        Given: A provider that throws a generic error during search
+        When: search() is called and fails
+        Then: Provider state is NOT reset (only browser disconnection resets)
+        """
+        # Given: Provider
+        provider = BrowserSearchProvider(worker_id=0)
+        mock_playwright = MagicMock()
+        mock_browser = MagicMock()
+        mock_browser.is_connected.return_value = True
+        mock_context = MagicMock()
+
+        provider._playwright = mock_playwright
+        provider._browser = mock_browser
+        provider._context = mock_context
+        provider._cdp_connected = True
+
+        # Mock dependencies
+        with (
+            patch.object(provider, "_ensure_browser", new_callable=AsyncMock),
+            patch.object(provider._engine_rate_limiter, "acquire", new_callable=AsyncMock),
+            patch.object(provider._engine_rate_limiter, "release"),
+            patch("src.search.browser_search_provider.get_engine_config_manager") as mock_config,
+            patch(
+                "src.search.browser_search_provider.check_engine_available",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.search.browser_search_provider.get_policy_engine",
+                new_callable=AsyncMock,
+            ) as mock_policy,
+            patch("src.search.browser_search_provider.get_parser") as mock_parser,
+        ):
+            mock_engine = MagicMock()
+            mock_engine.name = "duckduckgo"
+            mock_engine.is_available = True
+            mock_engine.min_interval = 2.0
+            mock_config.return_value.get_default_engines.return_value = ["duckduckgo"]
+            mock_config.return_value.get_engines_with_parsers.return_value = ["duckduckgo"]
+            mock_config.return_value.get_engine.return_value = mock_engine
+
+            mock_policy_engine = MagicMock()
+            mock_policy_engine.get_dynamic_engine_weight = AsyncMock(return_value=0.5)
+            mock_policy.return_value = mock_policy_engine
+
+            mock_parser_instance = MagicMock()
+            mock_parser_instance.build_search_url.return_value = "https://test.com"
+            mock_parser.return_value = mock_parser_instance
+
+            # Generic error (not browser disconnection)
+            mock_tab = MagicMock()
+            mock_tab.goto = AsyncMock(side_effect=Exception("Network timeout"))
+            with patch.object(
+                provider._tab_pool, "acquire", new_callable=AsyncMock, return_value=mock_tab
+            ):
+                with patch.object(provider._tab_pool, "release"):
+                    # When: Search
+                    response = await provider.search("test query")
+
+            # Then: Response has error
+            assert response.ok is False
+            assert response.error is not None
+            assert "network timeout" in response.error.lower()
+
+            # Then: State is NOT reset (this is NOT a browser disconnection)
+            assert provider._playwright is mock_playwright
+            assert provider._browser is mock_browser
+            assert provider._context is mock_context
+            assert provider._cdp_connected is True

@@ -490,17 +490,19 @@ class TestGetStatusQueueField:
                 ),
             )
 
+        # Use detail="full" to get queue_items
         result = await _handle_get_status(
             {
                 "task_id": "task_qs01",
+                "detail": "full",
             }
         )
 
         assert result["ok"] is True
-        assert "queue" in result
-        assert result["queue"]["depth"] == 3
-        assert result["queue"]["running"] == 0
-        assert len(result["queue"]["items"]) == 3
+        # Summary mode has progress.queue, full mode has queue_items
+        assert result["progress"]["queue"]["depth"] == 3
+        assert result["progress"]["queue"]["running"] == 0
+        assert len(result["queue_items"]) == 3
 
     @pytest.mark.asyncio
     async def test_get_status_wait_zero_returns_immediately(self, test_database: Database) -> None:

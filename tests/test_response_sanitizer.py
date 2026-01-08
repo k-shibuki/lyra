@@ -99,7 +99,7 @@ class TestNormalCases:
 
     def test_get_status_response_passes_through(self, sanitizer: ResponseSanitizer) -> None:
         """
-        TC-N-02: Valid get_status response
+        TC-N-02: Valid get_status response (new summary mode structure)
 
         // Given: A valid get_status response
         // When: Sanitizing the response
@@ -110,34 +110,33 @@ class TestNormalCases:
             "task_id": "task_abc123",
             "status": "exploring",
             "hypothesis": "What is Python?",
-            "searches": [
-                {
-                    "id": "search_1",
-                    "query": "python programming",
-                    "status": "satisfied",
-                    "pages_fetched": 10,
-                    "useful_fragments": 5,
-                    "harvest_rate": 0.5,
-                    "satisfaction_score": 0.8,
-                    "has_primary_source": True,
-                }
-            ],
+            "progress": {
+                "searches": {"satisfied": 1, "running": 0, "total": 1},
+                "queue": {"depth": 0, "running": 0},
+                "jobs_by_phase": {
+                    "exploration": {"queued": 0, "running": 0, "completed": 1, "failed": 0},
+                    "verification": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                    "citation": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                },
+            },
             "metrics": {
-                "total_searches": 1,
-                "satisfied_count": 1,
+                "total_claims": 3,
                 "total_pages": 10,
                 "total_fragments": 5,
-                "total_claims": 3,
                 "elapsed_seconds": 30.5,
             },
             "budget": {
-                "budget_pages_used": 10,
-                "budget_pages_limit": 120,
-                "time_used_seconds": 30.5,
-                "time_limit_seconds": 1200,
+                "pages_used": 10,
+                "pages_limit": 120,
                 "remaining_percent": 92,
             },
-            "auth_queue": None,
+            "milestones": {
+                "target_queue_drained": True,
+                "nli_verification_done": True,
+                "citation_chase_ready": False,
+            },
+            "waiting_for": [],
+            "pending_auth_count": 0,
             "warnings": [],
         }
 
@@ -146,7 +145,7 @@ class TestNormalCases:
         assert result.sanitized_response["ok"] is True
         assert result.sanitized_response["task_id"] == "task_abc123"
         assert result.sanitized_response["status"] == "exploring"
-        assert len(result.sanitized_response["searches"]) == 1
+        assert result.sanitized_response["progress"]["searches"]["total"] == 1
 
     def test_query_sql_response(self, sanitizer: ResponseSanitizer) -> None:
         """
@@ -409,7 +408,7 @@ class TestAbnormalCases:
 
     def test_null_field_value_preserved(self, sanitizer: ResponseSanitizer) -> None:
         """
-        TC-A-08: Field with NULL value
+        TC-A-08: Field with NULL value (full mode with pending_auth_detail)
 
         // Given: A response with None/null field value
         // When: Sanitizing the response
@@ -420,29 +419,49 @@ class TestAbnormalCases:
             "task_id": "task_abc123",
             "status": "exploring",
             "hypothesis": "test",
-            "searches": [],
+            "progress": {
+                "searches": {"satisfied": 0, "running": 0, "total": 0},
+                "queue": {"depth": 0, "running": 0},
+                "jobs_by_phase": {
+                    "exploration": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                    "verification": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                    "citation": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                },
+            },
             "metrics": {
-                "total_searches": 0,
-                "satisfied_count": 0,
+                "total_claims": 0,
                 "total_pages": 0,
                 "total_fragments": 0,
-                "total_claims": 0,
                 "elapsed_seconds": 0,
             },
             "budget": {
-                "budget_pages_used": 0,
-                "budget_pages_limit": 120,
-                "time_used_seconds": 0,
-                "time_limit_seconds": 1200,
+                "pages_used": 0,
+                "pages_limit": 120,
                 "remaining_percent": 100,
             },
-            "auth_queue": None,  # NULL value
+            "milestones": {
+                "target_queue_drained": True,
+                "nli_verification_done": False,
+                "citation_chase_ready": False,
+            },
+            "waiting_for": [
+                {
+                    "kind": "verify_nli",
+                    "status": "not_enqueued",
+                    "queued": 0,
+                    "running": 0,
+                    "completed": 0,
+                }
+            ],
+            "pending_auth_count": 0,
             "warnings": [],
+            # Full mode field with NULL value
+            "pending_auth_detail": None,
         }
 
         result = sanitizer.sanitize_response(response, "get_status")
 
-        assert result.sanitized_response["auth_queue"] is None
+        assert result.sanitized_response["pending_auth_detail"] is None
 
 
 # ============================================================================
@@ -481,13 +500,13 @@ class TestBoundaryCases:
 
     def test_large_array_processed(self, sanitizer: ResponseSanitizer) -> None:
         """
-        TC-B-02: Large array (100 elements)
+        TC-B-02: Large array (100 elements in searches_detail, full mode)
 
         // Given: A response with 100 search items
         // When: Sanitizing the response
         // Then: All elements are processed
         """
-        searches = [
+        searches_detail = [
             {
                 "id": f"search_{i}",
                 "query": f"query {i}",
@@ -506,29 +525,41 @@ class TestBoundaryCases:
             "task_id": "task_abc123",
             "status": "exploring",
             "hypothesis": "test",
-            "searches": searches,
+            "progress": {
+                "searches": {"satisfied": 100, "running": 0, "total": 100},
+                "queue": {"depth": 0, "running": 0},
+                "jobs_by_phase": {
+                    "exploration": {"queued": 0, "running": 0, "completed": 100, "failed": 0},
+                    "verification": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                    "citation": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                },
+            },
             "metrics": {
-                "total_searches": 100,
-                "satisfied_count": 100,
+                "total_claims": 30,
                 "total_pages": 100,
                 "total_fragments": 50,
-                "total_claims": 30,
                 "elapsed_seconds": 300,
             },
             "budget": {
-                "budget_pages_used": 100,
-                "budget_pages_limit": 120,
-                "time_used_seconds": 300,
-                "time_limit_seconds": 1200,
+                "pages_used": 100,
+                "pages_limit": 120,
                 "remaining_percent": 17,
             },
-            "auth_queue": None,
+            "milestones": {
+                "target_queue_drained": True,
+                "nli_verification_done": True,
+                "citation_chase_ready": True,
+            },
+            "waiting_for": [],
+            "pending_auth_count": 0,
             "warnings": [],
+            # Full mode field
+            "searches_detail": searches_detail,
         }
 
         result = sanitizer.sanitize_response(response, "get_status")
 
-        assert len(result.sanitized_response["searches"]) == 100
+        assert len(result.sanitized_response["searches_detail"]) == 100
 
     def test_long_text_processed(self, sanitizer: ResponseSanitizer) -> None:
         """
@@ -767,7 +798,7 @@ class TestSecurityCases:
 
     def test_nested_unknown_fields_all_removed(self, sanitizer: ResponseSanitizer) -> None:
         """
-        Test that deeply nested unknown fields are removed.
+        Test that deeply nested unknown fields are removed (full mode with searches_detail).
 
         // Given: Response with deeply nested unknown fields
         // When: Sanitizing
@@ -778,7 +809,36 @@ class TestSecurityCases:
             "task_id": "task_abc",
             "status": "exploring",
             "hypothesis": "test",
-            "searches": [
+            "progress": {
+                "searches": {"satisfied": 1, "running": 0, "total": 1},
+                "queue": {"depth": 0, "running": 0},
+                "jobs_by_phase": {
+                    "exploration": {"queued": 0, "running": 0, "completed": 1, "failed": 0},
+                    "verification": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                    "citation": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                },
+            },
+            "metrics": {
+                "total_claims": 1,
+                "total_pages": 1,
+                "total_fragments": 1,
+                "elapsed_seconds": 10,
+            },
+            "budget": {
+                "pages_used": 1,
+                "pages_limit": 120,
+                "remaining_percent": 99,
+            },
+            "milestones": {
+                "target_queue_drained": True,
+                "nli_verification_done": True,
+                "citation_chase_ready": True,
+            },
+            "waiting_for": [],
+            "pending_auth_count": 0,
+            "warnings": [],
+            # Full mode field with unknown nested field
+            "searches_detail": [
                 {
                     "id": "s1",
                     "query": "q1",
@@ -792,47 +852,59 @@ class TestSecurityCases:
                     "internal_data": {"secret": "hidden"},
                 },
             ],
-            "metrics": {
-                "total_searches": 1,
-                "satisfied_count": 1,
-                "total_pages": 1,
-                "total_fragments": 1,
-                "total_claims": 1,
-                "elapsed_seconds": 10,
-            },
-            "budget": {
-                "budget_pages_used": 1,
-                "budget_pages_limit": 120,
-                "time_used_seconds": 10,
-                "time_limit_seconds": 1200,
-                "remaining_percent": 99,
-            },
-            "auth_queue": None,
-            "warnings": [],
         }
 
         result = sanitizer.sanitize_response(response, "get_status")
 
         # Unknown nested field should be removed
-        assert "internal_data" not in result.sanitized_response["searches"][0]
+        assert "internal_data" not in result.sanitized_response["searches_detail"][0]
 
     def test_nested_query_field_sanitized(self, sanitizer_with_prompt: ResponseSanitizer) -> None:
         """
-        TC-S-01: Nested query fields in searches array are sanitized.
+        TC-S-01: Nested query fields in searches_detail array are sanitized.
 
         // Given: A response with query fields containing prompt fragments
         // When: Sanitizing the response
         // Then: Query fields are processed through L4 validation
 
         This test verifies the fix for the regression where LLM_NESTED_PATHS
-        processing was removed, causing searches[*].query to skip sanitization.
+        processing was removed, causing searches_detail[*].query to skip sanitization.
         """
         response = {
             "ok": True,
             "task_id": "task_abc",
             "status": "exploring",
             "hypothesis": "main hypothesis",
-            "searches": [
+            "progress": {
+                "searches": {"satisfied": 1, "running": 0, "total": 1},
+                "queue": {"depth": 0, "running": 0},
+                "jobs_by_phase": {
+                    "exploration": {"queued": 0, "running": 0, "completed": 1, "failed": 0},
+                    "verification": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                    "citation": {"queued": 0, "running": 0, "completed": 0, "failed": 0},
+                },
+            },
+            "metrics": {
+                "total_claims": 2,
+                "total_pages": 5,
+                "total_fragments": 3,
+                "elapsed_seconds": 30,
+            },
+            "budget": {
+                "pages_used": 5,
+                "pages_limit": 120,
+                "remaining_percent": 96,
+            },
+            "milestones": {
+                "target_queue_drained": True,
+                "nli_verification_done": True,
+                "citation_chase_ready": True,
+            },
+            "waiting_for": [],
+            "pending_auth_count": 0,
+            "warnings": [],
+            # Full mode field
+            "searches_detail": [
                 {
                     "id": "s1",
                     # Query containing part of system prompt (should trigger detection)
@@ -845,23 +917,6 @@ class TestSecurityCases:
                     "has_primary_source": True,
                 },
             ],
-            "metrics": {
-                "total_searches": 1,
-                "satisfied_count": 1,
-                "total_pages": 5,
-                "total_fragments": 3,
-                "total_claims": 2,
-                "elapsed_seconds": 30,
-            },
-            "budget": {
-                "budget_pages_used": 5,
-                "budget_pages_limit": 120,
-                "time_used_seconds": 30,
-                "time_limit_seconds": 1200,
-                "remaining_percent": 96,
-            },
-            "auth_queue": None,
-            "warnings": [],
         }
 
         result = sanitizer_with_prompt.sanitize_response(response, "get_status")

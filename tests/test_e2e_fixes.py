@@ -497,7 +497,20 @@ class TestPipelineEmbeddingPersistence:
             mock_db = AsyncMock()
             mock_db.claim_resource = AsyncMock(return_value=(True, None))
             mock_db.insert = AsyncMock()
+            mock_db.execute = AsyncMock()  # For persist_work calls
             mock_db.complete_resource = AsyncMock()
+
+            # Different responses for different fetch_one queries
+            async def fetch_one_side_effect(
+                query: str, params: tuple[object, ...] | None = None
+            ) -> dict[str, object] | None:
+                if "COUNT(*)" in query:
+                    return {"cnt": 0}  # No existing authors
+                if "FROM pages" in query:
+                    return None  # No existing page
+                return None
+
+            mock_db.fetch_one = AsyncMock(side_effect=fetch_one_side_effect)
             mock_get_db.return_value = mock_db
 
             # Mock _extract_claims_from_abstract to do nothing
@@ -588,7 +601,20 @@ class TestPipelineEmbeddingPersistence:
             mock_db = AsyncMock()
             mock_db.claim_resource = AsyncMock(return_value=(True, None))
             mock_db.insert = AsyncMock()
+            mock_db.execute = AsyncMock()  # For persist_work calls
             mock_db.complete_resource = AsyncMock()
+
+            # Different responses for different fetch_one queries
+            async def fetch_one_side_effect(
+                query: str, params: tuple[object, ...] | None = None
+            ) -> dict[str, object] | None:
+                if "COUNT(*)" in query:
+                    return {"cnt": 0}  # No existing authors
+                if "FROM pages" in query:
+                    return None  # No existing page
+                return None
+
+            mock_db.fetch_one = AsyncMock(side_effect=fetch_one_side_effect)
             mock_get_db.return_value = mock_db
 
             pipeline._extract_claims_from_abstract = AsyncMock(return_value=[])  # type: ignore[method-assign]
