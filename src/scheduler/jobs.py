@@ -494,7 +494,7 @@ class JobScheduler:
         try:
             input_data = json.loads(input_json) if input_json else {}
         except (json.JSONDecodeError, TypeError):
-            # Fallback for legacy str(dict) format
+            # Fallback: parse Python dict literal (e.g., "{'key': 'value'}")
             try:
                 input_data = eval(input_json) if input_json else {}  # noqa: S307
             except Exception:

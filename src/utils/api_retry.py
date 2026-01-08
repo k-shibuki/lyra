@@ -1,13 +1,13 @@
 """
 Retry utilities for official public APIs (ADR-0008, ADR-0006).
 
-IMPORTANT: This module is ONLY for APIs listed in ADR-0008/ADR-0008:
-- e-Stat API, 法令API（e-Gov）, 国会会議録API, gBizINFO API, EDINET API
+IMPORTANT: This module is ONLY for APIs listed in ADR-0008:
+- Japanese government APIs: e-Stat, e-Gov (laws), Diet minutes, gBizINFO, EDINET
 - OpenAlex API, Semantic Scholar API (ADR-0008: two-pillar strategy)
 - Wikidata API, DBpedia SPARQL
 
-Per ADR-0008: "これらは公式APIであり、検索エンジンのようなbot検知問題はない"
-Per ADR-0006: "ネットワーク/APIリトライ（トランジェントエラー向け）"
+Per ADR-0008: These are official APIs with no bot detection issues unlike search engines.
+Per ADR-0006: Network/API retry for transient errors.
 
 DO NOT use for:
 - Search engines (use escalation path in fetcher.py per ADR-0006)
@@ -78,7 +78,7 @@ class APIRetryPolicy:
     - Have no bot detection mechanisms
     - Use explicit rate limiting (429) handled with backoff
 
-    Per ADR-0006: "検索エンジン/ブラウザ取得では使用禁止"
+    Per ADR-0006: DO NOT use for search engines or browser fetching.
 
     Attributes:
         max_retries: Maximum retry attempts (default: 3 per )
@@ -174,7 +174,7 @@ async def retry_api_call[T](
 ) -> T:
     """Execute async function with retry logic for public APIs.
 
-    Per ADR-0006: This function implements "ネットワーク/APIリトライ"
+    Per ADR-0006: This function implements network/API retry logic
     for official public APIs listed in ADR-0008.
 
     The function will retry on:

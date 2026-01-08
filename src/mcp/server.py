@@ -186,14 +186,15 @@ MILESTONES (AI decision flags):
 METRICS TO MONITOR:
 - searches[].satisfaction_score: 0.0-1.0, source coverage metric
     Formula: min(1.0, (independent_sources / 3) * 0.7 + (has_primary_source ? 0.3 : 0))
-    >= 0.8 means "satisfied" (sufficient independent sources + primary source found)
+    >= 0.8 means "satisfied" (sufficient independent sources + authoritative source found)
+    Note: "primary_source" = authoritative domains (gov/academic/official)
 - searches[].harvest_rate: Useful fragments per page fetched (can exceed 1.0)
 - metrics.total_claims: Growing count indicates productive exploration
 - budget.remaining_percent: Stop or adjust strategy when low
 
 DECISION POINTS:
 - If milestones.citation_candidates_stable: Safe to query v_reference_candidates for Citation Chasing
-- If satisfaction_score < 0.5: Query needs more diverse sources or primary source
+- If satisfaction_score < 0.5: Query needs more diverse sources or authoritative source
 - If harvest_rate low: Try different query angles or sources
 - If pending_auth_count > 0: User needs to solve CAPTCHAs (use get_auth_queue)""",
         inputSchema={
@@ -772,7 +773,6 @@ AVAILABLE VIEWS:
 - v_contradictions: Claims with conflicting evidence
 - v_unsupported_claims: Claims without support
 - v_evidence_chain: Full evidence chain to sources
-- v_hub_pages: High-connectivity citation hubs
 - v_citation_flow: Citation relationships
 - v_evidence_timeline: Evidence by publication year
 - v_emerging_consensus: Claims gaining recent support

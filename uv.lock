@@ -185,15 +185,6 @@ wheels = [
 ]
 
 [[package]]
-name = "boilerpy3"
-version = "1.0.7"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a9/78/2ff130662bc53491a5c517673dfe4e5999a44bc46bf372f24a5a71a0e8ca/boilerpy3-1.0.7.tar.gz", hash = "sha256:a9fede212f80a36dbc7d4f93e35d8636911cb6b37085a3230557d16ad0f076c8", size = 22243, upload-time = "2023-11-01T22:55:59.667Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/b1/e376edbdc1f1755fdb6cb1f6173b2a7afa8a6d766f7d10e34e7db0c18510/boilerpy3-1.0.7-py3-none-any.whl", hash = "sha256:fbfba91745606965400204d26852283ddf90235ab30afe9904de20051556a523", size = 22963, upload-time = "2023-11-01T22:55:58.254Z" },
-]
-
-[[package]]
 name = "certifi"
 version = "2025.11.12"
 source = { registry = "https://pypi.org/simple" }
@@ -966,13 +957,11 @@ dev = [
     { name = "types-pyyaml" },
 ]
 extraction = [
-    { name = "boilerpy3" },
     { name = "justext" },
 ]
 full = [
     { name = "beautifulsoup4" },
     { name = "black" },
-    { name = "boilerpy3" },
     { name = "check-jsonschema" },
     { name = "curl-cffi" },
     { name = "datasketch" },
@@ -1060,7 +1049,6 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0" },
     { name = "beautifulsoup4", marker = "extra == 'mcp'", specifier = ">=4.12.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.11.0" },
-    { name = "boilerpy3", marker = "extra == 'extraction'", specifier = ">=1.0.6" },
     { name = "check-jsonschema", marker = "extra == 'dev'", specifier = ">=0.36.0" },
     { name = "curl-cffi", marker = "extra == 'mcp'", specifier = ">=0.6.0" },
     { name = "datasketch", marker = "extra == 'mcp'", specifier = ">=1.6.0" },

@@ -4,25 +4,72 @@ This document provides multiple views into Lyra's architecture decisions.
 
 ## Overview
 
-| ADR | Title |
-|-----|-------|
-| [0001](0001-local-first-zero-opex.md) | Local-First / Zero OpEx |
-| [0002](0002-three-layer-collaboration-model.md) | Three-Layer Collaboration Model |
-| [0003](0003-mcp-over-cli-rest.md) | MCP over CLI/REST |
-| [0004](0004-local-llm-extraction-only.md) | Local LLM for Extraction Only |
-| [0005](0005-evidence-graph-structure.md) | Evidence Graph Structure |
-| [0006](0006-eight-layer-security-model.md) | 8-Layer Security Model |
-| [0007](0007-human-in-the-loop-auth.md) | Human-in-the-Loop Authentication |
-| [0008](0008-academic-data-source-strategy.md) | Academic Data Source Strategy |
-| [0009](0009-test-layer-strategy.md) | Test Layer Strategy |
-| [0010](0010-async-search-queue.md) | Async Search Queue Architecture |
-| [0011](0011-lora-fine-tuning.md) | LoRA Fine-tuning Strategy |
-| [0012](0012-feedback-tool-design.md) | Feedback Tool Design |
-| [0013](0013-worker-resource-contention.md) | Worker Resource Contention |
-| [0014](0014-browser-serp-resource-control.md) | Browser SERP Resource Control |
-| [0015](0015-unified-search-sources.md) | Unified Search Sources |
-| [0016](0016-ranking-simplification.md) | Ranking Simplification |
-| [0017](0017-task-hypothesis-first.md) | Task Hypothesis-First Architecture |
+- [ADR-0001](0001-local-first-zero-opex.md): Local-First / Zero OpEx
+- [ADR-0002](0002-three-layer-collaboration-model.md): Three-Layer Collaboration Model
+- [ADR-0003](0003-mcp-over-cli-rest.md): MCP over CLI/REST
+- [ADR-0004](0004-local-llm-extraction-only.md): Local LLM for Extraction Only
+- [ADR-0005](0005-evidence-graph-structure.md): Evidence Graph Structure
+- [ADR-0006](0006-eight-layer-security-model.md): 8-Layer Security Model
+- [ADR-0007](0007-human-in-the-loop-auth.md): Human-in-the-Loop Authentication
+- [ADR-0008](0008-academic-data-source-strategy.md): Academic Data Source Strategy
+- [ADR-0009](0009-test-layer-strategy.md): Test Layer Strategy
+- [ADR-0010](0010-async-search-queue.md): Async Search Queue Architecture
+- [ADR-0011](0011-lora-fine-tuning.md): LoRA Fine-tuning Strategy
+- [ADR-0012](0012-feedback-tool-design.md): Feedback Tool Design
+- [ADR-0013](0013-worker-resource-contention.md): Worker Resource Contention
+- [ADR-0014](0014-browser-serp-resource-control.md): Browser SERP Resource Control
+- [ADR-0015](0015-unified-search-sources.md): Unified Search Sources
+- [ADR-0016](0016-ranking-simplification.md): Ranking Simplification
+- [ADR-0017](0017-task-hypothesis-first.md): Task Hypothesis-First Architecture
+
+---
+
+## Reading Order for New Contributors
+
+1. **Start here**: [ADR-0001](0001-local-first-zero-opex.md) — Understand the "why"
+2. **Core model**: [ADR-0002](0002-three-layer-collaboration-model.md) — Three-layer collaboration and Search Phases
+3. **Data structure**: [ADR-0005](0005-evidence-graph-structure.md) — Evidence graph basics
+4. **Security**: [ADR-0006](0006-eight-layer-security-model.md) — Why containers are isolated
+5. **Search flow**: [ADR-0010](0010-async-search-queue.md) + [ADR-0015](0015-unified-search-sources.md) — How searches work
+
+---
+
+## By Category
+
+**Foundation** — Core principles
+- [ADR-0001](0001-local-first-zero-opex.md): All ML runs locally; navigation tool, not answer generator
+- [ADR-0002](0002-three-layer-collaboration-model.md): Human=Thinking, AI=Reasoning, Lyra=Working
+
+**Protocol** — AI client integration
+- [ADR-0003](0003-mcp-over-cli-rest.md): MCP protocol over stdio; no custom REST API
+
+**Machine Learning** — Local inference
+- [ADR-0004](0004-local-llm-extraction-only.md): qwen2.5:3b for extraction; DeBERTa for NLI
+- [ADR-0011](0011-lora-fine-tuning.md): Domain adaptation from accumulated corrections
+
+**Data & Evidence** — Evidence graph
+- [ADR-0005](0005-evidence-graph-structure.md): Claim-Fragment-Page; Bayesian confidence; NLI edges
+- [ADR-0016](0016-ranking-simplification.md): SQL views replace complex ranking
+- [ADR-0017](0017-task-hypothesis-first.md): Each task has central hypothesis
+
+**Search & Sources** — Discovery
+- [ADR-0008](0008-academic-data-source-strategy.md): S2 + OpenAlex two-pillar approach
+- [ADR-0010](0010-async-search-queue.md): Background job queue; immediate return
+- [ADR-0015](0015-unified-search-sources.md): Parallel Browser SERP + Academic API
+
+**Security** — Defense-in-depth
+- [ADR-0006](0006-eight-layer-security-model.md): Network isolation; no exfiltration path
+- [ADR-0007](0007-human-in-the-loop-auth.md): CAPTCHA/login solved by human
+
+**Resource Management** — Performance
+- [ADR-0013](0013-worker-resource-contention.md): Global rate limiter for Academic APIs
+- [ADR-0014](0014-browser-serp-resource-control.md): TabPool limits concurrent browser tabs
+
+**Feedback** — Model improvement
+- [ADR-0012](0012-feedback-tool-design.md): 3-level corrections: domain/claim/edge
+
+**Process** — Development practices
+- [ADR-0009](0009-test-layer-strategy.md): L1 (unit), L2 (integration), L3 (E2E)
 
 ---
 
@@ -84,87 +131,3 @@ ADR-0001: Local-First / Zero OpEx
 ```
 
 ---
-
-## By Category
-
-### Foundation
-Core principles that shape all other decisions.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0001](0001-local-first-zero-opex.md) | Local-First / Zero OpEx | All ML runs locally; navigation tool, not answer generator |
-| [0002](0002-three-layer-collaboration-model.md) | Three-Layer Collaboration | Human=Thinking, AI=Reasoning, Lyra=Working; Search Phases (P1/P2/P3) |
-
-### Protocol & Integration
-How Lyra communicates with AI clients.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0003](0003-mcp-over-cli-rest.md) | MCP over CLI/REST | MCP protocol over stdio; no custom REST API |
-
-### Machine Learning
-Local inference and model improvement.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0004](0004-local-llm-extraction-only.md) | Local LLM Extraction Only | qwen2.5:3b for extraction; DeBERTa for NLI; no reasoning |
-| [0011](0011-lora-fine-tuning.md) | LoRA Fine-tuning | Domain adaptation from accumulated corrections |
-
-### Data & Evidence
-Evidence graph structure and exploration.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0005](0005-evidence-graph-structure.md) | Evidence Graph Structure | Claim-Fragment-Page; Bayesian confidence; NLI edges |
-| [0016](0016-ranking-simplification.md) | Ranking Simplification | SQL views replace complex ranking; MCP client drives exploration |
-| [0017](0017-task-hypothesis-first.md) | Task Hypothesis-First | Each task has central hypothesis; guides extraction |
-
-### Search & Sources
-How Lyra discovers and retrieves sources.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0008](0008-academic-data-source-strategy.md) | Academic Data Source | S2 (references) + OpenAlex (free metadata) |
-| [0010](0010-async-search-queue.md) | Async Search Queue | Background job queue; immediate return |
-| [0015](0015-unified-search-sources.md) | Unified Search Sources | Parallel Browser SERP + Academic API; ID extraction |
-
-### Security
-Defense-in-depth and authentication.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0006](0006-eight-layer-security-model.md) | 8-Layer Security | Network isolation; no exfiltration path for injected prompts |
-| [0007](0007-human-in-the-loop-auth.md) | Human-in-the-Loop Auth | CAPTCHA/login solved by human; auth queue |
-
-### Resource Management
-Performance and resource control.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0013](0013-worker-resource-contention.md) | Worker Resource Contention | Global rate limiter for Academic APIs |
-| [0014](0014-browser-serp-resource-control.md) | Browser SERP Resource | TabPool limits concurrent browser tabs |
-
-### Quality & Feedback
-Human corrections and model improvement.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0012](0012-feedback-tool-design.md) | Feedback Tool Design | 3-level corrections: domain/claim/edge |
-
-### Process
-Development and testing practices.
-
-| ADR | Title | Key Decision |
-|-----|-------|--------------|
-| [0009](0009-test-layer-strategy.md) | Test Layer Strategy | L1 (unit), L2 (integration), L3 (E2E) |
-
----
-
-## Reading Order for New Contributors
-
-1. **Start here**: [ADR-0001](0001-local-first-zero-opex.md) — Understand the "why"
-2. **Core model**: [ADR-0002](0002-three-layer-collaboration-model.md) — Three-layer collaboration and Search Phases
-3. **Data structure**: [ADR-0005](0005-evidence-graph-structure.md) — Evidence graph basics
-4. **Security**: [ADR-0006](0006-eight-layer-security-model.md) — Why containers are isolated
-5. **Search flow**: [ADR-0010](0010-async-search-queue.md) + [ADR-0015](0015-unified-search-sources.md) — How searches work
-

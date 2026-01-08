@@ -92,58 +92,6 @@ class ExtractedClaim(BaseModel):
         return max(0.0, min(1.0, float(v)))
 
 
-class DensityClaim(BaseModel):
-    """Schema for claims in densify/initial_summary output."""
-
-    text: str = Field(..., min_length=1, description="Claim text")
-    source_indices: list[int] = Field(
-        default_factory=list,
-        description="Indices of source documents",
-    )
-    claim_type: str = Field(
-        default="factual",
-        description="Type: factual, causal, comparative, temporal, quantitative",
-    )
-    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
-
-    @field_validator("claim_type")
-    @classmethod
-    def validate_claim_type(cls, v: str) -> str:
-        """Normalize claim type."""
-        allowed = {"factual", "causal", "comparative", "temporal", "quantitative"}
-        v_lower = v.lower().strip()
-        if v_lower in allowed:
-            return v_lower
-        return "factual"
-
-
-class DensityMetrics(BaseModel):
-    """Schema for density metrics in densify output."""
-
-    entities_added: int = Field(default=0, ge=0)
-    entities_total: int = Field(default=0, ge=0)
-    compression_ratio: float = Field(default=1.0, ge=0.0)
-
-
-class DenseSummaryOutput(BaseModel):
-    """Schema for densify.j2 output."""
-
-    summary: str = Field(..., min_length=1, description="Densified summary text")
-    entities: list[str] = Field(default_factory=list)
-    claims: list[DensityClaim] = Field(default_factory=list)
-    density_metrics: DensityMetrics | None = None
-    conflicts: list[str] = Field(default_factory=list)
-
-
-class InitialSummaryOutput(BaseModel):
-    """Schema for initial_summary.j2 output."""
-
-    summary: str = Field(..., min_length=1, description="Initial summary text")
-    entities: list[str] = Field(default_factory=list)
-    claims: list[DensityClaim] = Field(default_factory=list)
-    conflicts: list[str] = Field(default_factory=list)
-
-
 class QualityAssessmentOutput(BaseModel):
     """Schema for quality_assessment.j2 output."""
 

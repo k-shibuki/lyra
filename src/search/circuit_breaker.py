@@ -24,7 +24,7 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Re-export legacy symbols for convenience
+# Public API exports
 __all__ = [
     "CircuitState",
     "EngineCircuitBreaker",

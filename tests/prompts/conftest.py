@@ -69,14 +69,6 @@ def sample_inputs() -> dict[str, dict]:
             "source_abstract": "This study examines the pharmacokinetics of drug X...",
             "target_abstract": "A meta-analysis of blood pressure treatments...",
         },
-        "densify": {
-            "current_summary": "Initial summary of the research findings.",
-            "original_content": "Full original content with detailed information.",
-            "missing_entities": "Entity1, Entity2, Entity3",
-        },
-        "initial_summary": {
-            "content": "Research content to be summarized for evidence graph.",
-        },
         "quality_assessment": {
             "text": "Sample web content to assess for quality and credibility.",
         },
@@ -90,7 +82,5 @@ def json_output_templates() -> list[str]:
         "extract_facts",
         "extract_claims",
         "decompose",
-        "densify",
-        "initial_summary",
         "quality_assessment",
     ]

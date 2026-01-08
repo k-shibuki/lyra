@@ -63,7 +63,6 @@ class TestTemplateSyntax:
         # Given: Templates known to have optional parameters
         optional_param_templates = {
             "summarize": {"text": "Test text"},  # max_words is optional
-            "initial_summary": {"content": "Test content"},  # query_context is optional
         }
 
         # When/Then: Render without optional parameters
@@ -150,8 +149,6 @@ class TestTemplateCompleteness:
             "decompose",
             "detect_citation",
             "relevance_evaluation",
-            "densify",
-            "initial_summary",
             "quality_assessment",
         }
 
@@ -176,8 +173,6 @@ class TestTemplateCompleteness:
             "decompose",
             "detect_citation",
             "relevance_evaluation",
-            "densify",
-            "initial_summary",
             "quality_assessment",
         }
 

@@ -710,5 +710,3 @@ async def detect_protocol_from_playwright_response(
         pass
 
     return ProtocolVersion.UNKNOWN
-
-    return ProtocolVersion.UNKNOWN

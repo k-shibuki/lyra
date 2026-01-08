@@ -54,7 +54,7 @@ Additionally, the `get_materials` tool returns all evidence data at once (300-40
 
 - **Add**: SQL view templates (Jinja2) in `config/views/*.sql.j2`
 - **Purpose**: Predefined queries for common analysis patterns
-- **Examples**: `v_contradictions`, `v_hub_pages`, `v_evidence_timeline`
+- **Examples**: `v_contradictions`, `v_source_impact`, `v_evidence_timeline`
 - **Benefits**: Guide AI agents in exploration patterns
 
 ## Architecture Overview

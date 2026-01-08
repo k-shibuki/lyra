@@ -4,34 +4,20 @@ Thank you for your interest in contributing to Lyra! This document provides guid
 
 ## Table of Contents
 
-- [Contributing to Lyra](#contributing-to-lyra)
-  - [Table of Contents](#table-of-contents)
-  - [Code of Conduct](#code-of-conduct)
-  - [Getting Started](#getting-started)
-  - [Development Setup](#development-setup)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-    - [Environment Variables](#environment-variables)
-  - [Making Changes](#making-changes)
-  - [Testing](#testing)
-    - [Test Categories](#test-categories)
-    - [Writing Tests](#writing-tests)
-  - [Submitting Changes](#submitting-changes)
-    - [Pull Request Guidelines](#pull-request-guidelines)
-  - [Style Guidelines](#style-guidelines)
-    - [Python](#python)
-    - [Code Comments](#code-comments)
-    - [Commit Messages](#commit-messages)
-  - [Architecture](#architecture)
-    - [Key Documents](#key-documents)
-    - [Key Concepts](#key-concepts)
-    - [Directory Structure](#directory-structure)
-  - [Reporting Issues](#reporting-issues)
-  - [Questions?](#questions)
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+- [Development Setup](#development-setup)
+- [Making Changes](#making-changes)
+- [Testing](#testing)
+- [Submitting Changes](#submitting-changes)
+- [Style Guidelines](#style-guidelines)
+- [Architecture](#architecture)
+- [Reporting Issues](#reporting-issues)
+- [Questions?](#questions)
 
 ## Code of Conduct
 
-This project follows the [Contributor Covenant Code of Conduct, version 3.0](https://www.contributor-covenant.org/version/3/0/code_of_conduct/). See [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) for the full text.
+This project follows the [Contributor Covenant Code of Conduct, version 3.0](https://www.contributor-covenant.org/version/3/0/code_of_conduct/). See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the full text.
 
 We are committed to providing a welcoming and inclusive environment. Please be respectful and constructive in all interactions.
 
@@ -45,40 +31,15 @@ We are committed to providing a welcoming and inclusive environment. Please be r
    ```
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/shibukik/lyra.git
+   git remote add upstream https://github.com/k-shibuki/lyra.git
    ```
 
 ## Development Setup
 
-### Prerequisites
-
-- **WSL2/Linux** with NVIDIA GPU (8GB+ VRAM)
-- **Python 3.13+** (managed via `uv`)
-- **Podman** or **Docker** with GPU support
-- **Chrome** (for browser automation)
-
-### Installation
-
-```bash
-# Install dependencies
-make setup-full
-
-# Check environment
-make doctor
-
-# Start containers (proxy, ollama, ml, tor)
-make up
-
-# Download ML models
-make setup-ml-models
-```
-
-### Environment Variables
-
-Copy the example configuration:
-```bash
-cp .env.example .env
-```
+See [README.md](../README.md#prerequisites) for:
+- **Prerequisites** (Linux, Python 3.14+, Podman/Docker, Chrome, GPU)
+- **Installation** (Quick Start)
+- **Environment Variables** (`.env` configuration)
 
 ## Making Changes
 
@@ -93,7 +54,7 @@ cp .env.example .env
 
 4. **Run quality checks**:
    ```bash
-   make check  # Runs lint, format check, and type check
+   make quality  # Runs lint, format-check, typecheck, jsonschema, shellcheck
    ```
 
 5. **Commit with clear messages** following [Conventional Commits](https://www.conventionalcommits.org/):
@@ -106,31 +67,29 @@ cp .env.example .env
 
 ## Testing
 
-Lyra uses `pytest` for testing with extensive coverage:
+Lyra uses `pytest` for testing with async execution designed for AI-driven development:
 
 ```bash
-# Run all tests
-make test
-
-# Run tests with coverage report
-make test-cov
-
-# Run specific test file
-uv run pytest tests/path/to/test_file.py -v
-
-# Run tests matching a pattern
-uv run pytest -k "test_evidence_graph" -v
+make test                           # Run unit + integration (default: -m "not e2e")
+make test TARGET=tests/test_foo.py  # Run specific file
+make test-check                     # Poll for test results
+make test-e2e                       # Run E2E tests only
+make help                           # Show all available commands
 ```
 
-### Test Categories
+**Async Workflow**: `make test` starts tests in the background and returns immediately. Use `make test-check` to poll for completion and view results. This design enables AI agents to run tests without blocking.
 
-- **Unit tests**: `tests/unit/` - Isolated component tests
-- **Integration tests**: `tests/integration/` - Multi-component tests
-- **E2E tests**: `tests/e2e/` - Full workflow tests
+### Test Layers
+
+Lyra follows a three-layer test strategy ([ADR-0009](../docs/adr/0009-test-layer-strategy.md)):
+
+| Layer | Description | Markers |
+|-------|-------------|---------|
+| **L1** | Unit tests (isolated, fast) | Default |
+| **L2** | Integration tests (DB, multi-component) | `@pytest.mark.integration` |
+| **L3** | E2E tests (containers, external APIs) | `@pytest.mark.e2e` |
 
 ### Writing Tests
-
-Follow the test conventions in `../.cursor/rules/test-conventions.mdc`:
 
 1. Create a **test perspectives table** before writing tests
 2. Use **Given/When/Then** comments
@@ -161,17 +120,19 @@ Follow the test conventions in `../.cursor/rules/test-conventions.mdc`:
 
 ### Python
 
-- **Formatter**: `ruff format` (configured in `pyproject.toml`)
+- **Formatter**: `black` + `ruff` (configured in `pyproject.toml`)
 - **Linter**: `ruff check`
-- **Type checker**: `pyright`
+- **Type checker**: `mypy`
 
 Run all checks:
 ```bash
-make lint    # Lint check
-make format  # Auto-format
-make type    # Type check
-make check   # All of the above
+make lint          # Lint check
+make format        # Auto-format
+make typecheck     # Type check
+make quality       # All checks (lint, format-check, typecheck, jsonschema, shellcheck)
 ```
+
+See `make help` for full command reference.
 
 ### Code Comments
 
@@ -199,36 +160,8 @@ Understanding Lyra's architecture helps you contribute effectively:
 
 ### Key Documents
 
-- **[Architecture Overview](../docs/architecture.md)**: System design and components
-- **[ADRs](../docs/adr/)**: 17 Architecture Decision Records documenting design rationale
-
-### Key Concepts
-
-1. **Three-Layer Collaboration Model** (ADR-0002): Human thinks, AI reasons, Lyra works—each layer has clear responsibilities
-
-2. **Evidence Graph** (ADR-0005): Claim-Fragment-Page structure with Bayesian confidence calculation
-
-3. **Local-First** (ADR-0001): All ML inference runs locally; zero operational cost
-
-4. **MCP Integration** (ADR-0003): Exposes tools via Model Context Protocol
-
-### Directory Structure
-
-```
-lyra/
-├── src/                  # Source code
-│   ├── mcp/              # MCP server and tools
-│   ├── filter/           # Evidence graph, NLI
-│   ├── search/           # Search APIs and browser
-│   ├── storage/          # Database layer
-│   └── ml_server/        # ML inference server
-├── tests/                # Test suite
-├── containers/           # Docker/Podman configs
-├── docs/                 # Documentation
-│   ├── adr/              # Architecture Decision Records
-│   └── design/           # Design documents
-└── scripts/              # Shell scripts
-```
+- **[Architecture Overview](../docs/architecture.md)**: System design, data flow, and directory structure
+- **[ADR Index](../docs/adr/index.md)**: Architecture Decision Records (by reading order, category, and evolution)
 
 ## Reporting Issues
 
@@ -244,8 +177,8 @@ When reporting bugs:
 
 ## Questions?
 
-- Open a [GitHub Discussion](https://github.com/shibukik/lyra/discussions) for questions
-- Check the [ADRs](../docs/adr/) for design rationale
+- Open a [GitHub Discussion](https://github.com/k-shibuki/lyra/discussions) for questions
+- Check the [ADR Index](../docs/adr/index.md) for design rationale
 - Review [Architecture docs](../docs/architecture.md) for system understanding
 
 ---

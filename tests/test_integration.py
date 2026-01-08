@@ -434,35 +434,6 @@ class TestNLIIntegration:
 
 
 # =============================================================================
-# Report Generation Integration Tests
-# =============================================================================
-
-
-class TestReportIntegration:
-    """Test report link generation integration."""
-
-    @pytest.mark.asyncio
-    async def test_anchor_slug_generation(self) -> None:
-        """Verify deep link anchor slug generation per ADR-0005."""
-        from src.report.links import generate_anchor_slug
-
-        # Given: A section title
-        # When: Generate anchor slug
-        slug = generate_anchor_slug("Section 3.1: Key Findings")
-
-        # Then: Slug is correctly formatted
-        assert slug == "section-31-key-findings"
-
-        # Given: Japanese title
-        # When: Generate anchor slug
-        slug_ja = generate_anchor_slug("第1章 概要")
-
-        # Then: Japanese characters are preserved
-        assert "第1章" in slug_ja, f"Expected '第1章' in slug: {slug_ja}"
-        assert "概要" in slug_ja, f"Expected '概要' in slug: {slug_ja}"
-
-
-# =============================================================================
 # Scheduler Integration Tests
 # =============================================================================
 

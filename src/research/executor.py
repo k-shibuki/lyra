@@ -80,9 +80,6 @@ TIER_REPUTABLE_DOMAINS = {
     "politifact.com",
 }
 
-# Legacy alias for backward compatibility
-PRIMARY_SOURCE_DOMAINS = TIER_AUTHORITATIVE_DOMAINS
-
 
 def get_extraction_tier(domain: str, scope: str) -> int:
     """Determine if a domain qualifies for LLM claims extraction.
@@ -917,7 +914,7 @@ class SearchExecutor:
             source_url: Source URL.
             title: Page title.
             heading_context: Heading context for fragment.
-            is_primary: Whether from primary source.
+            is_primary: Whether from authoritative domain (TIER_AUTHORITATIVE_DOMAINS).
         """
 
         try:

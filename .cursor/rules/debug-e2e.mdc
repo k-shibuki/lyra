@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+description: E2E debug
+alwaysApply: false
 ---
 # E2E Debugging Conventions
 

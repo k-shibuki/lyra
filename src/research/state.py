@@ -48,18 +48,14 @@ class TaskStatus(Enum):
     - PAUSED: Session ended; task is resumable (can queue more searches).
     - FAILED: Failed with error (terminal state).
 
-    Note: FINALIZING and COMPLETED are deprecated; use PAUSED instead.
     PAUSED indicates "this session ended" but the task can be resumed later.
     """
 
     CREATED = "created"  # Task created, Cursor AI designing searches
     EXPLORING = "exploring"  # Exploration in progress
     AWAITING_DECISION = "awaiting_decision"  # Waiting for Cursor AI decision
-    PAUSED = "paused"  # Session ended; resumable (replaces COMPLETED)
+    PAUSED = "paused"  # Session ended; resumable
     FAILED = "failed"  # Failed with error
-    # Deprecated: kept for backward compatibility when reading from DB
-    FINALIZING = "finalizing"  # (deprecated) Use PAUSED
-    COMPLETED = "completed"  # (deprecated) Use PAUSED
 
 
 class SearchState(BaseModel):
@@ -92,7 +88,8 @@ class SearchState(BaseModel):
         default=0, ge=0, description="Count of independent sources found"
     )
     has_primary_source: bool = Field(
-        default=False, description="Whether a gov/academic primary source was found"
+        default=False,
+        description="Whether an authoritative source was found (gov/academic/official domains from TIER_AUTHORITATIVE_DOMAINS)",
     )
     source_domains: list[str] = Field(
         default_factory=list, description="List of unique source domains"
@@ -525,7 +522,7 @@ class ExplorationState:
         Args:
             search_id: The search ID.
             domain: Domain of the fetched page.
-            is_primary_source: Whether this is a primary source (gov/academic/official).
+            is_primary_source: Whether from an authoritative domain (gov/academic/official in TIER_AUTHORITATIVE_DOMAINS).
             is_independent: Whether this is an independent source (new domain/cluster).
         """
         search = self._searches.get(search_id)
@@ -966,7 +963,7 @@ class ExplorationState:
 
         for s in partial_searches:
             if not s.has_primary_source:
-                followup_suggestions.append(f"{s.id}: 一次資料が見つかっていません")
+                followup_suggestions.append(f"{s.id}: No authoritative source found")
 
         # Calculate refuted claims from searches with found refutations
         refuted_from_searches = sum(

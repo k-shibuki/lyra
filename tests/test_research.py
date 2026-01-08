@@ -37,7 +37,7 @@ Test Quality Standards (.1):
 | TC-RES-N-16 | 5 pending items | Boundary – critical | Critical alert | Count threshold |
 | TC-RES-N-17 | 2 high priority items | Boundary – critical | Critical alert | Priority threshold |
 | TC-RES-N-18 | 1 satisfied, 1 unsatisfied | Equivalence – normal | Partial status + suggestions | finalize() |
-| TC-RES-N-19 | PRIMARY_SOURCE_DOMAINS | Equivalence – normal | Known domains included | Domain set |
+| TC-RES-N-19 | TIER_AUTHORITATIVE_DOMAINS | Equivalence – normal | Known domains included | Domain set |
 | TC-RES-N-20 | Japanese query | Equivalence – expansion | Core term preserved | Mechanical only |
 | TC-RES-N-21 | Claim text | Equivalence – normal | Suffix-based queries | Refutation patterns |
 | TC-RES-N-22 | REFUTATION_SUFFIXES | Equivalence – normal | Required suffixes exist | Suffix constants |
@@ -73,7 +73,7 @@ if TYPE_CHECKING:
 from src.research.context import (
     ResearchContext,
 )
-from src.research.executor import PRIMARY_SOURCE_DOMAINS, SearchExecutor
+from src.research.executor import TIER_AUTHORITATIVE_DOMAINS, SearchExecutor
 from src.research.refutation import REFUTATION_SUFFIXES, RefutationExecutor, RefutationResult
 from src.research.state import (
     ExplorationState,
@@ -1015,11 +1015,11 @@ class TestSearchExecutor:
         """
         Verify primary source domains are correctly identified.
         """
-        # Given/When/Then: Check that known primary sources are in the set
-        assert "go.jp" in PRIMARY_SOURCE_DOMAINS
-        assert "gov.uk" in PRIMARY_SOURCE_DOMAINS
-        assert "arxiv.org" in PRIMARY_SOURCE_DOMAINS
-        assert "who.int" in PRIMARY_SOURCE_DOMAINS
+        # Given/When/Then: Check that known authoritative sources are in the set
+        assert "go.jp" in TIER_AUTHORITATIVE_DOMAINS
+        assert "gov.uk" in TIER_AUTHORITATIVE_DOMAINS
+        assert "arxiv.org" in TIER_AUTHORITATIVE_DOMAINS
+        assert "who.int" in TIER_AUTHORITATIVE_DOMAINS
 
     @pytest.mark.asyncio
     async def test_expand_query_mechanical_only(self, test_database: Database) -> None:

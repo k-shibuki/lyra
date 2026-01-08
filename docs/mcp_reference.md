@@ -92,6 +92,28 @@ Status values: `not_enqueued`, `queued`, `running`, `drained`, `pending` (for au
 | `queue_targets` | Queue targets (query/url/doi) for parallel execution. Supports `kind='query'` (search), `kind='url'` (direct fetch), `kind='doi'` (Academic API fast path). |
 | `queue_reference_candidates` | Queue citation candidates from `v_reference_candidates` view. Supports whitelist (`include_ids`) or blacklist (`exclude_ids`) mode. Auto-extracts DOI from URLs for fast path. |
 
+#### queue_reference_candidates Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `task_id` | string | (required) | Task ID to queue candidates for |
+| `include_ids` | string[] | - | Citation edge IDs to include (whitelist mode). Mutually exclusive with `exclude_ids`. |
+| `exclude_ids` | string[] | - | Citation edge IDs to exclude (blacklist mode). Mutually exclusive with `include_ids`. |
+| `limit` | integer | 10 | Maximum candidates to enqueue |
+| `dry_run` | boolean | false | If true, return candidates without enqueuing |
+| `options.priority` | string | "medium" | Scheduling priority: `high`, `medium`, `low` |
+
+**Prerequisites**: Check `get_status().milestones.citation_chase_ready == true` before using.
+
+**Workflow**:
+1. `get_status(wait=0)` → check `milestones.citation_chase_ready`
+2. `query_view(v_reference_candidates, task_id=...)` to see all candidates
+3. Review and decide which to include/exclude
+4. `queue_reference_candidates(include_ids=[...])` or `queue_reference_candidates(exclude_ids=[...])`
+5. `get_status(wait=180)` to monitor progress
+
+**DOI Optimization**: URLs containing DOI (e.g., `doi.org/10.xxxx/...`) are automatically routed to Academic API for abstract-only ingestion.
+
 ### Evidence Exploration
 
 | Tool | Description |
@@ -128,7 +150,6 @@ Status values: `not_enqueued`, `queued`, `running`, `drained`, `pending` (for au
 | View | Description |
 |------|-------------|
 | `v_reference_candidates` | Unfetched citation candidates for Citation Chasing (requires `task_id`) |
-| `v_hub_pages` | High-connectivity citation hubs (deprecated; absorbed by `v_source_impact`) |
 | `v_citation_flow` | Citation relationships between pages |
 | `v_bibliographic_coupling` | Papers sharing common references |
 

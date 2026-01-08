@@ -672,5 +672,3 @@ def generate_complete_navigation_headers(
     )
 
     return generate_all_security_headers(context)
-
-    return generate_all_security_headers(context)

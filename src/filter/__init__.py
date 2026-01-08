@@ -9,7 +9,6 @@ Includes:
 - Claim timeline (ADR-0005)
 - Evidence graph
 - Deduplication
-- Temporal consistency
 """
 
 from src.filter.claim_decomposition import (

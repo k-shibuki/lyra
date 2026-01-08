@@ -64,7 +64,7 @@ Each task defines a central hypothesis to verify ([ADR-0017](docs/adr/0017-task-
 
 ## Prerequisites
 
-- **Linux** (WSL2 or Native Ubuntu Desktop 24.04 LTS)
+- **Linux or Windows** (WSL2)
 - **Python 3.14+** (managed via `uv`)
 - **Podman** or **Docker**
 - **Browser for automation (CDP)**:
@@ -72,12 +72,35 @@ Each task defines a central hypothesis to verify ([ADR-0017](docs/adr/0017-task-
   - **Native Linux**: **Google Chrome** (recommended) or **Chromium** (supported)
 - **NVIDIA GPU** (recommended, optional - CPU fallback available)
 
-### WSL2 Setup
+## Quick Start
 
 ```bash
-sudo apt install -y curl git make podman podman-compose shellcheck
+git clone https://github.com/k-shibuki/lyra.git && cd lyra
+make doctor   # Check environment
+make setup    # Install Python deps (uv will auto-manage Python 3.14+)
+make up       # Start (auto-build first time)
+```
 
-# GPU support (recommended) - requires NVIDIA repository
+Note: `.env` is created automatically from `.env.example` on the first run of `make doctor` / `make setup` / `make up`.
+Edit `.env` if you need to customize settings.
+
+## Platform Setup
+
+Tested on: Windows 11 + WSL2-Ubuntu 24.04 LTS, Ubuntu Desktop 24.04 LTS
+
+### Common (WSL2 / Linux)
+
+```bash
+# Core dependencies (make is required for build commands)
+sudo apt install -y curl git make podman podman-compose libcurl4-openssl-dev shellcheck
+
+# Rust toolchain (required for building sudachipy)
+# sudachipy: Japanese NLP tokenizer, used in tests and text processing
+# Note: apt's rustc is too old; use rustup for latest version
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source $HOME/.cargo/env
+
+# GPU support (optional but recommended for performance) - requires NVIDIA repository
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
   sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
@@ -86,21 +109,17 @@ sudo apt update && sudo apt install -y nvidia-container-toolkit
 sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ```
 
-Browser automation on WSL2 uses **Windows Google Chrome** via CDP.
+Note: `source $HOME/.cargo/env` is only for enabling `rustc/cargo` in your current shell (it is not related to Lyra's `.env`).
+
+### Windows (WSL2)
+
+Browser automation uses **Windows Google Chrome** via CDP.
 Install Chrome on Windows and keep the default path:
 `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe`
 
-### Native Linux (Ubuntu) Setup
+### Linux
 
 ```bash
-# Core dependencies (make is required for build commands)
-sudo apt install -y curl git make podman podman-compose libcurl4-openssl-dev shellcheck
-
-# Rust toolchain (required for building sudachipy - Japanese NLP tokenizer)
-# Note: apt's rustc is too old; use rustup for latest version
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source $HOME/.cargo/env
-
 # Browser automation
 # Option A: Google Chrome (recommended; official repo)
 curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
@@ -115,37 +134,19 @@ sudo apt install -y libnotify-bin
 
 # Window activation for CAPTCHA handling (optional)
 sudo apt install -y xdotool
-
-# GPU support (optional but recommended for performance) - requires NVIDIA repository
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt update && sudo apt install -y nvidia-container-toolkit
-sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 ```
 
-Note: `source $HOME/.cargo/env` is only for enabling `rustc/cargo` in your current shell (it is not related to Lyra's `.env`).
+### Notes
 
-**Note**: Python 3.14 is automatically managed by `uv` - no system installation required.
+**Python 3.14**: Automatically managed by `uv` - no system installation required.
 
 **GPU Auto-Detection**: Lyra automatically detects GPU availability at startup. If `nvidia-smi` is not found, it runs in CPU mode (slower inference, but fully functional).
 
 **CPU-only Mode**: To explicitly disable GPU and run in CPU mode (even when GPU is available), set `LYRA_DISABLE_GPU=1` in your `.env` file. This is useful for testing or when you want to avoid nvidia-container-toolkit setup.
 
-## Quick Start
+## Configuration
 
-```bash
-git clone https://github.com/k-shibuki/lyra.git && cd lyra
-make doctor   # Check environment
-make setup    # Install Python deps (uv will auto-manage Python 3.14+)
-make up       # Start (auto-build first time)
-```
-
-Note: `.env` is created automatically from `.env.example` on the first run of `make doctor` / `make setup` / `make up`.
-Edit `.env` if you need to customize settings.
-
-### Recommended: Academic API Settings
+### Academic API Settings (Recommended)
 
 For better rate limits on academic searches, add these to `.env`:
 
@@ -158,7 +159,7 @@ LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY=your_key
 LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL=your_email@example.com
 ```
 
-### Local Configuration Overrides (Optional)
+### Local Configuration Overrides
 
 For extensive local customization beyond environment variables, use `local.yaml`:
 
@@ -201,17 +202,20 @@ For other clients, copy `config/mcp.json.example` to your client's config locati
 
 ### With MCP Client
 
-The [navigate](docs/case_study/navigate.md.example) command is an example workflow for evidence-based research.
+Example workflows for evidence-based research:
+
+- [lyra-search](docs/case_study/lyra-search.md.example) — Build evidence graph iteratively
+- [lyra-report](docs/case_study/lyra-report.md.example) — Generate traceable research report
 
 **Setup** (Cursor):
 ```bash
-# Copy the example command to your project's .cursor/commands/
-cp docs/case_study/navigate.md.example .cursor/commands/navigate.md
+cp docs/case_study/lyra-search.md.example .cursor/commands/lyra-search.md
+cp docs/case_study/lyra-report.md.example .cursor/commands/lyra-report.md
 ```
 
 **Usage**:
 ```
-/navigate  (invoke in Cursor chat)
+/lyra-search  (invoke in Cursor chat)
 
 User: "DPP-4 inhibitors improve HbA1c in type 2 diabetes"
 ```
@@ -220,10 +224,10 @@ The AI assistant (MCP Client) will:
 1. Create a task with your hypothesis
 2. Design and queue search queries (including refutation queries)
 3. Monitor evidence collection progress
-4. Analyze claims using `v_claim_evidence_summary`, `v_contradictions`
-5. Generate a traceable report with Key Sources (`v_source_impact`) and full References
+4. Chase citations from key sources
+5. When ready, use `/lyra-report` to generate a traceable report
 
-For Claude Desktop, add as a Skill via Settings → Skills. See [docs/case_study/navigate.md.example](docs/case_study/navigate.md.example) for the full command definition.
+For Claude Desktop, add as Skills via Settings → Skills.
 
 You can create your own commands/skills tailored to your research workflow.
 
@@ -259,7 +263,7 @@ feedback(action="edge_correct", edge_id="...", correct_relation="supports")
 | Category | Tools | Reference |
 |----------|-------|-----------|
 | Task Management | `create_task`, `get_status`, `stop_task` | [ADR-0010](docs/adr/0010-async-search-queue.md), [ADR-0017](docs/adr/0017-task-hypothesis-first.md) |
-| Target Queue | `queue_targets` | [ADR-0010](docs/adr/0010-async-search-queue.md) |
+| Target Queue | `queue_targets`, `queue_reference_candidates` | [ADR-0010](docs/adr/0010-async-search-queue.md), [ADR-0015](docs/adr/0015-unified-search-sources.md) |
 | Evidence Exploration | `query_sql`, `vector_search`, `query_view`, `list_views` | [ADR-0016](docs/adr/0016-ranking-simplification.md) |
 | Authentication | `get_auth_queue`, `resolve_auth` | [ADR-0007](docs/adr/0007-human-in-the-loop-auth.md) |
 | Feedback | `feedback` | [ADR-0012](docs/adr/0012-feedback-tool-design.md) |
@@ -268,18 +272,20 @@ feedback(action="edge_correct", edge_id="...", correct_relation="supports")
 ## Commands
 
 ```bash
-make up       # Start services
-make down     # Stop services
-make doctor   # Check environment
-make test     # Run tests
-make help     # Show all commands
+make up          # Start services
+make down        # Stop services
+make doctor      # Check environment
+make test        # Run tests (async, returns immediately)
+make test-check  # Poll for test results
+make quality     # Run all code quality checks
+make help        # Show all commands
 ```
 
 ## Documentation
 
 - [Architecture Overview](docs/architecture.md) - System design and data flow
 - [MCP Tools Reference](docs/mcp_reference.md) - Tool descriptions and schemas
-- [ADR Index](docs/adr/index.md) - 17 architecture decision records (by evolution, category, and reading order)
+- [ADR Index](docs/adr/index.md) - Architecture decision records
 - [Contributing Guide](.github/CONTRIBUTING.md)
 - [Code of Conduct](.github/CODE_OF_CONDUCT.md) - Contributor Covenant 3.0
 

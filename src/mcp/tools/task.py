@@ -356,14 +356,11 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
                 )
 
             # Map task_status to status field
-            # Note: "completed" is deprecated, map to "paused" for backward compatibility
             status_map = {
                 "exploring": "exploring",
                 "created": "exploring",
                 "awaiting_decision": "paused",
                 "paused": "paused",
-                "finalizing": "exploring",  # (deprecated)
-                "completed": "paused",  # (deprecated) -> paused for backward compat
                 "cancelled": "paused",  # Cancelled tasks are also resumable
                 "failed": "failed",
             }
@@ -770,38 +767,6 @@ async def cancel_jobs_by_scope(
         counts["tasks_cancelled"] = scheduler_cancelled
 
     return counts
-
-
-async def cancel_target_queue_jobs(
-    task_id: str,
-    mode: str,
-    db: Any,
-) -> dict[str, int]:
-    """
-    Cancel target queue jobs for a task based on stop mode.
-
-    DEPRECATED: Use cancel_jobs_by_scope with scope='target_queue_only' instead.
-
-    Args:
-        task_id: The task ID.
-        mode: Stop mode ('graceful', 'immediate', or 'full').
-        db: Database connection.
-
-    Returns:
-        Dict with counts of cancelled/waited jobs by previous state.
-
-    Mode semantics (ADR-0010):
-    - graceful: Cancel 'queued' jobs and WAIT for running jobs to complete naturally.
-    - immediate: Cancel both 'queued' and 'running' jobs immediately via asyncio.Task.cancel().
-    - full: Cancel all jobs (like immediate) AND wait for ML/NLI operations to drain.
-    """
-    result = await cancel_jobs_by_scope(task_id, mode, "target_queue_only", db)
-    return {
-        "queued_cancelled": result.get("queued_cancelled", 0),
-        "running_cancelled": result.get("running_cancelled", 0),
-        "tasks_cancelled": result.get("tasks_cancelled", 0),
-        "jobs_waited": result.get("jobs_waited", 0),
-    }
 
 
 async def cancel_auth_queue_for_task(task_id: str, db: Any) -> int:

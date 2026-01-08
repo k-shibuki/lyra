@@ -219,7 +219,7 @@ class BrowserSearchProvider(BaseSearchProvider):
         # Each worker gets its own TabPool (ADR-0014 Phase 3)
         self._tab_pool = get_tab_pool(worker_id=worker_id)
         self._engine_rate_limiter = get_engine_rate_limiter()
-        # Legacy semaphore kept for transition period
+        # Per-search serialization semaphore; ensures one search at a time within this provider
         self._rate_limiter = asyncio.Semaphore(1)
         self._last_search_times: dict[str, float] = {}  # Per-engine tracking
 

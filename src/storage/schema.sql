@@ -172,8 +172,8 @@ CREATE TABLE IF NOT EXISTS fragments (
     fragment_type TEXT NOT NULL,  -- paragraph, heading, list, table, quote, figure, code, abstract
     position INTEGER,  -- Order in page
     text_content TEXT NOT NULL,
-    heading_context TEXT,  -- Parent heading (legacy, single string)
-    heading_hierarchy TEXT,  -- JSON: [{"level":1,"text":"..."}, {"level":2,"text":"..."}]
+    heading_context TEXT,  -- Parent heading (deepest level); used by FTS index and simple queries
+    heading_hierarchy TEXT,  -- Full heading hierarchy as JSON: [{"level":1,"text":"..."}, {"level":2,"text":"..."}]
     element_index INTEGER,  -- Index within the current heading section
     char_offset_start INTEGER,
     char_offset_end INTEGER,
@@ -445,7 +445,7 @@ CREATE INDEX IF NOT EXISTS idx_embeddings_type ON embeddings(target_type);
 -- Logging & Audit
 -- ============================================================
 
--- Event Log: Structured events for replay/audit
+-- Event Log: Structured events for audit
 CREATE TABLE IF NOT EXISTS event_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -719,40 +719,6 @@ CREATE TABLE IF NOT EXISTS policy_updates (
 );
 CREATE INDEX IF NOT EXISTS idx_policy_updates_timestamp ON policy_updates(timestamp);
 CREATE INDEX IF NOT EXISTS idx_policy_updates_target ON policy_updates(target_type, target_id);
-
--- Decision log for replay (lightweight reference to event_log)
-CREATE TABLE IF NOT EXISTS decisions (
-    id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    decision_type TEXT NOT NULL,
-    cause_id TEXT,
-    input_json TEXT NOT NULL,
-    output_json TEXT NOT NULL,
-    context_json TEXT,
-    duration_ms INTEGER DEFAULT 0,
-    FOREIGN KEY (task_id) REFERENCES tasks(id)
-);
-CREATE INDEX IF NOT EXISTS idx_decisions_task ON decisions(task_id);
-CREATE INDEX IF NOT EXISTS idx_decisions_type ON decisions(decision_type);
-CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON decisions(timestamp);
-
--- Replay sessions
-CREATE TABLE IF NOT EXISTS replay_sessions (
-    id TEXT PRIMARY KEY,
-    original_task_id TEXT NOT NULL,
-    replay_task_id TEXT,
-    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    completed_at DATETIME,
-    status TEXT DEFAULT 'pending',
-    decisions_replayed INTEGER DEFAULT 0,
-    decisions_diverged INTEGER DEFAULT 0,
-    divergence_points_json TEXT,
-    metrics_comparison_json TEXT,
-    FOREIGN KEY (original_task_id) REFERENCES tasks(id),
-    FOREIGN KEY (replay_task_id) REFERENCES tasks(id)
-);
-CREATE INDEX IF NOT EXISTS idx_replay_sessions_original ON replay_sessions(original_task_id);
 
 -- ============================================================
 -- Calibration Evaluation 
@@ -1100,56 +1066,7 @@ WHERE e.source_type = 'fragment'
   AND e.target_type = 'claim'
   AND e.relation IN ('supports', 'refutes', 'neutral');  -- Exclude origin
 
--- 5) Hub pages (pages that support many claims) + citation counts
--- DEPRECATED: Consider using v_source_impact instead, which includes both
--- knowledge generation (origin edges) and corroboration (supports edges).
-CREATE VIEW IF NOT EXISTS v_hub_pages AS
-WITH page_claims AS (
-  SELECT
-      c.task_id,
-      p.id AS page_id,
-      p.url,
-      p.title,
-      p.domain,
-      COUNT(DISTINCT c.id) AS claims_supported
-  FROM edges e
-  JOIN claims c
-    ON e.target_type = 'claim'
-   AND e.target_id = c.id
-  JOIN fragments f
-    ON e.source_type = 'fragment'
-   AND e.source_id = f.id
-  JOIN pages p
-    ON f.page_id = p.id
-  WHERE e.relation = 'supports'
-  GROUP BY c.task_id, p.id
-),
-page_out AS (
-  SELECT e.source_id AS page_id, COUNT(*) AS citation_count
-  FROM edges e
-  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
-  GROUP BY e.source_id
-),
-page_in AS (
-  SELECT e.target_id AS page_id, COUNT(*) AS cited_by_count
-  FROM edges e
-  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
-  GROUP BY e.target_id
-)
-SELECT
-    pc.task_id,
-    pc.page_id,
-    pc.url,
-    pc.title,
-    pc.domain,
-    pc.claims_supported,
-    COALESCE(po.citation_count, 0) AS citation_count,
-    COALESCE(pi.cited_by_count, 0) AS cited_by_count
-FROM page_claims pc
-LEFT JOIN page_out po ON po.page_id = pc.page_id
-LEFT JOIN page_in pi ON pi.page_id = pc.page_id;
-
--- 6) Citation flow (page -> page)
+-- 5) Citation flow (page -> page)
 CREATE VIEW IF NOT EXISTS v_citation_flow AS
 SELECT
     e.source_id AS citing_page_id,
@@ -1239,24 +1156,7 @@ SELECT
 FROM v__evidence_with_year
 GROUP BY task_id, year;
 
--- 10) Claim temporal support (supports only)
--- DEPRECATED: Use v_emerging_consensus instead for trend analysis.
-CREATE VIEW IF NOT EXISTS v_claim_temporal_support AS
-SELECT
-    task_id,
-    claim_id,
-    claim_text,
-    MIN(year) AS earliest_year,
-    MAX(year) AS latest_year,
-    CASE
-      WHEN MIN(year) IS NULL OR MAX(year) IS NULL THEN NULL
-      ELSE (MAX(year) - MIN(year))
-    END AS year_span
-FROM v__evidence_with_year
-WHERE relation = 'supports'
-GROUP BY task_id, claim_id;
-
--- 11) Emerging consensus (more recent support than older support)
+-- 10) Emerging consensus (more recent support than older support)
 CREATE VIEW IF NOT EXISTS v_emerging_consensus AS
 WITH y AS (
   SELECT
@@ -1299,34 +1199,68 @@ FROM support_years;
 
 -- 13) Source authority (simple composite score)
 -- Uses normalized works table for year extraction.
+-- Note: Inlined former v_hub_pages logic to remove deprecated view dependency.
 CREATE VIEW IF NOT EXISTS v_source_authority AS
-WITH base AS (
+WITH page_claims AS (
   SELECT
-      h.task_id,
-      h.page_id,
-      h.url,
-      h.title,
-      h.domain,
-      h.claims_supported,
-      h.citation_count,
-      h.cited_by_count,
-      w.year
-  FROM v_hub_pages h
-  JOIN pages p ON p.id = h.page_id
-  LEFT JOIN works w ON w.canonical_id = p.canonical_id
+      c.task_id,
+      p.id AS page_id,
+      p.url,
+      p.title,
+      p.domain,
+      COUNT(DISTINCT c.id) AS claims_supported
+  FROM edges e
+  JOIN claims c
+    ON e.target_type = 'claim'
+   AND e.target_id = c.id
+  JOIN fragments f
+    ON e.source_type = 'fragment'
+   AND e.source_id = f.id
+  JOIN pages p
+    ON f.page_id = p.id
+  WHERE e.relation = 'supports'
+  GROUP BY c.task_id, p.id
+),
+page_out AS (
+  SELECT e.source_id AS page_id, COUNT(*) AS citation_count
+  FROM edges e
+  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
+  GROUP BY e.source_id
+),
+page_in AS (
+  SELECT e.target_id AS page_id, COUNT(*) AS cited_by_count
+  FROM edges e
+  WHERE e.relation = 'cites' AND e.source_type = 'page' AND e.target_type = 'page'
+  GROUP BY e.target_id
+),
+hub_data AS (
+  SELECT
+      pc.task_id,
+      pc.page_id,
+      pc.url,
+      pc.title,
+      pc.domain,
+      pc.claims_supported,
+      COALESCE(po.citation_count, 0) AS citation_count,
+      COALESCE(pi.cited_by_count, 0) AS cited_by_count
+  FROM page_claims pc
+  LEFT JOIN page_out po ON po.page_id = pc.page_id
+  LEFT JOIN page_in pi ON pi.page_id = pc.page_id
 )
 SELECT
-    task_id,
-    page_id,
-    url,
-    title,
-    domain,
-    year,
-    claims_supported,
-    citation_count,
-    cited_by_count,
-    (claims_supported * 1.0) + (cited_by_count * 0.5) + (citation_count * 0.2) AS authority_score
-FROM base;
+    h.task_id,
+    h.page_id,
+    h.url,
+    h.title,
+    h.domain,
+    w.year,
+    h.claims_supported,
+    h.citation_count,
+    h.cited_by_count,
+    (h.claims_supported * 1.0) + (h.cited_by_count * 0.5) + (h.citation_count * 0.2) AS authority_score
+FROM hub_data h
+JOIN pages p ON p.id = h.page_id
+LEFT JOIN works w ON w.canonical_id = p.canonical_id;
 
 -- 13b) Source impact (knowledge generation + corroboration)
 -- Unlike v_source_authority which only counts NLI "supports" edges,
@@ -1376,33 +1310,7 @@ SELECT
 FROM generated g
 LEFT JOIN supported s ON g.task_id = s.task_id AND g.page_id = s.page_id;
 
--- 14) Controversy by era (bucket by decade using newest evidence year)
--- DEPRECATED: Low usage. Use v_contradictions + v_evidence_timeline for similar analysis.
-CREATE VIEW IF NOT EXISTS v_controversy_by_era AS
-WITH c AS (
-  SELECT
-      v.task_id,
-      v.claim_id,
-      v.claim_text,
-      v.controversy_score,
-      MAX(y.year) AS newest_year
-  FROM v_contradictions v
-  LEFT JOIN v__evidence_with_year y
-    ON y.task_id = v.task_id AND y.claim_id = v.claim_id
-  GROUP BY v.task_id, v.claim_id
-)
-SELECT
-    task_id,
-    CASE
-      WHEN newest_year IS NULL THEN NULL
-      ELSE (newest_year / 10) * 10
-    END AS decade,
-    COUNT(*) AS controversial_claims,
-    AVG(controversy_score) AS avg_controversy_score
-FROM c
-GROUP BY task_id, decade;
-
--- 15) Citation age gap (citing year - cited year)
+-- 14) Citation age gap (citing year - cited year)
 -- Uses normalized works table for year extraction.
 CREATE VIEW IF NOT EXISTS v_citation_age_gap AS
 WITH years AS (

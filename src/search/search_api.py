@@ -1401,5 +1401,3 @@ async def generate_mirror_queries(
                 results[target_lang] = translated
 
     return results
-
-    return results

@@ -624,5 +624,3 @@ def get_audit_logger() -> AuditLogger:
         _default_audit_logger = AuditLogger()
 
     return _default_audit_logger
-
-    return _default_audit_logger

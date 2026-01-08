@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from src.research.executor import PRIMARY_SOURCE_DOMAINS, REFUTATION_SUFFIXES, SearchExecutor
+from src.research.executor import REFUTATION_SUFFIXES, TIER_AUTHORITATIVE_DOMAINS, SearchExecutor
 from src.research.state import ExplorationState
 from src.storage.database import get_database
 
@@ -1561,14 +1561,14 @@ class SearchPipeline:
         return None
 
     def _is_primary_source(self, url: str) -> bool:
-        """Check if URL is from a primary source domain."""
+        """Check if URL is from an authoritative domain (TIER_AUTHORITATIVE_DOMAINS)."""
         try:
             from urllib.parse import urlparse
 
             parsed = urlparse(url)
             domain = parsed.netloc.lower()
 
-            return any(primary in domain for primary in PRIMARY_SOURCE_DOMAINS)
+            return any(primary in domain for primary in TIER_AUTHORITATIVE_DOMAINS)
         except Exception as e:
             logger.debug("Primary source check failed", url=url[:100], error=str(e))
             return False
@@ -1689,7 +1689,7 @@ async def _reprocess_existing_page_for_claims(
     Reprocess an already-fetched page to extract claims for a new task.
 
     This is called when a page exists in DB with html_path but has no
-    claims extracted for the current task (task未Claim condition).
+    claims extracted for the current task.
 
     Args:
         db: Database instance
@@ -2044,7 +2044,7 @@ async def ingest_url_action(
             )
 
             if html_path and skip_if_exists:
-                # Check if claims have been extracted for THIS task (task未Claim check)
+                # Check if claims have been extracted for THIS task
                 existing_origin = await db.fetch_one(
                     """
                     SELECT 1 FROM fragments f

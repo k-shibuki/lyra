@@ -1139,47 +1139,6 @@ class Database:
             ),
         )
 
-    async def save_decision(
-        self,
-        decision_id: str,
-        task_id: str,
-        decision_type: str,
-        input_data: dict[str, Any],
-        output_data: dict[str, Any],
-        context: dict[str, Any] | None = None,
-        cause_id: str | None = None,
-        duration_ms: int = 0,
-    ) -> None:
-        """Save a decision for replay.
-
-        Args:
-            decision_id: Unique decision identifier.
-            task_id: Task identifier.
-            decision_type: Type of decision.
-            input_data: Decision input.
-            output_data: Decision output.
-            context: Optional context data.
-            cause_id: Parent cause ID.
-            duration_ms: Decision duration.
-        """
-        await self.execute(
-            """
-            INSERT INTO decisions
-            (id, task_id, decision_type, cause_id, input_json, output_json, context_json, duration_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                decision_id,
-                task_id,
-                decision_type,
-                cause_id,
-                json.dumps(input_data),
-                json.dumps(output_data),
-                json.dumps(context) if context else None,
-                duration_ms,
-            ),
-        )
-
     async def get_latest_metrics_snapshot(self) -> dict[str, Any] | None:
         """Get the most recent metrics snapshot.
 
@@ -1235,20 +1194,6 @@ class Database:
         params.append(limit)
 
         return await self.fetch_all(query, tuple(params))
-
-    async def get_decisions_for_task(self, task_id: str) -> list[dict[str, Any]]:
-        """Get all decisions for a task.
-
-        Args:
-            task_id: Task identifier.
-
-        Returns:
-            List of decision records.
-        """
-        return await self.fetch_all(
-            "SELECT * FROM decisions WHERE task_id = ? ORDER BY timestamp ASC",
-            (task_id,),
-        )
 
     @staticmethod
     def _normalize_url(url: str) -> str:

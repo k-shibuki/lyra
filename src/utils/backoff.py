@@ -7,7 +7,7 @@ Shared by:
 - DomainPolicy cooldown calculation (src/utils/domain_policy.py)
 
 Per ADR-0006: Exponential backoff calculation for retry strategies.
-Per ADR-0006: "429/403検出時は指数バックオフ...を適用"
+Per ADR-0006: Apply exponential backoff on 429/403 detection.
 """
 
 from __future__ import annotations
@@ -112,8 +112,8 @@ def calculate_cooldown_minutes(
     """Calculate cooldown duration for circuit breaker / domain policy.
 
     Per ADR-0006: cooldown = min(base_minutes * (2 ^ (failures // 3)), max_minutes)
-    Per ADR-0006: "クールダウン≥30分"
-    Per ADR-0006: "自動無効化: TTL（30〜120分）"
+    Per ADR-0006: Cooldown >= 30 minutes.
+    Per ADR-0006: Auto-disable TTL: 30-120 minutes.
 
     The formula groups failures into tiers of 3, doubling cooldown each tier:
     - 0-2 failures: base_minutes (30 min default)
@@ -189,7 +189,5 @@ def calculate_total_delay(
     total = 0.0
     for attempt in range(max_retries):
         total += calculate_backoff(attempt, config, add_jitter=False)
-
-    return total
 
     return total

@@ -704,7 +704,7 @@ class TestSchemas:
             "query_sql",
             "vector_search",
             "calibration_metrics",
-            "calibrate_rollback",  # Schema file is calibrate_rollback.json
+            "calibration_rollback",
             "get_auth_queue",
             "resolve_auth",
             "feedback",

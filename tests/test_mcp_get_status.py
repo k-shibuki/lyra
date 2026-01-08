@@ -441,7 +441,6 @@ class TestGetStatusStatusMapping:
         [
             ("exploring", "exploring"),
             ("paused", "paused"),
-            ("completed", "paused"),  # deprecated: 'completed' maps to 'paused' (resumable)
             ("failed", "failed"),
             ("pending", "exploring"),
         ],

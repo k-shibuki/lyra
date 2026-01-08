@@ -317,33 +317,6 @@ class TestRealTemplates:
         assert "quality_score" in result
         assert "is_ai_generated" in result
 
-    def test_initial_summary_template_exists(self, real_manager: PromptManager) -> None:
-        """Test initial_summary template exists."""
-        assert real_manager.template_exists("initial_summary")
-
-    def test_initial_summary_renders(self, real_manager: PromptManager) -> None:
-        """Test initial_summary template renders correctly."""
-        result = real_manager.render("initial_summary", content="Content to summarize.")
-        assert "Content to summarize." in result
-        assert "summary" in result
-        assert "entities" in result
-
-    def test_densify_template_exists(self, real_manager: PromptManager) -> None:
-        """Test densify template exists."""
-        assert real_manager.template_exists("densify")
-
-    def test_densify_renders(self, real_manager: PromptManager) -> None:
-        """Test densify template renders correctly."""
-        result = real_manager.render(
-            "densify",
-            current_summary="Current summary text.",
-            original_content="Original content.",
-            missing_entities="entity1, entity2",
-        )
-        assert "Current summary text." in result
-        assert "Original content." in result
-        assert "entity1, entity2" in result
-
 
 # ============================================================================
 # Template Validation Tests
@@ -559,57 +532,6 @@ class TestTemplateValidation:
     # TC-N-06 to TC-N-10: New/updated templates (Phase 1 additions)
     # -------------------------------------------------------------------------
 
-    def test_densify_renders_correctly(self, real_manager: PromptManager) -> None:
-        """TC-N-06: Test densify template renders with valid input."""
-        # Given: Valid input parameters
-        current_summary = "Initial summary text."
-        original_content = "Original source content."
-        missing_entities = "Entity1, Entity2"
-
-        # When: Rendering the template
-        result = real_manager.render(
-            "densify",
-            current_summary=current_summary,
-            original_content=original_content,
-            missing_entities=missing_entities,
-        )
-
-        # Then: Template renders correctly with all variables
-        assert current_summary in result
-        assert original_content in result
-        assert missing_entities in result
-        # Template uses "information-dense" phrasing
-        assert "information-dense" in result.lower()
-
-    def test_initial_summary_renders_correctly(self, real_manager: PromptManager) -> None:
-        """TC-N-07: Test initial_summary template renders with valid input."""
-        # Given: Valid input parameters
-        content = "Source content to summarize."
-
-        # When: Rendering the template
-        result = real_manager.render("initial_summary", content=content)
-
-        # Then: Template renders correctly
-        assert content in result
-        assert "summary" in result.lower()
-
-    def test_initial_summary_with_query_context(self, real_manager: PromptManager) -> None:
-        """TC-N-08: Test initial_summary with optional query_context."""
-        # Given: Content with query context
-        content = "Source content."
-        query_context = "What is the effect of X on Y?"
-
-        # When: Rendering with optional parameter
-        result = real_manager.render(
-            "initial_summary", content=content, query_context=query_context
-        )
-
-        # Then: Query context is included
-        assert content in result
-        assert query_context in result
-        # Template uses "Research context:" label
-        assert "Research context:" in result
-
     def test_quality_assessment_renders_correctly(self, real_manager: PromptManager) -> None:
         """TC-N-09: Test quality_assessment template renders with valid input."""
         # Given: Valid text input
@@ -665,32 +587,6 @@ class TestTemplateValidation:
     # -------------------------------------------------------------------------
     # TC-V-04 to TC-V-07: JSON format validation for new templates
     # -------------------------------------------------------------------------
-
-    def test_json_format_densify(self, real_manager: PromptManager) -> None:
-        """TC-V-04: Verify densify JSON example uses single braces."""
-        # Given: Valid input
-        result = real_manager.render(
-            "densify",
-            current_summary="test",
-            original_content="test",
-            missing_entities="test",
-        )
-
-        # Then: Should use single braces
-        assert '"summary":' in result
-        assert '"entities":' in result
-        assert '{{"summary":' not in result
-
-    def test_json_format_initial_summary(self, real_manager: PromptManager) -> None:
-        """TC-V-05: Verify initial_summary JSON example uses single braces."""
-        # Given: Valid input
-        result = real_manager.render("initial_summary", content="test")
-
-        # Then: Should use single braces
-        assert '"summary":' in result
-        assert '"entities":' in result
-        assert '"conflicts":' in result
-        assert '{{"summary":' not in result
 
     def test_json_format_quality_assessment(self, real_manager: PromptManager) -> None:
         """TC-V-06: Verify quality_assessment JSON example uses single braces."""

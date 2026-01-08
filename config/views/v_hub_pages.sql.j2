@@ -1,9 +1,0 @@
--- Pages supporting many claims + citation counts
-SELECT *
-FROM v_hub_pages
-{% if task_id %}
-WHERE task_id = '{{ task_id }}'
-{% endif %}
-ORDER BY claims_supported DESC, cited_by_count DESC
-
-
