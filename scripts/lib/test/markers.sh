@@ -11,8 +11,8 @@ get_pytest_markers() {
     local markers=""
     
     if [[ "${IS_CLOUD_AGENT:-false}" == "true" ]]; then
-        # Cloud agent environment: unit + integration only (no e2e, no slow)
-        markers="not e2e and not slow"
+        # Cloud agent environment: unit + integration only (no e2e)
+        markers="not e2e"
         log_info "Cloud agent detected (${CLOUD_AGENT_TYPE:-unknown}): Running unit + integration tests only" >&2
     elif [[ "${LYRA_TEST_LAYER:-}" == "e2e" ]]; then
         # Explicitly request E2E tests

@@ -11,7 +11,7 @@ L1: CI Layer (Cloud Agent / GitHub Actions / GitLab CI)
     - Runs: unit + integration tests only
     - All external services mocked
     - No display, Chrome, Ollama required
-    - Command: pytest -m "not e2e and not slow"
+    - Command: pytest -m "not e2e"
 
 L2: Local Layer (Developer WSL2 environment)
     - Runs: L1 + container integration tests
@@ -42,10 +42,6 @@ Primary Markers (Execution Speed):
   - DEFAULT EXCLUDED: Must use `pytest -m e2e` to run
   - Risk of IP pollution, rate limiting
 
-- @pytest.mark.slow: Tests taking >5 seconds
-  - DEFAULT EXCLUDED: Must use `pytest -m slow` to run
-  - Typically heavy LLM or large data processing
-
 Risk-Based Sub-Markers (E2E only, ADR-0009):
 - @pytest.mark.external: Uses external services with moderate block risk
   - Example: Mojeek, Qwant (block-resistant engines)
@@ -73,17 +69,15 @@ Supported cloud agent environments:
 
 In cloud agent environments:
 - E2E tests are automatically skipped
-- Slow tests are automatically skipped (unless explicitly requested)
 - Only unit and integration tests run by default
 
 IMPORTANT: Cloud Agent Limitation
 ---------------------------------
 In cloud agent environments (Cursor Cloud Agent, Claude Code, etc.),
-tests dependent on external services (E2E, slow) are automatically skipped.
+E2E tests are automatically skipped.
 
 **Additional test execution required in local environment:**
   - E2E tests: pytest -m e2e
-  - Slow tests: pytest -m slow
   - All tests: pytest
 
 If dependencies are missing, the corresponding test files will not be collected.
@@ -93,7 +87,7 @@ Run `uv sync --extra full` in local environment to install all dependencies.
 Default Execution
 =============================================================================
 
-By default, pytest runs: unit + integration (excludes e2e, slow)
+By default, pytest runs: unit + integration (excludes e2e)
 
 To run all tests:
     pytest -m ""  # Empty marker filter
@@ -224,8 +218,9 @@ def detect_environment() -> EnvironmentInfo:
         is_cloud_agent = True
         cloud_agent_type = CloudAgentType.GENERIC_CI
 
-    # Headless environment detection (no display, not WSL, not explicitly local)
-    elif not has_display and not is_wsl and not os.environ.get("LYRA_LOCAL"):
+    # Headless environment detection (no display, not WSL, not container, not explicitly local)
+    # Container environments are explicitly started by developers, not cloud agents
+    elif not has_display and not is_wsl and not is_container and not os.environ.get("LYRA_LOCAL"):
         is_cloud_agent = True
         cloud_agent_type = CloudAgentType.HEADLESS
 
@@ -352,13 +347,14 @@ def pytest_configure(config: Config) -> None:
     config.addinivalue_line(
         "markers", "e2e: End-to-end tests requiring real environment (excluded by default)"
     )
-    config.addinivalue_line(
-        "markers", "slow: Tests that take more than 5 seconds (excluded by default)"
-    )
 
     # Risk-based sub-markers for E2E tests (ADR-0009)
     config.addinivalue_line(
         "markers", "external: E2E using external services with moderate block risk (Mojeek, Qwant)"
+    )
+    config.addinivalue_line(
+        "markers",
+        "internal: E2E against local services only (containers/proxy/ML/Ollama). No internet SERP/API.",
     )
     config.addinivalue_line(
         "markers", "rate_limited: E2E using services with high block risk (DuckDuckGo, Google)"
@@ -375,11 +371,10 @@ def pytest_configure(config: Config) -> None:
         print(f"  Agent Type: {_env_info.cloud_agent_type.value}")
         print(f"  E2E Capable: {_env_info.is_e2e_capable}")
         print()
-        print("  ⚠️  E2E/Slow tests are SKIPPED in this environment.")
+        print("  ⚠️  E2E tests are SKIPPED in this environment.")
         print("  📋 Please run the following tests LOCALLY:")
         print()
         print("      pytest -m e2e          # E2E tests (Chrome, Ollama required)")
-        print("      pytest -m slow         # Slow tests (>5s)")
         print("      pytest                 # All tests")
         print()
         if not _deps_available:
@@ -414,16 +409,11 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
 
     In cloud agent environments (Cursor, Claude Code, GitHub Actions, etc.):
     - E2E tests are automatically skipped
-    - Slow tests are automatically skipped (unless --run-slow is passed)
     """
     # Skip reasons for cloud agent environment
     skip_e2e_reason = pytest.mark.skip(
         reason=f"E2E tests skipped in cloud agent environment ({_env_info.cloud_agent_type.value}). "
         f"Run locally with: pytest -m e2e"
-    )
-    skip_slow_reason = pytest.mark.skip(
-        reason=f"Slow tests skipped in cloud agent environment ({_env_info.cloud_agent_type.value}). "
-        f"Run with: pytest -m slow"
     )
 
     for item in items:
@@ -436,18 +426,30 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]) -> None:
         if not has_classification:
             item.add_marker(pytest.mark.unit)
 
-        # In cloud agent environment, skip E2E and slow tests
+        # In cloud agent environment, skip E2E tests
         if _env_info.is_cloud_agent:
-            # Skip E2E tests
             if any(marker.name == "e2e" for marker in item.iter_markers()):
                 item.add_marker(skip_e2e_reason)
 
-            # Skip slow tests (unless explicitly requested)
-            if any(marker.name == "slow" for marker in item.iter_markers()):
-                # Check if slow tests are explicitly requested via marker expression
-                markexpr = config.getoption("-m", default="")
-                if "slow" not in markexpr:
-                    item.add_marker(skip_slow_reason)
+        # Enforce E2E sub-classification (internal vs external).
+        # Policy:
+        # - All e2e tests MUST include exactly one of: internal, external
+        # - Optional modifiers: rate_limited, manual (usually alongside external)
+        if any(marker.name == "e2e" for marker in item.iter_markers()):
+            has_internal = any(m.name == "internal" for m in item.iter_markers())
+            has_external = any(m.name == "external" for m in item.iter_markers())
+
+            if has_internal and has_external:
+                raise pytest.UsageError(
+                    f"[Lyra Test] Invalid E2E marker combination (both internal and external): {item.nodeid}"
+                )
+
+            if not has_internal and not has_external:
+                raise pytest.UsageError(
+                    "[Lyra Test] E2E tests must be classified as either @pytest.mark.internal "
+                    "or @pytest.mark.external (exactly one). "
+                    f"Missing classification on: {item.nodeid}"
+                )
 
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:

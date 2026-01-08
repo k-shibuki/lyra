@@ -23,7 +23,7 @@ cmd_run() {
     done_file=$(get_done_file "$run_id")
     exit_file=$(get_exit_file "$run_id")
 
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
         echo "=== Cleanup ==="
     fi
     # Clean up old result files (prevents /tmp bloat)
@@ -42,7 +42,7 @@ cmd_run() {
         PYTEST_ARGS=("tests/")
     fi
 
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
         echo "=== Running: ${PYTEST_ARGS[*]} ==="
     fi
 
@@ -68,6 +68,9 @@ cmd_run() {
     pytest_cmd+=(--tb=short -q)
     if [[ -n "$markers" ]]; then
         pytest_cmd+=(-m "$markers")
+    elif [[ "${LYRA_TEST_LAYER:-}" == "all" ]]; then
+        # Override pyproject.toml's default marker exclusions for test-all
+        pytest_cmd+=('--override-ini=addopts=-v')
     fi
 
     # Export cloud agent detection for Python-side detection
@@ -136,41 +139,52 @@ cmd_run() {
     manifest_file=$(get_manifest_file "$run_id")
     
     if [[ "$LYRA_OUTPUT_JSON" == "true" ]]; then
-        cat <<EOF
+        local json_detail
+        json_detail="${LYRA_TEST_JSON_DETAIL:-full}"  # full|minimal
+
+        if [[ "$json_detail" == "full" ]]; then
+            cat <<EOF
 {
   "status": "started",
   "exit_code": ${EXIT_SUCCESS},
   "run_id": "${run_id}",
   "runtime": "${runtime}",
-  "result_file": "${result_file}",
-  "pid_file": "${pid_file}",
-  "done_file": "${done_file}",
-  "exit_file": "${exit_file}",
+  "manifest_file": "${manifest_file}",
+  "check_command": "make test-check RUN_ID=${run_id}",
+  "markers": "${markers}",
+  "container_name": "${container_name}",
+  "artifacts": {
+    "result_file": "${result_file}",
+    "pid_file": "${pid_file}",
+    "done_file": "${done_file}",
+    "exit_file": "${exit_file}"
+  }
+}
+EOF
+        else
+            cat <<EOF
+{
+  "status": "started",
+  "exit_code": ${EXIT_SUCCESS},
+  "run_id": "${run_id}",
+  "runtime": "${runtime}",
   "manifest_file": "${manifest_file}",
   "check_command": "make test-check RUN_ID=${run_id}",
   "markers": "${markers}",
   "container_name": "${container_name}"
 }
 EOF
+        fi
     else
-        echo ""
-        echo "Started. To check results:"
-        echo "  make test-check RUN_ID=${run_id}"
-        echo ""
-        echo "Artifacts:"
-        echo "  run_id:       ${run_id}"
-        echo "  runtime:      ${runtime}"
-        echo "  result_file:  ${result_file}"
-        echo "  pid_file:     ${pid_file}"
-        echo "  done_file:    ${done_file}"
-        echo "  exit_file:    ${exit_file}"
-        echo "  manifest:     ${manifest_file}"
-        echo ""
-        echo "Tip:"
-        if [[ "$runtime" == "container" ]]; then
-            echo "  ${container_tool} exec ${container_name} tail -100 ${result_file}"
-        else
-            echo "  less -R ${result_file}"
+        if [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+            echo ""
+            echo "Started:"
+            echo "  run_id:  ${run_id}"
+            echo "  runtime: ${runtime}"
+            echo ""
+            echo "Next:"
+            echo "  make test-check RUN_ID=${run_id}"
+            echo ""
         fi
     fi
 }

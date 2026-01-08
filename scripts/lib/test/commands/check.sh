@@ -110,6 +110,8 @@ cmd_check() {
     # STEP 2: Polling loop with done/exit marker priority
     # ==========================================================================
     
+    local last_progress_ts="0"
+
     while true; do
         # ------------------------------------------------------------------
         # CONDITION 0: Check for cancelled marker (host-side, always accessible)
@@ -220,11 +222,25 @@ cmd_check() {
         # ------------------------------------------------------------------
         # Still running - display progress and continue polling
         # ------------------------------------------------------------------
-        if [[ "$pid_alive" == "true" ]]; then
-            echo "RUNNING | $last_line"
-        else
-            # PID not detected but no done marker yet - could be starting up or detection failed
-            echo "RUNNING (awaiting done marker) | $last_line"
+        # Progress output:
+        # - JSON mode must remain machine-readable: do not emit non-JSON lines while running
+        # - Quiet mode suppresses progress spam (still returns final status)
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+            local progress_line
+            if [[ "$pid_alive" == "true" ]]; then
+                progress_line="RUNNING | $last_line"
+            else
+                # PID not detected but no done marker yet - could be starting up or detection failed
+                progress_line="RUNNING (awaiting done marker) | $last_line"
+            fi
+
+            # Throttle: print at most once per 5s (prevents huge logs on dot-progress)
+            local now_ts
+            now_ts=$(date +%s)
+            if (( now_ts - last_progress_ts >= 5 )); then
+                echo "$progress_line"
+                last_progress_ts="$now_ts"
+            fi
         fi
         sleep "$CHECK_INTERVAL_SECONDS"
     done
@@ -328,7 +344,11 @@ EOF
         fi
         echo ""
         echo "runtime: ${runtime}  run_id: ${run_id}  exit_code: ${pytest_exit_code:-unknown}"
-        output_tail "$runtime" "$result_file" "$total_lines"
+        # Default: tail only on failure (success tail is often pure noise).
+        # Override: LYRA_TEST_SHOW_TAIL_ON_SUCCESS=true
+        if [[ "$has_failed" == "true" ]] || [[ "${LYRA_TEST_SHOW_TAIL_ON_SUCCESS:-false}" == "true" ]]; then
+            output_tail "$runtime" "$result_file" "$total_lines"
+        fi
     fi
 }
 

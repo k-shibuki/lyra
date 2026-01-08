@@ -98,6 +98,7 @@ dev = [
     "check-jsonschema>=0.36.0",
     "types-PyYAML>=6.0.12",
     "ipython>=8.0.0",
+    "vulture>=2.11",
 ]
 
 # Testing
@@ -194,7 +195,7 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = "-v -m 'not e2e and not slow'"
+addopts = "-v -m 'not e2e'"
 # Test Execution Layers (Cloud Agent Compatible):
 #   L1 (CI/Cloud): unit + integration (auto-selected in cloud environments)
 #   L2 (Local):    unit + integration (default)
@@ -203,7 +204,7 @@ markers = [
     "unit: Unit tests with no external dependencies (fast, <30s total). L1/L2/L3 compatible.",
     "integration: Integration tests with mocked external dependencies (<2min total). L1/L2/L3 compatible.",
     "e2e: End-to-end tests requiring real environment (Chrome, Ollama, network). L3 only.",
-    "slow: Tests that take more than 5 seconds. Skipped in cloud agents by default.",
+    "internal: E2E against local services only (containers/proxy/ML/Ollama). No internet SERP/API.",
     "external: E2E using external services with moderate block risk (Mojeek, Qwant).",
     "rate_limited: E2E using services with high block risk (DuckDuckGo, Google).",
     "manual: E2E requiring human interaction (CAPTCHA resolution).",
@@ -225,6 +226,32 @@ filterwarnings = [
     # from a sync __del__ method when no event loop is available.
     # See: https://github.com/omnilib/aiosqlite/issues/244
     "ignore:Exception ignored in.*Connection.__del__:pytest.PytestUnraisableExceptionWarning",
+]
+
+[tool.vulture]
+# Dead code detection (manual check, not CI)
+# Run: make deadcode
+min_confidence = 80
+paths = ["src/"]
+exclude = [
+    "src/__init__.py",
+    "src/mcp/schemas/",  # JSON schema files
+]
+# Known false positives (dynamic dispatch, MCP tools, pytest fixtures)
+ignore_names = [
+    # MCP tool entry points (called via getattr)
+    "mcp_lyra_*",
+    # Pydantic model fields
+    "model_config",
+    "model_validator",
+    # pytest fixtures
+    "test_*",
+    # FastAPI/Pydantic
+    "startup",
+    "shutdown",
+    # Context manager __aexit__/__exit__ signature (required by protocol)
+    "exc_val",
+    "exc_tb",
 ]
 
 [tool.coverage.run]

@@ -44,12 +44,10 @@ resolve_runtime() {
             return 0
         fi
 
-        # Prefer container if available and running
-        if [[ -n "$(detect_container_tool)" ]] && is_container_running_selected; then
-            echo "container"
-            return 0
-        fi
-
+        # Default: Prefer venv. Container runtime must be explicitly requested via:
+        # - ./scripts/test.sh run --container
+        # - make test RUNTIME=container
+        # This matches the MCP-hosted workflow (pytest runs on host) and improves determinism.
         echo "venv"
         return 0
     fi
