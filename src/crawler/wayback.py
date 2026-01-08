@@ -239,9 +239,11 @@ class WaybackClient:
 
             from curl_cffi import requests as curl_requests
 
+            # Use configurable timeout from settings
+            timeout = self._settings.crawler.wayback_timeout
             response = curl_requests.get(
                 cdx_url,
-                timeout=30,
+                timeout=timeout,
                 impersonate="chrome",
             )
 
@@ -289,9 +291,11 @@ class WaybackClient:
         try:
             from curl_cffi import requests as curl_requests
 
+            # Use configurable timeout from settings
+            timeout = self._settings.crawler.wayback_timeout
             response = curl_requests.get(
                 snapshot.wayback_url,
-                timeout=30,
+                timeout=timeout,
                 impersonate="chrome",
                 headers={
                     "Accept": "text/html",

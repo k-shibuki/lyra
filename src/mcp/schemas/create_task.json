@@ -28,6 +28,10 @@
         "max_seconds": {"type": "integer"}
       },
       "additionalProperties": false
+    },
+    "message": {
+      "type": "string",
+      "description": "Next step instructions for AI workflow guidance"
     }
   },
   "required": ["ok", "task_id", "hypothesis", "created_at", "budget"],

@@ -833,9 +833,38 @@ class SearchPipeline:
                 serp_only=stats["serp_only"],
             )
 
-            # -6: WEB FETCH FIRST (ADR-0015 update)
-            # Process entries that need fetch (no abstract available) BEFORE citation graph
-            # This ensures SERP-only entries (FDA.gov, Wikipedia, etc.) are fetched within timeout
+            # -6a: EARLY CITATION GRAPH ENQUEUE (BUG-001b fix)
+            # Enqueue citation graph job BEFORE web fetch to ensure it's created
+            # even if timeout occurs during web fetch. This fixes BUG-001b.
+            early_paper_ids = [
+                e.paper.id for e in unique_entries if e.paper and e.paper.abstract and e.paper.id
+            ]
+            if early_paper_ids:
+                try:
+                    from src.research.citation_graph import enqueue_citation_graph_job
+
+                    await enqueue_citation_graph_job(
+                        task_id=self.task_id,
+                        search_id=search_id,
+                        query=query,
+                        paper_ids=early_paper_ids,
+                    )
+                    logger.info(
+                        "Early enqueue citation graph job (before web fetch)",
+                        task_id=self.task_id,
+                        search_id=search_id,
+                        paper_count=len(early_paper_ids),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to early enqueue citation graph job",
+                        error=str(e),
+                        task_id=self.task_id,
+                    )
+
+            # -6b: WEB FETCH (ADR-0015 update)
+            # Process entries that need fetch (no abstract available)
+            # SERP-only entries (FDA.gov, Wikipedia, etc.) are fetched here
             entries_needing_fetch = [e for e in unique_entries if e.needs_fetch]
             if entries_needing_fetch:
                 logger.info(
@@ -896,7 +925,6 @@ class SearchPipeline:
         Returns:
             (page_id, fragment_id) tuple, or (existing_page_id, None) if already processed
         """
-        import json
 
         db = await get_database()
 
@@ -942,34 +970,22 @@ class SearchPipeline:
             )
             return existing_page_id, existing_fragment_id
 
-        # Prepare paper_metadata JSON
-        paper_metadata = {
-            # Critical integration contract:
-            # - citation_graph jobs refer to papers by Paper.id (e.g., "s2:...", "openalex:...")
-            # - process_citation_graph resolves paper_id -> page_id via pages.paper_metadata.paper_id
-            "paper_id": paper.id,
-            "doi": paper.doi,
-            "arxiv_id": paper.arxiv_id,
-            "authors": [
-                {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
-                for a in paper.authors
-            ],
-            "title": paper.title,
-            "year": paper.year,
-            "venue": paper.venue,
-            "citation_count": paper.citation_count,
-            "reference_count": paper.reference_count,
-            "is_open_access": paper.is_open_access,
-            "oa_url": paper.oa_url,
-            "pdf_url": paper.pdf_url,
-            "source_api": paper.source_api,
-        }
+        # Compute canonical_id for deduplication and normalized storage
+        from src.search.canonical_index import CanonicalPaperIndex
+
+        index = CanonicalPaperIndex()
+        canonical_id = index.register_paper(paper, paper.source_api)
+
+        # Persist to normalized works tables (works, work_authors, work_identifiers)
+        from src.storage.works import persist_work
+
+        await persist_work(db, paper, canonical_id)
 
         # Generate page ID
         page_id = f"page_{uuid.uuid4().hex[:8]}"
 
         try:
-            # Insert into pages table (use or_ignore for safety)
+            # Insert into pages table with canonical_id reference
             await db.insert(
                 "pages",
                 {
@@ -980,7 +996,7 @@ class SearchPipeline:
                     "page_type": "academic_paper",
                     "fetch_method": "academic_api",
                     "title": paper.title,
-                    "paper_metadata": json.dumps(paper_metadata),
+                    "canonical_id": canonical_id,
                     "fetched_at": time.time(),
                 },
                 auto_id=False,
@@ -1272,8 +1288,6 @@ class SearchPipeline:
         Returns:
             page_id if created/existing, None if failed
         """
-        import json
-
         db = await get_database()
 
         # Build reference URL (OA URL or DOI URL)
@@ -1294,36 +1308,21 @@ class SearchPipeline:
                 )
                 return page_id_existing
 
-            # Prepare minimal paper_metadata JSON
-            paper_metadata = {
-                # Keep the same contract as _persist_abstract_as_fragment:
-                # citation_graph resolves citing pages by pages.paper_metadata.paper_id.
-                "paper_id": paper.id,
-                "doi": paper.doi,
-                "arxiv_id": paper.arxiv_id,
-                "authors": (
-                    [
-                        {"name": a.name, "affiliation": a.affiliation, "orcid": a.orcid}
-                        for a in paper.authors
-                    ]
-                    if paper.authors
-                    else []
-                ),
-                "title": paper.title,
-                "year": paper.year,
-                "venue": paper.venue,
-                "citation_count": paper.citation_count,
-                "reference_count": paper.reference_count,
-                "is_open_access": paper.is_open_access,
-                "oa_url": paper.oa_url,
-                "pdf_url": paper.pdf_url,
-                "source_api": paper.source_api,
-            }
+            # Compute canonical_id for normalized storage
+            from src.search.canonical_index import CanonicalPaperIndex
+
+            index = CanonicalPaperIndex()
+            canonical_id = index.register_paper(paper, paper.source_api)
+
+            # Persist to normalized works tables
+            from src.storage.works import persist_work
+
+            await persist_work(db, paper, canonical_id)
 
             # Generate page ID
             page_id = f"page_{uuid.uuid4().hex[:8]}"
 
-            # Insert placeholder page (no fragment, not counted in budget)
+            # Insert placeholder page with canonical_id reference
             await db.insert(
                 "pages",
                 {
@@ -1334,7 +1333,7 @@ class SearchPipeline:
                     "page_type": "citation_placeholder",
                     "fetch_method": "citation_graph",
                     "title": paper.title,
-                    "paper_metadata": json.dumps(paper_metadata),
+                    "canonical_id": canonical_id,
                     "fetched_at": time.time(),
                 },
                 auto_id=False,
@@ -1989,6 +1988,26 @@ async def ingest_url_action(
             depth=depth,
             reason=reason,
         )
+
+        # Skip PDF URLs - browser fetch cannot extract text from PDFs
+        # PDFs are handled via Academic API (abstract-only) per design
+        url_lower = url.lower()
+        if url_lower.endswith(".pdf") or "/pdf/" in url_lower:
+            logger.info(
+                "Skipping PDF URL (abstract-only design)",
+                url=url[:100],
+            )
+            return {
+                "ok": False,
+                "url": url,
+                "reason": "pdf_not_supported",
+                "message": "PDF URLs cannot be processed via browser fetch. Use Academic API for abstract.",
+                "status": "skipped",
+                "pages_fetched": 0,
+                "fragments_extracted": 0,
+                "claims_extracted": 0,
+                "citations_detected": 0,
+            }
 
         context = context or {}
         policy = policy or {}

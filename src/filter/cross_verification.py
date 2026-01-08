@@ -19,7 +19,7 @@ from src.ml_client import get_ml_client
 from src.storage.database import get_database
 from src.storage.vector_store import cosine_similarity, deserialize_embedding
 from src.utils.config import get_settings
-from src.utils.logging import get_logger
+from src.utils.logging import get_current_cause_id, get_logger
 
 logger = get_logger(__name__)
 
@@ -434,6 +434,7 @@ async def enqueue_verify_nli_job(
     task_id: str,
     claim_ids: list[str] | None = None,
     priority: int | None = None,
+    cause_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Enqueue a VERIFY_NLI job for cross-source verification.
@@ -444,6 +445,7 @@ async def enqueue_verify_nli_job(
         task_id: Task ID.
         claim_ids: Specific claim IDs to verify (None = all task claims).
         priority: Job priority override.
+        cause_id: Parent cause ID for causal tracing (None = inherit from context).
 
     Returns:
         Job submission result.
@@ -451,6 +453,9 @@ async def enqueue_verify_nli_job(
     from src.scheduler.jobs import JobKind, get_scheduler
 
     scheduler = await get_scheduler()
+
+    # Use provided cause_id or inherit from current context
+    effective_cause_id = cause_id or get_current_cause_id()
 
     input_data: dict[str, Any] = {
         "task_id": task_id,
@@ -463,6 +468,7 @@ async def enqueue_verify_nli_job(
         input_data=input_data,
         priority=priority,
         task_id=task_id,
+        cause_id=effective_cause_id,
     )
 
     logger.info(

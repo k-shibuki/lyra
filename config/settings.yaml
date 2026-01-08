@@ -11,7 +11,7 @@ general:
   
 # === Task Limits ===
 task_limits:
-  budget_pages_per_task: 500
+  budget_pages_per_task: 250
   max_time_minutes_gpu: 60
   max_time_minutes_cpu: 60
   llm_time_ratio_max: 0.30  # LLM processing ≤30%
@@ -108,6 +108,10 @@ crawler:
   
   # BFS depth for same domain
   same_domain_depth: 2
+  
+  # Wayback Machine fallback timeout (seconds)
+  # Reduced from 30s - blocked URLs rarely have useful Wayback archives
+  wayback_timeout: 10
 
 # === Tor Settings ===
 tor:

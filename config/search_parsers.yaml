@@ -285,6 +285,19 @@ brave:
       type: "turnstile"
     - pattern: "challenge-form"
       type: "challenge"
+  
+  # No results detection patterns (returns empty result set instead of error)
+  no_results_patterns:
+    - pattern: "noResults:true"
+      type: "no_results"
+    - pattern: "badResults:\"generic\""
+      type: "bad_results"
+    - pattern: "検索結果はあまり多くありませんでした"
+      type: "no_results_ja"
+      case_insensitive: true
+    - pattern: "not many results matched your search"
+      type: "no_results_en"
+      case_insensitive: true
 
 # =============================================================================
 # Ecosia Parser (Bing-based, relatively lenient)

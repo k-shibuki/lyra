@@ -210,6 +210,12 @@ DECISION POINTS:
                     "minimum": 0,
                     "maximum": 300,
                 },
+                "detail": {
+                    "type": "string",
+                    "enum": ["summary", "full"],
+                    "default": "summary",
+                    "description": "Response detail level. 'summary' for progress overview, 'full' for queue_items, pending_auth_detail, blocked_domains, etc.",
+                },
             },
             "required": ["task_id"],
         },
@@ -641,6 +647,15 @@ SCHEMA HINTS (task_id column availability):
 - pages: NO task_id (URL-based deduplication, global scope)
 - fragments: NO task_id (linked via page_id → pages)
 - edges: NO task_id (use JOINs with claims for task filtering)
+
+KEY COLUMNS (commonly used):
+- claims: id, task_id, claim_text, claim_type, granularity, llm_claim_confidence
+- fragments: id, page_id, text_content, heading_context, fragment_type, position
+- pages: id, url, title, domain, page_type, fetched_at, canonical_id (FK to works)
+- works: canonical_id, title, year, venue, doi, source_api (normalized bibliographic data)
+- work_authors: canonical_id, position, name, affiliation, orcid (authors by position)
+- work_identifiers: canonical_id, provider, provider_paper_id (paper_id → canonical_id lookup)
+- edges: id, source_type, source_id, target_type, target_id, relation, nli_edge_confidence
 
 To filter task-scoped data, start with claims/queries tables or use JOINs.
 Use options.include_schema=true to get full schema snapshot.

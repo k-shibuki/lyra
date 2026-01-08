@@ -263,7 +263,8 @@ class OllamaProvider(BaseLLMProvider):
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             self._total_latency_ms += elapsed_ms
 
-            logger.error("Ollama request failed", error=str(e))
+            error_msg = str(e) or f"{type(e).__name__}: (no message)"
+            logger.error("Ollama request failed", error=error_msg)
 
             if isinstance(e, aiohttp.ServerTimeoutError):
                 return LLMResponse.make_error(
@@ -274,15 +275,16 @@ class OllamaProvider(BaseLLMProvider):
                 )
 
             return LLMResponse.make_error(
-                error=str(e),
+                error=error_msg,
                 model=model,
                 provider=self._name,
             )
         except Exception as e:
             self._error_count += 1
-            logger.error("Ollama request failed", error=str(e))
+            error_msg = str(e) or f"{type(e).__name__}: (no message)"
+            logger.error("Ollama request failed", error=error_msg)
             return LLMResponse.make_error(
-                error=str(e),
+                error=error_msg,
                 model=model,
                 provider=self._name,
             )
@@ -385,7 +387,8 @@ class OllamaProvider(BaseLLMProvider):
 
         except aiohttp.ClientError as e:
             self._error_count += 1
-            logger.error("Ollama chat request failed", error=str(e))
+            error_msg = str(e) or f"{type(e).__name__}: (no message)"
+            logger.error("Ollama chat request failed", error=error_msg)
 
             if isinstance(e, aiohttp.ServerTimeoutError):
                 return LLMResponse.make_error(
@@ -396,15 +399,16 @@ class OllamaProvider(BaseLLMProvider):
                 )
 
             return LLMResponse.make_error(
-                error=str(e),
+                error=error_msg,
                 model=model,
                 provider=self._name,
             )
         except Exception as e:
             self._error_count += 1
-            logger.error("Ollama chat request failed", error=str(e))
+            error_msg = str(e) or f"{type(e).__name__}: (no message)"
+            logger.error("Ollama chat request failed", error=error_msg)
             return LLMResponse.make_error(
-                error=str(e),
+                error=error_msg,
                 model=model,
                 provider=self._name,
             )
@@ -465,9 +469,10 @@ class OllamaProvider(BaseLLMProvider):
 
         except Exception as e:
             self._error_count += 1
-            logger.error("Ollama embed request failed", error=str(e))
+            error_msg = str(e) or f"{type(e).__name__}: (no message)"
+            logger.error("Ollama embed request failed", error=error_msg)
             return EmbeddingResponse.error_response(
-                error=str(e),
+                error=error_msg,
                 model=embed_model,
                 provider=self._name,
             )

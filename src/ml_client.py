@@ -113,10 +113,11 @@ class MLClient:
                 )
             except httpx.RequestError as e:
                 last_error = e
+                error_msg = str(e) or f"{type(e).__name__}: (no message)"
                 logger.warning(
                     "ML Server request error",
                     endpoint=endpoint,
-                    error=str(e),
+                    error=error_msg,
                     attempt=attempt + 1,
                 )
 

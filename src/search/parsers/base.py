@@ -288,6 +288,21 @@ class BaseSearchParser(ABC):
         """
         return self.config.detect_captcha(html)
 
+    def detect_no_results(self, html: str) -> tuple[bool, str | None]:
+        """
+        Check if HTML indicates a 'no results' page.
+
+        This allows returning an empty result set instead of an error
+        when the search engine simply has no results for the query.
+
+        Args:
+            html: HTML content.
+
+        Returns:
+            Tuple of (is_no_results, no_results_type).
+        """
+        return self.config.detect_no_results(html)
+
     def build_search_url(
         self,
         query: str,
@@ -337,6 +352,17 @@ class BaseSearchParser(ABC):
                 captcha_type=captcha_type,
             )
             return ParseResult.captcha(captcha_type or "unknown")
+
+        # Check for 'no results' page (returns empty result set instead of error)
+        is_no_results, no_results_type = self.detect_no_results(html)
+        if is_no_results:
+            logger.info(
+                "No results page detected",
+                engine=self.engine_name,
+                no_results_type=no_results_type,
+                query=query[:50] if query else "",
+            )
+            return ParseResult.success([])
 
         # Parse HTML
         soup = BeautifulSoup(html, "html.parser")

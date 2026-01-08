@@ -139,6 +139,9 @@ class CrawlerConfig(BaseModel):
     delay_min: float = 1.5
     delay_max: float = 5.5
     same_domain_depth: int = 2
+    # Wayback Machine fallback timeout (seconds)
+    # Reduced from 30s - blocked URLs rarely have useful Wayback archives
+    wayback_timeout: int = 10
 
 
 class DNSPolicyConfig(BaseModel):

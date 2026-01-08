@@ -151,8 +151,8 @@ debug.log
 .cursor/mcp.json
 *.debug.log
 
-# Debug HTML files (parser diagnostics)
-debug/search_html/
+# Debug files (parser diagnostics)
+debug/
 
 # Private documentation (not for public repository)
 docs/private/

@@ -28,7 +28,7 @@ This command focuses on the concrete deliverables and how to produce them.
 
 ## Steps (deliverables)
 
-1. Produce a Mermaid sequence diagram and save it under `docs/sequences/`.
+1. Produce a Mermaid sequence diagram and save it under `debug/sequences/`.
 2. Define shared data contracts as Pydantic models in `src/{module}/schemas.py`.
 3. If introducing new parameters/fields, create a **propagation map** (where the value is accepted, transformed, forwarded, and where it has effect).
 4. Add a debug script at `tests/scripts/debug_{feature}_flow.py` that validates the end-to-end flow (including the propagation map checkpoints).

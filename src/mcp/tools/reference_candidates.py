@@ -11,7 +11,7 @@ from typing import Any
 from src.mcp.errors import InvalidParamsError, TaskNotFoundError
 from src.storage.database import get_database
 from src.storage.view_manager import ViewManager
-from src.utils.logging import LogContext, ensure_logging_configured, get_logger
+from src.utils.logging import CausalTrace, LogContext, ensure_logging_configured, get_logger
 
 ensure_logging_configured()
 logger = get_logger(__name__)
@@ -279,6 +279,9 @@ async def handle_queue_reference_candidates(args: dict[str, Any]) -> dict[str, A
         target_ids = []
         skipped_count = 0
 
+        # Create a causal trace for this queue_reference_candidates operation
+        trace = CausalTrace()
+
         for item in targets_to_queue:
             target = item["target"]
             kind = target["kind"]
@@ -322,6 +325,7 @@ async def handle_queue_reference_candidates(args: dict[str, Any]) -> dict[str, A
                 input_data=input_data,
                 priority=priority_value,
                 task_id=task_id,
+                cause_id=trace.id,
             )
             if result.get("accepted"):
                 target_ids.append(result["job_id"])

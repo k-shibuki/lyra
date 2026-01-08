@@ -9,13 +9,12 @@ This module provides:
 - process_citation_graph: Execute citation graph processing (called by job handler)
 """
 
-import json
 import uuid
 from typing import Any
 
 from src.storage.database import get_database
 from src.utils.config import get_settings
-from src.utils.logging import get_logger
+from src.utils.logging import get_current_cause_id, get_logger
 
 logger = get_logger(__name__)
 
@@ -25,6 +24,7 @@ async def enqueue_citation_graph_job(
     search_id: str,
     query: str,
     paper_ids: list[str],
+    cause_id: str | None = None,
 ) -> str | None:
     """Enqueue a citation graph job for deferred processing.
 
@@ -36,6 +36,7 @@ async def enqueue_citation_graph_job(
         search_id: Search ID.
         query: Search query (for relevance filtering).
         paper_ids: List of paper IDs with abstracts to process.
+        cause_id: Parent cause ID for causal tracing (None = inherit from context).
 
     Returns:
         Job ID if enqueued, None if skipped.
@@ -47,6 +48,9 @@ async def enqueue_citation_graph_job(
 
     db = await get_database()
     scheduler = await get_scheduler()
+
+    # Use provided cause_id or inherit from current context
+    effective_cause_id = cause_id or get_current_cause_id()
 
     input_data = {
         "task_id": task_id,
@@ -76,6 +80,7 @@ async def enqueue_citation_graph_job(
         kind=JobKind.CITATION_GRAPH,
         input_data=input_data,
         task_id=task_id,
+        cause_id=effective_cause_id,
     )
 
     job_id = result.get("job_id")
@@ -125,24 +130,15 @@ async def process_citation_graph(
     db = await get_database()
     academic_provider = AcademicSearchProvider()
 
-    # Build paper_to_page_map from existing data
+    # Build paper_to_page_map from existing data using normalized work_identifiers table
     paper_to_page_map: dict[str, str] = {}
 
     for paper_id in paper_ids:
-        # Find page by paper_id in paper_metadata JSON.
-        # Prefer JSON extraction (exact match) over LIKE (substring) to avoid false positives.
-        row = await db.fetch_one(
-            """
-            SELECT id FROM pages
-            WHERE paper_metadata IS NOT NULL
-              AND json_valid(paper_metadata)
-              AND json_extract(paper_metadata, '$.paper_id') = ?
-            LIMIT 1
-            """,
-            (paper_id,),
-        )
-        if row:
-            page_id = row["id"] if isinstance(row, dict) else row[0]
+        # Find page by paper_id via work_identifiers → pages.canonical_id
+        from src.storage.works import resolve_paper_id_to_page_id
+
+        page_id = await resolve_paper_id_to_page_id(db, paper_id)
+        if page_id:
             paper_to_page_map[paper_id] = page_id
 
     result = {
@@ -345,20 +341,17 @@ async def _persist_citation_paper(
         page_id_val = existing["id"] if isinstance(existing, dict) else existing[0]
         return str(page_id_val)
 
-    # Create page
+    # Create page with normalized bibliographic data
     page_id = str(uuid.uuid4())
     domain = _extract_domain(reference_url)
 
-    paper_metadata = {
-        "paper_id": paper.id,
-        "doi": paper.doi,
-        "arxiv_id": getattr(paper, "arxiv_id", None),
-        "title": paper.title,
-        "year": paper.year,
-        "venue": paper.venue,
-        "citation_count": paper.citation_count,
-        "source_api": paper.source_api,
-    }
+    # Compute canonical_id and persist to normalized tables
+    from src.search.canonical_index import CanonicalPaperIndex
+    from src.storage.works import persist_work
+
+    index = CanonicalPaperIndex()
+    canonical_id = index.register_paper(paper, paper.source_api)
+    await persist_work(db, paper, canonical_id)
 
     await db.insert(
         "pages",
@@ -368,7 +361,7 @@ async def _persist_citation_paper(
             "domain": domain,
             "page_type": "academic",
             "title": paper.title,
-            "paper_metadata": json.dumps(paper_metadata),
+            "canonical_id": canonical_id,
         },
         or_ignore=True,
     )
@@ -419,21 +412,17 @@ async def _create_citation_placeholder(
         page_id_val = existing["id"] if isinstance(existing, dict) else existing[0]
         return str(page_id_val)
 
-    # Create placeholder page
+    # Create placeholder page with normalized bibliographic data
     page_id = str(uuid.uuid4())
     domain = _extract_domain(reference_url)
 
-    paper_metadata = {
-        "paper_id": paper.id,
-        "doi": paper.doi,
-        "arxiv_id": getattr(paper, "arxiv_id", None),
-        "title": paper.title,
-        "year": paper.year,
-        "venue": paper.venue,
-        "citation_count": paper.citation_count,
-        "source_api": paper.source_api,
-        "is_placeholder": True,
-    }
+    # Compute canonical_id and persist to normalized tables
+    from src.search.canonical_index import CanonicalPaperIndex
+    from src.storage.works import persist_work
+
+    index = CanonicalPaperIndex()
+    canonical_id = index.register_paper(paper, paper.source_api)
+    await persist_work(db, paper, canonical_id)
 
     await db.insert(
         "pages",
@@ -443,7 +432,7 @@ async def _create_citation_placeholder(
             "domain": domain,
             "page_type": "academic_placeholder",
             "title": paper.title,
-            "paper_metadata": json.dumps(paper_metadata),
+            "canonical_id": canonical_id,
         },
         or_ignore=True,
     )

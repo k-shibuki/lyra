@@ -65,6 +65,20 @@ class CaptchaPatternSchema(BaseModel):
         return self.pattern in html
 
 
+class NoResultsPatternSchema(BaseModel):
+    """Schema for 'no results' detection pattern."""
+
+    pattern: str = Field(..., description="Pattern to match in HTML for no-results page")
+    type: str = Field(..., description="No-results type identifier")
+    case_insensitive: bool = Field(default=False, description="Case-insensitive matching")
+
+    def matches(self, html: str) -> bool:
+        """Check if pattern matches HTML content."""
+        if self.case_insensitive:
+            return self.pattern.lower() in html.lower()
+        return self.pattern in html
+
+
 class EngineParserSchema(BaseModel):
     """Schema for a search engine parser configuration."""
 
@@ -74,6 +88,7 @@ class EngineParserSchema(BaseModel):
     time_ranges: dict[str, str] = Field(default_factory=dict)
     selectors: dict[str, SelectorSchema] = Field(default_factory=dict)
     captcha_patterns: list[CaptchaPatternSchema] = Field(default_factory=list)
+    no_results_patterns: list[NoResultsPatternSchema] = Field(default_factory=list)
     # Pagination settings
     results_per_page: int | None = Field(default=None, description="Number of results per page")
     pagination_type: str | None = Field(default=None, description="offset or page")
@@ -111,6 +126,21 @@ class EngineParserSchema(BaseModel):
             if isinstance(item, dict):
                 result.append(CaptchaPatternSchema(**item))
             elif isinstance(item, CaptchaPatternSchema):
+                result.append(item)
+        return result
+
+    @field_validator("no_results_patterns", mode="before")
+    @classmethod
+    def parse_no_results_patterns(cls, v: Any) -> list[NoResultsPatternSchema]:
+        """Parse no-results patterns."""
+        if not isinstance(v, list):
+            return []
+
+        result = []
+        for item in v:
+            if isinstance(item, dict):
+                result.append(NoResultsPatternSchema(**item))
+            elif isinstance(item, NoResultsPatternSchema):
                 result.append(item)
         return result
 
@@ -197,6 +227,7 @@ class EngineParserConfig:
     time_ranges: dict[str, str] = field(default_factory=dict)
     selectors: dict[str, SelectorConfig] = field(default_factory=dict)
     captcha_patterns: list[CaptchaPatternSchema] = field(default_factory=list)
+    no_results_patterns: list[NoResultsPatternSchema] = field(default_factory=list)
     pagination: PaginationConfig = field(default_factory=lambda: PaginationConfig())
 
     def get_selector(self, name: str) -> SelectorConfig | None:
@@ -271,6 +302,18 @@ class EngineParserConfig:
             Tuple of (is_captcha, captcha_type)
         """
         for pattern in self.captcha_patterns:
+            if pattern.matches(html):
+                return True, pattern.type
+        return False, None
+
+    def detect_no_results(self, html: str) -> tuple[bool, str | None]:
+        """
+        Check if HTML indicates a 'no results' page.
+
+        Returns:
+            Tuple of (is_no_results, no_results_type)
+        """
+        for pattern in self.no_results_patterns:
             if pattern.matches(html):
                 return True, pattern.type
         return False, None
@@ -541,6 +584,7 @@ class ParserConfigManager:
             time_ranges=dict(engine_schema.time_ranges),
             selectors=selectors,
             captcha_patterns=list(engine_schema.captcha_patterns),
+            no_results_patterns=list(engine_schema.no_results_patterns),
             pagination=pagination,
         )
 

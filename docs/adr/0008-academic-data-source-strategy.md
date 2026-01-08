@@ -176,11 +176,12 @@ Rate limits and retry policies follow ADR-0013 (Worker Resource Contention Contr
 
 ## Related
 
-- [ADR-0005: Evidence Graph Structure](0005-evidence-graph-structure.md) - CITES edges for citation relationships
+- [ADR-0005: Evidence Graph Structure](0005-evidence-graph-structure.md) - CITES edges for citation relationships, normalized bibliographic tables
 - `src/search/apis/semantic_scholar.py` - Semantic Scholar API client
 - `src/search/apis/openalex.py` - OpenAlex API client
 - `src/search/academic_provider.py` - Academic API integration provider
 - `src/search/identifier_extractor.py` - DOI/PMID/arXiv extractor from URLs
 - `src/search/id_resolver.py` - PMID/arXiv to DOI resolver
 - `src/research/pipeline.py` - Search pipeline (Flow 1 implementation)
+- `src/storage/works.py` - Normalized bibliographic metadata persistence
 - `config/academic_apis.yaml` - API configuration

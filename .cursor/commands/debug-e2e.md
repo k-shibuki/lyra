@@ -31,7 +31,7 @@ E2E scenario debugging. Policy: `@.cursor/rules/debug-e2e.mdc`
 
 | Classification | Action |
 |----------------|--------|
-| **Normal** | Skip if known in `docs/debug/` |
+| **Normal** | Skip if known in `debug/reports/` |
 | **Problem** | Form hypothesis, investigate |
 | **Unknown** | Gather more logs, reclassify |
 
@@ -185,7 +185,7 @@ Symptom → Expected state → Root cause → Fix → Verification
 
 ## Report template
 
-`docs/debug/DEBUG_E2E_NN.md` — See existing reports for structure.
+`debug/reports/E2E_NN.md` — See existing reports for structure.
 
 ---
 
@@ -195,7 +195,7 @@ Symptom → Expected state → Root cause → Fix → Verification
 |------|---------|
 | `docs/S_FULL_E2E.md` | E2E protocol |
 | `docs/adr/` | Architecture decisions |
-| `docs/debug/` | Past sessions, known acceptable errors |
+| `debug/reports/` | Past sessions, known acceptable errors |
 | `src/storage/schema.sql` | Table structure |
 
 ---
@@ -204,7 +204,7 @@ Symptom → Expected state → Root cause → Fix → Verification
 
 When MCP Server holds DB lock, use `src/storage/isolation.py:isolated_database_path()`.
 
-Run debug scripts: `timeout 120 uv run python scripts/debug_*.py`
+Run debug scripts: `timeout 120 uv run python debug/scripts/debug_*.py`
 
 | Isolated script | API client, rate limiter, parse errors |
 |-----------------|----------------------------------------|

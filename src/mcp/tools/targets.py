@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from src.mcp.errors import InvalidParamsError, TaskNotFoundError
 from src.storage.database import get_database
-from src.utils.logging import LogContext, ensure_logging_configured, get_logger
+from src.utils.logging import CausalTrace, LogContext, ensure_logging_configured, get_logger
 
 ensure_logging_configured()
 logger = get_logger(__name__)
@@ -333,6 +333,10 @@ async def handle_queue_targets(args: dict[str, Any]) -> dict[str, Any]:
         target_ids: list[str] = []
         skipped_count = 0
 
+        # Create a causal trace for this queue_targets operation
+        # All targets queued in this call share the same parent cause
+        trace = CausalTrace()
+
         for target in targets:
             kind = target["kind"]
 
@@ -453,6 +457,7 @@ async def handle_queue_targets(args: dict[str, Any]) -> dict[str, Any]:
                 input_data=input_data,
                 priority=priority_value,
                 task_id=task_id,
+                cause_id=trace.id,
             )
             if result.get("accepted"):
                 target_ids.append(result["job_id"])
