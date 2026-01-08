@@ -71,13 +71,24 @@ Lyra uses `pytest` for testing with async execution designed for AI-driven devel
 
 ```bash
 make test                           # Run unit + integration (default: -m "not e2e")
+make test-all                       # Run ALL tests (no marker exclusions, includes e2e)
 make test TARGET=tests/test_foo.py  # Run specific file
-make test-check                     # Poll for test results
+make test-check RUN_ID=xxx          # Poll for test results (use run_id from test output)
 make test-e2e                       # Run E2E tests only
+make test-e2e-internal              # E2E against local services (proxy/ml/ollama)
+make test-e2e-external              # E2E against internet services (SERP/FETCH/Academic APIs)
 make help                           # Show all available commands
 ```
 
-**Async Workflow**: `make test` starts tests in the background and returns immediately. Use `make test-check` to poll for completion and view results. This design enables AI agents to run tests without blocking.
+**Async Workflow**: `make test` starts tests in the background and returns immediately (prints a `RUN_ID`). Use `make test-check RUN_ID=...` to poll for completion and view results.
+
+### Output Mode (make commands)
+
+- **Machine-readable**: `LYRA_OUTPUT_JSON=true make <target>` (stdout stays JSON)
+- **Quiet**: `LYRA_QUIET=true make <target>` (suppress non-essential output)
+- **Test verbosity**:
+  - `LYRA_TEST_SHOW_TAIL_ON_SUCCESS=true make test-check RUN_ID=...`
+  - `LYRA_TEST_JSON_DETAIL=full|minimal make test`
 
 ### Test Layers
 
@@ -87,7 +98,12 @@ Lyra follows a three-layer test strategy ([ADR-0009](../docs/adr/0009-test-layer
 |-------|-------------|---------|
 | **L1** | Unit tests (isolated, fast) | Default |
 | **L2** | Integration tests (DB, multi-component) | `@pytest.mark.integration` |
-| **L3** | E2E tests (containers, external APIs) | `@pytest.mark.e2e` |
+| **L3** | E2E tests (real environment) | `@pytest.mark.e2e` + (`internal` or `external`) |
+
+Notes:
+- `internal`: Local services only (proxy/ml/ollama). No internet SERP/API.
+- `external`: Internet access (SERP/FETCH/Academic APIs). Use `rate_limited` / `manual` as needed.
+- Lyra enforces this at collection time: E2E tests missing `internal`/`external` fail fast.
 
 ### Writing Tests
 
@@ -130,6 +146,7 @@ make lint          # Lint check
 make format        # Auto-format
 make typecheck     # Type check
 make quality       # All checks (lint, format-check, typecheck, jsonschema, shellcheck)
+make deadcode      # Dead code detection (manual, not CI - may have false positives)
 ```
 
 See `make help` for full command reference.

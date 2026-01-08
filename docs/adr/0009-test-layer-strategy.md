@@ -63,17 +63,22 @@ flowchart TD
 | `@pytest.mark.unit` | <1s/test | None | Default if no marker |
 | `@pytest.mark.integration` | <5s/test | Mocked but realistic | Component integration |
 | `@pytest.mark.e2e` | Variable | Real Chrome, Ollama | Excluded by default |
-| `@pytest.mark.slow` | >5s | Variable | Excluded by default |
 
-### Risk-Based Sub-Markers (E2E Only)
+### Dependency Scope / Risk-Based Sub-Markers (E2E Only)
 
-For E2E tests, additional sub-markers indicate IP pollution risk:
+For E2E tests, additional sub-markers clarify whether the test touches internet services
+(IP/rate-limit risk) or only local services, and optionally the risk level:
 
 | Sub-Marker | Risk Level | Example Services |
 |------------|------------|------------------|
+| `@pytest.mark.internal` | None | Local containers only (proxy/ml/ollama) |
 | `@pytest.mark.external` | Moderate | Mojeek, Qwant |
 | `@pytest.mark.rate_limited` | High | DuckDuckGo, Google |
 | `@pytest.mark.manual` | N/A | CAPTCHA resolution |
+
+Policy (enforced by `tests/conftest.py`):
+- All `@pytest.mark.e2e` tests MUST include exactly one of: `internal` or `external`.
+- `rate_limited` / `manual` are optional modifiers (typically used with `external`).
 
 ### Environment Detection
 
@@ -85,19 +90,23 @@ Cloud agent environments are auto-detected via environment variables:
 - `GITLAB_CI`
 - `CI=true`
 
-In cloud agent environments, E2E and slow tests are automatically skipped.
+In cloud agent environments, E2E tests are automatically skipped.
 
 ### Execution Commands
 
 ```bash
 # L1: CI Layer (cloud agent safe)
-pytest -m "not e2e and not slow"
+pytest -m "not e2e"
 
 # L2: Local Layer (includes container tests)
 pytest -m "not e2e"
 
 # L3: E2E Layer
 pytest -m e2e
+
+# E2E by dependency scope
+pytest -m "e2e and internal"
+pytest -m "e2e and external"
 
 # E2E with specific risk level
 pytest -m "e2e and external"
@@ -117,6 +126,20 @@ pytest -m "e2e and rate_limited"
 - **Mock Maintenance Cost**: MockOllama etc. need updates
 - **Coverage Limits**: Some bugs undetectable with mocks
 - **3-Layer Management**: Need to decide which layer tests belong in
+
+### Operational Reality (E2E-heavy debugging, test-light automation)
+
+Lyra prioritizes **E2E scenario debugging** (especially via MCP-driven workflows) over building a large
+automated E2E suite. This is intentional:
+
+- Real-world E2E involves browser SERP, CAPTCHA flows, and external services with variable stability.
+- A large automated E2E suite tends to be slow/flaky and creates noisy failures that are hard to triage.
+- Therefore, automated E2E tests are kept **small and high-signal** (smoke-level), while most E2E
+  validation happens through scenario-driven debugging and operational runbooks.
+
+This ADR defines the automation policy; it does not prohibit E2E workflows. Rather, it clarifies that
+automation focuses on determinism and fast feedback, and E2E coverage is primarily achieved through
+MCP-oriented scenario verification.
 
 ## Alternatives Considered
 

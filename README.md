@@ -84,6 +84,16 @@ make up       # Start (auto-build first time)
 Note: `.env` is created automatically from `.env.example` on the first run of `make doctor` / `make setup` / `make up`.
 Edit `.env` if you need to customize settings.
 
+### Output Mode (make commands)
+
+- **Machine-readable**: `LYRA_OUTPUT_JSON=true make <target>` (stdout stays JSON)
+- **Quiet**: `LYRA_QUIET=true make <target>` (suppress non-essential output)
+- **Details (human mode)**:
+  - `LYRA_DEV_STATUS_DETAIL=full make status`
+  - `LYRA_CHROME_STATUS_DETAIL=full make chrome`
+  - `LYRA_TEST_SHOW_TAIL_ON_SUCCESS=true make test-check RUN_ID=...`
+  - `LYRA_TEST_JSON_DETAIL=full|minimal make test`
+
 ## Platform Setup
 
 Tested on: Windows 11 + WSL2-Ubuntu 24.04 LTS, Ubuntu Desktop 24.04 LTS
@@ -276,7 +286,11 @@ make up          # Start services
 make down        # Stop services
 make doctor      # Check environment
 make test        # Run tests (async, returns immediately)
+make test-all    # Run ALL tests (async; overrides default -m 'not e2e')
 make test-check  # Poll for test results
+make test-e2e    # Run E2E tests only
+make test-e2e-internal  # E2E against local services (proxy/ml/ollama)
+make test-e2e-external  # E2E against internet services (SERP/FETCH/Academic APIs)
 make quality     # Run all code quality checks
 make help        # Show all commands
 ```
