@@ -117,8 +117,8 @@ def install_sqlite_guards(
     def authorizer(
         action_code: int,
         param1: str | None,
-        param2: str | None,
-        dbname: str | None,
+        _param2: str | None,
+        _dbname: str | None,
         source: str | None,
     ) -> int:
         # Deny file access / pragma / mutations / transactions.

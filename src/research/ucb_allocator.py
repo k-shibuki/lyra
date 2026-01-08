@@ -522,5 +522,3 @@ class UCBAllocator:
             allocator._arms[sid] = arm
 
         return allocator
-
-        return allocator

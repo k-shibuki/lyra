@@ -1083,14 +1083,17 @@ class WaybackFallback:
         self,
         url: str,
         max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+        *,
+        prefer_recent: bool = True,
     ) -> FallbackResult:
         """Get content from Wayback Machine as fallback.
 
-        Tries the most recent snapshots first, up to max_attempts.
+        Tries snapshots in the chosen order, up to max_attempts.
 
         Args:
             url: Original URL that was blocked.
             max_attempts: Maximum number of snapshots to try.
+            prefer_recent: If True, try newest snapshots first; if False, try oldest first.
 
         Returns:
             FallbackResult with content if successful.
@@ -1108,6 +1111,11 @@ class WaybackFallback:
                     url=url[:80],
                 )
                 return result
+
+            # WaybackClient.get_snapshots() returns newest-first by design.
+            # Allow callers to prefer oldest snapshots (useful for "first published" content).
+            if not prefer_recent:
+                snapshots = list(reversed(snapshots))
 
             # Try each snapshot until success
             for i, snapshot in enumerate(snapshots):
@@ -1188,7 +1196,7 @@ class WaybackFallback:
         Returns:
             Tuple of (html, snapshot, freshness_penalty) or (None, None, 0.0).
         """
-        result = await self.get_fallback_content(url)
+        result = await self.get_fallback_content(url, prefer_recent=prefer_recent)
 
         if result.ok:
             return result.html, result.snapshot, result.freshness_penalty

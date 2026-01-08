@@ -121,7 +121,20 @@ class HumanBehavior:
             content_length: Approximate content length.
         """
         try:
-            await self._simulator.read_page(page, max_scrolls=5)
+            # Use content length as a rough proxy for "how much a human would scroll".
+            # Keep this bounded to avoid excessive delays.
+            if content_length <= 0:
+                max_scrolls = 3
+            elif content_length < 5_000:
+                max_scrolls = 3
+            elif content_length < 30_000:
+                max_scrolls = 5
+            elif content_length < 120_000:
+                max_scrolls = 8
+            else:
+                max_scrolls = 10
+
+            await self._simulator.read_page(page, max_scrolls=max_scrolls)
         except Exception as e:
             logger.debug("Reading simulation error", error=str(e))
 
@@ -835,11 +848,6 @@ class BrowserFetcher:
                             auth_type=challenge_type,
                             estimated_effort=estimated_effort,
                         )
-
-                    # Re-get content after successful intervention
-                    content = await page.content()
-                    content_bytes = content.encode("utf-8")
-                    content_hash = hashlib.sha256(content_bytes).hexdigest()
 
             # Simulate human reading behavior with full human-like interactions
             if simulate_human:

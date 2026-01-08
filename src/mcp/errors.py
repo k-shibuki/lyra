@@ -368,8 +368,6 @@ class ChromeNotReadyError(MCPError):
     def __init__(
         self,
         message: str = "Chrome CDP is not connected. Auto-start failed. Check: make chrome-start",
-        *,
-        auto_start_attempted: bool = True,
     ):
         super().__init__(
             MCPErrorCode.CHROME_NOT_READY,

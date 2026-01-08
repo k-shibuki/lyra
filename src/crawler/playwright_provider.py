@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Page, Playwright, Route
     from playwright.async_api._generated import SetCookieParam
 
+    # Make vulture see this import as "used" (it does not understand string-based typing-only usage).
+    _SetCookieParam = SetCookieParam
+
 from src.crawler.browser_provider import (
     BaseBrowserProvider,
     BrowserHealthStatus,
@@ -89,7 +92,20 @@ class HumanBehaviorSimulator:
 
             scroll_positions = HumanBehaviorSimulator.scroll_pattern(page_height, viewport_height)
 
-            for scroll_y, delay in scroll_positions[:5]:  # Limit scrolls
+            # Use content length as a rough proxy for "how much a human would scroll".
+            # Keep this bounded to avoid excessive delays.
+            if content_length <= 0:
+                max_scrolls = 3
+            elif content_length < 5_000:
+                max_scrolls = 3
+            elif content_length < 30_000:
+                max_scrolls = 5
+            elif content_length < 120_000:
+                max_scrolls = 8
+            else:
+                max_scrolls = 10
+
+            for scroll_y, delay in scroll_positions[:max_scrolls]:
                 await page.evaluate(f"window.scrollTo(0, {scroll_y})")
                 await asyncio.sleep(delay)
 
