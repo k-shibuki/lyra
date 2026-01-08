@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:get_status",
   "title": "get_status Response",
-  "description": "Response schema for get_status tool (ADR-0003: unified task/exploration status, ADR-0010: async search queue)",
+  "description": "Response schema for get_status tool. Supports summary (default) and full detail modes for navigate workflow optimization.",
   "type": "object",
   "properties": {
     "ok": {
@@ -13,14 +13,153 @@
     },
     "status": {
       "type": "string",
-      "enum": ["exploring", "paused", "completed", "failed"]
+      "enum": ["created", "exploring", "paused", "completed", "failed"]
     },
     "hypothesis": {
       "type": "string",
       "description": "Central hypothesis to verify (ADR-0017)"
     },
-    "searches": {
+    "progress": {
+      "type": "object",
+      "description": "Aggregated progress for navigate workflow decisions",
+      "properties": {
+        "searches": {
+          "type": "object",
+          "properties": {
+            "satisfied": {"type": "integer"},
+            "running": {"type": "integer"},
+            "total": {"type": "integer"}
+          },
+          "additionalProperties": false
+        },
+        "queue": {
+          "type": "object",
+          "properties": {
+            "depth": {"type": "integer"},
+            "running": {"type": "integer"}
+          },
+          "additionalProperties": false
+        },
+        "jobs_by_phase": {
+          "type": "object",
+          "description": "Job progress grouped by phase: exploration (target_queue), verification (verify_nli), citation (citation_graph)",
+          "properties": {
+            "exploration": {
+              "type": "object",
+              "description": "target_queue jobs (search/fetch/extract pipeline)",
+              "properties": {
+                "queued": {"type": "integer"},
+                "running": {"type": "integer"},
+                "completed": {"type": "integer"},
+                "failed": {"type": "integer"}
+              },
+              "additionalProperties": false
+            },
+            "verification": {
+              "type": "object",
+              "description": "verify_nli jobs (cross-source NLI verification)",
+              "properties": {
+                "queued": {"type": "integer"},
+                "running": {"type": "integer"},
+                "completed": {"type": "integer"},
+                "failed": {"type": "integer"}
+              },
+              "additionalProperties": false
+            },
+            "citation": {
+              "type": "object",
+              "description": "citation_graph jobs (academic citation expansion)",
+              "properties": {
+                "queued": {"type": "integer"},
+                "running": {"type": "integer"},
+                "completed": {"type": "integer"},
+                "failed": {"type": "integer"}
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "total_claims": {"type": "integer"},
+        "total_pages": {"type": "integer"},
+        "total_fragments": {"type": "integer"},
+        "elapsed_seconds": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "pages_used": {"type": "integer"},
+        "pages_limit": {"type": "integer"},
+        "remaining_percent": {"type": "integer"},
+        "time_used_seconds": {"type": "number", "description": "Full mode only"},
+        "time_limit_seconds": {"type": "integer", "description": "Full mode only"}
+      },
+      "additionalProperties": false
+    },
+    "milestones": {
+      "type": "object",
+      "description": "Action-readiness flags for navigate workflow. Maps to specific tools.",
+      "properties": {
+        "target_queue_drained": {
+          "type": "boolean",
+          "description": "True when all target_queue jobs done. False → get_status(wait=N)"
+        },
+        "nli_verification_done": {
+          "type": "boolean",
+          "description": "True when NLI verification done. True → query_view(v_claim_evidence_summary)"
+        },
+        "citation_chase_ready": {
+          "type": "boolean",
+          "description": "True when citation chasing ready (target_queue + citation_graph drained, no pending auth). True → queue_reference_candidates"
+        }
+      },
+      "required": ["target_queue_drained", "nli_verification_done", "citation_chase_ready"],
+      "additionalProperties": false
+    },
+    "waiting_for": {
       "type": "array",
+      "description": "Detailed list of what's blocking progress. Empty when all ready.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["target_queue", "citation_graph", "pending_auth", "verify_nli"],
+            "description": "What kind of work is pending"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["not_enqueued", "queued", "running", "drained", "pending"],
+            "description": "Current status: not_enqueued (never submitted), queued, running, drained (done), pending (auth)"
+          },
+          "queued": {"type": "integer", "description": "Number of items queued (for job kinds)"},
+          "running": {"type": "integer", "description": "Number of items running (for job kinds)"},
+          "completed": {"type": "integer", "description": "Number of items completed (for job kinds)"},
+          "count": {"type": "integer", "description": "Count for pending_auth kind"}
+        },
+        "required": ["kind", "status"],
+        "additionalProperties": false
+      }
+    },
+    "pending_auth_count": {
+      "type": "integer",
+      "description": "Number of pending auth items. >0 → get_auth_queue → resolve_auth"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "searches_detail": {
+      "type": "array",
+      "description": "Full mode only: detailed search list",
       "items": {
         "type": "object",
         "properties": {
@@ -36,61 +175,26 @@
         "additionalProperties": false
       }
     },
-    "queue": {
-      "type": "object",
-      "description": "Target queue status (ADR-0010)",
-      "properties": {
-        "depth": {"type": "integer", "description": "Number of queued targets"},
-        "running": {"type": "integer", "description": "Number of running targets"},
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {"type": "string"},
-              "query": {"type": "string"},
-              "status": {"type": "string", "enum": ["queued", "running", "completed", "failed", "cancelled"]},
-              "priority": {"type": "integer"},
-              "created_at": {"type": ["string", "null"]},
-              "started_at": {"type": ["string", "null"]},
-              "completed_at": {"type": ["string", "null"]}
-            },
-            "additionalProperties": false
-          }
-        }
-      },
-      "additionalProperties": false
+    "queue_items": {
+      "type": "array",
+      "description": "Full mode only: detailed queue items",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "query": {"type": "string"},
+          "status": {"type": "string", "enum": ["queued", "running", "completed", "failed", "cancelled"]},
+          "priority": {"type": "integer"},
+          "created_at": {"type": ["string", "null"]},
+          "started_at": {"type": ["string", "null"]},
+          "completed_at": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
     },
-    "metrics": {
-      "type": "object",
-      "properties": {
-        "total_searches": {"type": "integer"},
-        "satisfied_count": {"type": "integer"},
-        "total_pages": {"type": "integer"},
-        "total_fragments": {"type": "integer"},
-        "total_claims": {"type": "integer"},
-        "elapsed_seconds": {"type": "number"}
-      },
-      "additionalProperties": false
-    },
-    "budget": {
-      "type": "object",
-      "properties": {
-        "budget_pages_used": {"type": "integer"},
-        "budget_pages_limit": {"type": "integer"},
-        "time_used_seconds": {"type": "number"},
-        "time_limit_seconds": {"type": "integer"},
-        "remaining_percent": {"type": "integer"}
-      },
-      "additionalProperties": false
-    },
-    "auth_queue": {
+    "pending_auth_detail": {
       "type": ["object", "null"],
-      "description": "Authentication queue info (may be null)"
-    },
-    "pending_auth": {
-      "type": ["object", "null"],
-      "description": "Pending authentication summary for agents (ADR-0007).",
+      "description": "Full mode only: detailed pending auth info",
       "properties": {
         "awaiting_auth_jobs": {"type": "integer"},
         "pending_captchas": {"type": "integer"},
@@ -109,21 +213,29 @@
       },
       "additionalProperties": false
     },
-    "pending_auth_count": {
-      "type": "integer",
-      "description": "Convenience field: number of pending auth items (e.g., CAPTCHAs)."
-    },
-    "warnings": {
-      "type": "array",
-      "items": {"type": "string"}
+    "jobs_by_kind": {
+      "type": "object",
+      "description": "Full mode only: job breakdown by kind",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "queued": {"type": "integer"},
+          "running": {"type": "integer"},
+          "completed": {"type": "integer"},
+          "failed": {"type": "integer"},
+          "cancelled": {"type": "integer"},
+          "awaiting_auth": {"type": "integer"}
+        },
+        "additionalProperties": false
+      }
     },
     "idle_seconds": {
       "type": "number",
-      "description": "Seconds since last activity (ADR-0002). May be 0 when no exploration state exists."
+      "description": "Full mode only: seconds since last activity"
     },
     "blocked_domains": {
       "type": "array",
-      "description": "Blocked domains info for transparency (single-user mode).",
+      "description": "Full mode only: blocked domains info",
       "items": {
         "type": "object",
         "properties": {
@@ -147,7 +259,7 @@
     },
     "domain_overrides": {
       "type": "array",
-      "description": "Active domain override rules from feedback tool (ADR-0012).",
+      "description": "Full mode only: active domain override rules",
       "items": {
         "type": "object",
         "properties": {
@@ -161,52 +273,21 @@
         "additionalProperties": false
       }
     },
-    "jobs": {
+    "evidence_summary": {
       "type": "object",
-      "description": "All job kinds summary for task (ADR-0015: VERIFY_NLI, CITATION_GRAPH visibility).",
+      "description": "Only when status=completed: summary of collected evidence",
       "properties": {
-        "total_queued": {"type": "integer", "description": "Total queued jobs across all kinds"},
-        "total_running": {"type": "integer", "description": "Total running jobs across all kinds"},
-        "total_completed": {"type": "integer", "description": "Total completed jobs across all kinds"},
-        "total_failed": {"type": "integer", "description": "Total failed jobs across all kinds"},
-        "by_kind": {
-          "type": "object",
-          "description": "Breakdown by job kind (target_queue, verify_nli, citation_graph, etc.)",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "queued": {"type": "integer"},
-              "running": {"type": "integer"},
-              "completed": {"type": "integer"},
-              "failed": {"type": "integer"},
-              "cancelled": {"type": "integer"},
-              "awaiting_auth": {"type": "integer"}
-            },
-            "additionalProperties": false
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    "milestones": {
-      "type": "object",
-      "description": "AI decision flags: 'what can I do next?' Check citation_candidates_stable before Citation Chasing, nli_results_stable before using NLI results. For detailed job counts, see jobs.by_kind.",
-      "properties": {
-        "citation_candidates_stable": {
-          "type": "boolean",
-          "description": "True when v_reference_candidates is stable (target_queue + citation_graph drained + auth cleared). Safe to proceed with Citation Chasing."
-        },
-        "nli_results_stable": {
-          "type": "boolean",
-          "description": "True when verify_nli jobs have drained. NLI verification results are complete."
-        },
-        "blockers": {
+        "total_claims": {"type": "integer"},
+        "total_fragments": {"type": "integer"},
+        "total_pages": {"type": "integer"},
+        "supporting_edges": {"type": "integer"},
+        "refuting_edges": {"type": "integer"},
+        "neutral_edges": {"type": "integer"},
+        "top_domains": {
           "type": "array",
-          "items": {"type": "string", "enum": ["target_queue", "citation_graph", "pending_auth", "verify_nli"]},
-          "description": "Active blockers preventing stability. Empty when all stable."
+          "items": {"type": "string"}
         }
       },
-      "required": ["citation_candidates_stable", "nli_results_stable", "blockers"],
       "additionalProperties": false
     }
   },
@@ -215,15 +296,13 @@
     "task_id",
     "status",
     "hypothesis",
-    "searches",
-    "queue",
+    "progress",
     "metrics",
     "budget",
-    "warnings",
-    "idle_seconds",
-    "blocked_domains",
-    "domain_overrides"
+    "milestones",
+    "waiting_for",
+    "pending_auth_count",
+    "warnings"
   ],
   "additionalProperties": false
 }
-

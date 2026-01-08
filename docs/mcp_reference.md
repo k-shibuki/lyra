@@ -34,6 +34,14 @@ These jobs run in the background and update `bayesian_truth_confidence` in the e
 | `get_status` | Get task progress; supports long-polling via `wait` parameter |
 | `stop_task` | Pause task session (graceful/immediate/full modes, scope parameter) |
 
+#### get_status Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `task_id` | string | (required) | Task ID to check status for |
+| `wait` | integer | 180 | Long-polling: seconds to wait for changes (0=immediate) |
+| `detail` | string | "summary" | Response detail level: `summary` or `full` |
+
 #### get_status Response
 
 Key fields in the response:
@@ -41,11 +49,31 @@ Key fields in the response:
 | Field | Description |
 |-------|-------------|
 | `status` | Task status: `created`, `exploring`, `paused`, `failed` |
-| `searches` | Per-search progress (satisfaction_score, harvest_rate) |
-| `metrics` | Totals: total_searches, total_pages, total_fragments, total_claims |
-| `jobs` | Job summary by kind (target_queue, verify_nli, citation_graph) |
+| `progress.searches` | Search progress (satisfied/running/total) |
+| `progress.jobs_by_phase` | Jobs grouped by phase: `exploration` (target_queue), `verification` (verify_nli), `citation` (citation_graph) |
+| `metrics` | Totals: total_pages, total_fragments, total_claims, elapsed_seconds |
 | `budget` | Budget usage and remaining percent |
-| `milestones` | AI UX flags: `citation_candidates_stable`, `nli_results_stable`, `blockers` |
+| `milestones` | Action-readiness flags: `target_queue_drained`, `nli_verification_done`, `citation_chase_ready` |
+| `waiting_for` | Detailed list of what's blocking progress (kind, status, queued/running counts) |
+
+**Milestones semantics:**
+
+| Flag | Meaning | Next Action |
+|------|---------|-------------|
+| `target_queue_drained: true` | All target_queue jobs done | Can stop get_status wait loop |
+| `nli_verification_done: true` | NLI verification complete | Can query_view(v_claim_evidence_summary) |
+| `citation_chase_ready: true` | Citation graph stable | Can queue_reference_candidates |
+
+**waiting_for structure:**
+
+```json
+"waiting_for": [
+  {"kind": "target_queue", "status": "running", "queued": 0, "running": 2, "completed": 1},
+  {"kind": "verify_nli", "status": "not_enqueued", "queued": 0, "running": 0, "completed": 0}
+]
+```
+
+Status values: `not_enqueued`, `queued`, `running`, `drained`, `pending` (for auth)
 
 #### stop_task Parameters
 
@@ -79,14 +107,14 @@ Key fields in the response:
 | View | Description |
 |------|-------------|
 | `v_claim_evidence_summary` | Per-claim support/refute counts and bayesian_truth_confidence |
-| `v_claim_origins` | Claim provenance (which fragment/page each claim was extracted from) |
+| `v_claim_origins` | Claim provenance with bibliographic metadata (`author_display`, `work_year`, `work_venue`, `work_doi` for academic sources) |
 | `v_contradictions` | Claims with conflicting evidence |
 | `v_unsupported_claims` | Claims without supporting evidence |
 
 **Evidence Chain:**
 | View | Description |
 |------|-------------|
-| `v_evidence_chain` | Full evidence chain from claims through fragments to sources |
+| `v_evidence_chain` | Full evidence chain from claims through fragments to sources (includes `author_display`, `work_year`, `work_venue`, `work_doi` for academic sources) |
 | `v_evidence_timeline` | Evidence organized by publication year |
 | `v_evidence_freshness` | Age of supporting evidence |
 

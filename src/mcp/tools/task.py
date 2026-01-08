@@ -18,7 +18,8 @@ from src.mcp.helpers import (
     get_target_queue_status,
     get_task_jobs_summary,
 )
-from src.mcp.response_meta import attach_meta, create_minimal_meta
+
+# BUG-001f: attach_meta/create_minimal_meta removed - was adding _lyra_meta then sanitizer removed it
 from src.research.pipeline import stop_task_action
 from src.storage.database import get_database
 from src.utils.logging import LogContext, ensure_logging_configured, get_logger
@@ -32,19 +33,54 @@ def _compute_milestones(
     queue_info: dict[str, Any],
     pending_auth: dict[str, Any] | None,
     jobs_summary: dict[str, Any],
-) -> tuple[dict[str, Any], int]:
-    """Compute task_id-level stability flags for AI decision-making.
+) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
+    """Compute task_id-level action-readiness flags for AI decision-making.
 
-    Returns only the flags AI needs to decide "what can I do next?":
-    - citation_candidates_stable: Can proceed to v_reference_candidates for Citation Chasing
-    - nli_results_stable: NLI verification results are complete
-    - blockers: Why not stable (empty when all stable)
-
-    For detailed job counts, AI can inspect jobs.by_kind directly.
+    Returns:
+        milestones: Action-readiness flags with clear semantic names:
+            - target_queue_drained: All target_queue jobs done → can stop waiting
+            - nli_verification_done: NLI verification done → can query evidence
+            - citation_chase_ready: Citation graph stable → can queue_reference_candidates
+        waiting_for: Detailed list of what's blocking progress (with status info)
+        pending_auth_count: Number of pending auth items
     """
+    by_kind = jobs_summary.get("by_kind") or {}
 
-    def _kind_drained(kind: str) -> bool:
-        k = (jobs_summary.get("by_kind") or {}).get(kind) or {}
+    def _get_kind_status(kind: str) -> dict[str, Any]:
+        """Get detailed status for a job kind."""
+        k = by_kind.get(kind)
+        if k is None:
+            return {
+                "kind": kind,
+                "status": "not_enqueued",
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+            }
+        queued = int(k.get("queued", 0))
+        running = int(k.get("running", 0))
+        completed = int(k.get("completed", 0))
+
+        if queued == 0 and running == 0:
+            status = "drained"
+        elif running > 0:
+            status = "running"
+        else:
+            status = "queued"
+
+        return {
+            "kind": kind,
+            "status": status,
+            "queued": queued,
+            "running": running,
+            "completed": completed,
+        }
+
+    def _is_drained(kind: str) -> bool:
+        """Check if a job kind is drained (queued=0 AND running=0)."""
+        k = by_kind.get(kind)
+        if k is None:
+            return False
         return int(k.get("queued", 0)) == 0 and int(k.get("running", 0)) == 0
 
     queue_depth = int(queue_info.get("depth", 0))
@@ -54,32 +90,39 @@ def _compute_milestones(
     pending_auth_count = int((pending_auth or {}).get("pending_captchas", 0))
     auth_cleared = pending_auth_count == 0
 
-    citation_graph_drained = _kind_drained("citation_graph")
-    nli_verification_drained = _kind_drained("verify_nli")
+    citation_graph_drained = _is_drained("citation_graph")
+    nli_verification_drained = _is_drained("verify_nli")
 
-    # citation_candidates_stable: v_reference_candidates won't grow anymore
-    citation_candidates_stable = target_queue_drained and citation_graph_drained and auth_cleared
-
-    # nli_results_stable: NLI verification is complete
-    nli_results_stable = nli_verification_drained
-
-    # Blockers: why not stable (for debugging, empty when all stable)
-    blockers: list[str] = []
+    # Build waiting_for with detailed status info
+    waiting_for: list[dict[str, Any]] = []
     if not target_queue_drained:
-        blockers.append("target_queue")
+        waiting_for.append(
+            {
+                "kind": "target_queue",
+                "status": "running" if queue_running > 0 else "queued",
+                "queued": queue_depth,
+                "running": queue_running,
+            }
+        )
     if not citation_graph_drained:
-        blockers.append("citation_graph")
+        waiting_for.append(_get_kind_status("citation_graph"))
     if not auth_cleared:
-        blockers.append("pending_auth")
+        waiting_for.append(
+            {
+                "kind": "pending_auth",
+                "status": "pending",
+                "count": pending_auth_count,
+            }
+        )
     if not nli_verification_drained:
-        blockers.append("verify_nli")
+        waiting_for.append(_get_kind_status("verify_nli"))
 
     milestones = {
-        "citation_candidates_stable": citation_candidates_stable,
-        "nli_results_stable": nli_results_stable,
-        "blockers": blockers,
+        "target_queue_drained": target_queue_drained,
+        "nli_verification_done": nli_verification_drained,
+        "citation_chase_ready": target_queue_drained and citation_graph_drained and auth_cleared,
     }
-    return milestones, pending_auth_count
+    return milestones, waiting_for, pending_auth_count
 
 
 def _get_pending_auth_message(pending_auth_count: int) -> str | None:
@@ -149,7 +192,60 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
             },
             "message": f"Task created. Use queue_targets(task_id='{task_id}', targets=[{{kind:'query', query:'...'}}]) to start exploration.",
         }
-        return attach_meta(response, create_minimal_meta())
+        return response
+
+
+def _build_progress(
+    searches: list[dict[str, Any]],
+    queue_info: dict[str, Any],
+    jobs_summary: dict[str, Any],
+) -> dict[str, Any]:
+    """Build progress summary for navigate workflow.
+
+    Aggregates searches, queue, and jobs into a compact structure
+    that provides just enough info to decide next actions.
+
+    Jobs are grouped by phase:
+    - exploration: target_queue (search/fetch/extract pipeline)
+    - verification: verify_nli (cross-source NLI verification)
+    - citation: citation_graph (academic citation expansion)
+    """
+    # Aggregate search statuses
+    searches_satisfied = sum(1 for s in searches if s.get("status") == "satisfied")
+    searches_running = sum(1 for s in searches if s.get("status") == "running")
+    searches_total = len(searches)
+
+    # Build jobs_by_phase from by_kind
+    by_kind = jobs_summary.get("by_kind", {})
+
+    def _get_phase_stats(kind: str) -> dict[str, int]:
+        """Get stats for a single job kind."""
+        k = by_kind.get(kind, {})
+        return {
+            "queued": int(k.get("queued", 0)),
+            "running": int(k.get("running", 0)),
+            "completed": int(k.get("completed", 0)),
+            "failed": int(k.get("failed", 0)),
+        }
+
+    jobs_by_phase = {
+        "exploration": _get_phase_stats("target_queue"),
+        "verification": _get_phase_stats("verify_nli"),
+        "citation": _get_phase_stats("citation_graph"),
+    }
+
+    return {
+        "searches": {
+            "satisfied": searches_satisfied,
+            "running": searches_running,
+            "total": searches_total,
+        },
+        "queue": {
+            "depth": queue_info.get("depth", 0),
+            "running": queue_info.get("running", 0),
+        },
+        "jobs_by_phase": jobs_by_phase,
+    }
 
 
 async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
@@ -159,12 +255,19 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
     Implements ADR-0003: Unified task and exploration status.
     Implements ADR-0010: Long polling with wait parameter.
 
-    Returns task info, search states, queue status, metrics, budget, auth queue.
+    Args:
+        task_id: Task identifier (required)
+        wait: Long-polling timeout in seconds (0-300, default 0)
+        detail: Response detail level ("summary" or "full", default "summary")
+
+    Summary mode (default): Compact response for navigate workflow decisions.
+    Full mode: Complete details including searches_detail, queue_items, jobs_by_kind.
 
     Note: Returns data only, no recommendations. Cursor AI decides next actions.
     """
     task_id = args.get("task_id")
     wait = args.get("wait", 0)
+    detail = args.get("detail", "summary")
 
     if not task_id:
         raise InvalidParamsError(
@@ -179,6 +282,14 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             "wait must be between 0 and 300",
             param_name="wait",
             expected="integer 0-300",
+        )
+
+    # Validate detail parameter
+    if detail not in ("summary", "full"):
+        raise InvalidParamsError(
+            "detail must be 'summary' or 'full'",
+            param_name="detail",
+            expected="'summary' or 'full'",
         )
 
     with LogContext(task_id=task_id):
@@ -286,64 +397,75 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # db_only: Always compute total_* metrics from DB, even when ExplorationState exists.
             db_metrics = await get_metrics_from_db(db, task_id)
 
-            milestones, pending_auth_count = _compute_milestones(
+            milestones, waiting_for, pending_auth_count = _compute_milestones(
                 queue_info=queue_info,
                 pending_auth=pending_auth,
                 jobs_summary=jobs_summary,
             )
 
-            response = {
+            # Build progress summary
+            progress = _build_progress(searches, queue_info, jobs_summary)
+
+            # Core metrics (shared by summary and full)
+            response_metrics = {
+                "total_claims": db_metrics.get("total_claims", 0),
+                "total_pages": db_metrics.get("total_pages", 0),
+                "total_fragments": db_metrics.get("total_fragments", 0),
+                "elapsed_seconds": metrics.get("elapsed_seconds", 0),
+            }
+
+            # Budget info
+            remaining_percent = max(
+                0,
+                int(
+                    (
+                        1
+                        - db_metrics.get("total_pages", budget_pages_used)
+                        / max(1, budget_pages_limit)
+                    )
+                    * 100
+                ),
+            )
+            response_budget = {
+                "pages_used": db_metrics.get("total_pages", budget_pages_used),
+                "pages_limit": budget_pages_limit,
+                "remaining_percent": remaining_percent,
+            }
+
+            # Build response based on detail level
+            response: dict[str, Any] = {
                 "ok": True,
                 "task_id": task_id,
                 "status": status,
                 "hypothesis": task_hypothesis,
-                "searches": searches,
-                "queue": queue_info,  # ADR-0010: Search queue status
-                "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
-                # Convenience field for agents/clients: quick check without parsing nested structures
+                "progress": progress,
+                "metrics": response_metrics,
+                "budget": response_budget,
+                "milestones": milestones,
+                "waiting_for": waiting_for,
                 "pending_auth_count": pending_auth_count,
-                # Unified message for pending auth (when count > 0)
-                "pending_auth_message": _get_pending_auth_message(pending_auth_count),
-                "metrics": {
-                    "total_searches": db_metrics.get("total_searches", len(searches)),
-                    "satisfied_count": metrics.get("satisfied_count", 0),
-                    "total_pages": db_metrics.get("total_pages", 0),
-                    "total_fragments": db_metrics.get("total_fragments", 0),
-                    "total_claims": db_metrics.get("total_claims", 0),
-                    "elapsed_seconds": metrics.get("elapsed_seconds", 0),
-                },
-                "budget": {
-                    "budget_pages_used": db_metrics.get("total_pages", budget_pages_used),
-                    "budget_pages_limit": budget_pages_limit,
-                    "time_used_seconds": budget.get("time_used_seconds", 0),
-                    "time_limit_seconds": budget.get("time_limit_seconds", 3600),
-                    "remaining_percent": max(
-                        0,
-                        int(
-                            (
-                                1
-                                - (db_metrics.get("total_pages", budget_pages_used))
-                                / max(1, budget_pages_limit)
-                            )
-                            * 100
-                        ),
-                    ),
-                },
-                "auth_queue": exploration_status.get("authentication_queue"),
                 "warnings": exploration_status.get("warnings", []),
-                "idle_seconds": exploration_status.get("idle_seconds", 0),  # ADR-0002
-                "blocked_domains": blocked_domains,  # Added for transparency
-                "domain_overrides": domain_overrides,  #
-                "jobs": jobs_summary,  # ADR-0015: All job kinds status
-                "milestones": milestones,  # AI UX: stable next actions for this task_id
             }
+
+            # Full mode: add detailed information
+            if detail == "full":
+                response["searches_detail"] = searches
+                response["queue_items"] = queue_info.get("items", [])
+                response["pending_auth_detail"] = pending_auth
+                response["jobs_by_kind"] = jobs_summary.get("by_kind", {})
+                response["idle_seconds"] = exploration_status.get("idle_seconds", 0)
+                response["blocked_domains"] = blocked_domains
+                response["domain_overrides"] = domain_overrides
+                # Extended budget info for full mode
+                response["budget"]["time_used_seconds"] = budget.get("time_used_seconds", 0)
+                response["budget"]["time_limit_seconds"] = budget.get("time_limit_seconds", 3600)
 
             # Add evidence_summary when status is completed
             if status == "completed":
                 evidence_summary = await _get_evidence_summary(db, task_id)
                 response["evidence_summary"] = evidence_summary
 
-            return attach_meta(response, create_minimal_meta())
+            return response
         else:
             # No exploration state - return minimal info
             # Get blocked domains info for transparency
@@ -367,49 +489,64 @@ async def handle_get_status(args: dict[str, Any]) -> dict[str, Any]:
             # H-D fix: Fetch metrics directly from DB when exploration state unavailable
             db_metrics = await get_metrics_from_db(db, task_id)
 
-            milestones, pending_auth_count = _compute_milestones(
+            milestones, waiting_for, pending_auth_count = _compute_milestones(
                 queue_info=queue_info,
                 pending_auth=pending_auth,
                 jobs_summary=jobs_summary,
             )
+
+            # Build progress summary (empty searches)
+            progress = _build_progress([], queue_info, jobs_summary)
+
+            # Core metrics
+            response_metrics = {
+                "total_claims": db_metrics.get("total_claims", 0),
+                "total_pages": db_metrics.get("total_pages", 0),
+                "total_fragments": db_metrics.get("total_fragments", 0),
+                "elapsed_seconds": db_metrics.get("elapsed_seconds", 0),
+            }
+
+            # Budget info
+            pages_used = db_metrics.get("total_pages", 0)
+            remaining_percent = max(0, int((1 - pages_used / 500) * 100))
+            response_budget = {
+                "pages_used": pages_used,
+                "pages_limit": 500,
+                "remaining_percent": remaining_percent,
+            }
 
             response = {
                 "ok": True,
                 "task_id": task_id,
                 "status": db_status or "created",
                 "hypothesis": task_hypothesis,
-                "searches": [],
-                "queue": queue_info,  # ADR-0010: Search queue status
-                "pending_auth": pending_auth,  # ADR-0007: CAPTCHA queue status
-                # Convenience field for agents/clients: quick check without parsing nested structures
+                "progress": progress,
+                "metrics": response_metrics,
+                "budget": response_budget,
+                "milestones": milestones,
+                "waiting_for": waiting_for,
                 "pending_auth_count": pending_auth_count,
-                # Unified message for pending auth (when count > 0)
-                "pending_auth_message": _get_pending_auth_message(pending_auth_count),
-                "metrics": db_metrics,
-                "budget": {
-                    "budget_pages_used": db_metrics.get("total_pages", 0),
-                    "budget_pages_limit": 500,
-                    "time_used_seconds": db_metrics.get("elapsed_seconds", 0),
-                    "time_limit_seconds": 3600,
-                    "remaining_percent": max(
-                        0, int((1 - db_metrics.get("total_pages", 0) / 500) * 100)
-                    ),
-                },
-                "auth_queue": None,
                 "warnings": [],
-                "idle_seconds": 0,  # ADR-0002 (no exploration state)
-                "blocked_domains": blocked_domains,  # Added for transparency
-                "domain_overrides": domain_overrides,  #
-                "jobs": jobs_summary,  # ADR-0015: All job kinds status
-                "milestones": milestones,  # AI UX: stable next actions for this task_id
             }
+
+            # Full mode: add detailed information
+            if detail == "full":
+                response["searches_detail"] = []
+                response["queue_items"] = queue_info.get("items", [])
+                response["pending_auth_detail"] = pending_auth
+                response["jobs_by_kind"] = jobs_summary.get("by_kind", {})
+                response["idle_seconds"] = 0
+                response["blocked_domains"] = blocked_domains
+                response["domain_overrides"] = domain_overrides
+                response["budget"]["time_used_seconds"] = db_metrics.get("elapsed_seconds", 0)
+                response["budget"]["time_limit_seconds"] = 3600
 
             # Add evidence_summary when status is completed
             if db_status == "completed":
                 evidence_summary = await _get_evidence_summary(db, task_id)
                 response["evidence_summary"] = evidence_summary
 
-            return attach_meta(response, create_minimal_meta())
+            return response
 
 
 async def handle_stop_task(args: dict[str, Any]) -> dict[str, Any]:
