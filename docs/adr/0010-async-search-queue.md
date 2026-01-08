@@ -299,6 +299,36 @@ flowchart TD
 - Uses in-memory `asyncio.Event` per task (not DB polling)
 - `get_status(wait=N)` blocks until change or timeout
 
+### Job Tracing (Causal Trace)
+
+Jobs support causal tracing via `cause_id` to reconstruct job chains for debugging.
+
+**Mechanism**:
+- MCP handlers create a `CausalTrace` before enqueuing jobs
+- `scheduler.submit(..., cause_id=trace.id)` stores the trace ID in the `jobs.cause_id` column
+- When a job spawns child jobs, it inherits `cause_id` via `get_current_cause_id()` (contextvars)
+- Workers execute jobs within `CausalTrace(parent_cause_id)` context
+
+**Example chain**:
+```
+queue_targets (MCP handler)
+  └─ cause_id: A
+     │
+     ▼
+target_queue job
+  └─ CausalTrace(A) → new trace_id: B, parent: A
+     │
+     ├──▶ citation_graph job (cause_id: B, parent: A)
+     │
+     └──▶ verify_nli job (cause_id: B, parent: A)
+```
+
+**Key functions**:
+- `CausalTrace`: Context manager that sets `cause_id` in structlog context and `contextvars`
+- `get_current_cause_id()`: Retrieves current trace ID from `contextvars` (for child job inheritance)
+
+**DB column**: `jobs.cause_id TEXT` - stores parent job/operation ID for causal trace
+
 ### Resource Control
 
 | Resource | Control Mechanism | ADR |

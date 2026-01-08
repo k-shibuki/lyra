@@ -818,9 +818,10 @@ class JobScheduler:
         # Notify long polling clients
         state.notify_status_change()
 
-        # Enqueue VERIFY_NLI job after successful completion (ADR-0005)
-        # Always enqueue - verify_claims_nli handles empty cases gracefully
-        if result.get("ok", True) and not result.get("captcha_queued"):
+        # Enqueue VERIFY_NLI job after completion (ADR-0005)
+        # Always enqueue unless captcha is queued - verify_claims_nli handles empty cases gracefully
+        # Partial results (timeout) should still trigger NLI verification for collected data
+        if not result.get("captcha_queued"):
             await self._enqueue_verify_nli_if_needed(task_id, result)
 
         # Check if target queue is empty for batch notification (ADR-0007)
@@ -1022,6 +1023,7 @@ async def schedule_job(job: dict[str, Any]) -> dict[str, Any]:
     priority = job.get("priority")
     input_data = job.get("input", {})
     task_id = job.get("task_id")
+    cause_id = job.get("cause_id")
 
     if kind is None:
         raise ValueError("Job 'kind' is required")
@@ -1031,4 +1033,5 @@ async def schedule_job(job: dict[str, Any]) -> dict[str, Any]:
         input_data=input_data,
         priority=priority,
         task_id=task_id,
+        cause_id=cause_id,
     )

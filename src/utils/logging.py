@@ -186,11 +186,34 @@ class LogContext:
         unbind_context(*self.context.keys())
 
 
+import contextvars
+
+# ContextVar to hold the current cause_id for causal tracing across job chains
+_current_cause_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "current_cause_id", default=None
+)
+
+
+def get_current_cause_id() -> str | None:
+    """Get the current cause_id from context.
+
+    This allows child jobs/operations to inherit the parent's cause_id
+    for causal tracing across job chains.
+
+    Returns:
+        Current cause_id or None if not in a traced context.
+    """
+    return _current_cause_id.get()
+
+
 class CausalTrace:
     """Helper for managing causal trace IDs.
 
     Ensures all operations within a trace share the same cause_id,
     enabling reconstruction of decision chains.
+
+    Also sets a contextvars-based cause_id that can be retrieved
+    by child operations via get_current_cause_id().
     """
 
     def __init__(self, cause_id: str | None = None):
@@ -203,6 +226,7 @@ class CausalTrace:
 
         self.trace_id = str(uuid.uuid4())
         self.parent_id = cause_id
+        self._token: contextvars.Token[str | None] | None = None
 
     def __enter__(self) -> CausalTrace:
         """Enter trace context."""
@@ -210,6 +234,8 @@ class CausalTrace:
             cause_id=self.trace_id,
             parent_cause_id=self.parent_id,
         )
+        # Set the current cause_id in contextvars for child operations
+        self._token = _current_cause_id.set(self.trace_id)
         return self
 
     def __exit__(
@@ -220,6 +246,9 @@ class CausalTrace:
     ) -> None:
         """Exit trace context."""
         unbind_context("cause_id", "parent_cause_id")
+        # Reset the contextvars to previous value
+        if self._token is not None:
+            _current_cause_id.reset(self._token)
 
     @property
     def id(self) -> str:
