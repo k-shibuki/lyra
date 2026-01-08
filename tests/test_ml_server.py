@@ -10,10 +10,7 @@ container (lyra-ml) for security. Tests are split into two categories:
 
 1. UNIT TESTS (this file - test_ml_server.py)
    - Test model path management, service classes, label mapping, etc.
-   - Tests requiring ML libs (sentence_transformers/transformers) are SKIPPED
-     in the main environment since those libs are only installed in the ML container.
-   - These skipped tests are for development/debugging purposes when ML libs
-     are locally available. For production validation, use E2E tests.
+   - Uses mocks to test service behavior without actual ML libraries
 
 2. E2E TESTS (test_ml_server_e2e.py) - RECOMMENDED
    - Test actual HTTP communication with the ML server container
@@ -24,12 +21,8 @@ How to run:
     # E2E tests (recommended - validates actual ML server behavior)
     pytest tests/test_ml_server_e2e.py -v -m e2e
 
-    # Unit tests (skips ML-dependent tests in main environment)
+    # Unit tests
     pytest tests/test_ml_server.py -v
-
-    # To run ML-dependent unit tests, install ML libs locally (not recommended):
-    uv sync --extra ml
-    uv run pytest tests/test_ml_server.py -v
 
 =============================================================================
 """
@@ -37,78 +30,9 @@ How to run:
 import json
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-if TYPE_CHECKING:
-    from fastapi.testclient import TestClient
-
-# =============================================================================
-# ML Dependency Check
-# =============================================================================
-
-# Check if ML dependencies are available
-_HAS_SENTENCE_TRANSFORMERS = False
-_HAS_TRANSFORMERS = False
-
-# Check environment variable to force running ML tests (e.g., in container)
-_RUN_ML_TESTS = os.environ.get("LYRA_RUN_ML_TESTS", "0") == "1"
-_RUN_ML_API_TESTS = os.environ.get("LYRA_RUN_ML_API_TESTS", "0") == "1"
-
-try:
-    import sentence_transformers  # noqa: F401
-
-    _HAS_SENTENCE_TRANSFORMERS = True
-except ImportError:
-    pass
-
-try:
-    import transformers  # noqa: F401
-
-    _HAS_TRANSFORMERS = True
-except ImportError:
-    pass
-
-# Check if FastAPI is available (for TestMLServerAPI)
-_HAS_FASTAPI = False
-try:
-    import fastapi  # noqa: F401
-
-    _HAS_FASTAPI = True
-except ImportError:
-    pass
-
-
-# Skip messages for tests requiring ML dependencies
-_SKIP_MSG_SENTENCE_TRANSFORMERS = (
-    "Requires sentence_transformers. "
-    "Use E2E tests (test_ml_server_e2e.py) for ML validation, "
-    "or install: uv sync --extra ml"
-)
-
-_SKIP_MSG_TRANSFORMERS = (
-    "Requires transformers. "
-    "Use E2E tests (test_ml_server_e2e.py) for ML validation, "
-    "or install: uv sync --extra ml"
-)
-
-_SKIP_MSG_ML_CONTAINER = (
-    "Requires ML container environment (FastAPI). Use E2E tests (test_ml_server_e2e.py) instead."
-)
-
-# Decorators for skipping tests based on ML dependencies
-# If LYRA_RUN_ML_TESTS=1 is set (e.g., in container), don't skip even if libs are missing
-requires_sentence_transformers = pytest.mark.skipif(
-    not _HAS_SENTENCE_TRANSFORMERS and not _RUN_ML_TESTS,
-    reason=_SKIP_MSG_SENTENCE_TRANSFORMERS,
-)
-
-requires_transformers = pytest.mark.skipif(
-    not _HAS_TRANSFORMERS and not _RUN_ML_TESTS,
-    reason=_SKIP_MSG_TRANSFORMERS,
-)
 
 # =============================================================================
 # model_paths.py Tests
@@ -409,50 +333,42 @@ class TestEmbeddingService:
         assert result == []
         assert service.is_loaded is False
 
-    @requires_sentence_transformers
     @pytest.mark.asyncio
     async def test_encode_with_mock_model(self) -> None:
         """
-        Given: EmbeddingService with mocked SentenceTransformer
+        Given: EmbeddingService with mocked model (load bypassed)
         When: encode() is called with texts
         Then: Returns embedding vectors
         """
         # Given
-        import numpy as np
-
         from src.ml_server.embedding import EmbeddingService
 
         mock_model = MagicMock()
-        mock_embeddings = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
-        mock_model.encode.return_value = mock_embeddings
+        # Return mock objects with tolist() method (mimicking numpy arrays)
+        mock_emb1 = MagicMock()
+        mock_emb1.tolist.return_value = [0.1, 0.2, 0.3]
+        mock_emb2 = MagicMock()
+        mock_emb2.tolist.return_value = [0.4, 0.5, 0.6]
+        mock_model.encode.return_value = [mock_emb1, mock_emb2]
 
-        service = EmbeddingService()
+        # Bypass load() and inject mock model directly
+        with patch.object(EmbeddingService, "load", new_callable=AsyncMock):
+            service = EmbeddingService()
+            service._model = mock_model
 
-        # Mock to() to return self to workaround of GPU move
-        mock_model.to = MagicMock(return_value=mock_model)
-
-        with patch("sentence_transformers.SentenceTransformer", return_value=mock_model) as mock_st:
-            with patch(
-                "src.ml_server.embedding.get_embedding_path",
-                return_value="/mock/path",
-            ):
-                with patch("src.ml_server.embedding.is_using_local_paths", return_value=True):
-                    # When
-                    result = await service.encode(["text1", "text2"])
+            # When
+            result = await service.encode(["text1", "text2"])
 
         # Then
         assert len(result) == 2
         assert result[0] == [0.1, 0.2, 0.3]
         assert result[1] == [0.4, 0.5, 0.6]
-        # Verify model was created and encode was called
-        mock_st.assert_called_once()
         mock_model.encode.assert_called_once()
 
-    @requires_sentence_transformers
     @pytest.mark.asyncio
     async def test_encode_model_load_failure(self) -> None:
         """
-        Given: EmbeddingService with SentenceTransformer that raises exception
+        Given: EmbeddingService with load() that raises exception
         When: encode() is called
         Then: Raises exception with error message
         """
@@ -461,20 +377,18 @@ class TestEmbeddingService:
 
         service = EmbeddingService()
 
-        with patch(
-            "sentence_transformers.SentenceTransformer",
+        # Patch load() to simulate model loading failure
+        with patch.object(
+            EmbeddingService,
+            "load",
+            new_callable=AsyncMock,
             side_effect=RuntimeError("Model loading failed: file not found"),
         ):
-            with patch(
-                "src.ml_server.embedding.get_embedding_path",
-                return_value="/nonexistent/path",
-            ):
-                with patch("src.ml_server.embedding.is_using_local_paths", return_value=True):
-                    # When/Then
-                    with pytest.raises(RuntimeError) as exc_info:
-                        await service.encode(["test text"])
+            # When/Then
+            with pytest.raises(RuntimeError) as exc_info:
+                await service.encode(["test text"])
 
-                    assert "Model loading failed" in str(exc_info.value)
+            assert "Model loading failed" in str(exc_info.value)
 
 
 # =============================================================================
@@ -547,7 +461,6 @@ class TestNLIService:
         assert service._map_label("neutral") == "neutral"
         assert service._map_label("unknown") == "neutral"
 
-    @requires_transformers
     @pytest.mark.asyncio
     async def test_predict_with_mock_model(self) -> None:
         """
@@ -580,7 +493,6 @@ class TestNLIService:
         assert result["confidence"] == pytest.approx(0.95)
         assert result["raw_label"] == "ENTAILMENT"
 
-    @requires_transformers
     @pytest.mark.asyncio
     async def test_predict_batch_with_mock_model(self) -> None:
         """
@@ -620,7 +532,6 @@ class TestNLIService:
         assert result[1]["label"] == "refutes"
         assert result[2]["label"] == "neutral"
 
-    @requires_transformers
     @pytest.mark.asyncio
     async def test_predict_model_load_failure(self) -> None:
         """
@@ -651,68 +562,8 @@ class TestNLIService:
 
 
 # =============================================================================
-# Integration Tests (with FastAPI TestClient)
-# Note: These tests require FastAPI which is only available in ML container.
-# For unit tests, we test the service classes directly with mocks.
+# Integration Tests (FastAPI TestClient) - Covered by E2E
 # =============================================================================
-
-
-@pytest.mark.skipif(
-    not _HAS_FASTAPI and not _RUN_ML_API_TESTS,
-    reason=_SKIP_MSG_ML_CONTAINER,
-)
-class TestMLServerAPI:
-    """Integration tests for ML Server API endpoints.
-
-    These tests are skipped because they require FastAPI TestClient which
-    is only available inside the ML container. For production validation,
-    use E2E tests (test_ml_server_e2e.py) which test via HTTP.
-    """
-
-    @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        from fastapi.testclient import TestClient
-
-        from src.ml_server.main import app
-
-        return TestClient(app)
-
-    def test_health_check(self, client: TestClient) -> None:
-        """
-        Given: ML Server is running
-        When: GET /health is called
-        Then: Returns status ok with models_loaded info
-        """
-        # When
-        response = client.get("/health")
-
-        # Then
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert "models_loaded" in data
-
-    def test_embed_endpoint_validation(self, client: TestClient) -> None:
-        """
-        Given: ML Server is running
-        When: POST /embed is called without texts
-        Then: Returns validation error
-        """
-        # When
-        response = client.post("/embed", json={})
-
-        # Then
-        assert response.status_code == 422  # Validation error
-
-    def test_nli_endpoint_validation(self, client: TestClient) -> None:
-        """
-        Given: ML Server is running
-        When: POST /nli is called without required fields
-        Then: Returns validation error
-        """
-        # When
-        response = client.post("/nli", json={})
-
-        # Then
-        assert response.status_code == 422  # Validation error
+# FastAPI endpoint tests are now covered by test_ml_server_e2e.py which tests
+# the actual HTTP API. This provides better production-like validation.
+# See: test_ml_server_e2e.py::TestMLServerE2E

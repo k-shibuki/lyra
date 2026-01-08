@@ -141,6 +141,32 @@ def mock_playwright(mock_browser: AsyncMock) -> AsyncMock:
 
 
 @pytest.fixture(autouse=True)
+def force_mock_playwright_runtime(mock_playwright: AsyncMock) -> Generator[None]:
+    """
+    Enforce "no real browser" for this test module.
+
+    Even if BrowserSearchProvider tries to initialize Playwright, it must use the mocked
+    async_playwright().start() and mocked chromium.connect_over_cdp(), never the real runtime.
+    """
+    with patch("playwright.async_api.async_playwright") as mock_async_pw:
+        mock_async_pw.return_value.start = AsyncMock(return_value=mock_playwright)
+        yield
+
+
+@pytest.fixture(autouse=True)
+def disable_auto_start_chrome() -> Generator[None]:
+    """
+    Prevent chrome.sh / subprocess side-effects from unit tests.
+
+    Tests that need auto-start behavior should patch _auto_start_chrome explicitly.
+    """
+    with patch.object(
+        BrowserSearchProvider, "_auto_start_chrome", new=AsyncMock(return_value=False)
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def mock_human_behavior_simulator() -> Generator[Any]:
     """Mock get_human_behavior_simulator to avoid coroutine warnings.
 

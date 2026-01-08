@@ -41,6 +41,7 @@ from src.ml_client import MLClient
 
 
 @pytest.mark.e2e
+@pytest.mark.internal
 class TestMLServerE2E:
     """E2E tests for ML Server API."""
 
@@ -99,12 +100,12 @@ class TestMLServerE2E:
             {
                 "pair_id": "test1",
                 "premise": "The sky is blue.",
-                "hypothesis": "The weather is clear.",
+                "nli_hypothesis": "The weather is clear.",
             },
             {
                 "pair_id": "test2",
                 "premise": "The sky is blue.",
-                "hypothesis": "It is raining.",
+                "nli_hypothesis": "It is raining.",
             },
         ]
         result = await ml_client.nli(pairs)
@@ -133,7 +134,7 @@ class TestMLServerE2E:
         texts = ["Test text"]
         embeddings = await ml_client.embed(texts)
 
-        pairs = [{"pair_id": "1", "premise": "Test premise", "hypothesis": "Test hypothesis"}]
+        pairs = [{"pair_id": "1", "premise": "Test premise", "nli_hypothesis": "Test hypothesis"}]
         nli_results = await ml_client.nli(pairs)
 
         # Then - All requests should succeed

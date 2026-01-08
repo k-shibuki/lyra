@@ -51,9 +51,7 @@ class TestTemplateSyntax:
             content = template_path.read_text()
 
             # Then: Should have a comment block with Parameters
-            # (This is a soft check - warns but doesn't fail)
-            if "{#" not in content:
-                pytest.skip(f"Template '{name}' has no Jinja2 comments")
+            assert "{#" in content, f"Template '{name}' must have Jinja2 comments"
 
     def test_templates_with_optional_parameters(
         self,

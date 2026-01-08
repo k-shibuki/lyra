@@ -448,6 +448,98 @@ class TestWaybackFallback:
             assert penalty == 0.0  # 5 days old, no penalty
 
     @pytest.mark.asyncio
+    async def test_get_best_snapshot_content_prefer_oldest_success(
+        self, wayback_fallback: WaybackFallback
+    ) -> None:
+        """Test get_best_snapshot_content prefers oldest snapshot when prefer_recent=False.
+
+        Given: Two snapshots returned newest-first
+        When:  get_best_snapshot_content(prefer_recent=False) is called
+        Then:  Oldest snapshot is tried first and succeeds
+        """
+        newest = Snapshot(
+            url="https://example.com/page",
+            original_url="https://example.com/page",
+            timestamp=datetime.now(UTC) - timedelta(days=5),
+        )
+        oldest = Snapshot(
+            url="https://example.com/page",
+            original_url="https://example.com/page",
+            timestamp=datetime.now(UTC) - timedelta(days=365),
+        )
+
+        long_content = "<html><body>" + "Oldest content. " * 40 + "</body></html>"
+
+        with (
+            patch.object(
+                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
+            ) as mock_get,
+            patch.object(
+                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            # WaybackClient.get_snapshots returns newest-first
+            mock_get.return_value = [newest, oldest]
+
+            async def fetch_side_effect(snapshot: Snapshot) -> str | None:
+                if snapshot.timestamp == oldest.timestamp:
+                    return long_content
+                return None
+
+            mock_fetch.side_effect = fetch_side_effect
+
+            html, snap, penalty = await wayback_fallback.get_best_snapshot_content(
+                "https://example.com/page",
+                prefer_recent=False,
+            )
+
+            assert html is not None
+            assert "Oldest content" in html
+            assert snap == oldest
+            assert penalty > 0.0  # 1 year old should incur a penalty
+
+    @pytest.mark.asyncio
+    async def test_get_best_snapshot_content_prefer_oldest_failure(
+        self, wayback_fallback: WaybackFallback
+    ) -> None:
+        """Test get_best_snapshot_content prefer_recent=False returns None when all fail.
+
+        Given: Snapshots exist but all fetch attempts return invalid/None
+        When:  get_best_snapshot_content(prefer_recent=False) is called
+        Then:  Returns (None, None, 0.0)
+        """
+        newest = Snapshot(
+            url="https://example.com/page",
+            original_url="https://example.com/page",
+            timestamp=datetime.now(UTC) - timedelta(days=5),
+        )
+        oldest = Snapshot(
+            url="https://example.com/page",
+            original_url="https://example.com/page",
+            timestamp=datetime.now(UTC) - timedelta(days=365),
+        )
+
+        with (
+            patch.object(
+                wayback_fallback._client, "get_snapshots", new_callable=AsyncMock
+            ) as mock_get,
+            patch.object(
+                wayback_fallback._client, "fetch_snapshot", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_get.return_value = [newest, oldest]
+            mock_fetch.return_value = None
+
+            html, snap, penalty = await wayback_fallback.get_best_snapshot_content(
+                "https://example.com/page",
+                prefer_recent=False,
+            )
+
+            assert html is None
+            assert snap is None
+            assert penalty == 0.0
+
+    @pytest.mark.asyncio
     async def test_get_best_snapshot_content_failure(
         self, wayback_fallback: WaybackFallback
     ) -> None:
