@@ -73,7 +73,9 @@ show_lyra_logs() {
         exit 1
     fi
     
-    echo "=== Log file: ${latest_log} ===" >&2
+    if [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+        echo "=== Log file: ${latest_log} ===" >&2
+    fi
     
     if [[ -n "$grep_pattern" ]]; then
         grep -i "$grep_pattern" "$latest_log" || echo "No matches found"

@@ -32,6 +32,37 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# -----------------------------------------------------------------------------
+# Global flags (standalone parsing; no common.sh dependency at this stage)
+# -----------------------------------------------------------------------------
+export LYRA_OUTPUT_JSON="${LYRA_OUTPUT_JSON:-false}"
+export LYRA_QUIET="${LYRA_QUIET:-false}"
+
+_parse_global_flags_standalone() {
+    local args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json)
+                export LYRA_OUTPUT_JSON="true"
+                shift
+                ;;
+            --quiet|-q)
+                export LYRA_QUIET="true"
+                shift
+                ;;
+            *)
+                args+=("$1")
+                shift
+                ;;
+        esac
+    done
+    # Return remaining args via GLOBAL_ARGS (bash global)
+    GLOBAL_ARGS=("${args[@]}")
+}
+
+_parse_global_flags_standalone "$@"
+set -- "${GLOBAL_ARGS[@]}"
+
 # Source logs library (standalone, no common.sh dependency)
 # shellcheck source=lib/logs.sh
 source "${SCRIPT_DIR}/lib/logs.sh"
@@ -50,11 +81,21 @@ mcp_stop() {
     local pids
     pids=$(find_mcp_processes)
     if [[ -z "$pids" ]]; then
-        echo "No MCP server processes found"
+        if [[ "${LYRA_OUTPUT_JSON}" == "true" ]]; then
+            cat <<EOF
+{"status":"ok","exit_code":0,"running":false,"message":"No MCP server processes found"}
+EOF
+        else
+            if [[ "${LYRA_QUIET}" != "true" ]]; then
+                echo "No MCP server processes found"
+            fi
+        fi
         return 0
     fi
     
-    echo "Stopping MCP server processes: $pids"
+    if [[ "${LYRA_OUTPUT_JSON}" != "true" ]] && [[ "${LYRA_QUIET}" != "true" ]]; then
+        echo "Stopping MCP server processes: $pids"
+    fi
     # shellcheck disable=SC2086
     kill $pids 2>/dev/null || true
     
@@ -64,7 +105,15 @@ mcp_stop() {
     while [[ $count -lt $timeout ]]; do
         pids=$(find_mcp_processes)
         if [[ -z "$pids" ]]; then
-            echo "MCP server stopped"
+            if [[ "${LYRA_OUTPUT_JSON}" == "true" ]]; then
+                cat <<EOF
+{"status":"ok","exit_code":0,"running":false,"message":"MCP server stopped"}
+EOF
+            else
+                if [[ "${LYRA_QUIET}" != "true" ]]; then
+                    echo "MCP server stopped"
+                fi
+            fi
             return 0
         fi
         sleep 1
@@ -74,11 +123,21 @@ mcp_stop() {
     # Force kill if still running
     pids=$(find_mcp_processes)
     if [[ -n "$pids" ]]; then
-        echo "Force killing MCP server processes: $pids"
+        if [[ "${LYRA_OUTPUT_JSON}" != "true" ]] && [[ "${LYRA_QUIET}" != "true" ]]; then
+            echo "Force killing MCP server processes: $pids"
+        fi
         # shellcheck disable=SC2086
         kill -9 $pids 2>/dev/null || true
     fi
-    echo "MCP server stopped"
+    if [[ "${LYRA_OUTPUT_JSON}" == "true" ]]; then
+        cat <<EOF
+{"status":"ok","exit_code":0,"running":false,"message":"MCP server stopped"}
+EOF
+    else
+        if [[ "${LYRA_QUIET}" != "true" ]]; then
+            echo "MCP server stopped"
+        fi
+    fi
 }
 
 # Show MCP server status
@@ -86,22 +145,60 @@ mcp_status() {
     local pids
     pids=$(find_mcp_processes)
     if [[ -z "$pids" ]]; then
-        echo "MCP server: not running"
+        if [[ "${LYRA_OUTPUT_JSON}" == "true" ]]; then
+            cat <<EOF
+{"status":"ok","exit_code":0,"running":false}
+EOF
+        else
+            if [[ "${LYRA_QUIET}" != "true" ]]; then
+                echo "MCP server: not running"
+            fi
+        fi
         return 1
     fi
     
-    echo "MCP server: running"
-    echo "PIDs: $pids"
-    # Show process details
-    # shellcheck disable=SC2086
-    ps -p $pids -o pid,ppid,etime,cmd --no-headers 2>/dev/null || true
+    if [[ "${LYRA_OUTPUT_JSON}" == "true" ]]; then
+        # Best-effort JSON; keep it simple (PID list as string array)
+        local pids_json
+        pids_json=$(echo "$pids" | tr ' ' '\n' | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))' 2>/dev/null || echo "[]")
+        cat <<EOF
+{"status":"ok","exit_code":0,"running":true,"pids":${pids_json}}
+EOF
+    else
+        if [[ "${LYRA_QUIET}" != "true" ]]; then
+            echo "MCP server: running"
+            echo "PIDs: $pids"
+            # Show process details
+            # shellcheck disable=SC2086
+            ps -p $pids -o pid,ppid,etime,cmd --no-headers 2>/dev/null || true
+        fi
+    fi
 }
 
 # Handle subcommands before STDIO guard
 case "${1:-}" in
     logs)
     shift
-    show_lyra_logs "$@"
+    if [[ "${LYRA_OUTPUT_JSON}" == "true" ]]; then
+        # Keep stdout machine-readable; send log content to stderr.
+        # shellcheck disable=SC2119  # Default argument is intentional
+        latest_log=$(get_latest_log_file)
+        if [[ -z "${latest_log:-}" ]]; then
+            cat <<EOF
+{"status":"error","exit_code":1,"message":"No log files found"}
+EOF
+            exit 1
+        fi
+        if [[ "${LYRA_QUIET}" != "true" ]]; then
+            echo "=== Log file: ${latest_log} ===" >&2
+        fi
+        tail -100 "$latest_log" >&2 || true
+        cat <<EOF
+{"status":"ok","exit_code":0,"log_file":"${latest_log}","note":"log content was written to stderr"}
+EOF
+    else
+        show_lyra_logs "$@"
+    fi
         ;;
     stop)
         mcp_stop
@@ -113,11 +210,19 @@ case "${1:-}" in
         ;;
     restart)
         mcp_stop
-        echo ""
-        echo "To complete restart, reconnect MCP in Cursor:"
-        echo "  1. Open Command Palette (Ctrl+Shift+P)"
-        echo "  2. Run 'MCP: Reconnect Server'"
-        echo "  3. Select 'lyra'"
+        if [[ "${LYRA_OUTPUT_JSON}" == "true" ]]; then
+            cat <<EOF
+{"status":"ok","exit_code":0,"message":"Stopped. Reconnect MCP in Cursor to complete restart.","hint":"Command Palette -> MCP: Reconnect Server -> lyra"}
+EOF
+        else
+            if [[ "${LYRA_QUIET}" != "true" ]]; then
+                echo ""
+                echo "To complete restart, reconnect MCP in Cursor:"
+                echo "  1. Open Command Palette (Ctrl+Shift+P)"
+                echo "  2. Run 'MCP: Reconnect Server'"
+                echo "  3. Select 'lyra'"
+            fi
+        fi
         exit 0
         ;;
     start|"")

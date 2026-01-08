@@ -89,8 +89,12 @@ if ! command -v uv &> /dev/null; then
     source "$HOME/.local/bin/env" 2>/dev/null || true
 fi
 
-# Run uv sync (load_env already called by common.sh, so .env vars are set)
 cd "$PROJECT_DIR" || exit 1
-uv sync --frozen --extra "$EXTRAS"
+
+if [[ "$EXTRAS" == "dev" ]]; then
+    uv sync --frozen --group dev
+else
+    uv sync --frozen --extra "$EXTRAS"
+fi
 
 log_info "Setup complete (extras: $EXTRAS)"

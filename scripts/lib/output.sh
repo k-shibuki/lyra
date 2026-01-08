@@ -72,11 +72,14 @@ json_num() {
 log_info() {
     # NOTE: When running in JSON output mode or stdio-protocol mode (e.g., MCP),
     # stdout must remain machine-readable. Route logs to stderr in that case.
+    if [[ "${LYRA_QUIET:-}" == "true" ]]; then
+        return 0
+    fi
     if [[ "${LYRA_OUTPUT_JSON:-}" == "true" ]] || [[ "${LYRA_LOG_TO_STDERR:-}" == "true" ]]; then
         echo "[INFO] $*" >&2
-    else
-        echo "[INFO] $*"
+        return 0
     fi
+    echo "[INFO] $*"
 }
 
 # Function: log_warn

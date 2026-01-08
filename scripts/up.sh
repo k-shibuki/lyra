@@ -50,3 +50,6 @@ log_info "Next steps:"
 log_info "  1. Configure MCP client (see README)"
 log_info "  2. Run: make mcp (for debug) or connect via Cursor"
 
+if [[ "${LYRA_OUTPUT_JSON:-false}" == "true" ]]; then
+    output_result "success" "Lyra environment ready" "exit_code=0" "hint=make mcp"
+fi

@@ -17,7 +17,7 @@
 #   test.sh    <- common.sh, pytest, uv
 #   mcp.sh     <- common.sh, dev.sh, uv, playwright
 
-.PHONY: help setup test lint format clean up down build rebuild logs logs-f shell status clean-containers db-reset
+.PHONY: help setup test test-all test-e2e test-e2e-internal test-e2e-external lint format clean up down build rebuild logs logs-f shell status clean-containers db-reset
 .DEFAULT_GOAL := help
 
 SHELL := /bin/bash
@@ -37,14 +37,10 @@ setup-ml: ## Install ML dependencies
 	@$(SCRIPTS)/setup.sh ml
 
 setup-ml-models: ## Download ML models to host (embedding + NLI)
-	@echo "Downloading ML models to models/huggingface/..."
-	@mkdir -p models/huggingface
-	HF_HOME=$(PWD)/models/huggingface \
-	LYRA_ML__MODEL_PATHS_FILE=$(PWD)/models/model_paths.json \
-	uv run python scripts/download_models.py
+	@$(SCRIPTS)/ml_models.sh
 
 setup-dev: ## Install development dependencies
-	uv sync --frozen --group dev
+	@$(SCRIPTS)/setup.sh dev
 
 # =============================================================================
 # CONTAINERS
@@ -93,15 +89,13 @@ dev-clean: clean-containers
 # =============================================================================
 
 ollama-pull: ## Pull Ollama model (default: qwen2.5:3b, MODEL= to override)
-	@podman network connect lyra_lyra-net ollama 2>/dev/null || true
-	@podman exec ollama ollama pull $(or $(MODEL),qwen2.5:3b)
-	@podman network disconnect lyra_lyra-net ollama 2>/dev/null || true
+	@$(SCRIPTS)/ollama.sh pull $(or $(MODEL),qwen2.5:3b)
 
 ollama-list: ## List available Ollama models
-	@podman exec ollama ollama list
+	@$(SCRIPTS)/ollama.sh list
 
 ollama-status: ## Show Ollama model status
-	@podman exec ollama ollama list 2>/dev/null || echo "Ollama container not running"
+	@$(SCRIPTS)/ollama.sh status
 
 # =============================================================================
 # MCP SERVER
@@ -162,11 +156,14 @@ chrome-diagnose: ## Diagnose Chrome connection issues
 # =============================================================================
 # TESTING
 # =============================================================================
-# RUNTIME=container/venv to override auto-detection (container preferred)
+# RUNTIME=container/venv to override auto-detection (venv preferred)
 # RUN_ID= to specify a specific test run for check/kill/debug
 
 test: ## Run all tests (use test-check for results; TARGET= for specific files)
 	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/)
+
+test-all: ## Run ALL tests including e2e and slow (venv, no marker exclusions)
+	@LYRA_TEST_LAYER=all $(SCRIPTS)/test.sh run --venv $(or $(TARGET),tests/)
 
 test-unit: ## Run unit tests only (TARGET= for specific files)
 	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m unit
@@ -176,6 +173,12 @@ test-integration: ## Run integration tests only (TARGET= for specific files)
 
 test-e2e: ## Run E2E tests (TARGET= for specific files)
 	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m e2e
+
+test-e2e-internal: ## Run E2E tests against local services only (ML/Ollama/proxy)
+	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m "e2e and internal"
+
+test-e2e-external: ## Run E2E tests that access internet services (SERP/FETCH/Academic APIs)
+	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m "e2e and external"
 
 test-check: ## Check test run status (RUN_ID= optional, RUNTIME=container/venv)
 	@$(SCRIPTS)/test.sh check $(if $(RUNTIME),--$(RUNTIME),) $(RUN_ID)
@@ -196,10 +199,10 @@ test-scripts: ## Run shell script tests
 	@$(SCRIPTS)/test_scripts.sh
 
 test-prompts: ## Run prompt template tests (syntax, rendering, structure)
-	@uv run pytest tests/prompts/ -v
+	@$(SCRIPTS)/test_extra.sh prompts
 
 test-llm-output: ## Run LLM output parsing tests
-	@uv run pytest tests/test_llm_output.py -v
+	@$(SCRIPTS)/test_extra.sh llm-output
 
 # =============================================================================
 # CODE QUALITY
@@ -207,34 +210,28 @@ test-llm-output: ## Run LLM output parsing tests
 # Output format controlled by LYRA_OUTPUT_JSON environment variable
 
 lint: ## Run linters (ruff)
-ifeq ($(LYRA_OUTPUT_JSON),true)
-	uv run ruff check --output-format json src/ tests/
-else
-	uv run ruff check src/ tests/
-endif
+	@$(SCRIPTS)/quality.sh lint
 
 lint-fix: ## Run linters with auto-fix
-	uv run ruff check --fix src/ tests/
+	@$(SCRIPTS)/quality.sh lint-fix
 
 format: ## Format code (black + ruff)
-	uv run black src/ tests/
-	uv run ruff check --fix src/ tests/
+	@$(SCRIPTS)/quality.sh format
 
 format-check: ## Check code formatting
-	uv run black --check src/ tests/
+	@$(SCRIPTS)/quality.sh format-check
 
 typecheck: ## Run type checker (mypy)
-ifeq ($(LYRA_OUTPUT_JSON),true)
-	uv run mypy --output json src/ tests/
-else
-	uv run mypy src/ tests/
-endif
+	@$(SCRIPTS)/quality.sh typecheck
 
 jsonschema: ## Validate JSON Schema files
-	uv run check-jsonschema --schemafile http://json-schema.org/draft-07/schema# src/mcp/schemas/*.json
+	@$(SCRIPTS)/quality.sh jsonschema
 
 shellcheck: ## Run shellcheck on scripts
-	find scripts -name "*.sh" -type f | xargs shellcheck -x -e SC1091
+	@$(SCRIPTS)/quality.sh shellcheck
+
+deadcode: ## Check for dead code (manual, not CI - may have false positives). Override via env: LYRA_SCRIPT__DEADCODE_MIN_CONFIDENCE=60 LYRA_SCRIPT__DEADCODE_FAIL=true
+	@$(SCRIPTS)/deadcode.sh
 
 quality: lint format-check typecheck jsonschema shellcheck ## Run all quality checks
 
@@ -243,19 +240,13 @@ quality: lint format-check typecheck jsonschema shellcheck ## Run all quality ch
 # =============================================================================
 
 clean: ## Clean temporary files
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	rm -rf .pytest_cache .mypy_cache .ruff_cache 2>/dev/null || true
+	@$(SCRIPTS)/clean.sh clean
 
 clean-all: clean clean-containers ## Clean everything including containers
-	rm -rf .venv 2>/dev/null || true
+	@$(SCRIPTS)/clean.sh clean-all
 
 db-reset: ## Reset database (destructive: deletes data/lyra.db, recreates on next server start)
-	@echo "WARNING: This will delete all data in data/lyra.db"
-	@echo "Press Ctrl+C to cancel, or wait 3 seconds..."
-	@sleep 3
-	rm -f data/lyra.db data/lyra.db-wal data/lyra.db-shm 2>/dev/null || true
-	@echo "Database deleted. Schema will be recreated on next server start."
+	@$(SCRIPTS)/db.sh reset
 
 # =============================================================================
 # HELP
@@ -267,8 +258,16 @@ help: ## Show this help
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Output Mode:"
-	@echo "  Set LYRA_OUTPUT_JSON=true for JSON output (AI agents)"
-	@echo "  Example: LYRA_OUTPUT_JSON=true make lint"
+	@echo "  - LYRA_OUTPUT_JSON=true : JSON output (machine-readable; stdout stays JSON)"
+	@echo "  - LYRA_QUIET=true       : suppress non-essential human output"
+	@echo "  Example: LYRA_OUTPUT_JSON=true make status"
+	@echo "  Example: LYRA_QUIET=true make status"
+	@echo ""
+	@echo "Detail toggles (human mode):"
+	@echo "  - LYRA_DEV_STATUS_DETAIL=full     : show full container/network listing for 'make status'"
+	@echo "  - LYRA_CHROME_STATUS_DETAIL=full  : show per-worker details for 'make chrome'"
+	@echo "  - LYRA_TEST_SHOW_TAIL_ON_SUCCESS=true : show test output tail even when tests pass"
+	@echo "  - LYRA_TEST_JSON_DETAIL=full|minimal  : control JSON verbosity for 'make test'"
 	@echo ""
 	@echo "Quick Start:"
 	@grep -E '^(up|down|build|logs|shell|status):.*?## .*$$' $(MAKEFILE_LIST) | \

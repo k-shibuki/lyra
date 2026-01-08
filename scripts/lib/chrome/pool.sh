@@ -45,29 +45,48 @@ EOF
         echo "\"base_port\": $base_port"
         echo '}'
     else
-        echo "Chrome Worker Pool Status"
-        echo "========================="
-        echo "Workers: $num_workers"
-        echo "Base Port: $base_port"
-        echo ""
-        
+        if [[ "${LYRA_QUIET:-false}" == "true" ]]; then
+            return 0
+        fi
+
+        local detail="${LYRA_CHROME_STATUS_DETAIL:-minimal}"  # minimal|full
         local connected=0
+        local disconnected_items=()
+
         for ((i=0; i<num_workers; i++)); do
             local port=$((base_port + i))
             local profile
             profile=$(get_worker_profile "$i")
-            local status="[DISCONNECTED]"
-            
             if try_connect "$port" > /dev/null 2>&1; then
-                status="[CONNECTED]"
                 ((connected++)) || true
+            else
+                disconnected_items+=("Worker $i: port=$port profile=$profile")
             fi
-            
-            printf "  Worker %d: port=%d profile=%s %s\n" "$i" "$port" "$profile" "$status"
         done
-        
-        echo ""
-        echo "Connected: $connected/$num_workers"
+
+        echo "Chrome: connected ${connected}/${num_workers} (base_port=${base_port})"
+        if [[ "${#disconnected_items[@]}" -gt 0 ]]; then
+            echo "Disconnected:"
+            local item
+            for item in "${disconnected_items[@]}"; do
+                echo "  - ${item}"
+            done
+        fi
+
+        if [[ "$detail" == "full" ]]; then
+            echo ""
+            echo "Details:"
+            for ((i=0; i<num_workers; i++)); do
+                local port=$((base_port + i))
+                local profile
+                profile=$(get_worker_profile "$i")
+                local status="[DISCONNECTED]"
+                if try_connect "$port" > /dev/null 2>&1; then
+                    status="[CONNECTED]"
+                fi
+                printf "  Worker %d: port=%d profile=%s %s\n" "$i" "$port" "$profile" "$status"
+            done
+        fi
     fi
 }
 
@@ -81,13 +100,8 @@ start_chrome_pool() {
     local base_port="${CHROME_BASE_PORT:-9222}"
     local env_type="${ENV_TYPE:-wsl}"
     
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        echo "Starting Chrome Pool"
-        echo "===================="
-        echo "Workers: $num_workers"
-        echo "Base Port: $base_port"
-        echo "Environment: $env_type"
-        echo ""
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+        echo "Starting Chrome Pool (workers=$num_workers base_port=$base_port env=$env_type)"
     fi
     
     local success=0
@@ -102,7 +116,7 @@ start_chrome_pool() {
         
         # Check if already running
         if try_connect "$port" > /dev/null 2>&1; then
-            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
                 echo "  Worker $i (port=$port): Already running"
             fi
             ((already_running++)) || true
@@ -112,7 +126,7 @@ start_chrome_pool() {
         fi
         
         # Start Chrome for this worker
-        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
             echo -n "  Worker $i (port=$port, profile=$profile): Starting... "
         fi
         
@@ -130,13 +144,13 @@ start_chrome_pool() {
         esac
         
         if [ "$start_result" -eq 0 ]; then
-            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
                 echo "OK"
             fi
             ((success++)) || true
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"started\"}")
         else
-            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
                 echo "FAILED"
             fi
             ((failed++)) || true
@@ -165,8 +179,9 @@ start_chrome_pool() {
         echo "  ]"
         echo '}'
     else
-        echo ""
-        echo "Result: $success/$num_workers ready ($already_running already running, $failed failed)"
+        if [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+            echo "Chrome start: $success/$num_workers ready ($already_running already running, $failed failed)"
+        fi
     fi
     
     [ $failed -eq 0 ]
@@ -206,7 +221,7 @@ EOF
     fi
     
     # Start Chrome for this worker
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
         echo -n "Worker $worker_id (port=$port, profile=$profile): Starting... "
     fi
     
@@ -262,10 +277,8 @@ stop_chrome_pool() {
     local num_workers="${NUM_WORKERS:-2}"
     local base_port="${CHROME_BASE_PORT:-9222}"
     
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        echo "Stopping Chrome Pool"
-        echo "===================="
-        echo ""
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+        echo "Stopping Chrome Pool (workers=$num_workers base_port=$base_port)"
     fi
     
     local stopped=0
@@ -277,7 +290,7 @@ stop_chrome_pool() {
         
         # Check if running
         if ! try_connect "$port" > /dev/null 2>&1; then
-            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
                 echo "  Worker $i (port=$port): Not running"
             fi
             ((not_running++)) || true
@@ -285,7 +298,7 @@ stop_chrome_pool() {
             continue
         fi
         
-        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
             echo -n "  Worker $i (port=$port): Stopping... "
         fi
         
@@ -295,13 +308,13 @@ stop_chrome_pool() {
         # Verify stopped
         sleep 0.5
         if ! try_connect "$port" > /dev/null 2>&1; then
-            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
                 echo "OK"
             fi
             ((stopped++)) || true
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"stopped\"}")
         else
-            if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+            if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
                 echo "STILL RUNNING"
             fi
             results+=("{\"worker_id\": $i, \"port\": $port, \"status\": \"still_running\"}")
@@ -328,8 +341,9 @@ stop_chrome_pool() {
         echo "  ]"
         echo '}'
     else
-        echo ""
-        echo "Result: $stopped stopped, $not_running not running"
+        if [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+            echo "Chrome stop: $stopped stopped, $not_running not running"
+        fi
     fi
 }
 

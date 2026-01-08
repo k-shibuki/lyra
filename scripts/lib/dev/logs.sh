@@ -42,7 +42,14 @@ show_logs() {
             # Specific service requested
             $container_tool logs --tail=50 "$follow_flag"
         else
-            # All lyra containers - show each with section header
+            # All lyra containers
+            if [[ "${LYRA_QUIET:-false}" == "true" ]]; then
+                # Quiet: no section headers; just dump tail (best-effort)
+                $container_tool logs --tail=50 "${LYRA_CONTAINERS[@]}" 2>/dev/null || true
+                return 0
+            fi
+
+            # Default: show each with section header (readable)
             local container
             for container in "${LYRA_CONTAINERS[@]}"; do
                 echo "=== $container ==="

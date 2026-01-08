@@ -46,7 +46,7 @@ ACTION="${1:-run}"
 shift || true
 
 # Runtime selection:
-#   - auto (default): container > venv
+#   - auto (default): venv (preferred) unless already running inside the selected container
 #   - container: force container execution
 #   - venv: force local venv execution
 # shellcheck disable=SC2034

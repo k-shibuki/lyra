@@ -116,6 +116,21 @@ test_common() {
 }
 
 # =============================================================================
+# AUX HELPERS
+# =============================================================================
+
+assert_json_stdout() {
+    local name="$1"
+    local stdout_content="$2"
+    if python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$stdout_content" 2>/dev/null; then
+        test_pass "$name"
+        return 0
+    fi
+    test_fail "$name" "JSON parse failed"
+    return 1
+}
+
+# =============================================================================
 # DEV.SH TESTS
 # =============================================================================
 
@@ -147,13 +162,13 @@ test_dev() {
         test_info "dev.sh status failed (containers may not be running - this is OK)"
     fi
     
-    # Test 4: JSON output mode works
+    # Test 4: JSON output mode works (stdout must be valid JSON)
     local json_output
-    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/dev.sh" status 2>&1 || true)
-    if echo "$json_output" | grep -qE '"status"|"container_running"'; then
-        test_pass "dev.sh JSON output mode works"
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/dev.sh" status 2>/dev/null || true)
+    if python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$json_output" 2>/dev/null; then
+        test_pass "dev.sh JSON output mode works (parseable JSON on stdout)"
     else
-        test_fail "dev.sh JSON output mode works" "JSON output not detected"
+        test_fail "dev.sh JSON output mode works (parseable JSON on stdout)" "JSON parse failed"
     fi
     
     # Test 5: Dev modules can be sourced (dependency-free modules first)
@@ -201,13 +216,13 @@ test_chrome() {
         test_fail "chrome.sh shows error for unknown commands" "Error not shown for unknown command"
     fi
     
-    # Test 4: JSON output mode works
+    # Test 4: JSON output mode works (stdout must be valid JSON)
     local json_output
-    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/chrome.sh" check 2>&1 || true)
-    if echo "$json_output" | grep -qE '"status"|"exit_code"'; then
-        test_pass "chrome.sh JSON output mode works"
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/chrome.sh" check 2>/dev/null || true)
+    if python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$json_output" 2>/dev/null; then
+        test_pass "chrome.sh JSON output mode works (parseable JSON on stdout)"
     else
-        test_fail "chrome.sh JSON output mode works" "JSON output not detected"
+        test_fail "chrome.sh JSON output mode works (parseable JSON on stdout)" "JSON parse failed"
     fi
     
     # Test 5: Chrome modules can be sourced
@@ -257,13 +272,36 @@ test_test() {
         test_info "test.sh check failed (container may not be running - this is OK)"
     fi
     
-    # Test 4: JSON output mode works
+    # Test 4: JSON output mode works (stdout must be valid JSON)
     local json_output
-    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/test.sh" env 2>&1 || true)
-    if echo "$json_output" | grep -qE '"environment"|"exit_code"'; then
-        test_pass "test.sh JSON output mode works"
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/test.sh" env 2>/dev/null || true)
+    if python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$json_output" 2>/dev/null; then
+        test_pass "test.sh JSON output mode works (parseable JSON on stdout)"
     else
-        test_fail "test.sh JSON output mode works" "JSON output not detected"
+        test_fail "test.sh JSON output mode works (parseable JSON on stdout)" "JSON parse failed"
+    fi
+
+    # Test 4.1: test.sh run/check JSON output remains machine-readable (no non-JSON progress)
+    # Given: A very small pytest selection (likely no tests)
+    # When:  Start a run in JSON mode and then check in JSON mode
+    # Then:  Both outputs are valid JSON on stdout
+    local run_json run_id check_json
+    run_json=$(LYRA_OUTPUT_JSON=true LYRA_TEST_JSON_DETAIL=minimal "${SCRIPT_DIR}/test.sh" run tests/ -k "definitely_does_not_exist" 2>/dev/null || true)
+    if ! python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$run_json" 2>/dev/null; then
+        test_fail "test.sh run JSON output is parseable" "JSON parse failed"
+        return
+    fi
+    run_id=$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read()).get("run_id",""))' <<<"$run_json" 2>/dev/null || echo "")
+    if [[ -z "$run_id" ]]; then
+        test_fail "test.sh run returns run_id" "run_id missing"
+        return
+    fi
+    # Use short timeout to avoid hangs; this selection should finish fast.
+    check_json=$(LYRA_OUTPUT_JSON=true LYRA_SCRIPT__CHECK_TIMEOUT_SECONDS=30 "${SCRIPT_DIR}/test.sh" check "$run_id" 2>/dev/null || true)
+    if python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$check_json" 2>/dev/null; then
+        test_pass "test.sh check JSON output is parseable (no non-JSON progress on stdout)"
+    else
+        test_fail "test.sh check JSON output is parseable (no non-JSON progress on stdout)" "JSON parse failed"
     fi
     
     # Test 5: Test modules can be sourced (in dependency order)
@@ -465,13 +503,13 @@ test_doctor() {
         test_info "doctor.sh check failed (dependencies may be missing - this is OK)"
     fi
     
-    # Test 4: JSON output mode works
+    # Test 4: JSON output mode works (stdout must be valid JSON)
     local json_output
-    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/doctor.sh" check 2>&1 || true)
-    if echo "$json_output" | grep -qE '"status"|"exit_code"'; then
-        test_pass "doctor.sh JSON output mode works"
+    json_output=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/doctor.sh" check 2>/dev/null || true)
+    if python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$json_output" 2>/dev/null; then
+        test_pass "doctor.sh JSON output mode works (parseable JSON on stdout)"
     else
-        test_fail "doctor.sh JSON output mode works" "JSON output not detected"
+        test_fail "doctor.sh JSON output mode works (parseable JSON on stdout)" "JSON parse failed"
     fi
     
     # Test 5: Doctor modules can be sourced
@@ -482,6 +520,47 @@ test_doctor() {
     else
         test_fail "doctor.sh modules can be sourced" "Failed to source doctor modules"
     fi
+}
+
+# =============================================================================
+# OTHER SCRIPT OUTPUT CONTRACT TESTS (JSON/quiet hygiene)
+# =============================================================================
+
+test_other_scripts_output_contracts() {
+    echo ""
+    echo "=== Testing other scripts output contracts ==="
+
+    # clean.sh: JSON mode should be parseable on stdout
+    # Given: JSON mode enabled
+    # When:  clean.sh runs clean
+    # Then:  stdout is valid JSON
+    local clean_json
+    clean_json=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/clean.sh" clean 2>/dev/null || true)
+    assert_json_stdout "clean.sh clean JSON stdout is parseable" "$clean_json"
+
+    # db.sh: avoid destructive reset; use invalid action to exercise output_error JSON
+    # Given: JSON mode enabled
+    # When:  db.sh is invoked with an unknown action
+    # Then:  stdout is valid JSON (error object)
+    local db_json
+    db_json=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/db.sh" unknown_action 2>/dev/null || true)
+    assert_json_stdout "db.sh unknown action JSON stdout is parseable" "$db_json"
+
+    # ollama.sh: status JSON should be parseable even when container not running
+    # Given: JSON mode enabled
+    # When:  ollama.sh status is invoked
+    # Then:  stdout is valid JSON
+    local ollama_json
+    ollama_json=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/ollama.sh" status 2>/dev/null || true)
+    assert_json_stdout "ollama.sh status JSON stdout is parseable" "$ollama_json"
+
+    # mcp.sh: status JSON should be parseable on stdout (may exit non-zero if not running)
+    # Given: JSON mode enabled
+    # When:  mcp.sh status is invoked
+    # Then:  stdout is valid JSON
+    local mcp_json
+    mcp_json=$(LYRA_OUTPUT_JSON=true "${SCRIPT_DIR}/mcp.sh" status 2>/dev/null || true)
+    assert_json_stdout "mcp.sh status JSON stdout is parseable" "$mcp_json"
 }
 
 # =============================================================================
@@ -524,6 +603,7 @@ main() {
             test_completion_markers
             test_mcp
             test_doctor
+            test_other_scripts_output_contracts
             ;;
         *)
             echo "Unknown test target: $test_target"

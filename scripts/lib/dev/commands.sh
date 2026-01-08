@@ -9,9 +9,7 @@ cmd_up() {
         output_error "$EXIT_CONFIG" ".env file not found. Copy from template: cp .env.example .env" "hint=cp .env.example .env"
     fi
 
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Starting Lyra development environment..."
-    fi
+    log_info "Starting Lyra development environment..."
 
     # Ensure ML models are available BEFORE starting containers
     # (podman creates directories instead of files for non-existent mount sources)
@@ -28,7 +26,7 @@ cmd_up() {
         "tor_socks=localhost:9050" \
         "container=$CONTAINER_NAME"
 
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
+    if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
         echo ""
         echo "Services started:"
         echo "  - Tor SOCKS: localhost:9050"
@@ -49,9 +47,7 @@ ensure_ollama_model() {
     local max_retries=30
     local retry_interval=2
 
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Ensuring Ollama model: $model"
-    fi
+    log_info "Ensuring Ollama model: $model"
 
     # Wait for Ollama container to be ready
     local retries=0
@@ -68,16 +64,12 @@ ensure_ollama_model() {
 
     # Check if model is already available
     if podman exec "$ollama_container" ollama list 2>/dev/null | grep -q "^${model}[[:space:]]"; then
-        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-            log_info "Ollama model $model is already available"
-        fi
+        log_info "Ollama model $model is already available"
         return 0
     fi
 
     # Pull the model (requires temporary internet access)
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Pulling Ollama model: $model (this may take a few minutes)..."
-    fi
+    log_info "Pulling Ollama model: $model (this may take a few minutes)..."
 
     # Temporarily connect to external network for download
     if podman network exists "$external_network" >/dev/null 2>&1; then
@@ -85,9 +77,7 @@ ensure_ollama_model() {
     fi
 
     if podman exec "$ollama_container" ollama pull "$model"; then
-        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-            log_info "Ollama model $model pulled successfully"
-        fi
+        log_info "Ollama model $model pulled successfully"
     else
         if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
             log_warn "Failed to pull Ollama model $model. You can pull it manually: make ollama-pull"
@@ -103,9 +93,7 @@ ensure_ollama_model() {
 # Ensure ML models are available, download if not present
 ensure_ml_models() {
     if [ ! -f "${PROJECT_DIR}/models/model_paths.json" ]; then
-        if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-            log_info "ML models not found, downloading..."
-        fi
+        log_info "ML models not found, downloading..."
         (cd "${PROJECT_DIR}" && make setup-ml-models) || {
             if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
                 log_warn "Failed to download ML models. You can download them manually: make setup-ml-models"
@@ -115,33 +103,25 @@ ensure_ml_models() {
 }
 
 cmd_down() {
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Stopping Lyra development environment..."
-    fi
+    log_info "Stopping Lyra development environment..."
     $COMPOSE down
     output_result "success" "Containers stopped" "exit_code=0"
 }
 
 cmd_build() {
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Building containers..."
-    fi
+    log_info "Building containers..."
     $COMPOSE build
     output_result "success" "Build complete" "exit_code=0"
 }
 
 cmd_rebuild() {
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Rebuilding containers from scratch..."
-    fi
+    log_info "Rebuilding containers from scratch..."
     $COMPOSE build --no-cache
     output_result "success" "Rebuild complete" "exit_code=0"
 }
 
 cmd_test() {
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Running tests..."
-    fi
+    log_info "Running tests..."
     local exit_code=0
     $COMPOSE exec "$CONTAINER_NAME" pytest tests/ -v || exit_code=$?
     if [[ $exit_code -eq 0 ]]; then
@@ -153,9 +133,7 @@ cmd_test() {
 }
 
 cmd_mcp() {
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Starting MCP server..."
-    fi
+    log_info "Starting MCP server..."
     $COMPOSE exec "$CONTAINER_NAME" python -m src.mcp.server
 }
 
@@ -164,9 +142,7 @@ cmd_research() {
     if [ -z "$query" ]; then
         output_error "$EXIT_USAGE" "Query argument required" "usage=make shell"
     fi
-    if [[ "$LYRA_OUTPUT_JSON" != "true" ]]; then
-        log_info "Running research: $query"
-    fi
+    log_info "Running research: $query"
     $COMPOSE exec "$CONTAINER_NAME" python -m src.main research --query "$query"
 }
 
@@ -195,11 +171,29 @@ cmd_status() {
 }
 EOF
     else
-        echo "=== Containers ==="
-        $COMPOSE ps
-        echo ""
-        echo "=== Networks ==="
-        $container_tool network ls --filter "label=io.podman.compose.project=lyra"
+        local detail="${LYRA_DEV_STATUS_DETAIL:-minimal}"  # minimal|full
+        local running="false"
+        if check_container_running "$CONTAINER_NAME"; then
+            running="true"
+        fi
+
+        if [[ "$detail" == "full" ]]; then
+            echo "=== Containers ==="
+            $COMPOSE ps
+            echo ""
+            echo "=== Networks ==="
+            $container_tool network ls --filter "label=io.podman.compose.project=lyra"
+            return 0
+        fi
+
+        if [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+            if [[ "$running" == "true" ]]; then
+                echo "RUNNING | container=${CONTAINER_NAME}"
+            else
+                echo "NOT_RUNNING | container=${CONTAINER_NAME} | hint=make up"
+            fi
+            echo "Tip: LYRA_DEV_STATUS_DETAIL=full make status  (or: make status --json)"
+        fi
     fi
 }
 
