@@ -11,6 +11,7 @@ Tests for extracting paper identifiers (DOI, PMID, arXiv ID, etc.) from URLs.
 | TC-ID-N-02 | URL with PubMed | Equivalence – normal | PMID extracted | - |
 | TC-ID-N-03 | URL with arXiv | Equivalence – normal | arXiv ID extracted | - |
 | TC-ID-N-04 | URL with J-Stage DOI | Equivalence – normal | DOI extracted from URL | - |
+| TC-ID-N-05 | URL with PubMed Central (PMC) | Equivalence – normal | PMCID extracted | - |
 | TC-ID-B-01 | Empty URL string | Boundary – empty | PaperIdentifier with url="" | - |
 | TC-ID-B-02 | None URL | Boundary – NULL | PaperIdentifier with url=None | - |
 | TC-ID-B-03 | URL without identifiers | Boundary – no match | PaperIdentifier with url only | - |
@@ -89,6 +90,26 @@ class TestIdentifierExtractor:
         assert identifier.arxiv_id == "2301.12345"
         assert identifier.needs_meta_extraction is True
         assert identifier.doi is None
+
+    def test_extract_pmcid_from_pmc(self) -> None:
+        """TC-ID-N-05: Test extracting PMCID from PubMed Central URL.
+
+        // Given: URL with pmc.ncbi.nlm.nih.gov/articles/PMC...
+        // When: Extracting identifiers
+        // Then: PMCID extracted, needs_meta_extraction=True
+        """
+        # Given: URL with PMC
+        extractor = IdentifierExtractor()
+        url = "https://pmc.ncbi.nlm.nih.gov/articles/PMC5768864/"
+
+        # When: Extracting identifiers
+        identifier = extractor.extract(url)
+
+        # Then: PMCID extracted
+        assert identifier.pmcid == "PMC5768864"
+        assert identifier.needs_meta_extraction is True
+        assert identifier.doi is None
+        assert identifier.pmid is None
 
     def test_extract_jstage_doi(self) -> None:
         """TC-ID-N-04: Test extracting DOI from J-Stage URL.
@@ -258,6 +279,7 @@ class TestIdentifierExtractor:
         identifier = PaperIdentifier(
             doi="10.1234/example",
             pmid="12345678",
+            pmcid="PMC123456",
             arxiv_id="2301.12345",
             url=None,
         )
@@ -280,6 +302,7 @@ class TestIdentifierExtractor:
         identifier = PaperIdentifier(
             doi=None,
             pmid="12345678",
+            pmcid="PMC123456",
             arxiv_id="2301.12345",
             url=None,
         )

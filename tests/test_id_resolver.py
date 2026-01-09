@@ -24,6 +24,9 @@ Tests identifier resolution functionality using Semantic Scholar API.
 | TC-ID-RES-02 | resolve_to_doi with PMID | Normal – delegate | PMID resolved | - |
 | TC-ID-RES-03 | resolve_to_doi with arXiv | Normal – delegate | arXiv resolved | - |
 | TC-ID-RES-04 | resolve_to_doi with nothing | Boundary – empty | None returned | - |
+| TC-ID-PMC-01 | Valid PMCID (idconv returns pmid+doi) | Equivalence – normal | dict returned with pmid/doi | - |
+| TC-ID-PMC-B-01 | Empty PMCID string "" | Boundary – empty | None returned | - |
+| TC-ID-PMC-A-01 | idconv API error | Abnormal – API error | None returned | - |
 | TC-ID-CL-01 | close() method | Resource cleanup | Session closed | - |
 """
 
@@ -276,6 +279,82 @@ class TestResolveArxivToDOI:
         # Then: None should be returned
         assert doi is None
 
+
+class TestResolvePMCID:
+    """Test resolve_pmcid() method (NCBI idconv)."""
+
+    @pytest.mark.asyncio
+    async def test_resolve_pmcid_success(self, id_resolver: IDResolver) -> None:
+        """TC-ID-PMC-01: Valid PMCID returns PMID/DOI dict.
+
+        // Given: PMCID and idconv API returns record
+        // When: Calling resolve_pmcid()
+        // Then: pmid/doi are returned
+        """
+        # Given: PMCID
+        pmcid = "PMC5768864"
+        mock_response = {
+            "status": "ok",
+            "records": [{"doi": "10.1038/s41598-017-19055-6", "pmcid": pmcid, "pmid": 29335646}],
+        }
+
+        mock_session = AsyncMock()
+        mock_response_obj = MagicMock()
+        mock_response_obj.json = MagicMock(return_value=mock_response)
+        mock_response_obj.raise_for_status = MagicMock()
+        mock_session.get = AsyncMock(return_value=mock_response_obj)
+
+        with patch.object(id_resolver, "_get_session", AsyncMock(return_value=mock_session)):
+            resolved = await id_resolver.resolve_pmcid(pmcid)
+
+        # Then
+        assert resolved is not None
+        assert resolved["pmcid"] == pmcid
+        assert resolved["pmid"] == "29335646"
+        assert resolved["doi"] == "10.1038/s41598-017-19055-6"
+
+    @pytest.mark.asyncio
+    async def test_resolve_pmcid_empty(self, id_resolver: IDResolver) -> None:
+        """TC-ID-PMC-B-01: Empty PMCID returns None.
+
+        // Given: Empty PMCID
+        // When: Calling resolve_pmcid()
+        // Then: None returned
+        """
+        # Given
+        pmcid = ""
+
+        # When
+        resolved = await id_resolver.resolve_pmcid(pmcid)
+
+        # Then
+        assert resolved is None
+
+    @pytest.mark.asyncio
+    async def test_resolve_pmcid_api_error(self, id_resolver: IDResolver) -> None:
+        """TC-ID-PMC-A-01: API error returns None.
+
+        // Given: idconv API raises HTTPStatusError
+        // When: Calling resolve_pmcid()
+        // Then: None returned
+        """
+        # Given
+        pmcid = "PMC99999999"
+        mock_session = AsyncMock()
+        mock_response_obj = MagicMock()
+        mock_response_obj.raise_for_status = MagicMock(
+            side_effect=httpx.HTTPStatusError(
+                "500 Server Error", request=MagicMock(), response=MagicMock()
+            )
+        )
+        mock_session.get = AsyncMock(return_value=mock_response_obj)
+
+        with patch.object(id_resolver, "_get_session", AsyncMock(return_value=mock_session)):
+            resolved = await id_resolver.resolve_pmcid(pmcid)
+
+        # Then
+        assert resolved is None
+
     @pytest.mark.asyncio
     async def test_resolve_arxiv_to_doi_api_404(self, id_resolver: IDResolver) -> None:
         """TC-ID-ARX-A-01: S2 API 404 for arXiv ID handled gracefully."""
@@ -453,7 +532,9 @@ class TestResolveToDOI:
         # Given: PaperIdentifier with DOI
         from src.utils.schemas import PaperIdentifier
 
-        identifier = PaperIdentifier(doi="10.1234/existing.doi", pmid=None, arxiv_id=None, url=None)
+        identifier = PaperIdentifier(
+            doi="10.1234/existing.doi", pmid=None, pmcid=None, arxiv_id=None, url=None
+        )
 
         # When: Resolving to DOI
         doi = await id_resolver.resolve_to_doi(identifier)
@@ -467,7 +548,7 @@ class TestResolveToDOI:
         # Given: PaperIdentifier with PMID only
         from src.utils.schemas import PaperIdentifier
 
-        identifier = PaperIdentifier(doi=None, pmid="12345678", arxiv_id=None, url=None)
+        identifier = PaperIdentifier(doi=None, pmid="12345678", pmcid=None, arxiv_id=None, url=None)
 
         mock_response = {"externalIds": {"DOI": "10.1234/from.pmid"}}
 
@@ -490,7 +571,9 @@ class TestResolveToDOI:
         # Given: PaperIdentifier with arXiv ID only
         from src.utils.schemas import PaperIdentifier
 
-        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id="2301.12345", url=None)
+        identifier = PaperIdentifier(
+            doi=None, pmid=None, pmcid=None, arxiv_id="2301.12345", url=None
+        )
 
         mock_response = {"externalIds": {"DOI": "10.1234/from.arxiv"}}
 
@@ -513,7 +596,7 @@ class TestResolveToDOI:
         # Given: PaperIdentifier with no identifiers
         from src.utils.schemas import PaperIdentifier
 
-        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id=None, url=None)
+        identifier = PaperIdentifier(doi=None, pmid=None, pmcid=None, arxiv_id=None, url=None)
 
         # When: Resolving to DOI
         doi = await id_resolver.resolve_to_doi(identifier)
@@ -530,6 +613,7 @@ class TestResolveToDOI:
         identifier = PaperIdentifier(
             doi="10.1234/direct.doi",
             pmid="12345678",
+            pmcid=None,
             arxiv_id="2301.12345",
             url=None,
         )

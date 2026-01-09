@@ -166,6 +166,26 @@ class SemanticScholarClient(BaseAcademicClient):
         # Normalize paper ID for API (once, outside retry loop)
         normalized_id = self._normalize_paper_id(paper_id)
 
+        # region agent log H-PMID-03
+        try:
+            from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
+
+            agent_log(
+                sessionId=agent_debug_session_id(),
+                runId=agent_debug_run_id(),
+                hypothesisId="H-PMID-03",
+                location="src/search/apis/semantic_scholar.py:get_paper:entry",
+                message="S2 get_paper (start)",
+                data={
+                    "paper_id": paper_id[:200],
+                    "normalized_id": normalized_id[:200],
+                    "has_api_key": bool(self.api_key),
+                },
+            )
+        except Exception:
+            pass
+        # endregion
+
         # Retry once if API key is invalid (fallback to anonymous)
         for attempt in range(2):
             await limiter.acquire(self.name)
@@ -184,7 +204,36 @@ class SemanticScholarClient(BaseAcademicClient):
                     data = await retry_api_call(
                         _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
                     )
-                    return self._parse_paper(data)
+                    paper = self._parse_paper(data)
+                    # region agent log H-PMID-03
+                    try:
+                        from src.utils.agent_debug import (
+                            agent_debug_run_id,
+                            agent_debug_session_id,
+                            agent_log,
+                        )
+
+                        agent_log(
+                            sessionId=agent_debug_session_id(),
+                            runId=agent_debug_run_id(),
+                            hypothesisId="H-PMID-03",
+                            location="src/search/apis/semantic_scholar.py:get_paper:parsed",
+                            message="S2 get_paper (parsed)",
+                            data={
+                                "paper_id": paper_id[:200],
+                                "has_paper": bool(paper),
+                                "has_abstract": bool(paper.abstract) if paper else False,
+                                "year": getattr(paper, "year", None) if paper else None,
+                                "authors_count": (
+                                    len(paper.authors) if paper and paper.authors else 0
+                                ),
+                                "doi": (paper.doi or "")[:120] if paper else None,
+                            },
+                        )
+                    except Exception:
+                        pass
+                    # endregion
+                    return paper
                 except Exception as e:
                     # Check for invalid API key (401/403) - fallback to anonymous access
                     if self._is_invalid_api_key_error(e) and attempt == 0 and self.api_key:
@@ -192,6 +241,29 @@ class SemanticScholarClient(BaseAcademicClient):
                         continue  # Retry without API key
 
                     logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
+                    # region agent log H-PMID-03
+                    try:
+                        from src.utils.agent_debug import (
+                            agent_debug_run_id,
+                            agent_debug_session_id,
+                            agent_log,
+                        )
+
+                        agent_log(
+                            sessionId=agent_debug_session_id(),
+                            runId=agent_debug_run_id(),
+                            hypothesisId="H-PMID-03",
+                            location="src/search/apis/semantic_scholar.py:get_paper:exception",
+                            message="S2 get_paper (exception)",
+                            data={
+                                "paper_id": paper_id[:200],
+                                "error_type": type(e).__name__,
+                                "error": str(e)[:300],
+                            },
+                        )
+                    except Exception:
+                        pass
+                    # endregion
                     return None
             finally:
                 limiter.release(self.name)

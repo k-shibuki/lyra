@@ -23,6 +23,7 @@ class IdentifierExtractor:
     PATTERNS = {
         "doi": re.compile(r"doi\.org/(10\.\d{4,}/[^\s?#]+)", re.IGNORECASE),
         "pmid": re.compile(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", re.IGNORECASE),
+        "pmcid": re.compile(r"pmc\.ncbi\.nlm\.nih\.gov/articles/(PMC\d+)", re.IGNORECASE),
         "arxiv": re.compile(r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})", re.IGNORECASE),
         "jstage_doi": re.compile(r"jstage\.jst\.go\.jp/.*/(10\.\d+/[^/?#]+)", re.IGNORECASE),
         "nature_doi": re.compile(r"nature\.com/articles/(s\d+-\d+-\d+-\w+)", re.IGNORECASE),
@@ -41,9 +42,9 @@ class IdentifierExtractor:
             PaperIdentifier with extracted identifiers
         """
         if not url:
-            return PaperIdentifier(doi=None, pmid=None, arxiv_id=None, url=url)
+            return PaperIdentifier(doi=None, pmid=None, pmcid=None, arxiv_id=None, url=url)
 
-        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id=None, url=url)
+        identifier = PaperIdentifier(doi=None, pmid=None, pmcid=None, arxiv_id=None, url=url)
 
         # 1. DOI (doi.org)
         doi_match = self.PATTERNS["doi"].search(url)
@@ -58,6 +59,52 @@ class IdentifierExtractor:
             identifier.pmid = pmid_match.group(1)
             identifier.needs_meta_extraction = True  # DOI conversion needed
             logger.debug("Extracted PMID from URL", pmid=identifier.pmid, url=url)
+            # region agent log H-PMID-01
+            try:
+                from src.utils.agent_debug import (
+                    agent_debug_run_id,
+                    agent_debug_session_id,
+                    agent_log,
+                )
+
+                agent_log(
+                    sessionId=agent_debug_session_id(),
+                    runId=agent_debug_run_id(),
+                    hypothesisId="H-PMID-01",
+                    location="src/search/identifier_extractor.py:pmid_match",
+                    message="Extracted PMID from URL",
+                    data={"pmid": identifier.pmid, "url": url[:300]},
+                )
+            except Exception:
+                pass
+            # endregion
+            return identifier
+
+        # 2b. PMCID (PubMed Central)
+        pmcid_match = self.PATTERNS["pmcid"].search(url)
+        if pmcid_match:
+            identifier.pmcid = pmcid_match.group(1)
+            identifier.needs_meta_extraction = True  # PMID/DOI conversion needed
+            logger.debug("Extracted PMCID from URL", pmcid=identifier.pmcid, url=url)
+            # region agent log H-PMID-11
+            try:
+                from src.utils.agent_debug import (
+                    agent_debug_run_id,
+                    agent_debug_session_id,
+                    agent_log,
+                )
+
+                agent_log(
+                    sessionId=agent_debug_session_id(),
+                    runId=agent_debug_run_id(),
+                    hypothesisId="H-PMID-11",
+                    location="src/search/identifier_extractor.py:pmcid_match",
+                    message="Extracted PMCID from URL",
+                    data={"pmcid": identifier.pmcid, "url": url[:300]},
+                )
+            except Exception:
+                pass
+            # endregion
             return identifier
 
         # 3. arXiv ID
@@ -110,6 +157,25 @@ class IdentifierExtractor:
             logger.debug(
                 "Detected academic domain, needs meta extraction", domain=domain_lower, url=url
             )
+            # region agent log H-PMID-01
+            try:
+                from src.utils.agent_debug import (
+                    agent_debug_run_id,
+                    agent_debug_session_id,
+                    agent_log,
+                )
+
+                agent_log(
+                    sessionId=agent_debug_session_id(),
+                    runId=agent_debug_run_id(),
+                    hypothesisId="H-PMID-01",
+                    location="src/search/identifier_extractor.py:academic_domain",
+                    message="Academic domain detected but no direct ID pattern matched",
+                    data={"domain": domain_lower, "url": url[:300]},
+                )
+            except Exception:
+                pass
+            # endregion
 
         return identifier
 

@@ -136,6 +136,30 @@ class OpenAlexClient(BaseAcademicClient):
 
             pid = self._normalize_work_id(paper_id)
 
+            # region agent log H-PMID-04
+            try:
+                from src.utils.agent_debug import (
+                    agent_debug_run_id,
+                    agent_debug_session_id,
+                    agent_log,
+                )
+
+                agent_log(
+                    sessionId=agent_debug_session_id(),
+                    runId=agent_debug_run_id(),
+                    hypothesisId="H-PMID-04",
+                    location="src/search/apis/openalex.py:get_paper:entry",
+                    message="OpenAlex get_paper (start)",
+                    data={
+                        "paper_id": paper_id[:200],
+                        "pid": pid[:200],
+                        "has_email": bool(self.email),
+                    },
+                )
+            except Exception:
+                pass
+            # endregion
+
             async def _fetch() -> dict[str, Any]:
                 response = await session.get(
                     f"{self.base_url}/works/{pid}",
@@ -152,7 +176,34 @@ class OpenAlexClient(BaseAcademicClient):
                 data = await retry_api_call(
                     _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
                 )
-                return self._parse_paper(data)
+                paper = self._parse_paper(data)
+                # region agent log H-PMID-04
+                try:
+                    from src.utils.agent_debug import (
+                        agent_debug_run_id,
+                        agent_debug_session_id,
+                        agent_log,
+                    )
+
+                    agent_log(
+                        sessionId=agent_debug_session_id(),
+                        runId=agent_debug_run_id(),
+                        hypothesisId="H-PMID-04",
+                        location="src/search/apis/openalex.py:get_paper:parsed",
+                        message="OpenAlex get_paper (parsed)",
+                        data={
+                            "paper_id": paper_id[:200],
+                            "has_paper": bool(paper),
+                            "has_abstract": bool(paper.abstract) if paper else False,
+                            "year": getattr(paper, "year", None) if paper else None,
+                            "authors_count": len(paper.authors) if paper and paper.authors else 0,
+                            "doi": (paper.doi or "")[:120] if paper else None,
+                        },
+                    )
+                except Exception:
+                    pass
+                # endregion
+                return paper
             except Exception as e:
                 # H-C: Cache 404 responses to avoid repeated lookups
                 is_404 = isinstance(e, httpx.HTTPStatusError) and e.response.status_code == 404
@@ -161,6 +212,30 @@ class OpenAlexClient(BaseAcademicClient):
                     logger.debug("Cached 404 for paper", paper_id=paper_id)
 
                 logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
+                # region agent log H-PMID-04
+                try:
+                    from src.utils.agent_debug import (
+                        agent_debug_run_id,
+                        agent_debug_session_id,
+                        agent_log,
+                    )
+
+                    agent_log(
+                        sessionId=agent_debug_session_id(),
+                        runId=agent_debug_run_id(),
+                        hypothesisId="H-PMID-04",
+                        location="src/search/apis/openalex.py:get_paper:exception",
+                        message="OpenAlex get_paper (exception)",
+                        data={
+                            "paper_id": paper_id[:200],
+                            "error_type": type(e).__name__,
+                            "error": str(e)[:300],
+                            "is_404": bool(is_404),
+                        },
+                    )
+                except Exception:
+                    pass
+                # endregion
                 return None
         finally:
             limiter.release(self.name)

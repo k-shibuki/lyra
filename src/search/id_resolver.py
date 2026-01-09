@@ -114,6 +114,26 @@ class IDResolver:
         Returns:
             DOI string or None
         """
+        # region agent log H-PMID-02
+        try:
+            from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
+
+            agent_log(
+                sessionId=agent_debug_session_id(),
+                runId=agent_debug_run_id(),
+                hypothesisId="H-PMID-02",
+                location="src/search/id_resolver.py:resolve_pmid_to_doi:entry",
+                message="Resolve PMID -> DOI (start)",
+                data={
+                    "pmid": pmid,
+                    "base_url": self.base_url,
+                    "has_api_key": bool(self.api_key),
+                },
+            )
+        except Exception:
+            pass
+        # endregion
+
         # Retry once if API key is invalid (fallback to anonymous)
         for attempt in range(2):
             try:
@@ -133,9 +153,47 @@ class IDResolver:
 
                 if doi:
                     logger.debug("Resolved PMID to DOI", pmid=pmid, doi=doi)
+                    # region agent log H-PMID-02
+                    try:
+                        from src.utils.agent_debug import (
+                            agent_debug_run_id,
+                            agent_debug_session_id,
+                            agent_log,
+                        )
+
+                        agent_log(
+                            sessionId=agent_debug_session_id(),
+                            runId=agent_debug_run_id(),
+                            hypothesisId="H-PMID-02",
+                            location="src/search/id_resolver.py:resolve_pmid_to_doi:success",
+                            message="Resolved PMID -> DOI",
+                            data={"pmid": pmid, "doi": str(doi)[:120]},
+                        )
+                    except Exception:
+                        pass
+                    # endregion
                     return cast(str, doi)
 
                 logger.debug("No DOI found for PMID", pmid=pmid)
+                # region agent log H-PMID-02
+                try:
+                    from src.utils.agent_debug import (
+                        agent_debug_run_id,
+                        agent_debug_session_id,
+                        agent_log,
+                    )
+
+                    agent_log(
+                        sessionId=agent_debug_session_id(),
+                        runId=agent_debug_run_id(),
+                        hypothesisId="H-PMID-02",
+                        location="src/search/id_resolver.py:resolve_pmid_to_doi:no_doi",
+                        message="No DOI found for PMID",
+                        data={"pmid": pmid},
+                    )
+                except Exception:
+                    pass
+                # endregion
                 return None
 
             except Exception as e:
@@ -145,6 +203,25 @@ class IDResolver:
                     continue  # Retry without API key
 
                 logger.warning("Failed to resolve PMID to DOI", pmid=pmid, error=str(e))
+                # region agent log H-PMID-02
+                try:
+                    from src.utils.agent_debug import (
+                        agent_debug_run_id,
+                        agent_debug_session_id,
+                        agent_log,
+                    )
+
+                    agent_log(
+                        sessionId=agent_debug_session_id(),
+                        runId=agent_debug_run_id(),
+                        hypothesisId="H-PMID-02",
+                        location="src/search/id_resolver.py:resolve_pmid_to_doi:exception",
+                        message="Exception while resolving PMID -> DOI",
+                        data={"pmid": pmid, "error_type": type(e).__name__, "error": str(e)[:300]},
+                    )
+                except Exception:
+                    pass
+                # endregion
                 return None
 
         return None
@@ -194,6 +271,125 @@ class IDResolver:
                 return None
 
         return None
+
+    async def resolve_pmcid(self, pmcid: str) -> dict[str, Any] | None:
+        """Resolve PMCID to PMID/DOI via NCBI PMC idconv API.
+
+        This is used for PMC URLs (pmc.ncbi.nlm.nih.gov/articles/PMCxxxxxxx/),
+        where PMCID must be converted to PMID and/or DOI for downstream academic APIs.
+
+        Returns:
+            {"pmid": "...", "doi": "...", "pmcid": "PMC..."} or None
+        """
+        pmcid = (pmcid or "").strip()
+        if not pmcid:
+            return None
+
+        # region agent log H-PMID-12
+        try:
+            from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
+
+            agent_log(
+                sessionId=agent_debug_session_id(),
+                runId=agent_debug_run_id(),
+                hypothesisId="H-PMID-12",
+                location="src/search/id_resolver.py:resolve_pmcid:entry",
+                message="Resolve PMCID -> PMID/DOI (start)",
+                data={"pmcid": pmcid},
+            )
+        except Exception:
+            pass
+        # endregion
+
+        # Use the modern endpoint (the legacy /pmc/utils/idconv redirects)
+        url = "https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/"
+
+        # NCBI recommends including tool/email; we include tool always, email optional.
+        # Email is sourced from academic_apis config (OpenAlex/S2 email), if configured.
+        try:
+            from src.utils.config import get_academic_apis_config
+
+            apis = get_academic_apis_config()
+            email = None
+            # Prefer OpenAlex email, then Semantic Scholar email
+            try:
+                email = (
+                    apis.get_api_config("openalex").email
+                    or apis.get_api_config("semantic_scholar").email
+                )
+            except Exception:
+                email = None
+        except Exception:
+            email = None
+
+        params: dict[str, Any] = {"ids": pmcid, "format": "json", "tool": "lyra"}
+        if email:
+            params["email"] = str(email)
+
+        try:
+
+            async def _fetch() -> dict[str, Any]:
+                session = await self._get_session()
+                resp = await session.get(url, params=params)
+                resp.raise_for_status()
+                return cast(dict[str, Any], resp.json())
+
+            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+            records = data.get("records") or []
+            if not isinstance(records, list) or not records:
+                return None
+            rec = records[0] if isinstance(records[0], dict) else None
+            if not rec:
+                return None
+
+            resolved = {
+                "pmcid": str(rec.get("pmcid") or pmcid),
+                "pmid": str(rec.get("pmid")) if rec.get("pmid") is not None else None,
+                "doi": str(rec.get("doi")) if rec.get("doi") else None,
+            }
+
+            # region agent log H-PMID-12
+            try:
+                from src.utils.agent_debug import (
+                    agent_debug_run_id,
+                    agent_debug_session_id,
+                    agent_log,
+                )
+
+                agent_log(
+                    sessionId=agent_debug_session_id(),
+                    runId=agent_debug_run_id(),
+                    hypothesisId="H-PMID-12",
+                    location="src/search/id_resolver.py:resolve_pmcid:success",
+                    message="Resolved PMCID -> PMID/DOI",
+                    data=resolved,
+                )
+            except Exception:
+                pass
+            # endregion
+
+            return resolved
+        except Exception as e:
+            # region agent log H-PMID-12
+            try:
+                from src.utils.agent_debug import (
+                    agent_debug_run_id,
+                    agent_debug_session_id,
+                    agent_log,
+                )
+
+                agent_log(
+                    sessionId=agent_debug_session_id(),
+                    runId=agent_debug_run_id(),
+                    hypothesisId="H-PMID-12",
+                    location="src/search/id_resolver.py:resolve_pmcid:exception",
+                    message="Exception while resolving PMCID -> PMID/DOI",
+                    data={"pmcid": pmcid, "error_type": type(e).__name__, "error": str(e)[:300]},
+                )
+            except Exception:
+                pass
+            # endregion
+            return None
 
     async def resolve_to_doi(self, identifier: PaperIdentifier) -> str | None:
         """Resolve DOI from PaperIdentifier.
