@@ -210,63 +210,14 @@ For other clients, copy `config/mcp.json.example` to your client's config locati
 
 ## Usage Example
 
-### With MCP Client
+See [docs/examples/](docs/examples/) for commands, sample research, and programmatic usage.
 
-Example workflows for evidence-based research:
-
-- [lyra-search](docs/case_study/lyra-search.md.example) — Build evidence graph iteratively
-- [lyra-report](docs/case_study/lyra-report.md.example) — Generate traceable research report
-
-**Setup** (Cursor):
+**Quick setup** (Cursor):
 ```bash
-cp docs/case_study/lyra-search.md.example .cursor/commands/lyra-search.md
-cp docs/case_study/lyra-report.md.example .cursor/commands/lyra-report.md
+cp docs/examples/commands/*.md .cursor/commands/
 ```
 
-**Usage**:
-```
-/lyra-search  (invoke in Cursor chat)
-
-User: "DPP-4 inhibitors improve HbA1c in type 2 diabetes"
-```
-
-The AI assistant (MCP Client) will:
-1. Create a task with your hypothesis
-2. Design and queue search queries (including refutation queries)
-3. Monitor evidence collection progress
-4. Chase citations from key sources
-5. When ready, use `/lyra-report` to generate a traceable report
-
-For Claude Desktop, add as Skills via Settings → Skills.
-
-You can create your own commands/skills tailored to your research workflow.
-
-### Direct MCP Tool Calls
-
-For programmatic access or custom workflows:
-
-```python
-# 1. Create task
-task = create_task(hypothesis="DPP-4 inhibitors improve HbA1c in type 2 diabetes")
-
-# 2. Queue targets (async execution)
-queue_targets(task_id=task.task_id, targets=[
-    {"kind": "query", "query": "DPP-4 inhibitors efficacy meta-analysis"},
-    {"kind": "query", "query": "DPP-4 inhibitors cardiovascular safety"},
-    {"kind": "query", "query": "DPP-4 inhibitors limitations"},  # Include refutation queries
-])
-
-# 3. Monitor progress
-get_status(task_id=task.task_id, wait=180)
-
-# 4. Explore evidence
-vector_search(query="cardiovascular", target="claims", task_id=task.task_id)
-query_view(view_name="v_source_impact", task_id=task.task_id)  # Key Sources
-query_view(view_name="v_contradictions", task_id=task.task_id)
-
-# 5. Provide feedback (improves model over time)
-feedback(action="edge_correct", edge_id="...", correct_relation="supports")
-```
+Then invoke `/lyra-search` in Cursor chat. For Claude Desktop, add as Skills via Settings → Skills.
 
 ## MCP Tools
 
@@ -299,6 +250,7 @@ make help        # Show all commands
 ## Documentation
 
 - [Architecture Overview](docs/architecture.md) - System design and data flow
+- [Examples](docs/examples/) - Commands and sample research
 - [MCP Tools Reference](docs/mcp_reference.md) - Tool descriptions and schemas
 - [ADR Index](docs/adr/index.md) - Architecture decision records
 - [Contributing Guide](.github/CONTRIBUTING.md)

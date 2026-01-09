@@ -158,6 +158,9 @@ debug/
 # Private documentation (not for public repository)
 docs/private/
 
+# Report files (parser diagnostics)
+docs/reports
+
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
