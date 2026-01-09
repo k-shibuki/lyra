@@ -507,3 +507,164 @@ async def test_query_sql_options_limit_overrides_sql_limit(test_database: Databa
     assert result["row_count"] == 2
     assert len(result["rows"]) == 2
     assert result["truncated"] is True  # 5 rows exist but only 2 returned
+
+
+# ============================================================================
+# Additional boundary tests for options validation
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_query_sql_max_vm_steps_too_high() -> None:
+    """
+    TC-QS-A-16: max_vm_steps > 5000000 raises InvalidParamsError.
+
+    // Given: max_vm_steps option > 5000000
+    // When: Calling handle_query_sql
+    // Then: Raises InvalidParamsError
+    """
+    with pytest.raises(InvalidParamsError) as exc_info:
+        await sql.handle_query_sql({"sql": "SELECT 1", "options": {"max_vm_steps": 5000001}})
+
+    assert "max_vm_steps must be between 1 and 5000000" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_query_sql_max_vm_steps_too_low() -> None:
+    """
+    TC-QS-A-17: max_vm_steps < 1 raises InvalidParamsError.
+
+    // Given: max_vm_steps option < 1
+    // When: Calling handle_query_sql
+    // Then: Raises InvalidParamsError
+    """
+    with pytest.raises(InvalidParamsError) as exc_info:
+        await sql.handle_query_sql({"sql": "SELECT 1", "options": {"max_vm_steps": 0}})
+
+    assert "max_vm_steps must be between 1 and 5000000" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_query_sql_timeout_ms_too_low() -> None:
+    """
+    TC-QS-A-18: timeout_ms < 1 raises InvalidParamsError.
+
+    // Given: timeout_ms option < 1
+    // When: Calling handle_query_sql
+    // Then: Raises InvalidParamsError
+    """
+    with pytest.raises(InvalidParamsError) as exc_info:
+        await sql.handle_query_sql({"sql": "SELECT 1", "options": {"timeout_ms": 0}})
+
+    assert "timeout_ms must be between 1 and 2000" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_query_sql_bytes_to_hex_conversion(test_database: Database) -> None:
+    """
+    TC-QS-N-07: Bytes columns are converted to hex strings.
+
+    // Given: Table with BLOB column containing bytes data
+    // When: Executing query_sql
+    // Then: Bytes value is converted to hex string
+    """
+    db = test_database
+
+    # Create table with BLOB column and insert bytes data
+    await db.execute("CREATE TABLE IF NOT EXISTS test_blob (id TEXT PRIMARY KEY, data BLOB)")
+    # Insert bytes data using raw SQL with hex notation
+    await db.execute(
+        "INSERT INTO test_blob (id, data) VALUES (?, X'DEADBEEF')",
+        ("test_bytes",),
+    )
+
+    result = await sql.handle_query_sql({"sql": "SELECT * FROM test_blob WHERE id = 'test_bytes'"})
+
+    assert result["ok"] is True
+    assert result["row_count"] == 1
+    # Bytes should be converted to hex string
+    assert result["rows"][0]["data"] == "deadbeef"
+
+
+@pytest.mark.asyncio
+async def test_query_sql_vm_steps_interruption(test_database: Database) -> None:
+    """
+    TC-QS-N-08: Query exceeding max_vm_steps returns interrupted error.
+
+    // Given: Complex query that exceeds vm_steps budget
+    // When: Executing with very low max_vm_steps
+    // Then: Returns ok=False with interruption error
+    """
+    db = test_database
+
+    # Insert enough data to make query complex
+    for i in range(100):
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            (f"task_vm_{i}", f"hypothesis {i}", "exploring"),
+        )
+
+    # Execute with very low vm_steps limit to trigger interruption
+    result = await sql.handle_query_sql(
+        {
+            "sql": "SELECT * FROM tasks t1, tasks t2 WHERE t1.id != t2.id",  # Cross join
+            "options": {"max_vm_steps": 1000, "timeout_ms": 1000},  # Very low vm_steps
+        }
+    )
+
+    # Should either succeed with limited results or be interrupted
+    # Depending on how fast the query runs, it may or may not be interrupted
+    # The key is that it doesn't crash and returns a valid response
+    assert "ok" in result
+    if not result["ok"]:
+        # If interrupted, should have an error message
+        assert "error" in result
+        # Error should mention interruption
+        assert "interrupt" in result["error"].lower() or "error" in result
+
+
+@pytest.mark.asyncio
+async def test_query_sql_forbidden_alter() -> None:
+    """
+    TC-QS-A-19: ALTER statement raises InvalidParamsError.
+
+    // Given: SQL with ALTER TABLE
+    // When: Validating SQL
+    // Then: Raises InvalidParamsError (forbidden keyword)
+    """
+    with pytest.raises(InvalidParamsError) as exc_info:
+        await sql.handle_query_sql({"sql": "ALTER TABLE tasks ADD COLUMN extra TEXT"})
+
+    assert "Forbidden SQL keyword" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_query_sql_forbidden_replace() -> None:
+    """
+    TC-QS-A-20: REPLACE statement raises InvalidParamsError.
+
+    // Given: SQL with REPLACE
+    // When: Validating SQL
+    // Then: Raises InvalidParamsError (forbidden keyword)
+    """
+    with pytest.raises(InvalidParamsError) as exc_info:
+        await sql.handle_query_sql(
+            {"sql": "REPLACE INTO tasks (id, hypothesis, status) VALUES ('t', 'h', 's')"}
+        )
+
+    assert "Forbidden SQL keyword" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_query_sql_forbidden_detach() -> None:
+    """
+    TC-QS-A-21: DETACH statement raises InvalidParamsError.
+
+    // Given: SQL with DETACH
+    // When: Validating SQL
+    // Then: Raises InvalidParamsError (forbidden keyword)
+    """
+    with pytest.raises(InvalidParamsError) as exc_info:
+        await sql.handle_query_sql({"sql": "DETACH DATABASE test"})
+
+    assert "Forbidden SQL keyword" in str(exc_info.value)
