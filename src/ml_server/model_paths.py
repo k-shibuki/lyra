@@ -161,7 +161,13 @@ def get_embedding_path() -> str:
     paths = get_model_paths()
     if paths and "embedding" in paths:
         return paths["embedding"]
-    return os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
+    # Fallback: use Settings (config/settings.yaml -> local.yaml -> env)
+    try:
+        from src.utils.config import get_settings
+
+        return get_settings().embedding.model_name
+    except Exception:
+        return "BAAI/bge-m3"
 
 
 def get_nli_path() -> str:
@@ -173,7 +179,13 @@ def get_nli_path() -> str:
     paths = get_model_paths()
     if paths and "nli" in paths:
         return paths["nli"]
-    return os.environ.get("LYRA_ML__NLI_MODEL", "cross-encoder/nli-deberta-v3-small")
+    # Fallback: use Settings (config/settings.yaml -> local.yaml -> env)
+    try:
+        from src.utils.config import get_settings
+
+        return get_settings().nli.model
+    except Exception:
+        return "cross-encoder/nli-deberta-v3-small"
 
 
 def is_using_local_paths() -> bool:

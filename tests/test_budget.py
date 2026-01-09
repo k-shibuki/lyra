@@ -409,7 +409,7 @@ class TestBudgetManager:
         """Mock settings for budget manager."""
         return SimpleNamespace(
             task_limits=SimpleNamespace(
-                budget_pages_per_task=100,
+                max_budget_pages_per_task=100,
                 max_time_minutes_gpu=15,
                 max_time_minutes_cpu=20,
                 llm_time_ratio_max=0.25,
@@ -677,7 +677,7 @@ class TestConvenienceFunctions:
         """Mock settings."""
         return SimpleNamespace(
             task_limits=SimpleNamespace(
-                budget_pages_per_task=50,
+                max_budget_pages_per_task=50,
                 max_time_minutes_gpu=10,
                 max_time_minutes_cpu=15,
                 llm_time_ratio_max=0.30,
@@ -762,7 +762,7 @@ class TestBudgetManagerGPUDetection:
         # Given: Settings with different GPU/CPU time limits
         settings = SimpleNamespace(
             task_limits=SimpleNamespace(
-                budget_pages_per_task=100,
+                max_budget_pages_per_task=100,
                 max_time_minutes_gpu=60,
                 max_time_minutes_cpu=75,
                 llm_time_ratio_max=0.30,
@@ -796,7 +796,7 @@ class TestBudgetIntegrationScenarios:
         """
         return SimpleNamespace(
             task_limits=SimpleNamespace(
-                budget_pages_per_task=10,
+                max_budget_pages_per_task=10,
                 max_time_minutes_gpu=1,  # 1 minute for quick tests
                 max_time_minutes_cpu=1,
                 llm_time_ratio_max=0.30,

@@ -490,6 +490,7 @@ class PaperIdentifier(BaseModel):
 
     doi: str | None = Field(None, description="DOI")
     pmid: str | None = Field(None, description="PubMed ID")
+    pmcid: str | None = Field(None, description="PubMed Central ID (PMCID, e.g., PMC123456)")
     arxiv_id: str | None = Field(None, description="arXiv ID")
     url: str | None = Field(None, description="URL (fallback)")
     needs_meta_extraction: bool = Field(
@@ -497,11 +498,13 @@ class PaperIdentifier(BaseModel):
     )
 
     def get_canonical_id(self) -> str:
-        """Return canonical ID (priority: DOI > PMID > arXiv > URL)."""
+        """Return canonical ID (priority: DOI > PMID > PMCID > arXiv > URL)."""
         if self.doi:
             return f"doi:{self.doi.lower().strip()}"
         if self.pmid:
             return f"pmid:{self.pmid}"
+        if self.pmcid:
+            return f"pmcid:{self.pmcid}"
         if self.arxiv_id:
             return f"arxiv:{self.arxiv_id}"
         if self.url:

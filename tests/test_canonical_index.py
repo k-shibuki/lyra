@@ -100,7 +100,9 @@ class TestPaperIdentityResolver:
         """
         # Given: PaperIdentifier with DOI
         resolver = PaperIdentityResolver()
-        identifier = PaperIdentifier(doi="10.1234/example", pmid=None, arxiv_id=None, url=None)
+        identifier = PaperIdentifier(
+            doi="10.1234/example", pmid=None, pmcid=None, arxiv_id=None, url=None
+        )
 
         # When: Resolving identity
         canonical_id = resolver.resolve_identity_from_identifier(identifier)
@@ -297,7 +299,9 @@ class TestCanonicalPaperIndex:
             engine="google",
             rank=1,
         )
-        identifier = PaperIdentifier(doi=None, pmid=None, arxiv_id=None, url=serp_result.url)
+        identifier = PaperIdentifier(
+            doi=None, pmid=None, pmcid=None, arxiv_id=None, url=serp_result.url
+        )
 
         # When: Registering SERP result
         canonical_id = index.register_serp_result(serp_result, identifier)
@@ -340,7 +344,9 @@ class TestCanonicalPaperIndex:
             engine="google",
             rank=1,
         )
-        identifier = PaperIdentifier(doi="10.1234/example", pmid=None, arxiv_id=None, url=None)
+        identifier = PaperIdentifier(
+            doi="10.1234/example", pmid=None, pmcid=None, arxiv_id=None, url=None
+        )
 
         # When: Registering SERP result
         index.register_serp_result(serp_result, identifier)
@@ -497,7 +503,7 @@ class TestCanonicalPaperIndex:
             rank=1,
         )
         index.register_serp_result(
-            serp, PaperIdentifier(doi=None, pmid=None, arxiv_id=None, url=serp.url)
+            serp, PaperIdentifier(doi=None, pmid=None, pmcid=None, arxiv_id=None, url=serp.url)
         )
 
         # Both entry
@@ -523,7 +529,7 @@ class TestCanonicalPaperIndex:
             rank=1,
         )
         index.register_serp_result(
-            serp3, PaperIdentifier(doi="10.3/3", pmid=None, arxiv_id=None, url=None)
+            serp3, PaperIdentifier(doi="10.3/3", pmid=None, pmcid=None, arxiv_id=None, url=None)
         )
 
         # When: Getting stats

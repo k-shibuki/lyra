@@ -212,7 +212,7 @@ class BudgetManager:
 
         # Load limits from settings (Settings is a Pydantic model)
         task_limits = self._settings.task_limits
-        self._budget_pages_per_task = task_limits.budget_pages_per_task
+        self._budget_pages_per_task = int(task_limits.max_budget_pages_per_task)
         self._max_time_gpu = task_limits.max_time_minutes_gpu * 60
         self._max_time_cpu = task_limits.max_time_minutes_cpu * 60
         self._max_llm_ratio = task_limits.llm_time_ratio_max

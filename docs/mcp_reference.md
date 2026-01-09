@@ -30,9 +30,19 @@ These jobs run in the background and update `bayesian_truth_confidence` in the e
 
 | Tool | Description |
 |------|-------------|
-| `create_task` | Create research task with central hypothesis (ADR-0017) and optional config (budget, priority_domains) |
+| `create_task` | Create research task with central hypothesis (ADR-0017) and optional budget config |
 | `get_status` | Get task progress; supports long-polling via `wait` parameter |
 | `stop_task` | Pause task session (graceful/immediate/full modes, scope parameter) |
+
+#### create_task Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hypothesis` | string | (required) | Central claim to verify (ADR-0017) |
+| `config.budget.max_pages` | integer | 200 | Task page budget (≤ `task_limits.max_budget_pages_per_task`) |
+| `config.budget.max_seconds` | integer | 3600 | Task time budget in seconds |
+
+**Note**: Dynamic budget allocation uses UCB1 internally based on harvest rate per search (ADR-0010).
 
 #### get_status Parameters
 

@@ -86,7 +86,7 @@ class TestNormalCases:
             "hypothesis": "What is Python?",
             "created_at": "2024-01-01T00:00:00Z",
             "budget": {
-                "budget_pages": 120,
+                "max_pages": 120,
                 "max_seconds": 1200,
             },
         }
@@ -255,7 +255,7 @@ class TestAbnormalCases:
             "task_id": "task_abc123",
             "hypothesis": "Test hypothesis",
             "created_at": "2024-01-01T00:00:00Z",
-            "budget": {"budget_pages": 120, "max_seconds": 1200},
+            "budget": {"max_pages": 120, "max_seconds": 1200},
             # Unknown fields
             "secret_data": "should be removed",
             "internal_path": "/home/user/secret",

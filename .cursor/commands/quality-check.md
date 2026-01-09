@@ -42,7 +42,7 @@ make jsonschema
 make shellcheck
 
 # Run all quality checks (lint + typecheck + jsonschema + shellcheck)
-make quality
+make format && make quality
 ```
 
 ## Output (response format)

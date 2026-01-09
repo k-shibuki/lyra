@@ -150,7 +150,7 @@ class TestModelPaths:
         """
         Given: model_paths.json does not exist
         When: get_embedding_path() is called
-        Then: Returns model name from environment variable
+        Then: Returns model name from Settings env override
         """
         # Given
         non_existent = tmp_path / "non_existent.json"
@@ -160,11 +160,14 @@ class TestModelPaths:
             os.environ,
             {
                 "LYRA_ML__MODEL_PATHS_FILE": str(non_existent),
-                "LYRA_ML__EMBEDDING_MODEL": "custom/embedding-model",
+                "LYRA_EMBEDDING__MODEL_NAME": "custom/embedding-model",
             },
         ):
             from src.ml_server.model_paths import get_embedding_path
+            from src.utils.config import get_settings
 
+            # Ensure env override is picked up
+            get_settings.cache_clear()
             result = get_embedding_path()
 
         # Then
