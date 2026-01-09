@@ -1,30 +1,52 @@
 ---
-description: E2E debug
+description: General debugging conventions
 alwaysApply: false
 ---
-# E2E Debugging Conventions
+# Debugging Conventions
 
 ## Positioning (Separation of Policy and Procedure)
 
 - This file defines **policies (principles and constraints)**.
-- Specific procedures (checklists, commands, query collections) are documented in `@.cursor/commands/debug-e2e.md`.
+- Specific procedures (checklists, commands, query collections) are documented in `@.cursor/commands/debug.md`.
 
 ## Purpose
 
-Achieve reproducible and efficient problem resolution when debugging to complete E2E scenarios (such as `docs/S_FULL_E2E.md`).
+Achieve reproducible and efficient problem resolution. This project heavily uses **E2E debugging** due to MCP server characteristics (state persistence, async pipelines, multi-component interactions).
+
+### Debug Method Priority
+
+1. **Python scripts** (`debug/scripts/`) - Isolated, reproducible, no user interaction
+2. **MCP tools** (`query_sql`, etc.) - When DB state inspection needed during MCP session
+3. **User operations** - Only when unavoidable (MCP restart, browser auth)
 
 ---
 
-## 0. Basic Debugging Principles
+## 0. Task Prefix Convention (Multi-Agent Support)
 
-### 0.1 Autonomous Execution Principle
+**Multiple AI agents may debug concurrently.** Use consistent prefixes across all artifacts to avoid conflicts:
+
+| Artifact | Pattern | Example |
+|----------|---------|---------|
+| Docs | `debug/docs/<TASK>_report.md` | `debug/docs/BUDGET_report.md` |
+| Logs | `debug/scripts/<TASK>_debug.log` | `debug/scripts/BUDGET_debug.log` |
+| Hypothesis IDs | `<TASK>-H1`, `<TASK>-H2`, ... | `BUDGET-H1`, `NLI-H2` |
+
+### Common Task Prefixes
+
+`BUDGET`, `NLI`, `SERP`, `API`, `FETCH`, `EXTRACT`, `QUEUE`
+
+---
+
+## 1. Basic Debugging Principles
+
+### 1.1 Autonomous Execution Principle
 
 - **AI executes autonomously**: AI directly executes terminal commands, test scripts, and DB queries without asking user to perform operations
   - Exception: MCP server restart/reconnection requires user operation
   - If MCP tool returns `Tool not found`, request reconnection
 - **Don't fix based on speculation**: Fix based on evidence from logs or instrumentation
 
-### 0.2 Timeout Required
+### 1.2 Timeout Required
 
 Terminal commands **must always have timeout set** to prevent hangs:
 
@@ -46,67 +68,97 @@ uv run python -c "..."
 | Search execution (queue_searches) | 120s |
 | Page fetch/extraction | 60s |
 
-### 0.3 MCP Server Log Verification
+### 1.3 Log Verification
 
-MCP server logs are output to `logs/lyra_YYYYMMDD.log`. Check with these commands:
+**MCP Server logs** (`logs/lyra_YYYYMMDD.log`):
 
 ```bash
-make mcp-logs           # Show last 100 lines
-make mcp-logs-f         # Follow in real-time (tail -f)
-make mcp-logs-grep PATTERN="error"  # Pattern search
+make mcp-logs                        # Show last 100 lines
+make mcp-logs-f                      # Follow in real-time
+make mcp-logs-grep PATTERN="error"   # Pattern search
 ```
 
-### 0.4 Hypothesis → Instrumentation → Verification Cycle
+**Container logs** (proxy/ollama/ml/tor):
 
-1. **Hypothesis Formation**: List possible causes from symptoms
+```bash
+make logs SERVICE=proxy              # Specific service
+make logs-f SERVICE=ollama           # Follow specific service
+```
+
+### 1.4 Hypothesis → Instrumentation → Verification Cycle
+
+1. **Hypothesis Formation**: List possible causes from symptoms (use `<TASK>-H1`, `<TASK>-H2`, ...)
 2. **Instrumentation**: Add logs/assertions that can verify hypotheses
 3. **Verification**: Reject or adopt hypotheses based on instrumentation results
 4. **Iteration**: If hypothesis is rejected, move to next hypothesis
 
 ---
 
-## 1. Instrumentation Guidelines
+## 2. Instrumentation Guidelines
 
-### 1.1 Log Format (NDJSON)
+### 2.1 Philosophy
 
-Debug logs are output in NDJSON format to `${PROJECT_ROOT}/.cursor/debug.log`:
+**No limit on instrumentation count.** Add as many logs as needed to:
+- Track value propagation across function boundaries
+- Identify exact point of divergence (expected vs actual)
+- Debug in **minimum steps** (one reproduction run should provide enough data)
+
+### 2.2 Log File Location
+
+`debug/scripts/<TASK>_debug.log` (NDJSON format)
+
+**PROHIBITED**: `.cursor/debug.log` (system-protected)
+
+### 2.3 Log Clearing
+
+```bash
+echo "" > debug/scripts/<TASK>_debug.log   # Empty overwrite (no user prompt)
+```
+
+### 2.4 Instrumentation Template
 
 ```python
 # #region agent log
-import json
-with open(".cursor/debug.log", "a") as f:
+import json, time
+with open("debug/scripts/<TASK>_debug.log", "a") as f:
     f.write(json.dumps({
-        "location": "src/xxx.py:LINE",
+        "hypothesisId": "<TASK>-H1",
+        "location": "src/xxx.py:func_name",
         "message": "desc",
         "data": {"key": "value"},
-        "timestamp": __import__("time").time() * 1000,
-        "sessionId": "debug-session",
-        "hypothesisId": "A"
+        "timestamp": time.time() * 1000
     }) + "\n")
 # #endregion
 ```
 
-### 1.2 Instrumentation Placement Rules
+### 2.5 Placement Strategy (Propagation Tracking)
 
-| Placement Location | Content to Record |
-|-------------------|-------------------|
-| Function entry | Argument values |
-| Function exit | Return values |
-| Branch points | Which branch was executed |
-| Before/after external calls | API/DB call input/output |
-| Exception catch | Exception type and message |
+For debugging value propagation issues:
 
-### 1.3 Hypothesis ID Naming Convention
+```
+[Entry point] → [Transform 1] → [Transform 2] → [Exit point]
+     ↓               ↓               ↓               ↓
+   H1-L1           H1-L2           H1-L3           H1-L4
+```
 
-- `A`, `B`, `C`, ... : Main hypotheses
-- `A1`, `A2`, ... : Sub-hypotheses
-- Include `hypothesisId` in each log for filtering during analysis
+| Location | What to log |
+|----------|-------------|
+| Entry point | Raw input values |
+| Each transform | Before/after values, which branch taken |
+| Exit point | Final output values |
+| Error handlers | Exception type, message, context |
+
+### 2.6 Hypothesis ID Convention
+
+- `<TASK>-H1`, `<TASK>-H2`, ... : Main hypotheses
+- `<TASK>-H1a`, `<TASK>-H1b`, ... : Sub-hypotheses
+- Use same hypothesis ID for all logs tracing one propagation path
 
 ---
 
-## 2. State-Based Debugging Principles
+## 3. State-Based Debugging Principles
 
-### 2.1 Define Expected State First
+### 3.1 Define Expected State First
 
 Before bug investigation, clarify "normal DB/queue/cache state":
 
@@ -114,7 +166,7 @@ Before bug investigation, clarify "normal DB/queue/cache state":
 2. **Verbalize Expected State**: Define "what should have happened" first
 3. **Compare with Actual State**: Identify cause from differences
 
-### 2.2 State Transition Verification Patterns
+### 3.2 State Transition Verification Patterns
 
 | Verification Target | Check Items |
 |--------------------|-------------|
@@ -123,7 +175,7 @@ Before bug investigation, clarify "normal DB/queue/cache state":
 | Timestamps | Is created_at < updated_at < expires_at order correct? |
 | Status transitions | Are there disallowed transitions (cancelled → active, etc.)? |
 
-### 2.3 Inconsistency Detection Approaches
+### 3.3 Inconsistency Detection Approaches
 
 1. **Direct query**: `SELECT ... WHERE status NOT IN ('expected', 'values')`
 2. **Count comparison**: Compare expected vs actual record counts between related tables
@@ -131,9 +183,9 @@ Before bug investigation, clarify "normal DB/queue/cache state":
 
 ---
 
-## 3. Handling DB Lock Contention
+## 4. Handling DB Lock Contention
 
-### 3.1 Problem Recognition
+### 4.1 Problem Recognition
 
 When MCP server holds DB write lock (WAL WRITER lock), writes from other processes will hang.
 
@@ -142,7 +194,7 @@ When MCP server holds DB write lock (WAL WRITER lock), writes from other process
 fuser data/lyra.db  # Check processes using DB
 ```
 
-### 3.2 Workarounds
+### 4.2 Workarounds
 
 | Scenario | Solution |
 |----------|----------|
@@ -152,31 +204,32 @@ fuser data/lyra.db  # Check processes using DB
 
 ---
 
-## 4. Checklists
+## 5. Checklists
 
 ### Before Starting Debug
 
 - [ ] Accurately described symptoms (expected vs actual)
 - [ ] Defined expected DB state
-- [ ] Listed hypotheses
+- [ ] Listed hypotheses with task prefix (`<TASK>-H1`, ...)
 
 ### During Debug
 
 - [ ] Added timeout to terminal commands
 - [ ] Added region markers to instrumentation (`#region agent log`)
-- [ ] Included hypothesis ID in logs
+- [ ] Included hypothesis ID with task prefix in logs
 
 ### After Debug Completion
 
 - [ ] Removed instrumentation code
 - [ ] Identified root cause and made minimal fix
 - [ ] Verified fix with tests
+- [ ] Created report at `debug/docs/<TASK>_report.md` (if significant)
 
 ---
 
-## 5. Python-Specific Pitfalls
+## 6. Python-Specific Pitfalls
 
-### 5.1 `dict.get(key, default)` and `None` Values
+### 6.1 `dict.get(key, default)` and `None` Values
 
 **Problem**: `dict.get(key, default)` returns `None`, not `default`, when key exists with `None` value.
 
@@ -192,7 +245,7 @@ external_ids = data.get("externalIds") or {}  # → {}
 - JSON parsing from external APIs
 - Dictionary retrieval where value can be `None`
 
-### 5.2 Exception Type Matching
+### 6.2 Exception Type Matching
 
 **Problem**: Custom exception classes and external library exception classes are different.
 
@@ -211,7 +264,7 @@ except HTTPStatusError as e:  # custom exception
 
 **Verification method**: Check exception types thrown by `raise_for_status()` etc. in documentation.
 
-### 5.3 Rate Limiter Application Scope
+### 6.3 Rate Limiter Application Scope
 
 **Principle**: Apply Rate Limiter to all external call methods in API clients.
 
