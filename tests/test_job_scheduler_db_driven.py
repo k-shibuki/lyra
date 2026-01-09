@@ -781,3 +781,432 @@ class TestJobSchedulerTargetQueueExecution:
                 task_id=None,
                 cause_id="cause_06",
             )
+
+
+class TestJobSchedulerSubmit:
+    """Tests for JobScheduler.submit() edge cases.
+
+    Test Perspectives Table (追加分):
+    | Case ID    | Input / Precondition          | Perspective              | Expected Result                   | Notes      |
+    |------------|-------------------------------|--------------------------|-----------------------------------|------------|
+    | TC-SUB-01  | submit with string kind       | Boundary - type conv     | Converts to JobKind               | L249       |
+    | TC-SUB-02  | submit with budget exceeded   | Normal - rejection       | accepted=False, reason=budget_*   | L269-281   |
+    | TC-SUB-03  | submit exclusive slot busy    | Normal - rejection       | accepted=False, exclusive_slot    | L285-290   |
+    """
+
+    @pytest.mark.asyncio
+    async def test_submit_with_string_kind(self, test_database: Database) -> None:
+        """
+        TC-SUB-01: submit() accepts string kind and converts to JobKind.
+
+        // Given: Job submission with string kind
+        // When: submit is called
+        // Then: Kind is converted to JobKind enum and job is submitted
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_sub01", "Test task", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        scheduler._budget_manager = None  # Skip budget check
+
+        # Mock exclusivity check
+        with patch.object(scheduler, "_check_exclusivity_db", AsyncMock(return_value=True)):
+            # When: Submit with string kind
+            result = await scheduler.submit(
+                kind="target_queue",  # String, not JobKind
+                input_data={"query": "test"},
+                task_id="task_sub01",
+            )
+
+        # Then: Job was accepted
+        assert result["accepted"] is True
+        assert result["slot"] == "network_client"
+
+    @pytest.mark.asyncio
+    async def test_submit_rejected_by_budget(self, test_database: Database) -> None:
+        """
+        TC-SUB-02: submit() returns accepted=False when budget is exceeded.
+
+        // Given: Task with exhausted budget
+        // When: submit is called
+        // Then: accepted=False with budget reason
+        """
+        from unittest.mock import AsyncMock
+
+        from src.scheduler.budget import BudgetExceededReason
+        from src.scheduler.jobs import JobKind, JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_sub02", "Test task", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+
+        # Mock budget check to return exceeded
+        mock_budget_manager = AsyncMock()
+        mock_budget_manager.check_and_update = AsyncMock(
+            return_value=(False, BudgetExceededReason.TIME_LIMIT)
+        )
+        scheduler._budget_manager = mock_budget_manager
+
+        # When: Submit job
+        result = await scheduler.submit(
+            kind=JobKind.TARGET_QUEUE,
+            input_data={"query": "test"},
+            task_id="task_sub02",
+        )
+
+        # Then: Job rejected with budget reason
+        assert result["accepted"] is False
+        assert "budget_" in result["reason"]
+
+    @pytest.mark.asyncio
+    async def test_submit_rejected_by_exclusive_slot(self, test_database: Database) -> None:
+        """
+        TC-SUB-03: submit() returns accepted=False when exclusive slot is busy.
+
+        // Given: GPU slot busy (exclusive with BROWSER_HEADFUL)
+        // When: submit BROWSER_HEADFUL job
+        // Then: accepted=False with exclusive_slot_busy reason
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobKind, JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_sub03", "Test task", "exploring"),
+        )
+
+        # Add running GPU job
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at, started_at, input_json)
+            VALUES (?, ?, 'embed', 40, 'gpu', 'running', datetime('now'), datetime('now'), '{}')
+            """,
+            ("job_sub03_gpu", "task_sub03"),
+        )
+
+        scheduler = JobScheduler()
+        scheduler._budget_manager = None  # Skip budget check
+
+        # When: Submit job to exclusive slot (GPU and BROWSER_HEADFUL are exclusive)
+        # Note: We can't directly submit to BROWSER_HEADFUL without mapping, so we check the actual logic
+        with patch.object(scheduler, "_check_exclusivity_db", AsyncMock(return_value=False)):
+            result = await scheduler.submit(
+                kind=JobKind.EMBED,
+                input_data={"texts": ["test"]},
+                task_id="task_sub03",
+            )
+
+        # Then: Job rejected with exclusive slot reason
+        assert result["accepted"] is False
+        assert result["reason"] == "exclusive_slot_busy"
+
+
+class TestJobSchedulerBudgetCheck:
+    """Tests for JobScheduler._check_budget() branches.
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition          | Perspective              | Expected Result                   | Notes      |
+    |------------|-------------------------------|--------------------------|-----------------------------------|------------|
+    | TC-BUD-01  | FETCH at page limit           | Boundary - limit         | returns False, PAGE_LIMIT         | L349-352   |
+    | TC-BUD-02  | LLM at ratio limit            | Boundary - limit         | returns False, LLM_RATIO          | L355-360   |
+    | TC-BUD-03  | No budget manager             | Boundary - None          | returns True, None                | L340-341   |
+    """
+
+    @pytest.mark.asyncio
+    async def test_check_budget_fetch_at_page_limit(self, test_database: Database) -> None:
+        """
+        TC-BUD-01: _check_budget returns False for FETCH when page limit reached.
+
+        // Given: Task at page limit
+        // When: _check_budget called for FETCH job
+        // Then: Returns (False, 'page_limit')
+        """
+        from unittest.mock import AsyncMock
+
+        from src.scheduler.jobs import JobKind, JobScheduler
+
+        scheduler = JobScheduler()
+
+        # Mock budget manager
+        mock_budget_manager = AsyncMock()
+        mock_budget_manager.check_and_update = AsyncMock(return_value=(True, None))
+        mock_budget_manager.can_fetch_page = AsyncMock(return_value=False)
+        scheduler._budget_manager = mock_budget_manager
+
+        # When: Check budget for FETCH
+        can_proceed, reason = await scheduler._check_budget("task_bud01", JobKind.FETCH)
+
+        # Then: Rejected due to page limit
+        assert can_proceed is False
+        assert reason == "page_limit_exceeded"
+
+    @pytest.mark.asyncio
+    async def test_check_budget_llm_at_ratio_limit(self, test_database: Database) -> None:
+        """
+        TC-BUD-02: _check_budget returns False for LLM when ratio limit reached.
+
+        // Given: Task at LLM ratio limit
+        // When: _check_budget called for LLM job
+        // Then: Returns (False, 'llm_ratio')
+        """
+        from unittest.mock import AsyncMock
+
+        from src.scheduler.jobs import JobKind, JobScheduler
+
+        scheduler = JobScheduler()
+
+        # Mock budget manager
+        mock_budget_manager = AsyncMock()
+        mock_budget_manager.check_and_update = AsyncMock(return_value=(True, None))
+        mock_budget_manager.can_run_llm = AsyncMock(return_value=False)
+        scheduler._budget_manager = mock_budget_manager
+
+        # When: Check budget for LLM
+        can_proceed, reason = await scheduler._check_budget("task_bud02", JobKind.LLM)
+
+        # Then: Rejected due to LLM ratio
+        assert can_proceed is False
+        assert reason == "llm_ratio_exceeded"
+
+    @pytest.mark.asyncio
+    async def test_check_budget_with_no_manager(self) -> None:
+        """
+        TC-BUD-03: _check_budget returns True when no budget manager.
+
+        // Given: No budget manager initialized
+        // When: _check_budget called
+        // Then: Returns (True, None) - no restriction
+        """
+        from src.scheduler.jobs import JobKind, JobScheduler
+
+        scheduler = JobScheduler()
+        scheduler._budget_manager = None
+
+        # When: Check budget
+        can_proceed, reason = await scheduler._check_budget("task_bud03", JobKind.TARGET_QUEUE)
+
+        # Then: Allowed (no restriction)
+        assert can_proceed is True
+        assert reason is None
+
+
+class TestJobSchedulerCancelJob:
+    """Tests for JobScheduler.cancel_job().
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition          | Perspective              | Expected Result                   | Notes      |
+    |------------|-------------------------------|--------------------------|-----------------------------------|------------|
+    | TC-CAN-01  | cancel_job for queued job     | Normal                   | returns True, state=cancelled     | L873-897   |
+    | TC-CAN-02  | cancel_job for running job    | Boundary - invalid state | returns False (not cancelable)    | L890-891   |
+    | TC-CAN-03  | cancel_job for nonexistent    | Boundary - not found     | returns False                     | L894       |
+    """
+
+    @pytest.mark.asyncio
+    async def test_cancel_queued_job_succeeds(self, test_database: Database) -> None:
+        """
+        TC-CAN-01: cancel_job succeeds for queued job.
+
+        // Given: Queued job exists
+        // When: cancel_job is called
+        // Then: Returns True, job state is cancelled
+        """
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_can01", "Test task", "exploring"),
+        )
+
+        # Add queued job
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at, input_json)
+            VALUES (?, ?, 'target_queue', 25, 'network_client', 'queued', datetime('now'), '{}')
+            """,
+            ("job_can01", "task_can01"),
+        )
+
+        scheduler = JobScheduler()
+
+        # When: Cancel job
+        result = await scheduler.cancel_job("job_can01")
+
+        # Then: Success
+        assert result is True
+
+        # Verify state changed
+        row = await db.fetch_one("SELECT state, finished_at FROM jobs WHERE id = ?", ("job_can01",))
+        assert row is not None
+        assert row["state"] == "cancelled"
+        assert row["finished_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_cancel_running_job_fails(self, test_database: Database) -> None:
+        """
+        TC-CAN-02: cancel_job fails for running job (only pending/queued cancelable).
+
+        // Given: Running job exists
+        // When: cancel_job is called
+        // Then: Returns False (cannot cancel running job via this method)
+        """
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_can02", "Test task", "exploring"),
+        )
+
+        # Add running job
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at, started_at, input_json)
+            VALUES (?, ?, 'citation_graph', 50, 'cpu_nlp', 'running', datetime('now'), datetime('now'), '{}')
+            """,
+            ("job_can02", "task_can02"),
+        )
+
+        scheduler = JobScheduler()
+
+        # When: Cancel running job
+        result = await scheduler.cancel_job("job_can02")
+
+        # Then: Fails (running jobs need cancel_running_jobs_for_task)
+        assert result is False
+
+        # Verify state unchanged
+        row = await db.fetch_one("SELECT state FROM jobs WHERE id = ?", ("job_can02",))
+        assert row is not None
+        assert row["state"] == "running"
+
+    @pytest.mark.asyncio
+    async def test_cancel_nonexistent_job_fails(self, test_database: Database) -> None:
+        """
+        TC-CAN-03: cancel_job fails for nonexistent job.
+
+        // Given: Job does not exist
+        // When: cancel_job is called
+        // Then: Returns False
+        """
+        from src.scheduler.jobs import JobScheduler
+
+        scheduler = JobScheduler()
+
+        # When: Cancel nonexistent job
+        result = await scheduler.cancel_job("nonexistent_job_id")
+
+        # Then: Fails
+        assert result is False
+
+
+class TestJobSchedulerClaimEdgeCases:
+    """Tests for JobScheduler._claim_next_job() edge cases.
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition          | Perspective              | Expected Result                   | Notes      |
+    |------------|-------------------------------|--------------------------|-----------------------------------|------------|
+    | TC-CL-06   | Malformed input_json          | Boundary - parse error   | Falls back to eval/empty dict     | L497-501   |
+    | TC-CL-07   | Python dict literal input_json| Boundary - eval fallback | Parses via eval                   | L498-499   |
+    """
+
+    @pytest.mark.asyncio
+    async def test_claim_with_python_dict_input_json(self, test_database: Database) -> None:
+        """
+        TC-CL-07: _claim_next_job handles Python dict literal in input_json.
+
+        // Given: Job with Python dict literal (not JSON) in input_json
+        // When: _claim_next_job is called
+        // Then: Falls back to eval() and parses successfully
+        """
+        from src.scheduler.jobs import JobScheduler, Slot
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_cl07", "Test task", "exploring"),
+        )
+
+        # Add job with Python dict literal (single quotes, not JSON)
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at, input_json)
+            VALUES (?, ?, 'target_queue', 25, 'network_client', 'queued', datetime('now'), ?)
+            """,
+            ("job_cl07", "task_cl07", "{'key': 'value'}"),  # Python dict, not JSON
+        )
+
+        scheduler = JobScheduler()
+
+        # When: Claim job
+        claimed = await scheduler._claim_next_job(Slot.NETWORK_CLIENT)
+
+        # Then: Job claimed with parsed input
+        assert claimed is not None
+        job_id, kind, input_data, task_id, cause_id = claimed
+        assert job_id == "job_cl07"
+        assert input_data == {"key": "value"}
+
+    @pytest.mark.asyncio
+    async def test_claim_with_invalid_input_json(self, test_database: Database) -> None:
+        """
+        TC-CL-06: _claim_next_job handles completely invalid input_json.
+
+        // Given: Job with unparseable input_json
+        // When: _claim_next_job is called
+        // Then: Falls back to empty dict
+        """
+        from src.scheduler.jobs import JobScheduler, Slot
+
+        db = test_database
+
+        # Create task
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_cl06", "Test task", "exploring"),
+        )
+
+        # Add job with completely invalid input_json
+        await db.execute(
+            """
+            INSERT INTO jobs (id, task_id, kind, priority, slot, state, queued_at, input_json)
+            VALUES (?, ?, 'target_queue', 25, 'network_client', 'queued', datetime('now'), ?)
+            """,
+            ("job_cl06", "task_cl06", "not valid at all {{{"),
+        )
+
+        scheduler = JobScheduler()
+
+        # When: Claim job
+        claimed = await scheduler._claim_next_job(Slot.NETWORK_CLIENT)
+
+        # Then: Job claimed with empty dict fallback
+        assert claimed is not None
+        job_id, kind, input_data, task_id, cause_id = claimed
+        assert job_id == "job_cl06"
+        assert input_data == {}
