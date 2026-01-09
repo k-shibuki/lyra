@@ -264,5 +264,9 @@ def ensure_logging_configured() -> None:
     """Ensure logging is configured (call once at startup)."""
     global _logging_configured
     if not _logging_configured:
+        # Load `.env` for Python runtime (shell scripts already source it).
+        from src.utils.dotenv import load_dotenv_if_present
+
+        load_dotenv_if_present()
         configure_logging()
         _logging_configured = True

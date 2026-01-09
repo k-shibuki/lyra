@@ -194,6 +194,13 @@ class BrowserConfig(BaseModel):
     chrome_host: str = "localhost"
     chrome_base_port: int = 9222  # Worker 0 = 9222, Worker 1 = 9223, etc.
     chrome_profile_prefix: str = "Lyra-"  # Profile names: Lyra-00, Lyra-01, etc.
+    # Reduce focus stealing on Chrome startup (platform/WM dependent).
+    # Controlled via env: LYRA_BROWSER__CHROME_START_MINIMIZED=true|false
+    chrome_start_minimized: bool = False
+    # Bring the Chrome tab/window to the front ONLY when the user explicitly starts
+    # an auth session (badge click). Disabled by default to avoid focus stealing.
+    # Controlled via env: LYRA_BROWSER__BRING_TO_FRONT_ON_AUTH_SESSION_START=true|false
+    bring_to_front_on_auth_session_start: bool = False
     default_headless: bool = True
     headful_ratio_initial: float = 0.1
     block_ads: bool = True
@@ -781,6 +788,10 @@ def get_settings() -> Settings:
     Returns:
         Settings instance.
     """
+    # Load `.env` for Python runtime (no override of existing env).
+    from src.utils.dotenv import load_dotenv_if_present
+
+    load_dotenv_if_present()
     # Determine config directory
     config_dir = Path(os.environ.get("LYRA_CONFIG_DIR", "config"))
 
