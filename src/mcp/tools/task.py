@@ -162,8 +162,65 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
 
     # Extract budget config
     budget_config = config.get("budget", {})
-    budget_pages = budget_config.get("budget_pages", 500)
-    max_seconds = budget_config.get("max_seconds", 3600)
+    # Migration (no backward compatibility): accept only budget.max_pages (not budget_pages).
+    if isinstance(budget_config, dict) and "budget_pages" in budget_config:
+        raise InvalidParamsError(
+            "budget.budget_pages is removed. Use budget.max_pages instead.",
+            param_name="config.budget.budget_pages",
+            expected="omit; use config.budget.max_pages",
+        )
+
+    # Default + upper bound come from settings.yaml (task_limits.max_budget_pages_per_task)
+    from src.utils.config import get_settings
+
+    settings = get_settings()
+    max_budget_pages_allowed = int(settings.task_limits.max_budget_pages_per_task)
+
+    requested_max_pages = (
+        budget_config.get("max_pages") if isinstance(budget_config, dict) else None
+    )
+    if requested_max_pages is None:
+        max_pages = max_budget_pages_allowed
+    else:
+        try:
+            max_pages = int(requested_max_pages)
+        except Exception as exc:
+            raise InvalidParamsError(
+                "budget.max_pages must be an integer",
+                param_name="config.budget.max_pages",
+                expected="integer",
+            ) from exc
+
+        if max_pages < 0:
+            raise InvalidParamsError(
+                "budget.max_pages must be >= 0",
+                param_name="config.budget.max_pages",
+                expected="non-negative integer",
+            )
+
+        if max_pages > max_budget_pages_allowed:
+            raise InvalidParamsError(
+                "budget.max_pages exceeds settings.task_limits.max_budget_pages_per_task",
+                param_name="config.budget.max_pages",
+                expected=f"<= {max_budget_pages_allowed}",
+            )
+
+    # Time budget: keep MCP default behavior but clamp at least to non-negative.
+    requested_max_seconds = budget_config.get("max_seconds", 3600)
+    try:
+        max_seconds = int(requested_max_seconds)
+    except Exception:
+        max_seconds = 3600
+    if max_seconds < 0:
+        max_seconds = 0
+
+    # Persist resolved budget into config_json so downstream state can honor it.
+    if not isinstance(config, dict):
+        config = {}
+    if not isinstance(config.get("budget"), dict):
+        config["budget"] = {}
+    config["budget"]["max_pages"] = max_pages
+    config["budget"]["max_seconds"] = max_seconds
 
     with LogContext(task_id=task_id):
         logger.info("Creating task", hypothesis=hypothesis[:100])
@@ -187,7 +244,7 @@ async def handle_create_task(args: dict[str, Any]) -> dict[str, Any]:
             "hypothesis": hypothesis,
             "created_at": created_at,
             "budget": {
-                "budget_pages": budget_pages,
+                "max_pages": max_pages,
                 "max_seconds": max_seconds,
             },
             "message": f"Task created. Use queue_targets(task_id='{task_id}', targets=[{{kind:'query', query:'...'}}]) to start exploration.",

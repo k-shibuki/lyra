@@ -2,39 +2,28 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lyra:mcp:create_task",
   "title": "create_task Response",
-  "description": "Response schema for create_task tool (ADR-0017: hypothesis-first)",
+  "description": "Response schema for create_task tool (Cursor may not support oneOf; keep permissive).",
   "type": "object",
   "properties": {
-    "ok": {
-      "type": "boolean"
-    },
-    "task_id": {
-      "type": "string",
-      "description": "Generated task ID"
-    },
-    "hypothesis": {
-      "type": "string",
-      "description": "Central hypothesis to verify (ADR-0017)"
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Task creation timestamp"
-    },
+    "ok": { "type": "boolean" },
+    "task_id": { "type": "string" },
+    "hypothesis": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
     "budget": {
       "type": "object",
       "properties": {
-        "budget_pages": {"type": "integer"},
-        "max_seconds": {"type": "integer"}
+        "max_pages": { "type": "integer" },
+        "max_seconds": { "type": "integer" }
       },
       "additionalProperties": false
     },
-    "message": {
-      "type": "string",
-      "description": "Next step instructions for AI workflow guidance"
-    }
+    "message": { "type": "string" },
+    "error_code": { "type": "string" },
+    "error": { "type": "string" },
+    "error_id": { "type": "string" },
+    "error_type": { "type": "string" }
   },
-  "required": ["ok", "task_id", "hypothesis", "created_at", "budget"],
+  "required": ["ok"],
   "additionalProperties": false
 }
 

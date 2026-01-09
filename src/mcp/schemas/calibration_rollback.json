@@ -32,8 +32,12 @@
       "type": "string",
       "enum": ["platt", "temperature"],
       "description": "Calibration method of restored version"
-    }
+    },
+    "error_code": { "type": "string" },
+    "error": { "type": "string" },
+    "error_id": { "type": "string" },
+    "error_type": { "type": "string" }
   },
-  "required": ["ok", "source", "rolled_back_to", "previous_version"],
+  "required": ["ok"],
   "additionalProperties": false
 }

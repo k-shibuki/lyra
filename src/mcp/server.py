@@ -133,10 +133,9 @@ citation chase candidates and queue them as URL targets.""",
                             "type": "object",
                             "description": "Resource limits for the task",
                             "properties": {
-                                "budget_pages": {
+                                "max_pages": {
                                     "type": "integer",
-                                    "default": 120,
-                                    "description": "Max pages to fetch across all searches. Shared across the task.",
+                                    "description": "Task page budget (must be <= settings.task_limits.max_budget_pages_per_task).",
                                 },
                                 "max_seconds": {
                                     "type": "integer",
@@ -145,15 +144,6 @@ citation chase candidates and queue them as URL targets.""",
                                 },
                             },
                             "additionalProperties": False,
-                        },
-                        "priority_domains": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Domains to prioritize (e.g., ['arxiv.org', 'nature.com']). Academic sources recommended.",
-                        },
-                        "language": {
-                            "type": "string",
-                            "description": "Primary language for search (ja, en, etc.). Affects query expansion.",
                         },
                     },
                 },
@@ -206,8 +196,8 @@ DECISION POINTS:
                 },
                 "wait": {
                     "type": "integer",
-                    "description": "Long-polling: seconds to wait for changes before returning. 0=immediate, 180=default for monitoring.",
-                    "default": 180,
+                    "description": "Long-polling: seconds to wait for changes before returning. 0=immediate, 300=maximum for monitoring.",
+                    "default": 120,
                     "minimum": 0,
                     "maximum": 300,
                 },
@@ -1051,9 +1041,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             error_code=e.code.value,
             error=e.message,
         )
-        # L7: Error responses also go through sanitization
+        # L7: Error responses must also conform to the tool's output schema.
+        # Cursor validates tool outputs against the tool outputSchema; returning "error" schema here
+        # can cause schema validation failures like "task_id is required property".
         error_dict = e.to_dict()
-        return sanitize_response(error_dict, "error")
+        return sanitize_response(error_dict, name)
 
     except Exception as e:
         # Unexpected error - wrap in INTERNAL_ERROR with L7 sanitization
@@ -1065,8 +1057,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             error_id=error_id,
             exc_info=True,
         )
-        # L7: Use sanitize_error for unexpected exceptions
-        return sanitize_error(e, error_id)
+        # L7: Use sanitize_error for unexpected exceptions, then sanitize using tool schema.
+        return sanitize_response(sanitize_error(e, error_id), name)
 
 
 async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
