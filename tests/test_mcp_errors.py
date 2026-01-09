@@ -17,6 +17,7 @@ import pytest
 
 from src.mcp.errors import (
     AllEnginesBlockedError,
+    AllFetchesFailedError,
     AuthRequiredError,
     BudgetExhaustedError,
     CalibrationError,
@@ -25,7 +26,10 @@ from src.mcp.errors import (
     InvalidParamsError,
     MCPError,
     MCPErrorCode,
+    ParserNotAvailableError,
     PipelineError,
+    ResourceNotFoundError,
+    SerpSearchFailedError,
     TaskNotFoundError,
     TimeoutError,
     create_error_response,
@@ -521,4 +525,296 @@ class TestCreateErrorResponse:
 
         assert result == expected
 
-        assert result == expected
+
+class TestResourceNotFoundError:
+    """Tests for ResourceNotFoundError.
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition              | Perspective              | Expected Result                    | Notes |
+    |------------|-----------------------------------|--------------------------|------------------------------------| ----- |
+    | TC-RNF-01  | message + resource_type + id      | Equivalence - normal     | RESOURCE_NOT_FOUND, details有り    | -     |
+    | TC-RNF-02  | message only                      | Equivalence - minimal    | RESOURCE_NOT_FOUND, details無し    | -     |
+    | TC-RNF-03  | resource_type only                | Boundary - partial       | details に resource_type のみ      | -     |
+    | TC-RNF-04  | resource_id only                  | Boundary - partial       | details に resource_id のみ        | -     |
+    """
+
+    def test_with_all_params(self) -> None:
+        """
+        TC-RNF-01: ResourceNotFoundError with all parameters.
+
+        // Given: Resource not found with full details
+        // When: Creating ResourceNotFoundError
+        // Then: Error has RESOURCE_NOT_FOUND code with all details
+        """
+        error = ResourceNotFoundError(
+            "Claim not found",
+            resource_type="claim",
+            resource_id="claim_abc123",
+        )
+        result = error.to_dict()
+
+        assert result["ok"] is False
+        assert result["error_code"] == "RESOURCE_NOT_FOUND"
+        assert result["error"] == "Claim not found"
+        assert result["details"]["resource_type"] == "claim"
+        assert result["details"]["resource_id"] == "claim_abc123"
+
+    def test_with_message_only(self) -> None:
+        """
+        TC-RNF-02: ResourceNotFoundError with message only.
+
+        // Given: Only message provided
+        // When: Creating ResourceNotFoundError
+        // Then: No details included
+        """
+        error = ResourceNotFoundError("Resource does not exist")
+        result = error.to_dict()
+
+        assert result["error_code"] == "RESOURCE_NOT_FOUND"
+        assert result["error"] == "Resource does not exist"
+        assert "details" not in result
+
+    def test_with_resource_type_only(self) -> None:
+        """
+        TC-RNF-03: ResourceNotFoundError with resource_type only.
+
+        // Given: Only resource_type provided
+        // When: Creating ResourceNotFoundError
+        // Then: details contains only resource_type
+        """
+        error = ResourceNotFoundError(
+            "Edge not found",
+            resource_type="edge",
+        )
+        result = error.to_dict()
+
+        assert result["error_code"] == "RESOURCE_NOT_FOUND"
+        assert result["details"]["resource_type"] == "edge"
+        assert "resource_id" not in result["details"]
+
+    def test_with_resource_id_only(self) -> None:
+        """
+        TC-RNF-04: ResourceNotFoundError with resource_id only.
+
+        // Given: Only resource_id provided
+        // When: Creating ResourceNotFoundError
+        // Then: details contains only resource_id
+        """
+        error = ResourceNotFoundError(
+            "Fragment not found",
+            resource_id="frag_xyz789",
+        )
+        result = error.to_dict()
+
+        assert result["error_code"] == "RESOURCE_NOT_FOUND"
+        assert result["details"]["resource_id"] == "frag_xyz789"
+        assert "resource_type" not in result["details"]
+
+
+class TestParserNotAvailableError:
+    """Tests for ParserNotAvailableError.
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition          | Perspective              | Expected Result                    | Notes |
+    |------------|-------------------------------|--------------------------|------------------------------------| ----- |
+    | TC-PNA-01  | engine + available_engines    | Equivalence - normal     | PARSER_NOT_AVAILABLE, details有り  | -     |
+    | TC-PNA-02  | engine only                   | Equivalence - minimal    | details に engine のみ             | -     |
+    | TC-PNA-03  | engine + empty list           | Boundary - empty list    | available_engines 含まれない       | -     |
+    """
+
+    def test_with_available_engines(self) -> None:
+        """
+        TC-PNA-01: ParserNotAvailableError with available_engines.
+
+        // Given: Unknown engine with list of available alternatives
+        // When: Creating ParserNotAvailableError
+        // Then: Error includes engine and available_engines in details
+        """
+        error = ParserNotAvailableError(
+            "unknown_engine",
+            available_engines=["google", "duckduckgo", "bing"],
+        )
+        result = error.to_dict()
+
+        assert result["ok"] is False
+        assert result["error_code"] == "PARSER_NOT_AVAILABLE"
+        assert result["error"] == "No parser available for engine: unknown_engine"
+        assert result["details"]["engine"] == "unknown_engine"
+        assert result["details"]["available_engines"] == ["google", "duckduckgo", "bing"]
+
+    def test_with_engine_only(self) -> None:
+        """
+        TC-PNA-02: ParserNotAvailableError with engine only.
+
+        // Given: Only engine name provided
+        // When: Creating ParserNotAvailableError
+        // Then: details contains only engine
+        """
+        error = ParserNotAvailableError("yahoo")
+        result = error.to_dict()
+
+        assert result["error_code"] == "PARSER_NOT_AVAILABLE"
+        assert result["error"] == "No parser available for engine: yahoo"
+        assert result["details"]["engine"] == "yahoo"
+        assert "available_engines" not in result["details"]
+
+    def test_with_empty_available_engines(self) -> None:
+        """
+        TC-PNA-03: ParserNotAvailableError with empty available_engines list.
+
+        // Given: Empty list for available_engines
+        // When: Creating ParserNotAvailableError
+        // Then: available_engines not included in details (empty filtered)
+        """
+        error = ParserNotAvailableError("baidu", available_engines=[])
+        result = error.to_dict()
+
+        assert result["error_code"] == "PARSER_NOT_AVAILABLE"
+        assert result["details"]["engine"] == "baidu"
+        # Empty list should not be included
+        assert "available_engines" not in result["details"]
+
+
+class TestSerpSearchFailedError:
+    """Tests for SerpSearchFailedError.
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition                   | Perspective              | Expected Result                   | Notes     |
+    |------------|----------------------------------------|--------------------------|-----------------------------------|-----------|
+    | TC-SSF-01  | message + query + engines + details    | Equivalence - normal     | SERP_SEARCH_FAILED, all details   | -         |
+    | TC-SSF-02  | default message only                   | Equivalence - minimal    | Default message used              | -         |
+    | TC-SSF-03  | query > 100 chars                      | Boundary - truncation    | query truncated to 100 chars      | L420      |
+    """
+
+    def test_with_all_params(self) -> None:
+        """
+        TC-SSF-01: SerpSearchFailedError with all parameters.
+
+        // Given: SERP search failure with full context
+        // When: Creating SerpSearchFailedError
+        // Then: Error has SERP_SEARCH_FAILED code with all details
+        """
+        error = SerpSearchFailedError(
+            "All engines failed",
+            query="test query",
+            attempted_engines=["google", "duckduckgo"],
+            error_details="Rate limited on all engines",
+        )
+        result = error.to_dict()
+
+        assert result["ok"] is False
+        assert result["error_code"] == "SERP_SEARCH_FAILED"
+        assert result["error"] == "All engines failed"
+        assert result["details"]["query"] == "test query"
+        assert result["details"]["attempted_engines"] == ["google", "duckduckgo"]
+        assert result["details"]["error_details"] == "Rate limited on all engines"
+
+    def test_with_default_message(self) -> None:
+        """
+        TC-SSF-02: SerpSearchFailedError with default message.
+
+        // Given: No message provided
+        // When: Creating SerpSearchFailedError
+        // Then: Uses default message, no details
+        """
+        error = SerpSearchFailedError()
+        result = error.to_dict()
+
+        assert result["error_code"] == "SERP_SEARCH_FAILED"
+        assert result["error"] == "SERP search failed"
+        assert "details" not in result
+
+    def test_query_truncation(self) -> None:
+        """
+        TC-SSF-03: SerpSearchFailedError truncates long queries.
+
+        // Given: Query longer than 100 characters
+        // When: Creating SerpSearchFailedError
+        // Then: Query is truncated to 100 characters in details
+        """
+        long_query = "a" * 150  # 150 chars
+        error = SerpSearchFailedError("Search failed", query=long_query)
+        result = error.to_dict()
+
+        assert result["error_code"] == "SERP_SEARCH_FAILED"
+        assert len(result["details"]["query"]) == 100
+        assert result["details"]["query"] == "a" * 100
+
+
+class TestAllFetchesFailedError:
+    """Tests for AllFetchesFailedError.
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition       | Perspective              | Expected Result                   | Notes      |
+    |------------|----------------------------|--------------------------|-----------------------------------|------------|
+    | TC-AFF-01  | all counts provided        | Equivalence - normal     | ALL_FETCHES_FAILED, all counts    | -          |
+    | TC-AFF-02  | total_urls=0 only          | Boundary - zero          | details に total_urls のみ        | -          |
+    | TC-AFF-03  | all counts = 0             | Boundary - all zero      | 0 counts not in details           | L449-454   |
+    """
+
+    def test_with_all_counts(self) -> None:
+        """
+        TC-AFF-01: AllFetchesFailedError with all counts.
+
+        // Given: All fetch failure counts provided
+        // When: Creating AllFetchesFailedError
+        // Then: Error has ALL_FETCHES_FAILED code with all counts in details
+        """
+        error = AllFetchesFailedError(
+            total_urls=10,
+            timeout_count=5,
+            auth_blocked_count=3,
+            error_count=2,
+        )
+        result = error.to_dict()
+
+        assert result["ok"] is False
+        assert result["error_code"] == "ALL_FETCHES_FAILED"
+        assert result["error"] == "All 10 URL fetches failed"
+        assert result["details"]["total_urls"] == 10
+        assert result["details"]["timeout_count"] == 5
+        assert result["details"]["auth_blocked_count"] == 3
+        assert result["details"]["error_count"] == 2
+
+    def test_with_total_urls_only(self) -> None:
+        """
+        TC-AFF-02: AllFetchesFailedError with total_urls only.
+
+        // Given: Only total_urls provided (others default to 0)
+        // When: Creating AllFetchesFailedError
+        // Then: details contains only total_urls (0 counts filtered)
+        """
+        error = AllFetchesFailedError(total_urls=5)
+        result = error.to_dict()
+
+        assert result["error_code"] == "ALL_FETCHES_FAILED"
+        assert result["error"] == "All 5 URL fetches failed"
+        assert result["details"]["total_urls"] == 5
+        # Zero counts should not be included
+        assert "timeout_count" not in result["details"]
+        assert "auth_blocked_count" not in result["details"]
+        assert "error_count" not in result["details"]
+
+    def test_with_all_zero_counts(self) -> None:
+        """
+        TC-AFF-03: AllFetchesFailedError with all zero counts.
+
+        // Given: All counts are 0
+        // When: Creating AllFetchesFailedError
+        // Then: Only total_urls in details (0 counts filtered per L449-454)
+        """
+        error = AllFetchesFailedError(
+            total_urls=0,
+            timeout_count=0,
+            auth_blocked_count=0,
+            error_count=0,
+        )
+        result = error.to_dict()
+
+        assert result["error_code"] == "ALL_FETCHES_FAILED"
+        assert result["error"] == "All 0 URL fetches failed"
+        assert result["details"]["total_urls"] == 0
+        # All zero counts should not be included
+        assert "timeout_count" not in result["details"]
+        assert "auth_blocked_count" not in result["details"]
+        assert "error_count" not in result["details"]
