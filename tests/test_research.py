@@ -885,7 +885,12 @@ class TestExplorationState:
         state.register_search("sq_002", "unsatisfied query")
 
         # When: Finalize exploration
-        result = await state.finalize()
+        # Patch get_database to return test_database (prevents unclosed DB warning)
+        with patch(
+            "src.filter.evidence_graph.get_database",
+            return_value=test_database,
+        ):
+            result = await state.finalize()
 
         # Then: Summary shows paused (resumable) status with suggestions
         assert result["ok"] is True
