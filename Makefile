@@ -17,7 +17,7 @@
 #   test.sh    <- common.sh, pytest, uv
 #   mcp.sh     <- common.sh, dev.sh, uv, playwright
 
-.PHONY: help setup test test-all test-e2e test-e2e-internal test-e2e-external lint format clean up down build rebuild logs logs-f shell status clean-containers db-reset
+.PHONY: help setup test test-all test-cov test-e2e test-e2e-internal test-e2e-external lint format clean up down build rebuild logs logs-f shell status clean-containers db-reset
 .DEFAULT_GOAL := help
 
 SHELL := /bin/bash
@@ -170,6 +170,14 @@ test-unit: ## Run unit tests only (TARGET= for specific files)
 
 test-integration: ## Run integration tests only (TARGET= for specific files)
 	@$(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m integration
+
+test-cov: ## Run tests with coverage (async, venv-only). COV_TARGET=src COV_FAIL_UNDER=80 COV_HTML=true
+	@COV_TARGET=$(or $(COV_TARGET),src) \
+	 COV_FAIL_UNDER=$(COV_FAIL_UNDER) \
+	 COV_HTML=$(or $(COV_HTML),false) \
+	 COV_XML=$(or $(COV_XML),false) \
+	 COV_REPORT_DIR=$(or $(COV_REPORT_DIR),tests/coverage) \
+	 $(SCRIPTS)/test.sh run --venv $(or $(TARGET),tests/)
 
 test-e2e: ## Run E2E tests (TARGET= for specific files)
 	LYRA_TEST_LAYER=e2e $(SCRIPTS)/test.sh run $(if $(RUNTIME),--$(RUNTIME),) $(or $(TARGET),tests/) -m e2e

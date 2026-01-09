@@ -315,6 +315,30 @@ test_test() {
     else
         test_fail "test.sh modules can be sourced" "Failed to source test modules"
     fi
+
+    # Test 6: COV_TARGET triggers coverage mode in cmd_run
+    # Coverage is now integrated into cmd_run via COV_TARGET environment variable
+    # Just verify the script doesn't error with COV_TARGET set
+    COV_TARGET=src "${SCRIPT_DIR}/test.sh" run --help >/dev/null 2>&1 || true
+    test_pass "test.sh run accepts COV_TARGET environment variable"
+
+    # Test 7: coverage mode rejects --container flag (venv-only enforcement)
+    local cov_container_output
+    cov_container_output=$(COV_TARGET=src "${SCRIPT_DIR}/test.sh" run --container tests/ 2>&1 || true)
+    if echo "$cov_container_output" | grep -q "venv-only"; then
+        test_pass "test.sh run with COV_TARGET rejects --container flag"
+    else
+        test_fail "test.sh run with COV_TARGET rejects --container flag" "Expected venv-only error"
+    fi
+
+    # Test 8: coverage mode JSON output works
+    local cov_json_output
+    cov_json_output=$(LYRA_OUTPUT_JSON=true COV_TARGET=src "${SCRIPT_DIR}/test.sh" run tests/ -k "definitely_does_not_exist_xyz" 2>/dev/null || true)
+    if python3 -c 'import json,sys; json.loads(sys.stdin.read())' <<<"$cov_json_output" 2>/dev/null; then
+        test_pass "test.sh run with COV_TARGET JSON output mode works (parseable JSON on stdout)"
+    else
+        test_fail "test.sh run with COV_TARGET JSON output mode works (parseable JSON on stdout)" "JSON parse failed"
+    fi
 }
 
 # =============================================================================

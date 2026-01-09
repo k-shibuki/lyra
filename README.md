@@ -288,6 +288,7 @@ make doctor      # Check environment
 make test        # Run tests (async, returns immediately)
 make test-all    # Run ALL tests (async; overrides default -m 'not e2e')
 make test-check  # Poll for test results
+make test-cov    # Run tests with coverage (async, venv-only)
 make test-e2e    # Run E2E tests only
 make test-e2e-internal  # E2E against local services (proxy/ml/ollama)
 make test-e2e-external  # E2E against internet services (SERP/FETCH/Academic APIs)

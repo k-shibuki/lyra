@@ -73,6 +73,49 @@ cmd_run() {
         pytest_cmd+=('--override-ini=addopts=-v')
     fi
 
+    # Coverage options (when COV_TARGET is set)
+    local cov_target="${COV_TARGET:-}"
+    local cov_fail_under="${COV_FAIL_UNDER:-}"
+    local cov_html="${COV_HTML:-false}"
+    local cov_xml="${COV_XML:-false}"
+    local cov_report_dir="${COV_REPORT_DIR:-tests/coverage}"
+
+    if [[ -n "$cov_target" ]]; then
+        # Coverage requires venv (not container)
+        if [[ "$runtime" == "container" ]]; then
+            output_error "$EXIT_USAGE" "Coverage measurement is venv-only" \
+                "hint=Remove --container flag or use RUNTIME=venv"
+            exit "$EXIT_USAGE"
+        fi
+
+        pytest_cmd+=("--cov=${cov_target}")
+        pytest_cmd+=(--cov-report=term-missing)
+
+        # Optional HTML report
+        if [[ "$cov_html" == "true" ]]; then
+            mkdir -p "${PROJECT_DIR}/${cov_report_dir}/html"
+            pytest_cmd+=("--cov-report=html:${cov_report_dir}/html")
+        fi
+
+        # Optional XML report (for CI tools like Codecov)
+        if [[ "$cov_xml" == "true" ]]; then
+            mkdir -p "${PROJECT_DIR}/${cov_report_dir}"
+            pytest_cmd+=("--cov-report=xml:${cov_report_dir}/coverage.xml")
+        fi
+
+        # Optional fail threshold
+        if [[ -n "$cov_fail_under" ]]; then
+            pytest_cmd+=("--cov-fail-under=${cov_fail_under}")
+        fi
+
+        if [[ "$LYRA_OUTPUT_JSON" != "true" ]] && [[ "${LYRA_QUIET:-false}" != "true" ]]; then
+            echo "=== Coverage: target=${cov_target} ==="
+            [[ -n "$cov_fail_under" ]] && echo "  fail_under: ${cov_fail_under}%"
+            [[ "$cov_html" == "true" ]] && echo "  html: ${cov_report_dir}/html/"
+            [[ "$cov_xml" == "true" ]] && echo "  xml: ${cov_report_dir}/coverage.xml"
+        fi
+    fi
+
     # Export cloud agent detection for Python-side detection
     export IS_CLOUD_AGENT="${IS_CLOUD_AGENT:-false}"
     export CLOUD_AGENT_TYPE="${CLOUD_AGENT_TYPE:-none}"

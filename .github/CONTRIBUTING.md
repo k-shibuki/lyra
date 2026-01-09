@@ -74,13 +74,15 @@ make test                           # Run unit + integration (default: -m "not e
 make test-all                       # Run ALL tests (no marker exclusions, includes e2e)
 make test TARGET=tests/test_foo.py  # Run specific file
 make test-check RUN_ID=xxx          # Poll for test results (use run_id from test output)
+make test-cov                       # Run tests with coverage (async, venv-only)
+make test-cov TARGET=tests/... COV_HTML=true  # Coverage with HTML report (use test-check for results)
 make test-e2e                       # Run E2E tests only
 make test-e2e-internal              # E2E against local services (proxy/ml/ollama)
 make test-e2e-external              # E2E against internet services (SERP/FETCH/Academic APIs)
 make help                           # Show all available commands
 ```
 
-**Async Workflow**: `make test` starts tests in the background and returns immediately (prints a `RUN_ID`). Use `make test-check RUN_ID=...` to poll for completion and view results.
+**Async Workflow**: `make test` and `make test-cov` start tests in the background and return immediately (prints a `RUN_ID`). Use `make test-check RUN_ID=...` to poll for completion and view results.
 
 ### Output Mode (make commands)
 

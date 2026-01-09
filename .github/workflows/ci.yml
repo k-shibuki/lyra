@@ -36,7 +36,7 @@ jobs:
       - name: Quality checks (lint, format, typecheck, jsonschema, shellcheck)
         run: make quality
 
-      - name: Tests (unit + integration)
+      - name: Tests with coverage (unit + integration)
         run: |
-          make test RUNTIME=venv
-          make test-check RUNTIME=venv
+          make test-cov
+          make test-check

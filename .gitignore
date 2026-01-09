@@ -113,6 +113,7 @@ Desktop.ini
 # Test artifacts
 .coverage
 htmlcov/
+tests/coverage/
 .pytest_cache/
 .tox/
 .nox/

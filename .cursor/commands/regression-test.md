@@ -61,14 +61,19 @@ make test-check RUN_ID=<run_id_from_output>
 
 ### Stage 2: full suite (final gate)
 
-Run the full test suite to catch regressions outside your local change surface:
+Run the full test suite to catch regressions outside your local change surface with coverage measurement:
 
 ```bash
-make test
+make test-cov
 # Output shows: run_id: 20251225_123456_12345
 make test-check RUN_ID=<run_id_from_output>
-make test-kill RUN_ID=<run_id>   # only if you need to abort
 ```
+
+Options:
+- `COV_TARGET=src` (default): Source directory to measure coverage
+- `COV_FAIL_UNDER=70`: Minimum coverage percentage (optional: default=70)
+- `COV_HTML=true`: Generate HTML report in `tests/coverage/` (optional)
+- `COV_XML=true`: Generate XML report for CI (optional)
 
 > **IMPORTANT:** If any test fails in Stage 2, you must fix it before proceeding. Do not ignore failures even if they appear unrelated to your changes. See "Failure handling policy" below.
 
