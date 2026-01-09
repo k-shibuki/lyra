@@ -1,5 +1,5 @@
 """
-Tests for BUG-001e: Empty error messages on Ollama/ML server errors.
+Tests for empty error messages on Ollama/ML server errors.
 
 ## Problem
 `asyncio.TimeoutError` and some `aiohttp`/`httpx` exceptions have no `args`,
@@ -13,7 +13,7 @@ When `str(e)` is empty, use `{type(e).__name__}: (no message)` instead.
 | Case ID | Input / Precondition | Perspective (Equivalence / Boundary) | Expected Result | Notes |
 |---------|----------------------|--------------------------------------|-----------------|-------|
 | TC-N-01 | Exception with message | Equivalence – normal | str(e) used as-is | - |
-| TC-N-02 | Empty string exception | Boundary – empty | TypeName: (no message) | BUG-001e fix |
+| TC-N-02 | Empty string exception | Boundary – empty | TypeName: (no message) | Bug fix |
 | TC-N-03 | TimeoutError() no args | Boundary – no args | TimeoutError: (no message) | Real case |
 | TC-A-01 | aiohttp.ClientError() | Boundary – empty base | ClientError: (no message) | - |
 | TC-A-02 | httpx.RequestError("") | Boundary – empty str | RequestError: (no message) | - |

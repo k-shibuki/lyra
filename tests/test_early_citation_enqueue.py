@@ -1,5 +1,5 @@
 """
-Tests for BUG-001b fix: Early citation graph enqueue before web fetch.
+Tests for early citation graph enqueue before web fetch.
 
 This ensures citation_graph jobs are enqueued BEFORE web fetch,
 so they survive timeout scenarios.
