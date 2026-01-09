@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -68,8 +68,9 @@ class TestTabPool:
 
         # Then: Stats reflect usage
         stats = pool.get_stats()
-        assert stats["total_tabs"] == 1
-        assert stats["available_tabs"] == 1
+        # Tabs are closed on release to avoid lingering UI windows
+        assert stats["total_tabs"] == 0
+        assert stats["available_tabs"] == 0
         assert stats["active_tabs"] == 0
 
     # =========================================================================
@@ -104,7 +105,7 @@ class TestTabPool:
     # =========================================================================
     @pytest.mark.asyncio
     async def test_tab_reuse_after_release(self) -> None:
-        """Test that released tabs are reused.
+        """Test that released tabs are NOT reused (tabs are closed on release).
 
         Given: A TabPool with max_tabs=1
         When: Tab is acquired, released, then acquired again
@@ -121,8 +122,8 @@ class TestTabPool:
         # When: Second acquire
         tab2 = await pool.acquire(mock_context)
 
-        # Then: Same tab reused
-        assert tab1 is tab2
+        # Then: A new tab is created
+        assert tab1 is not tab2
         assert pool.total_count == 1
 
         # Cleanup
@@ -982,7 +983,7 @@ class TestTabPoolHeldTabs:
     | Case ID | Input / Precondition | Perspective | Expected Result |
     |---------|----------------------|-------------|-----------------|
     | TC-H-01 | hold_for_captcha() | Equivalence | Tab held, not in pool |
-    | TC-H-02 | release_captcha_tab() | Equivalence | Tab returned to pool |
+    | TC-H-02 | release_captcha_tab() | Equivalence | Tab closed and removed |
     | TC-H-03 | release_held_tabs_for_task() | Equivalence | All task tabs released |
     | TC-H-04 | Expired tab | Boundary | Tab auto-released |
     | TC-H-05 | Resolved CAPTCHA | Equivalence | Tab auto-released, CB reset |
@@ -1082,10 +1083,11 @@ class TestTabPoolHeldTabs:
         # When: Manual release
         result = await pool.release_captcha_tab("test-queue-id")
 
-        # Then: Tab returned to pool
+        # Then: Tab closed (no longer held, no longer pooled)
         assert result is True
         assert "test-queue-id" not in pool._held_tabs
-        assert pool._available_tabs.qsize() == 1  # Tab in available queue
+        cast(AsyncMock, tab.close).assert_awaited_once()
+        assert pool._available_tabs.qsize() == 0
 
         # Cleanup
         await pool.close()
@@ -1224,7 +1226,8 @@ class TestTabPoolHeldTabs:
 
         # Then: Tab released
         assert "test-queue-id" not in pool._held_tabs
-        assert pool._available_tabs.qsize() == 1
+        cast(AsyncMock, tab.close).assert_awaited_once()
+        assert pool._available_tabs.qsize() == 0
 
         # Cleanup
         await pool.close()
@@ -1302,9 +1305,10 @@ class TestTabPoolHeldTabs:
                 "test-queue-id", success=True, session_data=mock_session_data
             )
 
-        # Then: Tab released to pool
+        # Then: Tab removed from held tabs and closed
         assert "test-queue-id" not in pool._held_tabs
-        assert pool._available_tabs.qsize() == 1
+        cast(AsyncMock, tab.close).assert_awaited_once()
+        assert pool._available_tabs.qsize() == 0
 
         # Cleanup
         await pool.close()
@@ -1567,8 +1571,8 @@ class TestTabPoolClear:
         tab = await pool.acquire(mock_context)
         pool.release(tab)
 
-        assert pool.total_count == 1
-        assert pool._available_tabs.qsize() == 1
+        assert pool.total_count == 0
+        assert pool._available_tabs.qsize() == 0
 
         # When: Clear
         await pool.clear()
@@ -1686,8 +1690,9 @@ class TestTabPoolClear:
         pool.release(tab1)
         pool.release(tab2)
 
-        assert pool.total_count == 2
-        assert pool._available_tabs.qsize() == 2
+        # Tabs are closed on release, so they are not kept in the pool
+        assert pool.total_count == 0
+        assert pool._available_tabs.qsize() == 0
 
         # When: Clear
         await pool.clear()
@@ -1743,10 +1748,10 @@ class TestTabPoolClear:
         # When: Clear
         await pool.clear()
 
-        # Then: tab.close() was NOT called
-        # (cast to MagicMock for assertion - tab is from mock_context.new_page)
+        # Then: clear() did not call tab.close(); release() did.
+        # (Tab close is scheduled on release to avoid lingering UI windows.)
         assert hasattr(tab, "close")
-        tab.close.assert_not_called()  # type: ignore[attr-defined]
+        assert tab.close.call_count == 1  # type: ignore[attr-defined]
 
         # Cleanup (pool is still usable)
         await pool.close()

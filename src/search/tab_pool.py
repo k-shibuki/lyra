@@ -226,19 +226,41 @@ class TabPool:
             # Pool is closed, don't return tab
             return
 
-        # Return tab to available queue
+        # Remove from tracked tabs if present (we now close tabs on release)
         try:
-            self._available_tabs.put_nowait(tab)
-        except asyncio.QueueFull:
-            # Should never happen, but log if it does
-            logger.warning("Available tabs queue full, tab not returned")
+            if tab in self._tabs:
+                self._tabs.remove(tab)
+        except Exception:
+            # Best-effort bookkeeping
+            pass
+
+        # Close the tab (do not reuse pages across jobs to prevent lingering UI)
+        try:
+            if not tab.is_closed():
+                close_task = asyncio.create_task(tab.close(), name="tab_pool_close_on_release")
+
+                def _log_close_result(t: asyncio.Task[None]) -> None:
+                    try:
+                        exc = t.exception()
+                    except asyncio.CancelledError:
+                        logger.warning("Tab close task cancelled")
+                        return
+                    except Exception as e:
+                        logger.warning("Failed to inspect tab close result", error=str(e))
+                        return
+                    if exc is not None:
+                        logger.error("Tab close failed", error=str(exc))
+
+                close_task.add_done_callback(_log_close_result)
+        except Exception as e:
+            logger.error("Failed to schedule tab close on release", error=str(e))
 
         # Release backoff slot (ADR-0014)
         if self._active_count > 0:
             self._active_count -= 1
         self._slot_available.set()  # Signal that a slot is available
 
-        logger.debug("Tab released", available=self._available_tabs.qsize())
+        logger.debug("Tab released (closed)", available=self._available_tabs.qsize())
 
     def hold_for_captcha(
         self,
@@ -293,6 +315,17 @@ class TabPool:
                 self._check_held_tabs_loop(),
                 name="tab_pool_held_tabs_check",
             )
+
+    def get_held_tab(self, queue_id: str) -> Page | None:
+        """Get held tab for a given InterventionQueue ID, if any.
+
+        This is used by the auth UI/session flow to bring the correct
+        CAPTCHA tab (correct worker profile) to the front.
+        """
+        held = self._held_tabs.get(queue_id)
+        if held is None:
+            return None
+        return held.tab
 
     async def _check_held_tabs_loop(self) -> None:
         """Periodically check if held tabs' CAPTCHAs are resolved (ADR-0007)."""
@@ -421,9 +454,17 @@ class TabPool:
                     error=str(e),
                 )
 
-        # Release tab to pool (if not closed)
-        if not held.tab.is_closed():
-            self.release(held.tab)
+        # Close held tab after release (manual/auto) to avoid leaving it open indefinitely.
+        try:
+            if held.tab in self._tabs:
+                self._tabs.remove(held.tab)
+        except Exception:
+            pass
+        try:
+            if not held.tab.is_closed():
+                await held.tab.close()
+        except Exception as e:
+            logger.error("Failed to close held tab", queue_id=queue_id, error=str(e))
 
     async def release_captcha_tab(self, queue_id: str) -> bool:
         """Manually release a CAPTCHA tab (called from resolve_auth).
