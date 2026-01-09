@@ -256,7 +256,14 @@ class ExplorationState:
         self.task_hypothesis: str = ""
 
         # Budget tracking
-        self._budget_pages_limit = 500
+        # Default budget upper bound comes from settings.yaml (task_limits.budget_pages_per_task).
+        # Task-specific override (<= this upper bound) is applied in load_state() from tasks.config_json.
+        try:
+            from src.utils.config import get_settings
+
+            self._budget_pages_limit = int(get_settings().task_limits.max_budget_pages_per_task)
+        except Exception:
+            self._budget_pages_limit = 500  # Safe fallback if settings cannot load
         self._time_limit_seconds = 3600  # 60 minutes
         self._budget_pages_used = 0
         self._time_started: float | None = None
@@ -369,6 +376,42 @@ class ExplorationState:
             # Load original query for context (used by llm_extract)
             # ADR-0017: hypothesis is the central claim to verify
             self.task_hypothesis = task.get("hypothesis", "")
+
+            # Apply task-scoped budget from config_json (clamped by settings upper bound).
+            try:
+                import json as _json
+
+                from src.utils.config import get_settings
+
+                cfg_raw = task.get("config_json")
+                cfg: dict = {}
+                if isinstance(cfg_raw, str) and cfg_raw.strip():
+                    cfg = _json.loads(cfg_raw)
+                budget_cfg = cfg.get("budget") if isinstance(cfg, dict) else None
+
+                settings_max = int(get_settings().task_limits.max_budget_pages_per_task)
+                # Canonical key: max_pages (no backward compatibility)
+                if isinstance(budget_cfg, dict) and budget_cfg.get("max_pages") is not None:
+                    try:
+                        max_pages_val = budget_cfg.get("max_pages")
+                        requested = (
+                            int(max_pages_val) if max_pages_val is not None else settings_max
+                        )
+                    except Exception:
+                        requested = settings_max
+                    # Clamp to settings upper bound
+                    requested = max(0, min(settings_max, requested))
+                    self._budget_pages_limit = requested
+                else:
+                    # If no per-task budget set, use settings upper bound.
+                    self._budget_pages_limit = settings_max
+
+                # If UCB allocator exists, re-init with the updated total budget.
+                if self._enable_ucb:
+                    self._init_ucb_allocator()
+            except Exception:
+                # Keep existing limit if anything goes wrong
+                pass
 
         # Load existing searches
         queries = await self._db.fetch_all(

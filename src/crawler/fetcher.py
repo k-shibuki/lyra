@@ -856,6 +856,21 @@ async def _fetch_url_impl(
             if result is not None:
                 result.page_id = page_id
 
+                # Optional enrichment: link PubMed pages to normalized works (pages.canonical_id)
+                # This is gated by LYRA_ENRICH_PUBMED_CANONICAL=1.
+                try:
+                    from src.crawler.pubmed_linker import enrich_pubmed_page_canonical_id
+
+                    await enrich_pubmed_page_canonical_id(
+                        db=db,
+                        page_id=str(page_id),
+                        url=str(result.final_url or url),
+                        domain=str(domain),
+                    )
+                except Exception:
+                    # Never break fetch flow due to enrichment.
+                    pass
+
                 # Update fetch cache for future conditional requests
                 # Only cache if we have ETag or Last-Modified
                 if (result.etag or result.last_modified) and not result.from_cache:
