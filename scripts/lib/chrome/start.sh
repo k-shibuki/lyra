@@ -91,6 +91,14 @@ start_chrome_worker_linux() {
     local data_dir="$HOME/.local/share/lyra-chrome/$profile"
     mkdir -p "$data_dir"
 
+    local extra_flags=()
+    # Best-effort: try to reduce focus stealing on startup.
+    # When enabled, Chrome may start minimized depending on platform/WM support.
+    local start_minimized="${LYRA_BROWSER__CHROME_START_MINIMIZED:-}"
+    if [ "${start_minimized,,}" = "1" ] || [ "${start_minimized,,}" = "true" ]; then
+        extra_flags+=(--start-minimized)
+    fi
+
     "$chrome_path" \
         --remote-debugging-port="$port" \
         --user-data-dir="$data_dir" \
@@ -101,6 +109,7 @@ start_chrome_worker_linux() {
         --disable-background-timer-throttling \
         --disable-backgrounding-occluded-windows \
         --disable-renderer-backgrounding \
+        "${extra_flags[@]}" \
         > /dev/null 2>&1 &
 
     local host=""

@@ -386,6 +386,42 @@ class InterventionQueue:
             count=len(items),
         )
 
+        # Prefer using existing held CAPTCHA tabs (correct worker Chrome profile/tab).
+        # Focus stealing is disruptive; bring-to-front is disabled by default and can be
+        # explicitly enabled via settings (env override: LYRA_BROWSER__BRING_TO_FRONT_ON_AUTH_SESSION_START).
+        bring_to_front = get_settings().browser.bring_to_front_on_auth_session_start
+        try:
+            from src.search.tab_pool import get_all_tab_pools
+            from src.utils.intervention_manager import get_intervention_manager
+
+            manager = get_intervention_manager()
+            brought = 0
+            for item in items:
+                qid = str(item.get("id") or "")
+                if not qid:
+                    continue
+                for _wid, pool in get_all_tab_pools().items():
+                    tab = pool.get_held_tab(qid)
+                    if tab is None:
+                        continue
+                    if bring_to_front:
+                        await manager._bring_tab_to_front(tab)
+                    brought += 1
+                    break
+            if brought > 0:
+                return {
+                    "ok": True,
+                    "session_started": True,
+                    "count": len(items),
+                    "items": items,
+                    "brought_held_tabs": brought,
+                    "bring_to_front": bring_to_front,
+                }
+        except Exception as e:
+            logger.warning(
+                "Failed to bring held CAPTCHA tabs to front", error=str(e), task_id=task_id
+            )
+
         # Open browser and navigate to first URL
         # Use BrowserFetcher for consistency with authentication session handling
         if items:
@@ -414,12 +450,13 @@ class InterventionQueue:
                     await page.goto(first_url, wait_until="domcontentloaded", timeout=10000)
                     logger.debug("Page navigation completed")
 
-                    # Bring window to front (safe operation)
-                    # Import here to avoid circular dependency
-                    from src.utils.intervention_manager import get_intervention_manager
+                    # Bring window to front ONLY if explicitly enabled (avoid focus stealing).
+                    if bring_to_front:
+                        # Import here to avoid circular dependency
+                        from src.utils.intervention_manager import get_intervention_manager
 
-                    manager = get_intervention_manager()
-                    await manager._bring_tab_to_front(page)
+                        manager = get_intervention_manager()
+                        await manager._bring_tab_to_front(page)
 
                     logger.info(
                         "Opened authentication URL in browser",

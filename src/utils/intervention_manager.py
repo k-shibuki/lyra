@@ -134,10 +134,13 @@ class InterventionManager:
                 timeout_seconds=10,
             )
 
-            # Step 2: Bring browser window to front via OS API only
-            # No DOM operations (scroll, highlight, focus)
-            if page is not None:
-                await self._bring_tab_to_front(page)
+            # Step 2: DO NOT bring the browser window to front here.
+            # Focus stealing is disruptive during normal operation.
+            # The browser should be brought to front only when the user explicitly
+            # starts an auth session (e.g., via intervention_queue.start_session).
+            #
+            # We keep the 'page' parameter for API compatibility, but we intentionally
+            # ignore it in this method.
 
             logger.info(
                 "Intervention requested (safe mode)",

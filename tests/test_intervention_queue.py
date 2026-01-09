@@ -622,6 +622,152 @@ class TestStartSession:
             mock_fetcher._ensure_browser = AsyncMock(return_value=(None, None))
             yield
 
+    # Test Perspectives Table:
+    # | Case ID    | Input / Precondition                                              | Perspective (Equivalence / Boundary) | Expected Result                                         | Notes |
+    # |-----------:|--------------------------------------------------------------------|--------------------------------------|---------------------------------------------------------|-------|
+    # | TC-FP-01   | bring_to_front=false, held tabなし, contextあり                     | Equivalence – normal                 | _bring_tab_to_frontは呼ばれない                         | フォーカス奪取防止 |
+    # | TC-FP-02   | bring_to_front=true, held tabなし, contextあり                      | Equivalence – normal                 | _bring_tab_to_frontが1回呼ばれる                        | バッジクリック等 |
+    # | TC-FP-03   | bring_to_front=true, page.gotoが例外                               | Abnormal – exception path            | start_sessionは例外を投げずURL-onlyで返す               | 外部依存失敗相当 |
+
+    @pytest.mark.asyncio
+    async def test_start_session_does_not_bring_to_front_when_disabled(
+        self, queue_with_db: InterventionQueue, sample_task_id: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        TC-FP-01: bring-to-front無効時、held tab無しでも前面化しない。
+
+        // Given: bring-to-front=false + BrowserFetcherがcontext/pageを返す
+        // When:  start_session() を呼ぶ
+        // Then:  _bring_tab_to_front は呼ばれない
+        """
+        # Given
+        from src.utils.config import get_settings
+
+        get_settings.cache_clear()
+        monkeypatch.setenv("LYRA_BROWSER__BRING_TO_FRONT_ON_AUTH_SESSION_START", "false")
+
+        page = AsyncMock()
+        page.goto = AsyncMock(return_value=None)
+        context = AsyncMock()
+        context.new_page = AsyncMock(return_value=page)
+
+        with patch("src.crawler.browser_fetcher.BrowserFetcher") as mock_fetcher_class:
+            mock_fetcher = mock_fetcher_class.return_value
+            mock_fetcher._ensure_browser = AsyncMock(return_value=(object(), context))
+
+            with patch("src.utils.intervention_manager.get_intervention_manager") as mock_get_mgr:
+                mgr = mock_get_mgr.return_value
+                mgr._bring_tab_to_front = AsyncMock(return_value=True)
+
+                await queue_with_db.enqueue(
+                    task_id=sample_task_id,
+                    url="https://example.com/",
+                    domain="example.com",
+                    auth_type="captcha",
+                    priority="high",
+                )
+
+                # When
+                result = await queue_with_db.start_session(task_id=sample_task_id)
+
+                # Then
+                assert result["ok"] is True
+                assert result["count"] == 1
+                mgr._bring_tab_to_front.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_start_session_brings_to_front_when_enabled(
+        self, queue_with_db: InterventionQueue, sample_task_id: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        TC-FP-02: bring-to-front有効時、held tab無しでも前面化する。
+
+        // Given: bring-to-front=true + BrowserFetcherがcontext/pageを返す
+        // When:  start_session() を呼ぶ
+        // Then:  _bring_tab_to_front が呼ばれる
+        """
+        # Given
+        from src.utils.config import get_settings
+
+        get_settings.cache_clear()
+        monkeypatch.setenv("LYRA_BROWSER__BRING_TO_FRONT_ON_AUTH_SESSION_START", "true")
+
+        page = AsyncMock()
+        page.goto = AsyncMock(return_value=None)
+        context = AsyncMock()
+        context.new_page = AsyncMock(return_value=page)
+
+        with patch("src.crawler.browser_fetcher.BrowserFetcher") as mock_fetcher_class:
+            mock_fetcher = mock_fetcher_class.return_value
+            mock_fetcher._ensure_browser = AsyncMock(return_value=(object(), context))
+
+            with patch("src.utils.intervention_manager.get_intervention_manager") as mock_get_mgr:
+                mgr = mock_get_mgr.return_value
+                mgr._bring_tab_to_front = AsyncMock(return_value=True)
+
+                await queue_with_db.enqueue(
+                    task_id=sample_task_id,
+                    url="https://example.com/",
+                    domain="example.com",
+                    auth_type="captcha",
+                    priority="high",
+                )
+
+                # When
+                result = await queue_with_db.start_session(task_id=sample_task_id)
+
+                # Then
+                assert result["ok"] is True
+                assert result["count"] == 1
+                mgr._bring_tab_to_front.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_start_session_does_not_raise_when_navigation_fails(
+        self, queue_with_db: InterventionQueue, sample_task_id: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        TC-FP-03: ページ遷移失敗でも start_session は落ちずにURL-onlyで返る。
+
+        // Given: bring-to-front=true + page.goto が例外
+        // When:  start_session() を呼ぶ
+        // Then:  例外は投げず、ok=trueで返る
+        """
+        # Given
+        from src.utils.config import get_settings
+
+        get_settings.cache_clear()
+        monkeypatch.setenv("LYRA_BROWSER__BRING_TO_FRONT_ON_AUTH_SESSION_START", "true")
+
+        page = AsyncMock()
+        page.goto = AsyncMock(side_effect=RuntimeError("goto failed"))
+        context = AsyncMock()
+        context.new_page = AsyncMock(return_value=page)
+
+        with patch("src.crawler.browser_fetcher.BrowserFetcher") as mock_fetcher_class:
+            mock_fetcher = mock_fetcher_class.return_value
+            mock_fetcher._ensure_browser = AsyncMock(return_value=(object(), context))
+
+            with patch("src.utils.intervention_manager.get_intervention_manager") as mock_get_mgr:
+                mgr = mock_get_mgr.return_value
+                mgr._bring_tab_to_front = AsyncMock(return_value=True)
+
+                await queue_with_db.enqueue(
+                    task_id=sample_task_id,
+                    url="https://example.com/",
+                    domain="example.com",
+                    auth_type="captcha",
+                    priority="high",
+                )
+
+                # When
+                result = await queue_with_db.start_session(task_id=sample_task_id)
+
+                # Then
+                assert result["ok"] is True
+                assert result["session_started"] is True
+                assert result["count"] == 1
+                mgr._bring_tab_to_front.assert_not_awaited()
+
     @pytest.mark.asyncio
     async def test_start_session_empty_queue(
         self, queue_with_db: InterventionQueue, sample_task_id: str

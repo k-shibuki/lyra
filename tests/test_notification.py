@@ -605,7 +605,9 @@ class TestInterventionFlow:
                 manager = InterventionManager()
 
                 with patch.object(manager, "send_toast", new_callable=AsyncMock, return_value=True):
-                    with patch.object(manager, "_bring_tab_to_front", new_callable=AsyncMock):
+                    with patch.object(
+                        manager, "_bring_tab_to_front", new_callable=AsyncMock
+                    ) as mock_bring:
                         # When
                         result = await manager.request_intervention(
                             intervention_type=InterventionType.CAPTCHA,
@@ -621,6 +623,8 @@ class TestInterventionFlow:
                         assert "complete_authentication" in (
                             result.notes or ""
                         ), "Notes should mention complete_authentication method"
+                        # Then: Must NOT steal focus during request_intervention
+                        mock_bring.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_logs_intervention_to_database(
@@ -640,7 +644,7 @@ class TestInterventionFlow:
                     intervention_manager,
                     "_bring_tab_to_front",
                     new_callable=AsyncMock,
-                ):
+                ) as mock_bring:
                     # When
                     await intervention_manager.request_intervention(
                         intervention_type=InterventionType.CAPTCHA,
@@ -653,6 +657,8 @@ class TestInterventionFlow:
                     assert (
                         mock_db.execute.called
                     ), "Database execute should be called to log intervention"
+                    # Then: Must NOT steal focus during request_intervention
+                    mock_bring.assert_not_awaited()
 
 
 # =============================================================================
