@@ -216,6 +216,11 @@ filterwarnings = [
     # collected after tests complete. The warning doesn't affect test behavior.
     "ignore:unclosed event loop:ResourceWarning",
     "ignore:unclosed <socket:ResourceWarning",
+    # Ignore ResourceWarning for unclosed sqlite3 connections during test cleanup
+    # This occurs when global database singletons are garbage collected mid-session
+    # before pytest_sessionfinish can properly close them. The warning is benign:
+    # connections are properly closed at session end via pytest_sessionfinish hook.
+    "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
     # Ignore PytestUnraisableExceptionWarning for subprocess cleanup after tests
     # This occurs when BaseSubprocessTransport.__del__ runs after the event loop closes
     "ignore:Exception ignored in.*BaseSubprocessTransport:pytest.PytestUnraisableExceptionWarning",
@@ -271,5 +276,5 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
 ]
-fail_under = 0
+fail_under = 70
 show_missing = true

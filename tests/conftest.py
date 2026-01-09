@@ -679,6 +679,8 @@ def reset_global_database() -> Generator[None]:
 
     Prevents asyncio.Lock() from being bound to a stale event loop,
     which can cause intermittent hangs when running multiple tests.
+    Also properly closes any open database connection to prevent
+    ResourceWarning about unclosed sqlite3.Connection.
     """
     yield
     # Reset global database after each test
@@ -686,9 +688,20 @@ def reset_global_database() -> Generator[None]:
         from src.storage import database as db_module
 
         if db_module._db is not None:
-            # Force reset without awaiting (connection should already be closed
-            # by the test_database fixture if it was used)
-            db_module._db = None
+            # Properly close the database connection before resetting
+            # to prevent ResourceWarning about unclosed connection
+            import asyncio
+
+            async def close_db() -> None:
+                if db_module._db is not None:
+                    await db_module._db.close()
+                    db_module._db = None
+
+            try:
+                asyncio.run(close_db())
+            except RuntimeError:
+                # Event loop already running or closed - force reset
+                db_module._db = None
     except ImportError:
         # Dependencies not available in minimal test environment
         pass
