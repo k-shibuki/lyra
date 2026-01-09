@@ -590,7 +590,13 @@ class JobScheduler:
                     job_cause_id: str | None = _cause_id,
                 ) -> dict[str, Any]:
                     with CausalTrace(job_cause_id) as trace:
-                        return await self._execute_job(job_kind, job_input, job_task_id, trace.id)
+                        return await self._execute_job(
+                            job_kind,
+                            job_input,
+                            job_task_id,
+                            trace.id,
+                            slot_worker_id=worker_id,
+                        )
 
                 exec_task = asyncio.create_task(execute_job())
                 self._running_tasks[job_id] = exec_task
@@ -671,6 +677,8 @@ class JobScheduler:
         input_data: dict[str, Any],
         task_id: str | None,
         cause_id: str,
+        *,
+        slot_worker_id: int | None = None,
     ) -> dict[str, Any]:
         """Execute a job.
 
@@ -728,7 +736,12 @@ class JobScheduler:
         elif kind == JobKind.TARGET_QUEUE:
             # Unified target queue execution (ADR-0010)
             # Handles query, url, and doi targets
-            return await self._execute_target_queue_job(input_data, task_id, cause_id)
+            return await self._execute_target_queue_job(
+                input_data,
+                task_id,
+                cause_id,
+                slot_worker_id=slot_worker_id,
+            )
 
         else:
             raise ValueError(f"Unknown job kind: {kind}")
@@ -738,6 +751,8 @@ class JobScheduler:
         input_data: dict[str, Any],
         task_id: str | None,
         cause_id: str,
+        *,
+        slot_worker_id: int | None = None,
     ) -> dict[str, Any]:
         """Execute a target_queue job.
 
@@ -761,6 +776,14 @@ class JobScheduler:
         target_kind = target.get("kind", "query")
         options = input_data.get("options", {})
 
+        # Map scheduler slot worker_id -> browser worker_id (0..num_workers-1)
+        from src.utils.config import get_num_workers
+
+        num_workers = get_num_workers()
+        browser_worker_id = 0
+        if slot_worker_id is not None and num_workers > 0:
+            browser_worker_id = int(slot_worker_id) % int(num_workers)
+
         # Get exploration state
         state = await get_exploration_state(task_id)
 
@@ -770,6 +793,7 @@ class JobScheduler:
             query_options = target.get("options", {})
             merged_options = {**options, **query_options}
             merged_options["task_id"] = task_id
+            merged_options.setdefault("worker_id", browser_worker_id)
 
             result = await search_action(
                 task_id=task_id,
@@ -785,6 +809,7 @@ class JobScheduler:
             context = target.get("context", {})
             policy = target.get("policy", {})
             options_with_task = {**options, "task_id": task_id}
+            options_with_task.setdefault("worker_id", browser_worker_id)
 
             result = await ingest_url_action(
                 task_id=task_id,
@@ -802,6 +827,7 @@ class JobScheduler:
             reason = target.get("reason", "manual")
             context = target.get("context", {})
             options_with_task = {**options, "task_id": task_id}
+            options_with_task.setdefault("worker_id", browser_worker_id)
 
             result = await ingest_doi_action(
                 task_id=task_id,

@@ -484,7 +484,23 @@ class TestJobSchedulerCancelRunning:
 
 
 class TestJobSchedulerTargetQueueExecution:
-    """Tests for JobScheduler TARGET_QUEUE execution (ADR-0010 unified execution)."""
+    """Tests for JobScheduler TARGET_QUEUE execution (ADR-0010 unified execution).
+
+    Test Perspectives Table:
+    | Case ID    | Input / Precondition               | Perspective              | Expected Result                     | Notes      |
+    |------------|-------------------------------------|--------------------------|-------------------------------------|------------|
+    | TC-TQ-01   | kind=query                          | Wiring - route           | search_action called                | basic      |
+    | TC-TQ-02   | kind=url                            | Wiring - route           | ingest_url_action called            | basic      |
+    | TC-TQ-03   | kind=doi                            | Wiring - route           | ingest_doi_action called            | basic      |
+    | TC-TQ-04   | successful completion               | Effect - NLI enqueue     | _enqueue_verify_nli called          | basic      |
+    | TC-TQ-05   | successful completion               | Effect - empty check     | _check_target_queue_empty called    | basic      |
+    | TC-TQ-06   | task_id=None                        | Boundary - NULL          | ValueError raised                   | negative   |
+    | TC-TQ-07   | slot_worker_id=0, num_workers=2     | Wiring - worker_id       | worker_id=0 in options              | ADR-0014   |
+    | TC-TQ-08   | slot_worker_id=1, num_workers=2     | Wiring - worker_id       | worker_id=1 in options              | ADR-0014   |
+    | TC-TQ-09   | slot_worker_id=3, num_workers=2     | Boundary - modulo        | worker_id=1 (3%2) in options        | ADR-0014   |
+    | TC-TQ-10   | kind=url, slot_worker_id=1          | Wiring - worker_id URL   | worker_id propagated to ingest_url  | ADR-0014   |
+    | TC-TQ-11   | kind=doi, slot_worker_id=1          | Wiring - worker_id DOI   | worker_id propagated to ingest_doi  | ADR-0014   |
+    """
 
     @pytest.mark.asyncio
     async def test_execute_target_queue_query_routes_to_search_action(
@@ -781,6 +797,263 @@ class TestJobSchedulerTargetQueueExecution:
                 task_id=None,
                 cause_id="cause_06",
             )
+
+    @pytest.mark.asyncio
+    async def test_worker_id_propagation_query_worker_0(self, test_database: Database) -> None:
+        """
+        TC-TQ-07: worker_id=0 is propagated to search_action options.
+
+        // Given: TARGET_QUEUE job with slot_worker_id=0, num_workers=2
+        // When: _execute_target_queue_job is called
+        // Then: options["worker_id"] = 0 (wiring check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq07", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {"kind": "query", "query": "test query", "options": {}},
+            "options": {},
+        }
+
+        mock_search = AsyncMock(return_value={"ok": True})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.search_action", mock_search),
+            patch("src.utils.config.get_num_workers", return_value=2),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq07",
+                cause_id="cause_07",
+                slot_worker_id=0,
+            )
+
+        # Then: worker_id=0 was propagated
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args.kwargs
+        assert call_kwargs["options"]["worker_id"] == 0
+
+    @pytest.mark.asyncio
+    async def test_worker_id_propagation_query_worker_1(self, test_database: Database) -> None:
+        """
+        TC-TQ-08: worker_id=1 is propagated to search_action options.
+
+        // Given: TARGET_QUEUE job with slot_worker_id=1, num_workers=2
+        // When: _execute_target_queue_job is called
+        // Then: options["worker_id"] = 1 (wiring check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq08", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {"kind": "query", "query": "test query", "options": {}},
+            "options": {},
+        }
+
+        mock_search = AsyncMock(return_value={"ok": True})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.search_action", mock_search),
+            patch("src.utils.config.get_num_workers", return_value=2),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq08",
+                cause_id="cause_08",
+                slot_worker_id=1,
+            )
+
+        # Then: worker_id=1 was propagated
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args.kwargs
+        assert call_kwargs["options"]["worker_id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_worker_id_modulo_calculation(self, test_database: Database) -> None:
+        """
+        TC-TQ-09: slot_worker_id >= num_workers applies modulo.
+
+        // Given: TARGET_QUEUE job with slot_worker_id=3, num_workers=2
+        // When: _execute_target_queue_job is called
+        // Then: options["worker_id"] = 1 (3 % 2 = 1, boundary check)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq09", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {"kind": "query", "query": "test query", "options": {}},
+            "options": {},
+        }
+
+        mock_search = AsyncMock(return_value={"ok": True})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.search_action", mock_search),
+            patch("src.utils.config.get_num_workers", return_value=2),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq09",
+                cause_id="cause_09",
+                slot_worker_id=3,  # 3 % 2 = 1
+            )
+
+        # Then: worker_id = 3 % 2 = 1
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args.kwargs
+        assert call_kwargs["options"]["worker_id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_worker_id_propagation_url_target(self, test_database: Database) -> None:
+        """
+        TC-TQ-10: worker_id is propagated to ingest_url_action options.
+
+        // Given: TARGET_QUEUE job with kind=url, slot_worker_id=1
+        // When: _execute_target_queue_job is called
+        // Then: options["worker_id"] = 1 (wiring check for URL)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq10", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {
+                "kind": "url",
+                "url": "https://example.com/paper",
+                "depth": 0,
+                "reason": "manual",
+                "context": {},
+                "policy": {},
+            },
+            "options": {},
+        }
+
+        mock_ingest = AsyncMock(return_value={"ok": True})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.ingest_url_action", mock_ingest),
+            patch("src.utils.config.get_num_workers", return_value=2),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq10",
+                cause_id="cause_10",
+                slot_worker_id=1,
+            )
+
+        # Then: worker_id=1 was propagated to ingest_url_action
+        mock_ingest.assert_called_once()
+        call_kwargs = mock_ingest.call_args.kwargs
+        assert call_kwargs["options"]["worker_id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_worker_id_propagation_doi_target(self, test_database: Database) -> None:
+        """
+        TC-TQ-11: worker_id is propagated to ingest_doi_action options.
+
+        // Given: TARGET_QUEUE job with kind=doi, slot_worker_id=1
+        // When: _execute_target_queue_job is called
+        // Then: options["worker_id"] = 1 (wiring check for DOI)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from src.scheduler.jobs import JobScheduler
+
+        db = test_database
+
+        await db.execute(
+            "INSERT INTO tasks (id, hypothesis, status) VALUES (?, ?, ?)",
+            ("task_tq11", "Test hypothesis", "exploring"),
+        )
+
+        scheduler = JobScheduler()
+        input_data = {
+            "target": {
+                "kind": "doi",
+                "doi": "10.1234/test",
+                "reason": "manual",
+                "context": {},
+            },
+            "options": {},
+        }
+
+        mock_ingest_doi = AsyncMock(return_value={"ok": True})
+        mock_state = AsyncMock()
+        mock_state.notify_status_change = lambda: None
+
+        with (
+            patch("src.mcp.helpers.get_exploration_state", return_value=mock_state),
+            patch("src.research.pipeline.ingest_doi_action", mock_ingest_doi),
+            patch("src.utils.config.get_num_workers", return_value=2),
+            patch.object(scheduler, "_enqueue_verify_nli_if_needed", new_callable=AsyncMock),
+            patch.object(scheduler, "_check_target_queue_empty", new_callable=AsyncMock),
+        ):
+            await scheduler._execute_target_queue_job(
+                input_data=input_data,
+                task_id="task_tq11",
+                cause_id="cause_11",
+                slot_worker_id=1,
+            )
+
+        # Then: worker_id=1 was propagated to ingest_doi_action
+        mock_ingest_doi.assert_called_once()
+        call_kwargs = mock_ingest_doi.call_args.kwargs
+        assert call_kwargs["options"]["worker_id"] == 1
 
 
 class TestJobSchedulerSubmit:
