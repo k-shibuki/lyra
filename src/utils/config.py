@@ -17,7 +17,7 @@ class TaskLimitsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    budget_pages_per_task: int = 500
+    max_budget_pages_per_task: int = 200
     max_time_minutes_gpu: int = 60
     max_time_minutes_cpu: int = 75
     llm_time_ratio_max: float = 0.30
@@ -125,6 +125,8 @@ class SearchConfig(BaseModel):
 class CrawlerConfig(BaseModel):
     """Crawler configuration."""
 
+    model_config = ConfigDict(extra="forbid")
+
     engine_qps: float = 0.25
     domain_qps: float = 0.2
     domain_concurrent: int = 1
@@ -142,6 +144,10 @@ class CrawlerConfig(BaseModel):
     # Wayback Machine fallback timeout (seconds)
     # Reduced from 30s - blocked URLs rarely have useful Wayback archives
     wayback_timeout: int = 10
+
+    # PubMed / PMC enrichment: link browser-fetched PubMed/PMC pages to works via canonical_id
+    pubmed_enrichment_enabled: bool = True
+    pubmed_enrichment_timeout_seconds: float = 5.0
 
 
 class DNSPolicyConfig(BaseModel):
@@ -221,9 +227,9 @@ class LLMConfig(BaseModel):
     """
 
     ollama_host: str = "http://localhost:11434"
-    model: str = Field(
-        default_factory=lambda: os.environ.get("LYRA_LLM__MODEL", "qwen2.5:3b")
-    )  # Single model for all tasks
+    # Default model is defined here and should be overridden via:
+    # config/settings.yaml -> config/local.yaml -> env (LYRA_LLM__MODEL)
+    model: str = "qwen2.5:3b"  # Single model for all tasks
     model_context: int = 4096
     temperature: float = 0.3
     gpu_layers: int = -1
@@ -237,9 +243,9 @@ class LLMConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     """Embedding configuration."""
 
-    model_name: str = Field(
-        default_factory=lambda: os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
-    )
+    # Default model is defined here and should be overridden via:
+    # config/settings.yaml -> config/local.yaml -> env (LYRA_EMBEDDING__MODEL_NAME)
+    model_name: str = "BAAI/bge-m3"
     onnx_path: str = "models/bge-m3"
     batch_size: int = 8
     max_length: int = 512
@@ -266,11 +272,9 @@ class RankingConfig(BaseModel):
 class NLIConfig(BaseModel):
     """NLI configuration."""
 
-    model: str = Field(
-        default_factory=lambda: os.environ.get(
-            "LYRA_ML__NLI_MODEL", "cross-encoder/nli-deberta-v3-small"
-        )
-    )
+    # Default model is defined here and should be overridden via:
+    # config/settings.yaml -> config/local.yaml -> env (LYRA_NLI__MODEL)
+    model: str = "cross-encoder/nli-deberta-v3-small"
 
 
 class MLServerConfig(BaseModel):
@@ -745,13 +749,46 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
         Configuration with environment overrides.
     """
     prefix = "LYRA_"
+    # Only these top-level keys are treated as Python config inputs.
+    # This prevents script-only env vars (LYRA_SCRIPT__*, LYRA_TEST__*, LYRA_OUTPUT_JSON, etc.)
+    # from being merged into Settings() unexpectedly.
+    allowed_roots = {
+        "general",
+        "task_limits",
+        "search",
+        "crawler",
+        "tor",
+        "browser",
+        "llm",
+        "ml",
+        "embedding",
+        "ranking",
+        "nli",
+        "storage",
+        "notification",
+        "quality",
+        "circuit_breaker",
+        "metrics",
+        "concurrency",
+        # separate config file root
+        "academic_apis",
+    }
 
     for key, value in os.environ.items():
         if not key.startswith(prefix):
             continue
 
+        # Only treat LYRA_* keys with nested form (double underscore) as config.
+        # This avoids mixing script/runtime flags (e.g., LYRA_OUTPUT_JSON) into Settings().
+        if "__" not in key:
+            continue
+
         # Remove prefix and split by double underscore
         key_path = key[len(prefix) :].lower().split("__")
+        if not key_path:
+            continue
+        if key_path[0] not in allowed_roots:
+            continue
 
         # Navigate to the correct nested location
         current = config
@@ -802,7 +839,9 @@ def get_settings() -> Settings:
     config = _apply_env_overrides(config)
 
     # Create and return settings
-    return Settings(**config)
+    settings = Settings(**config)
+
+    return settings
 
 
 def get_project_root() -> Path:

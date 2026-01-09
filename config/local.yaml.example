@@ -25,6 +25,7 @@
 # ---------------------
 # For CI/CD or containerized environments, use environment variables:
 #   LYRA_TASK_LIMITS__SEARCH_TIMEOUT_SECONDS=300
+#   LYRA_TASK_LIMITS__MAX_BUDGET_PAGES_PER_TASK=200
 #   LYRA_GENERAL__LOG_LEVEL=DEBUG
 #
 # Double underscores (__) denote nested keys.
@@ -36,13 +37,15 @@ settings:
   # General settings
   general:
     log_level: "DEBUG"  # DEBUG, INFO, WARNING, ERROR
+    # Hybrid mode: MCP server on host + proxy container
+    proxy_url: "http://localhost:8080"
 
   # Task limits
-  # budget_pages_per_task: Total pages to fetch across all searches (default: 500)
+  # max_budget_pages_per_task: Max pages allowed per task (upper bound; default: 200)
   # search_timeout_seconds: Per-search timeout for safe pipeline stop (default: 300)
   #   Covers: Academic API + SERP + identifier processing + web page fetch + claim extraction
   task_limits:
-    budget_pages_per_task: 500
+    max_budget_pages_per_task: 200
     search_timeout_seconds: 300
 
   # Concurrency (ADR-0013/ADR-0014)
@@ -56,6 +59,30 @@ settings:
   browser:
     chrome_host: "localhost"
     chrome_base_port: 9222  # Worker 0 = 9222, Worker 1 = 9223, etc.
+    chrome_profile_prefix: "Lyra-"
+    # Focus policy (optional)
+    chrome_start_minimized: false
+    bring_to_front_on_auth_session_start: false
+
+  # LLM/ML endpoints (environment dependent; keep here, not .env)
+  llm:
+    model: "qwen2.5:3b"
+    # Host mode: http://localhost:11434
+    # Hybrid/container: http://ollama:11434 (via proxy container network)
+    ollama_host: "http://ollama:11434"
+
+  ml:
+    server_url: "http://ml:8100"
+
+  # Tor settings (container name or localhost, depending on setup)
+  tor:
+    socks_host: "tor"
+    socks_port: 9050
+    control_port: 9051
+
+  # Search settings overrides
+  search:
+    claims_extraction_scope: "reputable"
 
 # =============================================================================
 # academic_apis: (overrides academic_apis.yaml)

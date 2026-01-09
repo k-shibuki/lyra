@@ -11,7 +11,8 @@ general:
   
 # === Task Limits ===
 task_limits:
-  budget_pages_per_task: 250
+  # Max pages allowed per task (upper bound). Task-level budgets must be <= this.
+  max_budget_pages_per_task: 200
   max_time_minutes_gpu: 60
   max_time_minutes_cpu: 60
   llm_time_ratio_max: 0.30  # LLM processing ≤30%
@@ -112,6 +113,11 @@ crawler:
   # Wayback Machine fallback timeout (seconds)
   # Reduced from 30s - blocked URLs rarely have useful Wayback archives
   wayback_timeout: 10
+
+  # PubMed / PMC enrichment:
+  # Link browser-fetched PubMed/PMC pages to normalized works metadata by setting pages.canonical_id.
+  pubmed_enrichment_enabled: true
+  pubmed_enrichment_timeout_seconds: 5.0
 
 # === Tor Settings ===
 tor:
@@ -216,8 +222,7 @@ llm:
   
   # LLM model for extraction tasks
   # 3B: lighter, 7B: better instruction following for complex prompts
-  # Set via LYRA_LLM__MODEL in .env (Single Source of Truth)
-  # model: "qwen2.5:3b"
+  model: "qwen2.5:3b"
   model_context: 4096
   
   # Temperature
@@ -228,8 +233,7 @@ llm:
 
 # === Embedding Settings ===
 embedding:
-  # Set via LYRA_ML__EMBEDDING_MODEL in .env (Single Source of Truth)
-  # model_name: "BAAI/bge-m3"
+  model_name: "BAAI/bge-m3"
   onnx_path: "models/bge-m3"
   batch_size: 8  # Micro-batch for VRAM
   max_length: 512
@@ -251,8 +255,8 @@ ranking:
     sensitivity: 1.0  # Kneedle S parameter
 
 # === NLI Settings ===
-# Model name set via LYRA_ML__NLI_MODEL in .env (Single Source of Truth)
-# nli section removed - defaults from NLIConfig will be used
+nli:
+  model: "cross-encoder/nli-deberta-v3-small"
 
 # === Storage Settings ===
 storage:
