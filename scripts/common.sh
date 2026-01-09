@@ -83,3 +83,6 @@ source "${COMMON_DIR}/lib/http.sh"
 # shellcheck source=/dev/null
 source "${COMMON_DIR}/lib/logs.sh"
 
+# Read Python settings (config/settings.yaml + config/local.yaml + env)
+# shellcheck source=/dev/null
+source "${COMMON_DIR}/lib/settings.sh"

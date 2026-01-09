@@ -301,7 +301,7 @@ if ! check_container_running; then
 fi
 
 # 4. Wait for proxy server to be available (uses common.sh function)
-PROXY_URL="${LYRA_GENERAL__PROXY_URL:-http://localhost:8080}"
+PROXY_URL="$(lyra_get_setting "general.proxy_url" 2>/dev/null || echo "http://localhost:8080")"
 wait_for_endpoint "${PROXY_URL}/health" 30 "Proxy server ready" || true  # Continue even if proxy not ready
 
 # 5. Set environment for host execution
@@ -310,14 +310,8 @@ export PYTHONPATH="${PROJECT_DIR}:${PYTHONPATH:-}"
 # Data directory (shared with container via volume mount)
 export LYRA_DATA_DIR="${LYRA_DATA_DIR:-${PROJECT_DIR}/data}"
 
-# Proxy URL for hybrid mode
-export LYRA_GENERAL__PROXY_URL="${PROXY_URL}"
-
-# Chrome settings (localhost for WSL direct connection)
-# Dynamic Worker Pool: Each worker gets its own Chrome instance
-export LYRA_BROWSER__CHROME_HOST="${LYRA_BROWSER__CHROME_HOST:-localhost}"
-export LYRA_BROWSER__CHROME_BASE_PORT="${LYRA_BROWSER__CHROME_BASE_PORT:-9222}"
-export LYRA_BROWSER__CHROME_PROFILE_PREFIX="${LYRA_BROWSER__CHROME_PROFILE_PREFIX:-Lyra-}"
+# Proxy URL/Chrome settings are read from settings.yaml/local.yaml by the Python runtime.
+# Do not export them from scripts (keeps .env minimal and avoids drift).
 
 # 6. Chrome is started lazily when needed (via _auto_start_chrome in browser providers)
 # No pre-startup required - workers call chrome.sh start-worker N on demand

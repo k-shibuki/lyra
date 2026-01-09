@@ -94,7 +94,8 @@ start_chrome_worker_linux() {
     local extra_flags=()
     # Best-effort: try to reduce focus stealing on startup.
     # When enabled, Chrome may start minimized depending on platform/WM support.
-    local start_minimized="${LYRA_BROWSER__CHROME_START_MINIMIZED:-}"
+    local start_minimized
+    start_minimized="$(lyra_get_setting "browser.chrome_start_minimized" 2>/dev/null || echo "")"
     if [ "${start_minimized,,}" = "1" ] || [ "${start_minimized,,}" = "true" ]; then
         extra_flags+=(--start-minimized)
     fi

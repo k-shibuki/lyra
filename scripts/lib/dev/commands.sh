@@ -37,11 +37,12 @@ cmd_up() {
 }
 
 # Ensure Ollama model is available, pull if not present
-# Model name is read from LYRA_LLM__MODEL or defaults to qwen2.5:3b
+# Model name is read from Lyra settings (config/settings.yaml + local.yaml + env overrides)
 # Note: Ollama runs on internal network only (security). We temporarily
 # connect to external network for model download, then disconnect.
 ensure_ollama_model() {
-    local model="${LYRA_LLM__MODEL:-qwen2.5:3b}"
+    local model
+    model="$(lyra_get_setting "llm.model" 2>/dev/null || echo "qwen2.5:3b")"
     local ollama_container="ollama"
     local external_network="lyra_lyra-net"
     local max_retries=30

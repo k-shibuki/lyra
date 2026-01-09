@@ -4,9 +4,9 @@ Download ML models for Lyra.
 This script downloads models to the host filesystem for persistence.
 
 Models can be updated by:
-1. Setting environment variables in .env (recommended):
-   - LYRA_ML__EMBEDDING_MODEL
-   - LYRA_ML__NLI_MODEL
+1. Editing config/settings.yaml or config/local.yaml:
+   - embedding.model_name
+   - nli.model
 2. Then running: make setup-ml-models
 
 Default models:
@@ -23,11 +23,17 @@ import os
 import sys
 from pathlib import Path
 
-# Model names - edit these to update models (or use .env)
-MODEL_EMBEDDING = os.environ.get("LYRA_ML__EMBEDDING_MODEL", "BAAI/bge-m3")
-MODEL_NLI = os.environ.get(
-    "LYRA_ML__NLI_MODEL", "cross-encoder/nli-deberta-v3-small"
-)
+# Model names - sourced from Lyra settings (config/settings.yaml + local.yaml)
+try:
+    from src.utils.config import get_settings
+
+    _settings = get_settings()
+    MODEL_EMBEDDING = _settings.embedding.model_name
+    MODEL_NLI = _settings.nli.model
+except Exception:
+    # Fallback for early bootstrap before deps are installed
+    MODEL_EMBEDDING = "BAAI/bge-m3"
+    MODEL_NLI = "cross-encoder/nli-deberta-v3-small"
 
 # Output path for model paths JSON (host-relative)
 SCRIPT_DIR = Path(__file__).parent.resolve()

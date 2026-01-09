@@ -22,7 +22,6 @@ set -euo pipefail
 
 # Source common functions and load .env
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
 
@@ -51,40 +50,17 @@ require_host_execution_unless "chrome.sh" "manages Windows Chrome via CDP from W
 
 # Get num_workers from settings.yaml
 get_num_workers() {
-    local yaml_file="${PROJECT_ROOT}/config/settings.yaml"
-    if [ -f "$yaml_file" ]; then
-        grep -oP 'num_workers:\s*\K\d+' "$yaml_file" 2>/dev/null || echo 2
-    else
-        echo 2
-    fi
+    lyra_get_setting "concurrency.target_queue.num_workers" 2>/dev/null || echo 2
 }
 
 # Get base port from environment or settings.yaml
 get_base_port() {
-    if [ -n "${LYRA_BROWSER__CHROME_BASE_PORT:-}" ]; then
-        echo "$LYRA_BROWSER__CHROME_BASE_PORT"
-    else
-        local yaml_file="${PROJECT_ROOT}/config/settings.yaml"
-        if [ -f "$yaml_file" ]; then
-            grep -oP 'chrome_base_port:\s*\K\d+' "$yaml_file" 2>/dev/null || echo 9222
-        else
-            echo 9222
-        fi
-    fi
+    lyra_get_setting "browser.chrome_base_port" 2>/dev/null || echo 9222
 }
 
 # Get profile prefix from environment or settings.yaml
 get_profile_prefix() {
-    if [ -n "${LYRA_BROWSER__CHROME_PROFILE_PREFIX:-}" ]; then
-        echo "$LYRA_BROWSER__CHROME_PROFILE_PREFIX"
-    else
-        local yaml_file="${PROJECT_ROOT}/config/settings.yaml"
-        if [ -f "$yaml_file" ]; then
-            grep -oP 'chrome_profile_prefix:\s*"\K[^"]+' "$yaml_file" 2>/dev/null || echo "Lyra-"
-        else
-            echo "Lyra-"
-        fi
-    fi
+    lyra_get_setting "browser.chrome_profile_prefix" 2>/dev/null || echo "Lyra-"
 }
 
 # Calculate port for a specific worker
