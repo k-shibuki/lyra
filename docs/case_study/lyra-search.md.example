@@ -297,30 +297,11 @@ After completion, check for new reference candidates:
 query_view(view_name="v_reference_candidates", task_id=task_id, limit=20)
 ```
 
-**Iteration decision (claim growth based)**:
+**Iteration rule (simplified)**:
 
-You must track claim counts yourself across `get_status` calls:
-
-```
-# Before Round 1
-get_status(...) → metrics.total_claims = 50  # record this
-
-# After Round 1
-get_status(...) → metrics.total_claims = 80
-growth_round_1 = 80 - 50 = 30  # calculate yourself
-
-# After Round 2
-get_status(...) → metrics.total_claims = 95
-growth_round_2 = 95 - 80 = 15  # < growth_round_1 * 0.5 → stop
-```
-
-**Stop conditions** (any of):
-- `growth < 5` (absolute minimum)
-- `growth < previous_round_growth * 0.5` (diminishing returns)
-- Round count ≥ 3 (budget protection)
-- `v_reference_candidates` returns 0 rows
-
-**Continue** if none of the above and candidates remain.
+- Citation Chasing is limited to **2 rounds maximum**
+- After 2 rounds, proceed to Step 4 regardless of remaining candidates
+- If `v_reference_candidates` returns 0 rows before 2 rounds, stop early
 
 ---
 
