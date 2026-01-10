@@ -278,9 +278,9 @@ class TestContentAnalyzer:
         assert "Main Title" in text, "Expected 'Main Title' in extracted text"
         assert "original content" in text, "Expected 'original content' in extracted text"
         # Navigation content should be excluded (trafilatura filters nav elements)
-        assert (
-            "Navigation" not in text
-        ), "Expected 'Navigation' to be excluded from article extraction"
+        assert "Navigation" not in text, (
+            "Expected 'Navigation' to be excluded from article extraction"
+        )
 
     def test_extract_headings(self) -> None:
         """Should extract all headings."""
@@ -330,13 +330,13 @@ class TestContentAnalyzer:
         diff = analyzer.compare(SAMPLE_HTML_V1, SAMPLE_HTML_V2, old_snap, new_snap)
 
         # V1 and V2 have different content - similarity should be below 1.0
-        assert (
-            diff.similarity_ratio < 1.0
-        ), f"Expected similarity < 1.0 for different content, got {diff.similarity_ratio}"
+        assert diff.similarity_ratio < 1.0, (
+            f"Expected similarity < 1.0 for different content, got {diff.similarity_ratio}"
+        )
         # Heading changed from 'Main Title' to 'Main Title Updated' and 'Section Two' to 'Section Three'
-        assert (
-            len(diff.heading_changes) >= 1
-        ), f"Expected at least 1 heading change, got {len(diff.heading_changes)}"
+        assert len(diff.heading_changes) >= 1, (
+            f"Expected at least 1 heading change, got {len(diff.heading_changes)}"
+        )
 
     def test_compare_identical(self) -> None:
         """Identical content should have high similarity."""

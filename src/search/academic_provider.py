@@ -199,7 +199,7 @@ class AcademicSearchProvider(BaseSearchProvider):
             if paper_obj:
                 initial_doi = paper_obj.doi
                 index.register_paper(paper_obj, source_api="semantic_scholar")
-        elif paper_id.startswith("openalex:"):
+        elif paper_id.startswith("openalex:") or paper_id.startswith("https://openalex.org/"):
             # Try to get DOI from OpenAlex
             paper_obj = await oa_client.get_paper(paper_id)
             if paper_obj:

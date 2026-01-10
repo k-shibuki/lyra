@@ -301,9 +301,9 @@ class TestDomainIPv6Stats:
         assert stats.ipv6_attempts == 1
         assert stats.ipv6_successes == 1
         # Success timestamp should be set (Unix timestamp as float)
-        assert isinstance(
-            stats.last_ipv6_success_at, (int, float)
-        ), f"Expected numeric timestamp, got {type(stats.last_ipv6_success_at)}"
+        assert isinstance(stats.last_ipv6_success_at, (int, float)), (
+            f"Expected numeric timestamp, got {type(stats.last_ipv6_success_at)}"
+        )
 
     def test_update_success_rate_ipv6_failure(self) -> None:
         """update_success_rate should update IPv6 success rate on failure."""
@@ -316,9 +316,9 @@ class TestDomainIPv6Stats:
         assert stats.ipv6_attempts == 1
         assert stats.ipv6_successes == 0
         # Failure timestamp should be set (Unix timestamp as float)
-        assert isinstance(
-            stats.last_ipv6_failure_at, (int, float)
-        ), f"Expected numeric timestamp, got {type(stats.last_ipv6_failure_at)}"
+        assert isinstance(stats.last_ipv6_failure_at, (int, float)), (
+            f"Expected numeric timestamp, got {type(stats.last_ipv6_failure_at)}"
+        )
 
     def test_update_success_rate_ipv4(self) -> None:
         """update_success_rate should update IPv4 success rate."""
@@ -893,9 +893,9 @@ class TestIPv6ManagerIntegration:
 
             # EMA after 5 successes: 0.704755 (calculated above)
             expected_rate = 0.704755
-            assert stats.ipv6_success_rate == pytest.approx(
-                expected_rate, rel=0.01
-            ), f"Expected IPv6 success rate ~{expected_rate}, got {stats.ipv6_success_rate}"
+            assert stats.ipv6_success_rate == pytest.approx(expected_rate, rel=0.01), (
+                f"Expected IPv6 success rate ~{expected_rate}, got {stats.ipv6_success_rate}"
+            )
             assert stats.ipv6_enabled is True, "IPv6 should remain enabled after successes"
 
     @pytest.mark.asyncio
@@ -1120,6 +1120,6 @@ class TestIPv6BoundaryConditions:
 
         # Only last 100 should be kept (50-149)
         expected_avg = sum(range(50, 150)) / 100  # Average of 50-149 = 99.5
-        assert metrics.avg_latency_ms == pytest.approx(
-            expected_avg
-        ), f"Expected avg latency {expected_avg}, got {metrics.avg_latency_ms}"
+        assert metrics.avg_latency_ms == pytest.approx(expected_avg), (
+            f"Expected avg latency {expected_avg}, got {metrics.avg_latency_ms}"
+        )

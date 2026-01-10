@@ -73,22 +73,6 @@ async def enrich_pubmed_page_canonical_id(
     pmid = identifier.pmid
     pmcid = getattr(identifier, "pmcid", None)
 
-    # region agent log H-PMID-09
-    try:
-        from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
-
-        agent_log(
-            sessionId=agent_debug_session_id(),
-            runId=agent_debug_run_id(),
-            hypothesisId="H-PMID-09",
-            location="src/crawler/pubmed_linker.py:pmid_extracted",
-            message="PubMed/PMC linker: identifiers extracted",
-            data={"page_id": page_id, "pmid": pmid, "pmcid": pmcid, "url": url[:200]},
-        )
-    except Exception:
-        pass
-    # endregion
-
     # If PMCID is present but PMID is missing, resolve via NCBI idconv
     if not pmid and pmcid:
         from src.search.id_resolver import IDResolver
@@ -159,29 +143,6 @@ async def enrich_pubmed_page_canonical_id(
         "id = ?",
         (page_id,),
     )
-
-    # region agent log H-PMID-10
-    try:
-        from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
-
-        agent_log(
-            sessionId=agent_debug_session_id(),
-            runId=agent_debug_run_id(),
-            hypothesisId="H-PMID-10",
-            location="src/crawler/pubmed_linker.py:linked",
-            message="PubMed linker: linked page to canonical work",
-            data={
-                "page_id": page_id,
-                "pmid": pmid,
-                "canonical_id": canonical_id,
-                "doi": (paper.doi or "")[:120],
-                "year": paper.year,
-                "authors_count": len(paper.authors) if paper.authors else 0,
-            },
-        )
-    except Exception:
-        pass
-    # endregion
 
     logger.info("Linked PubMed page to canonical work", page_id=page_id, canonical_id=canonical_id)
     return canonical_id

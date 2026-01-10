@@ -1055,7 +1055,6 @@ class BrowserSearchProvider(BaseSearchProvider):
             )
 
         try:
-
             await self._rate_limit(engine)
 
             # Get parser for engine

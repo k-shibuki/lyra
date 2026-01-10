@@ -23,6 +23,9 @@ Tests cover:
 | TC-PA-03 | Audit with major drift | Equivalence – critical | AuditStatus.CRITICAL | - |
 | TC-PA-04 | Determine repair actions | Equivalence – repairs | Correct actions returned | - |
 | TC-PA-05 | Execute repair | Equivalence – execution | Repair applied | - |
+| TC-AR-01 | attempt_repair success | Equivalence – baseline update | Baseline updated to current | - |
+| TC-AR-02 | attempt_repair failure | Equivalence – baseline preserved | Baseline unchanged | - |
+| TC-AR-03 | attempt_repair non-drift | Boundary – no action | Returns unchanged result | - |
 | TC-BL-01 | Save baseline | Equivalence – persistence | Baseline saved to file | - |
 | TC-BL-02 | Load baseline | Equivalence – loading | Baseline loaded from file | - |
 | TC-BL-03 | Update baseline | Equivalence – mutation | Baseline updated | - |
@@ -409,6 +412,121 @@ class TestRepairActions:
         assert len(actions) == 2
         assert actions[0] == RepairAction.RESYNC_FONTS
         assert actions[1] == RepairAction.RESTART_BROWSER
+
+
+# =============================================================================
+# Attempt Repair Tests
+# =============================================================================
+
+
+class TestAttemptRepair:
+    """Tests for attempt_repair method and baseline update behavior."""
+
+    @pytest.mark.asyncio
+    async def test_attempt_repair_updates_baseline_on_success(
+        self,
+        auditor: ProfileAuditor,
+        sample_fingerprint: FingerprintData,
+        drifted_fingerprint: FingerprintData,
+    ) -> None:
+        """TC-AR-01: Test that successful repair updates baseline to current fingerprint."""
+        # Given: Baseline established with sample fingerprint
+        auditor._save_baseline(sample_fingerprint)
+        assert auditor._baseline is not None
+        assert auditor._baseline.ua_major_version == "120"
+
+        audit_result = AuditResult(
+            status=AuditStatus.DRIFT,
+            baseline=sample_fingerprint,
+            current=drifted_fingerprint,
+            drifts=[
+                DriftInfo(
+                    attribute="ua_major_version",
+                    baseline_value="120",
+                    current_value="121",
+                    severity="high",
+                    repair_action=RepairAction.RESTART_BROWSER,
+                )
+            ],
+            repair_actions=[RepairAction.RESTART_BROWSER],
+            repair_status=RepairStatus.PENDING,
+            error=None,
+            timestamp=time.time(),
+        )
+
+        # When: Attempting repair (RESTART_BROWSER always succeeds)
+        result = await auditor.attempt_repair(audit_result)
+
+        # Then: Repair succeeds and baseline is updated to current fingerprint
+        assert result.repair_status == RepairStatus.SUCCESS
+        assert auditor._baseline is not None
+        assert auditor._baseline.ua_major_version == "121"
+
+    @pytest.mark.asyncio
+    async def test_attempt_repair_preserves_baseline_on_failure(
+        self,
+        auditor: ProfileAuditor,
+        sample_fingerprint: FingerprintData,
+        drifted_fingerprint: FingerprintData,
+    ) -> None:
+        """TC-AR-02: Test that failed repair does not update baseline."""
+        # Given: Baseline established with sample fingerprint
+        auditor._save_baseline(sample_fingerprint)
+        assert auditor._baseline is not None
+        assert auditor._baseline.ua_major_version == "120"
+
+        audit_result = AuditResult(
+            status=AuditStatus.DRIFT,
+            baseline=sample_fingerprint,
+            current=drifted_fingerprint,
+            drifts=[
+                DriftInfo(
+                    attribute="ua_major_version",
+                    baseline_value="120",
+                    current_value="121",
+                    severity="high",
+                    repair_action=RepairAction.RECREATE_PROFILE,
+                )
+            ],
+            repair_actions=[RepairAction.RECREATE_PROFILE],
+            repair_status=RepairStatus.PENDING,
+            error=None,
+            timestamp=time.time(),
+        )
+
+        # When: Attempting repair with mocked failure
+        with patch.object(auditor, "_attempt_profile_restore", return_value=False):
+            result = await auditor.attempt_repair(audit_result)
+
+        # Then: Repair fails and baseline is NOT updated
+        assert result.repair_status == RepairStatus.FAILED
+        assert auditor._baseline is not None
+        assert auditor._baseline.ua_major_version == "120"  # Unchanged
+
+    @pytest.mark.asyncio
+    async def test_attempt_repair_returns_unchanged_for_non_drift(
+        self,
+        auditor: ProfileAuditor,
+        sample_fingerprint: FingerprintData,
+    ) -> None:
+        """TC-AR-03: Test that non-drift audit result returns unchanged."""
+        # Given: Audit result with PASS status (no drift)
+        audit_result = AuditResult(
+            status=AuditStatus.PASS,
+            baseline=sample_fingerprint,
+            current=sample_fingerprint,
+            drifts=[],
+            repair_actions=[],
+            error=None,
+            timestamp=time.time(),
+        )
+
+        # When: Attempting repair
+        result = await auditor.attempt_repair(audit_result)
+
+        # Then: Returns unchanged result (early return, no repair attempted)
+        assert result.status == AuditStatus.PASS
+        assert result is audit_result  # Same object returned
 
 
 # =============================================================================

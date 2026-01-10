@@ -347,9 +347,9 @@ class TestDomainOverrideStartupRestore:
 
         # Then: Domain is in SourceVerifier._blocked_domains
         verifier = get_source_verifier()
-        assert (
-            domain in verifier._blocked_domains
-        ), f"Expected '{domain}' in _blocked_domains after startup restore"
+        assert domain in verifier._blocked_domains, (
+            f"Expected '{domain}' in _blocked_domains after startup restore"
+        )
 
     @pytest.mark.asyncio
     async def test_startup_restores_unblocked_domain(self, memory_database: Database) -> None:
@@ -389,9 +389,9 @@ class TestDomainOverrideStartupRestore:
             await load_domain_overrides_from_db()
 
         # Then: Domain is removed from SourceVerifier._blocked_domains
-        assert (
-            domain not in verifier._blocked_domains
-        ), f"Expected '{domain}' NOT in _blocked_domains after startup restore"
+        assert domain not in verifier._blocked_domains, (
+            f"Expected '{domain}' NOT in _blocked_domains after startup restore"
+        )
 
     @pytest.mark.asyncio
     async def test_startup_restores_multiple_rules(self, memory_database: Database) -> None:
@@ -501,6 +501,6 @@ class TestDomainOverrideStartupRestore:
 
         # Then: Inactive rule is ignored
         verifier = get_source_verifier()
-        assert (
-            domain not in verifier._blocked_domains
-        ), f"Expected '{domain}' NOT in _blocked_domains (inactive rule should be ignored)"
+        assert domain not in verifier._blocked_domains, (
+            f"Expected '{domain}' NOT in _blocked_domains (inactive rule should be ignored)"
+        )

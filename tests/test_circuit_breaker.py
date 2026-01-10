@@ -218,9 +218,9 @@ class TestEngineCircuitBreaker:
 
         # Then: State is open with future cooldown
         assert breaker.state == CircuitState.OPEN
-        assert isinstance(
-            breaker._cooldown_until, datetime
-        ), f"Expected datetime for cooldown, got {type(breaker._cooldown_until)}"
+        assert isinstance(breaker._cooldown_until, datetime), (
+            f"Expected datetime for cooldown, got {type(breaker._cooldown_until)}"
+        )
 
     def test_force_close(self) -> None:
         """Test force closing circuit."""

@@ -912,12 +912,12 @@ class TestStopTaskAuthQueueCancellation:
         item2 = await queue.get_item(queue_id2)
         assert item1 is not None
         assert item2 is not None
-        assert (
-            item1["status"] == "cancelled"
-        ), f"Item 1 status should be cancelled, got {item1['status']}"
-        assert (
-            item2["status"] == "cancelled"
-        ), f"Item 2 status should be cancelled, got {item2['status']}"
+        assert item1["status"] == "cancelled", (
+            f"Item 1 status should be cancelled, got {item1['status']}"
+        )
+        assert item2["status"] == "cancelled", (
+            f"Item 2 status should be cancelled, got {item2['status']}"
+        )
 
         # Verify no pending items remain
         pending_after = await queue.get_pending(task_id="task_st12")

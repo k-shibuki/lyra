@@ -50,9 +50,9 @@ class TestTemplateRendering:
             has_object = "{" in result and "}" in result
             has_array = "[" in result and "]" in result
 
-            assert (
-                has_object or has_array
-            ), f"Template '{template_name}' should contain JSON example"
+            assert has_object or has_array, (
+                f"Template '{template_name}' should contain JSON example"
+            )
 
     def test_variables_appear_in_rendered_output(
         self,

@@ -427,12 +427,12 @@ class TestHTTP3PolicyManager:
         # EMA is updated on each http_client request after min_samples reached
         # With alpha=0.1, EMA converges slowly toward 0.3
         # After ~5 updates: EMA ≈ 0.066 (below threshold 0.15)
-        assert (
-            stats.behavioral_difference_ema > 0.02
-        ), f"Expected behavioral_difference_ema > 0.02, got {stats.behavioral_difference_ema}"
-        assert (
-            stats.behavioral_difference_ema < 0.35
-        ), f"Expected behavioral_difference_ema < 0.35, got {stats.behavioral_difference_ema}"
+        assert stats.behavioral_difference_ema > 0.02, (
+            f"Expected behavioral_difference_ema > 0.02, got {stats.behavioral_difference_ema}"
+        )
+        assert stats.behavioral_difference_ema < 0.35, (
+            f"Expected behavioral_difference_ema < 0.35, got {stats.behavioral_difference_ema}"
+        )
 
         # With 10 samples, EMA (~0.066) is below threshold (0.15)
         # So browser_ratio_boost should still be 0.0
@@ -489,9 +489,9 @@ class TestHTTP3PolicyManager:
         # Browser: 100% success, HTTP client: 40% success
         # Difference: 0.6, EMA should converge toward 0.6
         # After 45 updates (50-5 min_samples), EMA should exceed 0.15
-        assert (
-            stats.behavioral_difference_ema > 0.15
-        ), f"Expected EMA > 0.15 (threshold), got {stats.behavioral_difference_ema}"
+        assert stats.behavioral_difference_ema > 0.15, (
+            f"Expected EMA > 0.15 (threshold), got {stats.behavioral_difference_ema}"
+        )
 
         # Now browser_ratio_boost should be positive
         assert stats.browser_ratio_boost > 0.0, (
@@ -539,9 +539,9 @@ class TestHTTP3PolicyManager:
         stats = await manager.get_stats(unique_domain)
 
         # At 4 samples each, EMA should still be 0 (below min_samples)
-        assert (
-            stats.behavioral_difference_ema == 0.0
-        ), f"Expected EMA=0 with only 4 samples, got {stats.behavioral_difference_ema}"
+        assert stats.behavioral_difference_ema == 0.0, (
+            f"Expected EMA=0 with only 4 samples, got {stats.behavioral_difference_ema}"
+        )
 
         # Add 5th browser request
         await manager.record_request(
@@ -570,9 +570,9 @@ class TestHTTP3PolicyManager:
         # At exactly 5 samples each, EMA calculation should start
         # Browser: 100% success, HTTP client: 0% success, difference = 1.0
         # First EMA update: 0.1 * 1.0 + 0.9 * 0 = 0.1
-        assert (
-            stats.behavioral_difference_ema > 0.0
-        ), f"Expected positive EMA at min_samples boundary, got {stats.behavioral_difference_ema}"
+        assert stats.behavioral_difference_ema > 0.0, (
+            f"Expected positive EMA at min_samples boundary, got {stats.behavioral_difference_ema}"
+        )
 
     @pytest.mark.asyncio
     async def test_get_policy_decision_no_http3(self, manager: HTTP3PolicyManager) -> None:
@@ -815,9 +815,9 @@ class TestEMACalculation:
         # First EMA update: 0.1 * 1.0 = 0.1
         # Subsequent updates converge toward 1.0
         # Expected: between 0.1 and 0.4 after 5 updates
-        assert (
-            0.08 <= stats.behavioral_difference_ema <= 0.5
-        ), f"Expected EMA in [0.08, 0.5], got {stats.behavioral_difference_ema}"
+        assert 0.08 <= stats.behavioral_difference_ema <= 0.5, (
+            f"Expected EMA in [0.08, 0.5], got {stats.behavioral_difference_ema}"
+        )
 
     @pytest.mark.asyncio
     async def test_ema_decay_when_no_advantage(self, manager: HTTP3PolicyManager) -> None:
@@ -871,9 +871,9 @@ class TestEMACalculation:
         stats = await manager.get_stats(unique_domain)
 
         # EMA should decay when browser no longer has advantage
-        assert (
-            stats.behavioral_difference_ema < high_ema
-        ), f"Expected EMA to decay from {high_ema}, got {stats.behavioral_difference_ema}"
+        assert stats.behavioral_difference_ema < high_ema, (
+            f"Expected EMA to decay from {high_ema}, got {stats.behavioral_difference_ema}"
+        )
 
 
 class TestHTTP3PolicyIntegration:
@@ -931,9 +931,9 @@ class TestHTTP3PolicyIntegration:
         # Verify behavioral difference was detected
         # Browser success: 90%, HTTP client: 50%, difference: 40%
         # EMA won't reach 0.4 immediately, but should be significant
-        assert (
-            decision.behavioral_difference > 0.1
-        ), f"Expected behavioral_difference > 0.1, got {decision.behavioral_difference}"
+        assert decision.behavioral_difference > 0.1, (
+            f"Expected behavioral_difference > 0.1, got {decision.behavioral_difference}"
+        )
 
     @pytest.mark.asyncio
     async def test_no_boost_when_http_client_performs_well(

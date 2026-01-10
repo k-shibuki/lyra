@@ -432,7 +432,7 @@ class TestBaseSearchSlotRelease:
                 await client.search("test query")
 
         # Then: release called on every attempt (no slot leak)
-        # Default max_retries from ACADEMIC_API_POLICY should be used
+        # max_retries from get_academic_api_policy() (config/academic_apis.yaml) should be used
         assert client.call_count >= 1, "At least one attempt made"
         assert mock_limiter.acquire.call_count == client.call_count, "acquire matches attempts"
         assert mock_limiter.release.call_count == client.call_count, "release matches attempts"
@@ -553,9 +553,9 @@ class TestPipelineEmbeddingPersistence:
             "E2E fix missing: persist_embedding('claim', ...) not found in "
             "_extract_claims_from_abstract"
         )
-        assert (
-            "Embedding generation failed for claim" in source
-        ), "E2E fix missing: error handling for claim embedding not found"
+        assert "Embedding generation failed for claim" in source, (
+            "E2E fix missing: error handling for claim embedding not found"
+        )
 
     @pytest.mark.asyncio
     async def test_embedding_failure_continues_processing(self, test_database: str) -> None:

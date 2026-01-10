@@ -36,12 +36,12 @@ import httpx
 import pytest
 
 from src.utils.api_retry import (
-    ACADEMIC_API_POLICY,
     ENTITY_API_POLICY,
     JAPAN_GOV_API_POLICY,
     APIRetryError,
     APIRetryPolicy,
     HTTPStatusError,
+    get_academic_api_policy,
     retry_api_call,
     with_api_retry,
 )
@@ -540,14 +540,15 @@ class TestPreConfiguredPolicies:
         assert policy.backoff.max_delay == 60.0
 
     def test_academic_api_policy(self) -> None:
-        """Test ACADEMIC_API_POLICY configuration."""
-        # Given: Pre-configured policy
-        policy = ACADEMIC_API_POLICY
+        """Test get_academic_api_policy() configuration from academic_apis.yaml."""
+        # Given: Policy loaded from config
+        policy = get_academic_api_policy()
 
-        # Then: Has expected values (more lenient)
-        assert policy.max_retries == 5
-        assert policy.backoff.base_delay == 1.0
-        assert policy.backoff.max_delay == 120.0
+        # Then: Has expected values from config/academic_apis.yaml
+        # (default values if config not found: max_retries=5, base_delay=1.0, max_delay=120.0)
+        assert policy.max_retries >= 1  # Must have at least 1 retry
+        assert policy.backoff.base_delay > 0  # Must have positive base delay
+        assert policy.backoff.max_delay > policy.backoff.base_delay  # max > base
 
     def test_entity_api_policy(self) -> None:
         """Test ENTITY_API_POLICY configuration."""

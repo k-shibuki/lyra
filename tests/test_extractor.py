@@ -53,9 +53,9 @@ class TestExtractContent:
         heading_texts = [
             h.get("text", "") if isinstance(h, dict) else str(h) for h in result["headings"]
         ]
-        assert (
-            "Test Heading" in heading_texts
-        ), f"Expected 'Test Heading' in headings: {result['headings']}"
+        assert "Test Heading" in heading_texts, (
+            f"Expected 'Test Heading' in headings: {result['headings']}"
+        )
 
     @pytest.mark.asyncio
     async def test_extract_html_detects_headings(self) -> None:
@@ -215,9 +215,9 @@ class TestTrafilaturaWiring:
 
         # Then: trafilatura.extract was called with include_links=False
         assert len(captured_calls) >= 1, "trafilatura.extract was not called"
-        assert (
-            captured_calls[0]["include_links"] is False
-        ), f"Expected include_links=False, got {captured_calls[0]['include_links']}"
+        assert captured_calls[0]["include_links"] is False, (
+            f"Expected include_links=False, got {captured_calls[0]['include_links']}"
+        )
         # Also verify other expected parameters
         assert captured_calls[0]["include_comments"] is False
         assert captured_calls[0]["include_tables"] is True
@@ -250,9 +250,9 @@ class TestFallbackExtraction:
         result = await _fallback_extract_html(html)
 
         # Then: Result is either extracted text or None
-        assert isinstance(
-            result, (str, type(None))
-        ), f"Expected str or None, got {type(result).__name__}"
+        assert isinstance(result, (str, type(None))), (
+            f"Expected str or None, got {type(result).__name__}"
+        )
 
     @pytest.mark.asyncio
     async def test_fallback_handles_empty_html(self) -> None:

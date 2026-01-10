@@ -46,9 +46,9 @@ class TestJobSchedulerWorkerWiring:
             for slot in Slot:
                 expected_count = SLOT_LIMITS[slot]
                 actual_count = len(scheduler._workers.get(slot, []))
-                assert (
-                    actual_count == expected_count
-                ), f"Expected {expected_count} workers for {slot.value}, got {actual_count}"
+                assert actual_count == expected_count, (
+                    f"Expected {expected_count} workers for {slot.value}, got {actual_count}"
+                )
         finally:
             # Cleanup
             await scheduler.stop()

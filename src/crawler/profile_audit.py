@@ -818,6 +818,15 @@ class ProfileAuditor:
         audit_result.repair_status = RepairStatus.SUCCESS if repair_success else RepairStatus.FAILED
         audit_result.retry_count = self._repair_count
 
+        # Update baseline to current fingerprint on successful repair
+        # This prevents repeated drift warnings for the same change
+        if repair_success and audit_result.current is not None:
+            self._save_baseline(audit_result.current)
+            logger.info(
+                "Baseline updated after successful repair",
+                ua_version=audit_result.current.ua_major_version,
+            )
+
         # Log the repair attempt
         self._log_audit(audit_result)
 

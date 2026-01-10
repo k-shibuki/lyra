@@ -372,9 +372,9 @@ Certificate:
         assert "third-party.org" in result.discovered_domains
 
         # Issuers should be tracked (from fixture data)
-        assert (
-            "Let's Encrypt" in result.discovered_issuers
-        ), f"Expected 'Let\\'s Encrypt' in issuers: {result.discovered_issuers}"
+        assert "Let's Encrypt" in result.discovered_issuers, (
+            f"Expected 'Let\\'s Encrypt' in issuers: {result.discovered_issuers}"
+        )
 
         # Timeline
         assert result.earliest_cert is not None

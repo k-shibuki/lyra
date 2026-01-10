@@ -443,9 +443,9 @@ class TestClaimDecomposerRuleBased:
         assert result.success is True
         assert len(result.claims) >= 1
         claim = result.claims[0]
-        assert (
-            len(claim.verification_hints) >= 1
-        ), f"Expected >=1 verification hints, got {len(claim.verification_hints)}"
+        assert len(claim.verification_hints) >= 1, (
+            f"Expected >=1 verification hints, got {len(claim.verification_hints)}"
+        )
 
     @pytest.mark.asyncio
     async def test_source_question_preserved(self, decomposer: ClaimDecomposer) -> None:

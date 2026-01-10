@@ -87,10 +87,7 @@ def extract_json(
                     logger.debug("Rejecting single object in strict_array mode (expect_array=True)")
                     return None
                 # Lenient mode: LLM returned single object instead of array - wrap it
-                logger.warning(
-                    "LLM returned single object instead of array; wrapping. "
-                    "Consider improving prompt or model."
-                )
+                logger.info("LLM returned single object instead of array; wrapping")
                 return [result]
         else:
             if isinstance(result, dict):

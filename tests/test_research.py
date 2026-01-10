@@ -185,9 +185,9 @@ class TestResearchContext:
         assert result["ok"] is True
         assert "recommended_engines" in result
         assert isinstance(result["recommended_engines"], list)
-        assert (
-            len(result["recommended_engines"]) >= 1
-        ), f"Expected >=1 recommended engines, got {result['recommended_engines']}"
+        assert len(result["recommended_engines"]) >= 1, (
+            f"Expected >=1 recommended engines, got {result['recommended_engines']}"
+        )
 
     @pytest.mark.asyncio
     async def test_get_context_task_not_found(self, test_database: Database) -> None:
@@ -725,19 +725,19 @@ class TestExplorationState:
             status = await state.get_status()
 
         # Then: authentication_queue is included
-        assert (
-            status["authentication_queue"] is not None
-        ), "authentication_queue should not be None when items pending"
+        assert status["authentication_queue"] is not None, (
+            "authentication_queue should not be None when items pending"
+        )
         auth_queue = status["authentication_queue"]
-        assert (
-            auth_queue["pending_count"] == 2
-        ), f"pending_count should be 2, got {auth_queue['pending_count']}"
-        assert (
-            auth_queue["high_priority_count"] == 1
-        ), f"high_priority_count should be 1, got {auth_queue['high_priority_count']}"
-        assert (
-            len(auth_queue["domains"]) == 2
-        ), f"Should have 2 domains, got {len(auth_queue['domains'])}"
+        assert auth_queue["pending_count"] == 2, (
+            f"pending_count should be 2, got {auth_queue['pending_count']}"
+        )
+        assert auth_queue["high_priority_count"] == 1, (
+            f"high_priority_count should be 1, got {auth_queue['high_priority_count']}"
+        )
+        assert len(auth_queue["domains"]) == 2, (
+            f"Should have 2 domains, got {len(auth_queue['domains'])}"
+        )
 
     @pytest.mark.asyncio
     async def test_auth_queue_warning_threshold(self, test_database: Database) -> None:
@@ -771,12 +771,12 @@ class TestExplorationState:
 
         # Then: Warning alert is generated
         warning_alerts = [w for w in status["warnings"] if "[warning]" in w]
-        assert (
-            len(warning_alerts) == 1
-        ), f"Should have 1 warning alert, got {len(warning_alerts)}: {status['warnings']}"
-        assert (
-            "3 auth pending" in warning_alerts[0]
-        ), f"Warning should mention '3 auth pending', got '{warning_alerts[0]}'"
+        assert len(warning_alerts) == 1, (
+            f"Should have 1 warning alert, got {len(warning_alerts)}: {status['warnings']}"
+        )
+        assert "3 auth pending" in warning_alerts[0], (
+            f"Warning should mention '3 auth pending', got '{warning_alerts[0]}'"
+        )
 
     @pytest.mark.asyncio
     async def test_auth_queue_critical_threshold_by_count(self, test_database: Database) -> None:
@@ -816,12 +816,12 @@ class TestExplorationState:
 
         # Then: Critical alert is generated
         critical_alerts = [w for w in status["warnings"] if "[critical]" in w]
-        assert (
-            len(critical_alerts) == 1
-        ), f"Should have 1 critical alert, got {len(critical_alerts)}: {status['warnings']}"
-        assert (
-            "5 auth pending" in critical_alerts[0]
-        ), f"Critical should mention '5 auth pending', got '{critical_alerts[0]}'"
+        assert len(critical_alerts) == 1, (
+            f"Should have 1 critical alert, got {len(critical_alerts)}: {status['warnings']}"
+        )
+        assert "5 auth pending" in critical_alerts[0], (
+            f"Critical should mention '5 auth pending', got '{critical_alerts[0]}'"
+        )
 
     @pytest.mark.asyncio
     async def test_auth_queue_critical_threshold_by_high_priority(
@@ -857,12 +857,12 @@ class TestExplorationState:
 
         # Then: Critical alert for high priority
         critical_alerts = [w for w in status["warnings"] if "[critical]" in w]
-        assert (
-            len(critical_alerts) == 1
-        ), f"Should have 1 critical alert for high priority, got {len(critical_alerts)}: {status['warnings']}"
-        assert (
-            "primary source access blocked" in critical_alerts[0]
-        ), f"Critical should mention primary source blocking, got '{critical_alerts[0]}'"
+        assert len(critical_alerts) == 1, (
+            f"Should have 1 critical alert for high priority, got {len(critical_alerts)}: {status['warnings']}"
+        )
+        assert "primary source access blocked" in critical_alerts[0], (
+            f"Critical should mention primary source blocking, got '{critical_alerts[0]}'"
+        )
 
     @pytest.mark.asyncio
     async def test_finalize_returns_summary(self, test_database: Database) -> None:
@@ -898,9 +898,9 @@ class TestExplorationState:
         assert result["is_resumable"] is True
         assert result["summary"]["satisfied_searches"] == 1
         assert "sq_002" in result["summary"]["unsatisfied_searches"]
-        assert (
-            len(result["followup_suggestions"]) >= 1
-        ), f"Expected >=1 followup suggestions, got {result['followup_suggestions']}"
+        assert len(result["followup_suggestions"]) >= 1, (
+            f"Expected >=1 followup suggestions, got {result['followup_suggestions']}"
+        )
 
 
 # =============================================================================
@@ -1063,9 +1063,9 @@ class TestSearchExecutor:
         refutation_queries = executor.generate_refutation_queries(base_query)
 
         # Then: Queries use mechanical suffixes only
-        assert (
-            len(refutation_queries) >= 1
-        ), f"Expected >=1 refutation queries, got {len(refutation_queries)}"
+        assert len(refutation_queries) >= 1, (
+            f"Expected >=1 refutation queries, got {len(refutation_queries)}"
+        )
         for rq in refutation_queries:
             assert base_query in rq
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)
@@ -1235,9 +1235,9 @@ class TestRefutationExecutor:
         reverse_queries = executor._generate_reverse_queries(claim_text)
 
         # Then: Queries use mechanical suffixes
-        assert (
-            len(reverse_queries) >= 1
-        ), f"Expected >=1 reverse queries, got {len(reverse_queries)}"
+        assert len(reverse_queries) >= 1, (
+            f"Expected >=1 reverse queries, got {len(reverse_queries)}"
+        )
         for rq in reverse_queries:
             has_suffix = any(suffix in rq for suffix in REFUTATION_SUFFIXES)
             assert has_suffix, f"Query '{rq}' doesn't use mechanical suffix"

@@ -163,6 +163,6 @@ class TestAutoStartLockBehavior:
             # Extract worker ID from event names
             start_worker = start_event.split("_")[1]
             end_worker = end_event.split("_")[1]
-            assert (
-                start_worker == end_worker
-            ), f"Lock did not serialize execution: {execution_order}"
+            assert start_worker == end_worker, (
+                f"Lock did not serialize execution: {execution_order}"
+            )

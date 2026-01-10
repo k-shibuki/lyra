@@ -1538,7 +1538,6 @@ async def add_claim_evidence(
     # Best-effort: enrich fragment node with page metadata so independent_sources/time metadata
     # can be computed correctly without requiring a reload.
     try:
-
         frag_row = await db.fetch_one(
             "SELECT page_id FROM fragments WHERE id = ?",
             (fragment_id,),

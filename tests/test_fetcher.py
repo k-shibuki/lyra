@@ -594,9 +594,9 @@ class TestHumanBehavior:
 
         # Verify positions are within scrollable range and have valid delays
         for idx, (scroll_y, delay) in enumerate(positions):
-            assert (
-                0 <= scroll_y <= 1920
-            ), f"Position {idx}: scroll_y={scroll_y} out of range [0, 1920]"
+            assert 0 <= scroll_y <= 1920, (
+                f"Position {idx}: scroll_y={scroll_y} out of range [0, 1920]"
+            )
             # Delays are now in seconds (converted from ms)
             assert delay >= 0, f"Position {idx}: delay={delay} should be non-negative"
 
@@ -641,20 +641,20 @@ class TestHumanBehavior:
 
         # First point should be near start (within jitter tolerance)
         jitter_tolerance = 15
-        assert (
-            abs(path[0][0] - start_x) < jitter_tolerance
-        ), f"First point x={path[0][0]} too far from start_x={start_x}"
-        assert (
-            abs(path[0][1] - start_y) < jitter_tolerance
-        ), f"First point y={path[0][1]} too far from start_y={start_y}"
+        assert abs(path[0][0] - start_x) < jitter_tolerance, (
+            f"First point x={path[0][0]} too far from start_x={start_x}"
+        )
+        assert abs(path[0][1] - start_y) < jitter_tolerance, (
+            f"First point y={path[0][1]} too far from start_y={start_y}"
+        )
 
         # Last point should be near end
-        assert (
-            abs(path[-1][0] - end_x) < jitter_tolerance
-        ), f"Last point x={path[-1][0]} too far from end_x={end_x}"
-        assert (
-            abs(path[-1][1] - end_y) < jitter_tolerance
-        ), f"Last point y={path[-1][1]} too far from end_y={end_y}"
+        assert abs(path[-1][0] - end_x) < jitter_tolerance, (
+            f"Last point x={path[-1][0]} too far from end_x={end_x}"
+        )
+        assert abs(path[-1][1] - end_y) < jitter_tolerance, (
+            f"Last point y={path[-1][1]} too far from end_y={end_y}"
+        )
 
     def test_mouse_path_has_jitter(self) -> None:
         """Test mouse paths are not identical (random jitter)."""
@@ -725,18 +725,18 @@ class TestDatabaseFetchCache:
         cached = await db.get_fetch_cache(url)
 
         assert cached is not None, f"Cache entry should exist for {url}"
-        assert (
-            cached["etag"] == expected_etag
-        ), f"ETag mismatch: expected {expected_etag}, got {cached['etag']}"
-        assert (
-            cached["last_modified"] == expected_last_modified
-        ), f"Last-Modified mismatch: expected {expected_last_modified}, got {cached['last_modified']}"
-        assert (
-            cached["content_hash"] == expected_hash
-        ), f"Content hash mismatch: expected {expected_hash}, got {cached['content_hash']}"
-        assert (
-            cached["content_path"] == expected_path
-        ), f"Content path mismatch: expected {expected_path}, got {cached['content_path']}"
+        assert cached["etag"] == expected_etag, (
+            f"ETag mismatch: expected {expected_etag}, got {cached['etag']}"
+        )
+        assert cached["last_modified"] == expected_last_modified, (
+            f"Last-Modified mismatch: expected {expected_last_modified}, got {cached['last_modified']}"
+        )
+        assert cached["content_hash"] == expected_hash, (
+            f"Content hash mismatch: expected {expected_hash}, got {cached['content_hash']}"
+        )
+        assert cached["content_path"] == expected_path, (
+            f"Content path mismatch: expected {expected_path}, got {cached['content_path']}"
+        )
 
     @pytest.mark.asyncio
     async def test_get_fetch_cache_missing_url(self, memory_database: Database) -> None:
@@ -762,12 +762,12 @@ class TestDatabaseFetchCache:
 
         cached = await db.get_fetch_cache(lookup_url)
 
-        assert (
-            cached is not None
-        ), f"Cache miss for normalized URL: stored={store_url}, lookup={lookup_url}"
-        assert (
-            cached["etag"] == expected_etag
-        ), f"ETag mismatch after normalization: expected {expected_etag}, got {cached['etag']}"
+        assert cached is not None, (
+            f"Cache miss for normalized URL: stored={store_url}, lookup={lookup_url}"
+        )
+        assert cached["etag"] == expected_etag, (
+            f"ETag mismatch after normalization: expected {expected_etag}, got {cached['etag']}"
+        )
 
     @pytest.mark.asyncio
     async def test_update_fetch_cache_validation(self, memory_database: Database) -> None:
@@ -848,15 +848,15 @@ class TestDatabaseFetchCache:
 
         stats = await db.get_fetch_cache_stats()
 
-        assert (
-            stats["total_entries"] == 3
-        ), f"Expected 3 total entries, got {stats['total_entries']}"
-        assert (
-            stats["with_etag"] == 2
-        ), f"Expected 2 entries with ETag (a.com, c.com), got {stats['with_etag']}"
-        assert (
-            stats["with_last_modified"] == 2
-        ), f"Expected 2 entries with Last-Modified (b.com, c.com), got {stats['with_last_modified']}"
+        assert stats["total_entries"] == 3, (
+            f"Expected 3 total entries, got {stats['total_entries']}"
+        )
+        assert stats["with_etag"] == 2, (
+            f"Expected 2 entries with ETag (a.com, c.com), got {stats['with_etag']}"
+        )
+        assert stats["with_last_modified"] == 2, (
+            f"Expected 2 entries with Last-Modified (b.com, c.com), got {stats['with_last_modified']}"
+        )
 
     @pytest.mark.asyncio
     async def test_fetch_cache_replace_existing(self, memory_database: Database) -> None:
@@ -875,12 +875,12 @@ class TestDatabaseFetchCache:
         cached = await db.get_fetch_cache(url)
         assert cached is not None
 
-        assert (
-            cached["etag"] == new_etag
-        ), f"ETag should be replaced: expected {new_etag}, got {cached['etag']}"
-        assert (
-            cached["content_path"] == new_path
-        ), f"Content path should be replaced: expected {new_path}, got {cached['content_path']}"
+        assert cached["etag"] == new_etag, (
+            f"ETag should be replaced: expected {new_etag}, got {cached['etag']}"
+        )
+        assert cached["content_path"] == new_path, (
+            f"Content path should be replaced: expected {new_path}, got {cached['content_path']}"
+        )
 
 
 @pytest.mark.unit
@@ -950,9 +950,9 @@ class TestHTTPFetcherConditionalHeaders:
                     mock_get_transfer.assert_called_once()
                     call_args = mock_get_transfer.call_args
                     assert call_args[0][0] == "https://example.com/page"
-                    assert (
-                        call_args[1]["include_conditional"] is False
-                    ), "include_conditional should be False when cached_etag is provided"
+                    assert call_args[1]["include_conditional"] is False, (
+                        "include_conditional should be False when cached_etag is provided"
+                    )
 
                     # Verify the actual request used URL-specific ETag
                     # (check mock_get call arguments)
@@ -1018,9 +1018,9 @@ class TestHTTPFetcherConditionalHeaders:
 
                     # Verify include_conditional=False when cached_last_modified is provided
                     call_args = mock_get_transfer.call_args
-                    assert (
-                        call_args[1]["include_conditional"] is False
-                    ), "include_conditional should be False when cached_last_modified is provided"
+                    assert call_args[1]["include_conditional"] is False, (
+                        "include_conditional should be False when cached_last_modified is provided"
+                    )
 
                     # Verify request uses URL-specific Last-Modified
                     call_kwargs = mock_get.call_args[1]
@@ -1084,9 +1084,9 @@ class TestHTTPFetcherConditionalHeaders:
 
                     # Verify include_conditional=False
                     call_args = mock_get_transfer.call_args
-                    assert (
-                        call_args[1]["include_conditional"] is False
-                    ), "include_conditional should be False when both cached values are provided"
+                    assert call_args[1]["include_conditional"] is False, (
+                        "include_conditional should be False when both cached values are provided"
+                    )
 
     @pytest.mark.asyncio
     async def test_no_cached_values_includes_session_conditionals(
@@ -1130,9 +1130,9 @@ class TestHTTPFetcherConditionalHeaders:
 
                     # Verify include_conditional=True (default)
                     call_args = mock_get_transfer.call_args
-                    assert (
-                        call_args[1]["include_conditional"] is True
-                    ), "include_conditional should be True when no cached values are provided"
+                    assert call_args[1]["include_conditional"] is True, (
+                        "include_conditional should be True when no cached values are provided"
+                    )
 
 
 @pytest.mark.unit

@@ -478,7 +478,9 @@ class TestNLIService:
         mock_pipeline.return_value = [{"label": "ENTAILMENT", "score": 0.95}]
 
         # Patch at load() level to avoid AutoTokenizer validation
-        with (patch.object(NLIService, "load", new_callable=AsyncMock) as mock_load,):
+        with (
+            patch.object(NLIService, "load", new_callable=AsyncMock) as mock_load,
+        ):
             service = NLIService()
             service._model = mock_pipeline
 
@@ -514,7 +516,9 @@ class TestNLIService:
         ]
 
         # Patch at load() level to avoid AutoTokenizer validation
-        with (patch.object(NLIService, "load", new_callable=AsyncMock) as mock_load,):
+        with (
+            patch.object(NLIService, "load", new_callable=AsyncMock) as mock_load,
+        ):
             service = NLIService()
             service._model = mock_pipeline
 

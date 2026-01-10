@@ -936,6 +936,6 @@ class TestSecurityCases:
         """
         from src.mcp.response_sanitizer import LLM_CONTENT_FIELDS
 
-        assert (
-            "query" in LLM_CONTENT_FIELDS
-        ), "query field must be in LLM_CONTENT_FIELDS for defensive sanitization"
+        assert "query" in LLM_CONTENT_FIELDS, (
+            "query field must be in LLM_CONTENT_FIELDS for defensive sanitization"
+        )

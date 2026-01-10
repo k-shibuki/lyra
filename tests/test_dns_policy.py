@@ -701,6 +701,6 @@ class TestDNSPolicyIntegration:
 
             # socks5h:// ensures DNS is resolved through the SOCKS proxy
             # This is the key mechanism for preventing DNS leaks
-            assert (
-                "socks5h://" in proxy_url
-            ), "SOCKS proxy URL must use socks5h:// protocol to prevent DNS leaks"
+            assert "socks5h://" in proxy_url, (
+                "SOCKS proxy URL must use socks5h:// protocol to prevent DNS leaks"
+            )
