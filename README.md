@@ -34,11 +34,13 @@ The evidence you collect is **yours** — stored locally in a SQLite database, n
 - **Export anywhere**: Generate reports, citations, or data exports in any format you need
 - **Accumulate knowledge**: Evidence persists across sessions; corrections improve model quality over time
 
+**[→ See Demo Dashboard](https://k-shibuki.github.io/lyra/session_03/output/evidence_dashboard.html)** — interactive visualization created entirely through AI conversation.
+
 **Quick start** (Cursor):
 ```bash
 cp docs/examples/commands/*.md .cursor/commands/
 ```
-Then invoke `/lyra-search` in chat. See [docs/examples/README.md](docs/examples/README.md) for workflows and sample research.
+Then invoke `/lyra-search` in chat. See [docs/examples/](docs/examples/) for workflows.
 
 ### Lyra vs. "Instant Research" Products
 
