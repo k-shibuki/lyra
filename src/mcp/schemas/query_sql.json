@@ -58,6 +58,10 @@
     },
     "error": {
       "type": "string"
+    },
+    "hint": {
+      "type": ["string", "null"],
+      "description": "Helpful hint for resolving common errors (e.g., which view to use for computed columns)"
     }
   },
   "required": ["ok", "rows", "row_count", "columns", "truncated", "elapsed_ms"]

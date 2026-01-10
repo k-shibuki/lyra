@@ -372,9 +372,7 @@ async def handle_queue_reference_candidates(args: dict[str, Any]) -> dict[str, A
                     and f"tu_{uuid.uuid4().hex[:12]}" in target_ids,
                 }
                 for item in targets_to_queue
-            ][
-                :10
-            ],  # Limit response size
+            ][:10],  # Limit response size
             "dry_run": False,
             "message": message,
             "summary": {

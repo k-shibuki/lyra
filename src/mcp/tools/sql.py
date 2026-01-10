@@ -34,6 +34,89 @@ FORBIDDEN_PATTERNS = [
 ]
 
 
+def _get_sql_error_hint(error_msg: str) -> str | None:
+    """Generate helpful hints for common SQL errors.
+
+    Args:
+        error_msg: SQLite error message.
+
+    Returns:
+        Hint string or None if no hint available.
+    """
+    error_lower = error_msg.lower()
+
+    # Computed columns (only in views, not base tables)
+    if "no such column" in error_lower:
+        # v_claim_evidence_summary computed columns
+        if "bayesian_truth_confidence" in error_msg:
+            return (
+                "bayesian_truth_confidence is a computed column available only in "
+                "v_claim_evidence_summary view. Use: SELECT * FROM v_claim_evidence_summary "
+                "WHERE task_id = '...'"
+            )
+        if "support_count" in error_msg or "refute_count" in error_msg:
+            return (
+                "support_count/refute_count are computed columns available only in "
+                "v_claim_evidence_summary view."
+            )
+        if "neutral_count" in error_msg or "evidence_count" in error_msg:
+            return (
+                "neutral_count/evidence_count are computed columns available only in "
+                "v_claim_evidence_summary view."
+            )
+        if "controversy_score" in error_msg:
+            return "controversy_score is a computed column available only in v_contradictions view."
+
+        # task_id not present in some tables
+        if "task_id" in error_msg:
+            if "pages" in error_lower or "page" in error_lower:
+                return (
+                    "pages table does NOT have task_id (URL-based deduplication, global scope). "
+                    "To filter by task, JOIN with claims or fragments via edges."
+                )
+            if "fragments" in error_lower or "fragment" in error_lower:
+                return (
+                    "fragments table does NOT have task_id. "
+                    "Use: JOIN pages ON fragments.page_id = pages.id, then JOIN via edges to claims."
+                )
+            if "edges" in error_lower or "edge" in error_lower:
+                return (
+                    "edges table does NOT have task_id. "
+                    "Use: JOIN claims c ON edges.target_id = c.id WHERE c.task_id = '...'"
+                )
+
+    # Table not found - guide to correct table
+    if "no such table" in error_lower:
+        # Guide users looking for bibliographic/metadata info
+        if "metadata" in error_lower or "paper" in error_lower:
+            return (
+                "For bibliographic metadata (title, year, venue, doi, authors), use 'works' table. "
+                "Pages link to works via pages.canonical_id → works.canonical_id."
+            )
+        if "author" in error_lower:
+            return (
+                "Author data is in 'work_authors' table (canonical_id, position, name, affiliation, orcid). "
+                "JOIN with works: SELECT * FROM works w JOIN work_authors wa ON w.canonical_id = wa.canonical_id"
+            )
+
+    # Column not in expected table - guide to correct table
+    if "no such column" in error_lower:
+        # Authors column doesn't exist on works - use work_authors table
+        if "authors" in error_msg and "work" in error_lower:
+            return (
+                "works table does not have 'authors' column. Use work_authors table instead: "
+                "SELECT w.*, wa.name FROM works w JOIN work_authors wa ON w.canonical_id = wa.canonical_id"
+            )
+        # paper_id lookup
+        if "paper_id" in error_msg:
+            return (
+                "To look up by paper_id (e.g., 's2:xxx', 'openalex:Wxxx'), use work_identifiers table: "
+                "SELECT * FROM work_identifiers WHERE provider_paper_id = '...'"
+            )
+
+    return None
+
+
 def validate_sql_text(sql: str) -> None:
     """Reject dangerous SQL patterns and multi-statement payloads.
 
@@ -321,6 +404,7 @@ async def handle_query_sql(args: dict[str, Any]) -> dict[str, Any]:
 
     except aiosqlite.OperationalError as e:
         logger.warning("SQL execution error", error=str(e))
+
         # Common failure mode when SQLite interrupts due to progress handler.
         if "interrupted" in str(e).lower():
             return {
@@ -332,6 +416,11 @@ async def handle_query_sql(args: dict[str, Any]) -> dict[str, Any]:
                 "elapsed_ms": int((time.time() - start_time) * 1000),
                 "error": "Query interrupted (timeout or max_vm_steps exceeded)",
             }
+
+        # Provide helpful hints for common column/table errors
+        error_msg = str(e)
+        hint = _get_sql_error_hint(error_msg)
+
         return {
             "ok": False,
             "rows": [],
@@ -339,7 +428,8 @@ async def handle_query_sql(args: dict[str, Any]) -> dict[str, Any]:
             "columns": [],
             "truncated": False,
             "elapsed_ms": int((time.time() - start_time) * 1000),
-            "error": str(e),
+            "error": error_msg,
+            "hint": hint,
         }
     except ValueError as e:
         # Validation errors (timeout, forbidden patterns)
