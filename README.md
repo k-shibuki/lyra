@@ -25,6 +25,15 @@ When AI assistants conduct web research, they face critical evidence quality pro
 - **Incremental Exploration**: SQL and vector search for granular evidence access
 - **Local-First**: All ML processing on your machine (zero data exfiltration, zero operational cost)
 
+### Lyra vs. "Instant Research" Products
+
+| Approach | Focus | Trade-off |
+|----------|-------|-----------|
+| **Deep Research** (Claude, OpenAI, Gemini) | One-shot report | Answers are ephemeral; no reuse across sessions |
+| **Lyra** | Cumulative Evidence Graph | DB grows over sessions; reports are optional exports |
+
+Lyra is **not** a competitor to instant research products—it serves a different need. If you want a quick answer now, use Deep Research. If you want a **knowledge infrastructure** that accumulates value over time, use Lyra.
+
 For detailed architecture, see [docs/architecture.md](docs/architecture.md).
 
 ## Key Concepts
@@ -32,6 +41,8 @@ For detailed architecture, see [docs/architecture.md](docs/architecture.md).
 ### Key Principle
 
 Lyra is a *navigation tool*, not a disposable answer generator ([ADR-0001](docs/adr/0001-local-first-zero-opex.md)). It discovers and organizes sources; detailed analysis is the researcher's role. The evidence graph persists and accumulates value across sessions—corrections improve model quality over time.
+
+**The primary output is the Evidence Graph itself**, not a report. You query the graph, explore contradictions, trace claims to sources, and iterate. Reports *can* be generated (see [examples](docs/examples/)), but they are **export artifacts**—snapshots for sharing or audit—not the goal.
 
 ### Three-Layer Collaboration
 

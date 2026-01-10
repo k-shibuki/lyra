@@ -92,7 +92,6 @@ tor = [
 
 # Development tools
 dev = [
-    "black>=23.11.0",
     "ruff>=0.1.6",
     "mypy>=1.7.0",
     "check-jsonschema>=0.36.0",
@@ -139,20 +138,6 @@ dev = [
 # =============================================================================
 # Tool Configuration
 # =============================================================================
-[tool.black]
-line-length = 100
-target-version = ["py314"]
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-    | __pycache__
-    | data
-    | logs
-    | models
-)/
-'''
-
 [tool.ruff]
 line-length = 100
 target-version = "py314"
@@ -175,7 +160,7 @@ select = [
     "UP",  # pyupgrade
 ]
 ignore = [
-    "E501",  # line too long (handled by black)
+    "E501",  # line too long (handled by ruff format)
     "B008",  # do not perform function calls in argument defaults
     "E402",  # Some test scripts intentionally import after sys.path manipulation
     "E701",  # Multiple statements on one line - false positives in docstrings with colons

@@ -7,8 +7,8 @@
 # Actions:
 #   lint         Run ruff check
 #   lint-fix     Run ruff check --fix
-#   format       Run black + ruff --fix
-#   format-check Run black --check
+#   format       Run ruff format + ruff check --fix
+#   format-check Run ruff format --check
 #   typecheck    Run mypy
 #   jsonschema   Validate MCP JSON schemas
 #   sh-check     Run shellcheck on scripts
@@ -61,11 +61,11 @@ case "$ACTION" in
         run_ruff_check --fix src/ tests/ "$@"
         ;;
     format)
-        uv run black src/ tests/ "$@"
+        uv run ruff format src/ tests/ "$@"
         run_ruff_check --fix src/ tests/
         ;;
     format-check)
-        uv run black --check src/ tests/ "$@"
+        uv run ruff format --check src/ tests/ "$@"
         ;;
     typecheck)
         run_mypy src/ tests/ "$@"

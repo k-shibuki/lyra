@@ -273,6 +273,22 @@ brave:
   captcha_patterns:
     # Note: Simple "captcha" pattern causes false positives due to JS variable names
     # (e.g., "captchacookiename" in Brave's config). Use more specific patterns.
+    #
+    # Brave PoW (Proof of Work) CAPTCHA patterns
+    # These appear when Brave requires computational proof before showing results
+    - pattern: "pow-captcha"
+      type: "pow_captcha"
+      case_insensitive: true
+    - pattern: "pow captcha"
+      type: "pow_captcha"
+      case_insensitive: true
+    - pattern: "confirm you're a human"
+      type: "pow_captcha"
+      case_insensitive: true
+    - pattern: "confirm you are a human"
+      type: "pow_captcha"
+      case_insensitive: true
+    # Standard CAPTCHA patterns
     - pattern: "please complete the captcha"
       type: "captcha"
       case_insensitive: true

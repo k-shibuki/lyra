@@ -223,7 +223,7 @@ lint: ## Run linters (ruff)
 lint-fix: ## Run linters with auto-fix
 	@$(SCRIPTS)/quality.sh lint-fix
 
-format: ## Format code (black + ruff)
+format: ## Format code (ruff format)
 	@$(SCRIPTS)/quality.sh format
 
 format-check: ## Check code formatting
