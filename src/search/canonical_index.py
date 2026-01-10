@@ -206,6 +206,50 @@ class CanonicalPaperIndex:
 
         return canonical_id
 
+    def attach_paper_to_entry(self, serp_canonical_id: str, paper: Paper, source_api: str) -> str:
+        """Attach an API Paper to an existing SERP-derived entry, merging keys if needed.
+
+        Why: SERP identifiers may be provider-native (e.g., openalex:W..., s2:...).
+        API Paper canonical identity is typically DOI-based. When these differ, we must
+        merge the SERP entry into the API entry to avoid leaving a SERP-only entry that
+        incorrectly triggers web fetch.
+        """
+        # Register paper (creates/updates the canonical entry based on paper identity)
+        paper_canonical_id = self.register_paper(paper, source_api=source_api)
+
+        if serp_canonical_id == paper_canonical_id:
+            return paper_canonical_id
+
+        serp_entry = self._index.get(serp_canonical_id)
+        if serp_entry is None:
+            return paper_canonical_id
+
+        dst_entry = self._index.get(paper_canonical_id)
+        if dst_entry is None:
+            # Should not happen because register_paper() created it, but keep safe
+            self._index[paper_canonical_id] = serp_entry
+            del self._index[serp_canonical_id]
+            return paper_canonical_id
+
+        # Merge SERP results into destination entry
+        if serp_entry.serp_results:
+            dst_entry.serp_results.extend(serp_entry.serp_results)
+
+        # Ensure source reflects both when we have SERP evidence
+        if dst_entry.source == "api":
+            dst_entry.source = "both"
+
+        # Remove old SERP-only entry
+        del self._index[serp_canonical_id]
+
+        logger.debug(
+            "Merged SERP entry into API canonical entry",
+            from_id=serp_canonical_id,
+            to_id=paper_canonical_id,
+        )
+
+        return paper_canonical_id
+
     def register_serp_result(
         self,
         serp_result: SERPResult,

@@ -466,40 +466,29 @@ class SearchPipeline:
                     entry_identifier = extractor.extract(url)
 
                 if entry_identifier and (
-                    entry_identifier.doi or entry_identifier.pmid or entry_identifier.arxiv_id
+                    entry_identifier.doi
+                    or entry_identifier.pmid
+                    or entry_identifier.arxiv_id
+                    or entry_identifier.openalex_work_id
+                    or entry_identifier.s2_paper_id
+                    or entry_identifier.pmcid
                 ):
                     identifiers_found = True
                     try:
-                        # Try to get paper metadata from academic API
-                        paper_id = None
-                        if entry_identifier.doi:
-                            paper_id = f"DOI:{entry_identifier.doi}"
-                        elif entry_identifier.pmid:
-                            paper_id = f"PMID:{entry_identifier.pmid}"
-                        elif entry_identifier.arxiv_id:
-                            paper_id = f"ArXiv:{entry_identifier.arxiv_id}"
-
-                        if paper_id:
-                            # Try to get paper from academic API clients
-                            paper = None
-                            for api_name in ["semantic_scholar", "openalex"]:
-                                try:
-                                    client = await academic_provider._get_client(api_name)
-                                    paper = await client.get_paper(paper_id)
-                                    if paper:
-                                        break
-                                except Exception:
-                                    continue
-
-                            if paper and paper.abstract:
-                                # Register paper in index
-                                index.register_paper(paper, source_api=paper.source_api)
+                        url = entry.serp_results[0].url if entry.serp_results else ""
+                        serp_result_obj = entry.serp_results[0] if entry.serp_results else None
+                        if isinstance(serp_result_obj, SERPResult) and url:
+                            paper = await self._complement_serp_result(
+                                academic_provider=academic_provider,
+                                resolver=resolver,
+                                extractor=extractor,
+                                index=index,
+                                serp_url=url,
+                                serp_result=serp_result_obj,
+                                entry_canonical_id=entry.canonical_id,
+                            )
+                            if paper:
                                 papers_found.append(paper)
-                                logger.debug(
-                                    "Complemented SERP result with academic API",
-                                    url=url,
-                                    paper_id=paper.id,
-                                )
                     except Exception as e:
                         logger.debug(
                             "Failed to complement with academic API",
@@ -519,6 +508,96 @@ class SearchPipeline:
         finally:
             await resolver.close()
             await academic_provider.close()
+
+    async def _complement_serp_result(
+        self,
+        *,
+        academic_provider: Any,
+        resolver: Any,
+        extractor: Any,
+        index: Any,
+        serp_url: str,
+        serp_result: Any,
+        entry_canonical_id: str,
+    ) -> Any | None:
+        """Best-effort academic API complement with minimal calls.
+
+        Strategy (fastest_min_calls):
+        - Choose 1st API based on identifier type.
+        - Only call 2nd API if 1st returns None or missing abstract and DOI is available.
+        - Attach/merge the SERP entry into the API entry when canonical IDs differ.
+        """
+        identifier = extractor.extract(serp_url)
+
+        # Resolve DOI only when required (PMCID/PMID/arXiv paths)
+        if identifier.needs_meta_extraction and not identifier.doi:
+            try:
+                if identifier.pmcid:
+                    resolved = await resolver.resolve_pmcid(identifier.pmcid)
+                    if resolved and resolved.get("doi"):
+                        identifier.doi = str(resolved.get("doi"))
+                elif identifier.pmid:
+                    identifier.doi = await resolver.resolve_pmid_to_doi(identifier.pmid)
+                elif identifier.arxiv_id:
+                    identifier.doi = await resolver.resolve_arxiv_to_doi(identifier.arxiv_id)
+            except Exception as e:
+                logger.debug("DOI resolution failed", url=serp_url, error=str(e))
+
+        primary: tuple[str, str] | None = None
+        if identifier.openalex_work_id:
+            primary = ("openalex", f"openalex:{identifier.openalex_work_id}")
+        elif identifier.s2_paper_id:
+            primary = ("semantic_scholar", f"s2:{identifier.s2_paper_id}")
+        elif identifier.doi:
+            primary = ("semantic_scholar", f"DOI:{identifier.doi}")
+        elif identifier.pmid:
+            primary = ("semantic_scholar", f"PMID:{identifier.pmid}")
+        elif identifier.arxiv_id:
+            primary = ("semantic_scholar", f"ArXiv:{identifier.arxiv_id}")
+
+        if not primary:
+            return None
+
+        paper = None
+        try:
+            client = await academic_provider._get_client(primary[0])
+            paper = await client.get_paper(primary[1])
+        except Exception:
+            paper = None
+
+        needs_second = paper is None or not getattr(paper, "abstract", None)
+        doi_for_second: str | None = None
+        if paper and getattr(paper, "doi", None):
+            doi_for_second = paper.doi
+        elif identifier.doi:
+            doi_for_second = identifier.doi
+
+        if not needs_second or not doi_for_second:
+            if paper:
+                index.attach_paper_to_entry(entry_canonical_id, paper, source_api=paper.source_api)
+            return paper
+
+        secondary: tuple[str, str] | None = None
+        if primary[0] == "semantic_scholar":
+            secondary = ("openalex", f"https://doi.org/{doi_for_second}")
+        elif primary[0] == "openalex":
+            secondary = ("semantic_scholar", f"DOI:{doi_for_second}")
+
+        if not secondary:
+            if paper:
+                index.attach_paper_to_entry(entry_canonical_id, paper, source_api=paper.source_api)
+            return paper
+
+        try:
+            client2 = await academic_provider._get_client(secondary[0])
+            paper2 = await client2.get_paper(secondary[1])
+        except Exception:
+            paper2 = None
+
+        chosen = paper2 if (paper2 and getattr(paper2, "abstract", None)) else (paper2 or paper)
+        if chosen:
+            index.attach_paper_to_entry(entry_canonical_id, chosen, source_api=chosen.source_api)
+        return chosen
 
     async def _persist_academic_abstracts_and_enqueue_citation_graph(
         self,
@@ -776,39 +855,35 @@ class SearchPipeline:
                     date=item.get("date"),
                 )
 
-                index.register_serp_result(serp_result, identifier)
+                entry_canonical_id = index.register_serp_result(serp_result, identifier)
                 serp_count += 1
 
                 # Complement with academic API if identifier found
-                if identifier and (identifier.doi or identifier.pmid or identifier.arxiv_id):
+                if identifier and (
+                    identifier.doi
+                    or identifier.pmid
+                    or identifier.arxiv_id
+                    or identifier.openalex_work_id
+                    or identifier.s2_paper_id
+                    or identifier.pmcid
+                ):
                     try:
-                        paper_id = None
-                        if identifier.doi:
-                            paper_id = f"DOI:{identifier.doi}"
-                        elif identifier.pmid:
-                            paper_id = f"PMID:{identifier.pmid}"
-                        elif identifier.arxiv_id:
-                            paper_id = f"ArXiv:{identifier.arxiv_id}"
-
-                        if paper_id:
-                            # Try to get paper from academic API clients
-                            paper = None
-                            for api_name in ["semantic_scholar", "openalex"]:
-                                try:
-                                    client = await academic_provider._get_client(api_name)
-                                    paper = await client.get_paper(paper_id)
-                                    if paper:
-                                        break
-                                except Exception:
-                                    continue
-
-                            if paper and paper.abstract:
-                                index.register_paper(paper, source_api=paper.source_api)
-                                logger.debug(
-                                    "Complemented SERP result with academic API",
-                                    url=url,
-                                    paper_id=paper.id,
-                                )
+                        # Use minimal-call complement logic
+                        paper = await self._complement_serp_result(
+                            academic_provider=academic_provider,
+                            resolver=resolver,
+                            extractor=extractor,
+                            index=index,
+                            serp_url=url,
+                            serp_result=serp_result,
+                            entry_canonical_id=entry_canonical_id,
+                        )
+                        if paper and paper.abstract:
+                            logger.debug(
+                                "Complemented SERP result with academic API",
+                                url=url,
+                                paper_id=paper.id,
+                            )
                     except Exception as e:
                         logger.debug(
                             "Failed to complement with academic API",
