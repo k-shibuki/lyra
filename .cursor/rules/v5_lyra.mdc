@@ -1,6 +1,5 @@
 ---
-description: "Core coding assistance rules: task classification, tool usage policy, and response style"
-alwaysApply: false
+alwaysApply: true
 ---
 # v5: Coding Assistance Rules
 
