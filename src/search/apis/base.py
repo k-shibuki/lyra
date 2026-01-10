@@ -118,11 +118,12 @@ class BaseAcademicClient(ABC):
             AcademicSearchResult
         """
         from src.search.apis.rate_limiter import get_academic_rate_limiter
-        from src.utils.api_retry import ACADEMIC_API_POLICY
+        from src.utils.api_retry import get_academic_api_policy
         from src.utils.backoff import calculate_backoff
 
         limiter = get_academic_rate_limiter()
-        max_retries = ACADEMIC_API_POLICY.max_retries
+        policy = get_academic_api_policy()
+        max_retries = policy.max_retries
         last_error: Exception | None = None
 
         for attempt in range(max_retries + 1):
@@ -148,9 +149,7 @@ class BaseAcademicClient(ABC):
 
                 # Check if retryable (429 or 5xx)
                 is_retryable = (
-                    status_code in ACADEMIC_API_POLICY.retryable_status_codes
-                    if status_code
-                    else False
+                    status_code in policy.retryable_status_codes if status_code else False
                 )
 
                 if not is_retryable or attempt >= max_retries:
@@ -158,7 +157,7 @@ class BaseAcademicClient(ABC):
                     raise
 
                 # Backoff wait (without holding slot - key improvement)
-                retry_delay = calculate_backoff(attempt, ACADEMIC_API_POLICY.backoff)
+                retry_delay = calculate_backoff(attempt, policy.backoff)
                 logger.info(
                     "Retrying search after releasing slot",
                     provider=self.name,

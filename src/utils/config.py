@@ -377,24 +377,6 @@ class BrowserSerpConcurrencyConfig(BaseModel):
     )
 
 
-class AcademicAPIBackoffConfig(BaseModel):
-    """Academic API auto-backoff configuration.
-
-    Per ADR-0013: Safe auto-backoff for academic APIs.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    recovery_stable_seconds: int = Field(
-        default=60,
-        ge=1,
-        description="Seconds of stability before attempting to increase max_parallel",
-    )
-    decrease_step: int = Field(
-        default=1, ge=1, description="Amount to decrease max_parallel on 429 error"
-    )
-
-
 class BrowserSerpBackoffConfig(BaseModel):
     """Browser SERP auto-backoff configuration.
 
@@ -412,12 +394,12 @@ class BrowserSerpBackoffConfig(BaseModel):
 class BackoffConfig(BaseModel):
     """Auto-backoff configuration for concurrency control.
 
-    Per ADR-0013/ADR-0014: Automatically reduce concurrency on errors.
+    Per ADR-0014: Automatically reduce concurrency on errors.
+    Note: Academic API backoff is now in AcademicAPIRetryPolicyConfig.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    academic_api: AcademicAPIBackoffConfig = Field(default_factory=AcademicAPIBackoffConfig)
     browser_serp: BrowserSerpBackoffConfig = Field(default_factory=BrowserSerpBackoffConfig)
 
 
@@ -440,25 +422,38 @@ class ConcurrencyConfig(BaseModel):
 
 
 class AcademicAPIRateLimitConfig(BaseModel):
-    """Academic API rate limit configuration.
+    """Academic API rate limit configuration for a single profile.
 
     Per ADR-0013: Worker Resource Contention Control.
 
     Attributes:
-        requests_per_interval: Max requests allowed per interval.
-        interval_seconds: Duration of rate limit window in seconds.
-        requests_per_day: Daily request limit (alternative to interval-based).
-        polite_pool: Whether to use polite/identified request pool.
         min_interval_seconds: Minimum seconds between requests (QPS control).
         max_parallel: Maximum concurrent requests (concurrency control).
     """
 
-    requests_per_interval: int | None = None
-    interval_seconds: int | None = None
-    requests_per_day: int | None = None
-    polite_pool: bool | None = None
-    min_interval_seconds: float | None = None  # Changed to float for sub-second precision
-    max_parallel: int | None = None  # ADR-0013: Provider-level concurrency cap
+    model_config = ConfigDict(extra="forbid")
+
+    min_interval_seconds: float
+    max_parallel: int = 1
+
+
+class AcademicAPIRateLimitProfilesConfig(BaseModel):
+    """Profile-based rate limit configuration.
+
+    Two profiles are supported per API:
+    - Semantic Scholar: anonymous (no API key) / authenticated (with API key)
+    - OpenAlex: anonymous (no email) / identified (with email for polite pool)
+
+    The system auto-selects the profile based on credentials presence.
+    If authenticated/identified profile is selected but later invalidated (401/403),
+    the system downgrades to anonymous for that process lifetime.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    anonymous: AcademicAPIRateLimitConfig
+    authenticated: AcademicAPIRateLimitConfig | None = None  # For S2 with API key
+    identified: AcademicAPIRateLimitConfig | None = None  # For OpenAlex with email
 
 
 class AcademicAPIConfig(BaseModel):
@@ -469,17 +464,19 @@ class AcademicAPIConfig(BaseModel):
         base_url: Base URL for the API.
         timeout_seconds: Request timeout in seconds.
         priority: Priority for fallback (lower = higher priority).
-        rate_limit: Rate limiting configuration.
+        rate_limit_profiles: Profile-based rate limiting configuration.
         headers: Additional HTTP headers.
         email: Contact email for polite pool (OpenAlex) and User-Agent.
         api_key: API key for authenticated access (Semantic Scholar).
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     enabled: bool = True
     base_url: str
     timeout_seconds: int = 30
     priority: int = 999
-    rate_limit: AcademicAPIRateLimitConfig | None = None
+    rate_limit_profiles: AcademicAPIRateLimitProfilesConfig | None = None
     headers: dict[str, str] | None = None
     email: str | None = None  # For polite pool (OpenAlex) and User-Agent identification
     api_key: str | None = None  # For authenticated access (Semantic Scholar x-api-key)
@@ -494,11 +491,76 @@ class AcademicAPIsDefaultsConfig(BaseModel):
     max_papers_per_search: int = 50
 
 
+class AcademicAPIBackoffPolicyConfig(BaseModel):
+    """Backoff configuration for academic API retry policy."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_delay: float = 1.0
+    max_delay: float = 120.0
+    exponential_base: float = 2.0
+    jitter_factor: float = 0.1
+
+
+class AcademicAPIAutoBackoffConfig(BaseModel):
+    """Auto-backoff configuration for academic APIs (ADR-0013)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    recovery_stable_seconds: int = 60
+    decrease_step: int = 1
+
+
+class AcademicAPIRetryPolicyProfileOverrideConfig(BaseModel):
+    """Profile-specific overrides for retry policy.
+
+    Only specified fields override the base retry_policy.
+    E.g., authenticated profile may have higher max_consecutive_429.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_retries: int | None = None
+    max_consecutive_429: int | None = None
+
+
+class AcademicAPIRetryPolicyProfilesConfig(BaseModel):
+    """Profile-based retry policy overrides.
+
+    anonymous is the baseline; authenticated/identified override specific values.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    authenticated: AcademicAPIRetryPolicyProfileOverrideConfig | None = None
+    identified: AcademicAPIRetryPolicyProfileOverrideConfig | None = None
+
+
+class AcademicAPIRetryPolicyConfig(BaseModel):
+    """Centralized retry policy for academic APIs.
+
+    This is the single source of truth for academic API retry settings.
+    All academic API clients use get_academic_api_policy() to load this config.
+
+    The base values (max_retries, backoff, etc.) serve as defaults.
+    Profile-specific overrides can be specified in `profiles`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_retries: int = 5
+    backoff: AcademicAPIBackoffPolicyConfig = Field(default_factory=AcademicAPIBackoffPolicyConfig)
+    max_consecutive_429: int = 3
+    auto_backoff: AcademicAPIAutoBackoffConfig = Field(default_factory=AcademicAPIAutoBackoffConfig)
+    profiles: AcademicAPIRetryPolicyProfilesConfig | None = None
+
+
 class AcademicAPIsConfig(BaseModel):
     """Academic APIs configuration."""
 
     apis: dict[str, AcademicAPIConfig] = Field(default_factory=dict)
     defaults: AcademicAPIsDefaultsConfig = Field(default_factory=AcademicAPIsDefaultsConfig)
+    retry_policy: AcademicAPIRetryPolicyConfig = Field(default_factory=AcademicAPIRetryPolicyConfig)
 
     # Default base URLs for academic APIs (used when API not configured)
     _DEFAULT_BASE_URLS: dict[str, str] = {

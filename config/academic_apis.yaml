@@ -1,9 +1,35 @@
 # Academic API Configuration for Lyra
-# See docs/J2_ACADEMIC_API_INTEGRATION.md §8.1
+# See docs/adr/0008-academic-data-source-strategy.md
 # Rate limiting per ADR-0013: Worker Resource Contention Control
 #
 # ============================================================================
-# AUTHENTICATION / RATE LIMIT IMPROVEMENTS
+# PROFILE-BASED RATE LIMITS
+# ============================================================================
+# Each API has rate_limit_profiles with:
+#   - anonymous: Used when no credentials are configured
+#   - authenticated (S2): Used when API key is present and valid
+#   - identified (OpenAlex): Used when email is present (polite pool)
+#
+# The system auto-selects the appropriate profile based on credentials.
+# If credentials become invalid (401/403), downgrades to anonymous profile.
+#
+# ============================================================================
+# GLOBAL RATE LIMITING (CROSS-WORKER)
+# ============================================================================
+# Rate limits are enforced GLOBALLY across all workers in the MCP process:
+#   - AcademicAPIRateLimiter is a process-level singleton
+#   - min_interval_seconds: Minimum gap between ANY two requests to the API
+#   - max_parallel: Maximum CONCURRENT in-flight requests across ALL workers
+#
+# Example with max_parallel=2, min_interval=0.25s:
+#   Worker-0 and Worker-1 can each hold 1 slot (2 total)
+#   Worker-2 must WAIT until a slot is released
+#   After each request completes, 0.25s must pass before the next can start
+#
+# This ensures API rate limits are respected even with multiple parallel workers.
+#
+# ============================================================================
+# AUTHENTICATION / RATE LIMIT CONFIGURATION
 # ============================================================================
 # Configure these in .env (not here) for better rate limits:
 #
@@ -11,31 +37,33 @@
 #   LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY=your_api_key
 #   LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__EMAIL=your_email@example.com
 #   -> Get free API key at: https://www.semanticscholar.org/product/api
-#   -> Benefits: Authenticated access with dedicated rate limits
+#   -> Benefits: 1 req/s DEDICATED (vs shared pool without key)
 #
 # OpenAlex:
 #   LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL=your_email@example.com
-#   -> Benefits: "Polite pool" with 10 req/s (vs ~1 req/s anonymous)
+#   -> Benefits: "Polite pool" - prioritized requests, more stable
 #   -> The email is sent as `mailto` query parameter on all requests
 #
-# Without these settings, the system still works with default rate limits.
+# Without credentials, the system works with conservative anonymous rate limits.
 # ============================================================================
 
 apis:
   semantic_scholar:
     enabled: true
     base_url: "https://api.semanticscholar.org/graph/v1"
-    rate_limit:
-      # Official rate limits (https://www.semanticscholar.org/product/api):
-      #   - With API key: 1 req/s dedicated (guaranteed)
-      #   - Without key: 1000 req/s shared globally across ALL anonymous users
-      #     → Effectively unstable during busy periods; key is strongly recommended
-      #
-      # Lyra uses min_interval_seconds for actual rate control:
-      #   2.0s = 0.5 req/s (conservative, well under 1 req/s limit)
-      #   This allows headroom for retries and burst absorption.
-      min_interval_seconds: 2.0
-      max_parallel: 1  # Only 1 S2 request at a time across all workers
+    rate_limit_profiles:
+      # Anonymous profile (no API key)
+      # Official: 1000 req/s shared globally (effectively unstable during busy periods)
+      # Very conservative to avoid 429 errors in shared pool
+      anonymous:
+        min_interval_seconds: 3.0  # Global: ~0.33 req/s across all workers
+        max_parallel: 1            # Only 1 worker can access S2 at a time
+      # Authenticated profile (with API key)
+      # Official: 1 req/s dedicated (guaranteed, not shared)
+      # 10% headroom under official limit
+      authenticated:
+        min_interval_seconds: 1.1  # Global: ~0.9 req/s across all workers (10% headroom)
+        max_parallel: 1            # Only 1 worker can access S2 at a time
     timeout_seconds: 30
     priority: 1  # Highest priority (best citation graph coverage)
     # api_key: Set via LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY in .env
@@ -44,20 +72,50 @@ apis:
   openalex:
     enabled: true
     base_url: "https://api.openalex.org"
-    rate_limit:
-      # Official rate limits (https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication):
-      #   - Anonymous: 10 req/s, 100,000 req/day
-      #   - Polite pool (with mailto): same limits, but prioritized and more stable
-      #
-      # Lyra uses min_interval_seconds for actual rate control:
-      #   0.2s = 5 req/s (conservative, well under 10 req/s limit)
-      #   This allows headroom for retries and 2-worker scenarios.
-      min_interval_seconds: 0.2
-      max_parallel: 2  # 2 concurrent requests allowed
+    rate_limit_profiles:
+      # Anonymous profile (no email)
+      # Official: 10 req/s, 100,000 req/day (may be deprioritized without email)
+      # 40% headroom under official limit
+      anonymous:
+        min_interval_seconds: 0.33  # Gap between requests from any worker
+        max_parallel: 2             # Up to 2 workers can access OA concurrently
+        # Effective global rate: 2 slots × (1/0.33s) = ~6 req/s (40% headroom)
+      # Identified profile (with email for polite pool)
+      # Official: 10 req/s, 100,000 req/day, prioritized handling
+      # 20% headroom under official limit
+      identified:
+        min_interval_seconds: 0.25  # Gap between requests from any worker
+        max_parallel: 2             # Up to 2 workers can access OA concurrently
+        # Effective global rate: 2 slots × (1/0.25s) = 8 req/s (20% headroom)
     timeout_seconds: 30
     priority: 2
     # email: Set via LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL in .env
     # Note: User-Agent is auto-generated with mailto if email is configured
+
+  ncbi:
+    # NCBI E-utilities / PMC ID Converter API
+    # Used for PMCID -> PMID/DOI resolution (pmc.ncbi.nlm.nih.gov URLs)
+    # Docs: https://www.ncbi.nlm.nih.gov/pmc/tools/id-converter-api/
+    enabled: true
+    base_url: "https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1"
+    rate_limit_profiles:
+      # Anonymous profile (no API key)
+      # Official: 3 req/s without API key
+      # Conservative to avoid blocking; PMCID lookups are rare
+      anonymous:
+        min_interval_seconds: 0.5   # ~2 req/s (33% headroom)
+        max_parallel: 1             # Single request at a time
+      # Authenticated profile (with API key)
+      # Official: 10 req/s with API key
+      # 20% headroom under official limit
+      authenticated:
+        min_interval_seconds: 0.125 # ~8 req/s (20% headroom)
+        max_parallel: 1             # Single request at a time (low volume)
+    timeout_seconds: 15
+    priority: 3
+    # api_key: Set via LYRA_ACADEMIC_APIS__APIS__NCBI__API_KEY in .env
+    # email: Set via LYRA_ACADEMIC_APIS__APIS__NCBI__EMAIL in .env
+    # Note: NCBI recommends including tool name and email in requests
 
 # Default settings
 defaults:
@@ -65,3 +123,45 @@ defaults:
   citation_graph_api: "semantic_scholar"
   max_citation_depth: 2
   max_papers_per_search: 100
+
+# ============================================================================
+# RETRY & BACKOFF POLICY
+# ============================================================================
+# These settings control retry behavior for ALL academic API calls.
+# Base values apply to anonymous profile; profiles section provides overrides.
+#
+retry_policy:
+  # Maximum retry attempts for transient errors (429, 5xx)
+  max_retries: 5
+
+  # Backoff configuration for retry delays
+  backoff:
+    # Initial delay after first failure (seconds)
+    base_delay: 1.0
+    # Maximum delay cap (seconds)
+    max_delay: 120.0
+    # Exponential multiplier (delay = base_delay * exponential_base^attempt)
+    exponential_base: 2.0
+    # Random jitter factor (±10% by default)
+    jitter_factor: 0.1
+
+  # Early-fail threshold for consecutive 429 errors (base = anonymous)
+  # When this many 429s occur in a row, fail fast to allow fallback to other APIs
+  max_consecutive_429: 2  # Conservative for anonymous
+
+  # Auto-backoff settings (ADR-0013)
+  # Automatically reduce effective_max_parallel on 429 errors
+  auto_backoff:
+    # Seconds of stability before attempting to recover max_parallel
+    recovery_stable_seconds: 60
+    # Amount to decrease max_parallel on 429 error
+    decrease_step: 1
+
+  # Profile-specific overrides for retry policy
+  profiles:
+    # Authenticated (S2 with API key): more lenient since dedicated rate limit
+    authenticated:
+      max_consecutive_429: 5  # Allow more retries before giving up
+    # Identified (OpenAlex with email): same as authenticated
+    identified:
+      max_consecutive_429: 5

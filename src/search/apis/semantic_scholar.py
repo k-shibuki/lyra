@@ -9,7 +9,11 @@ from typing import Any, cast
 import httpx
 
 from src.search.apis.base import BaseAcademicClient
-from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
+from src.utils.api_retry import (
+    get_academic_api_policy,
+    get_max_consecutive_429_for_provider,
+    retry_api_call,
+)
 from src.utils.logging import get_logger
 from src.utils.schemas import AcademicSearchResult, Author, Paper
 
@@ -64,6 +68,7 @@ class SemanticScholarClient(BaseAcademicClient):
         """Handle invalid API key by falling back to anonymous access.
 
         Logs a warning (once) and recreates the session without the API key.
+        Also notifies the rate limiter to downgrade to anonymous profile.
         """
         if not self._api_key_fallback_logged and self._original_api_key:
             logger.warning(
@@ -76,6 +81,13 @@ class SemanticScholarClient(BaseAcademicClient):
         # Disable API key
         self.api_key = None
         self.default_headers.pop("x-api-key", None)
+
+        # Notify rate limiter to downgrade to anonymous profile
+        # This affects rate limits for the remainder of this process lifetime
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+
+        limiter = get_academic_rate_limiter()
+        limiter.downgrade_profile(self.name)
 
         # Recreate session without API key
         if self._session:
@@ -109,11 +121,14 @@ class SemanticScholarClient(BaseAcademicClient):
                 return cast(dict[str, Any], response.json())
 
             try:
+                # Get profile-aware max_consecutive_429 for this provider
+                max_429 = get_max_consecutive_429_for_provider(self.name)
+
                 data = await retry_api_call(
                     _search,
-                    policy=ACADEMIC_API_POLICY,
+                    policy=get_academic_api_policy(),
                     rate_limiter_provider=self.name,
-                    max_consecutive_429=3,  # E2E fix: early fail for OpenAlex fallback
+                    max_consecutive_429=max_429,
                 )
                 papers = [self._parse_paper(p) for p in data.get("data", [])]
 
@@ -166,7 +181,14 @@ class SemanticScholarClient(BaseAcademicClient):
         # Normalize paper ID for API (once, outside retry loop)
         normalized_id = self._normalize_paper_id(paper_id)
 
-        # region agent log H-PMID-03
+        # OpenAlex work IDs are not queryable on Semantic Scholar.
+        # Short-circuit to avoid 404 noise and rate limiter waits.
+        if (paper_id or "").strip().startswith("openalex:") or (paper_id or "").strip().startswith(
+            "https://openalex.org/"
+        ):
+            logger.debug("Skipping OpenAlex work ID on Semantic Scholar", paper_id=paper_id[:200])
+            return None
+
         try:
             from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
 
@@ -184,7 +206,6 @@ class SemanticScholarClient(BaseAcademicClient):
             )
         except Exception:
             pass
-        # endregion
 
         # Retry once if API key is invalid (fallback to anonymous)
         for attempt in range(2):
@@ -202,10 +223,10 @@ class SemanticScholarClient(BaseAcademicClient):
 
                 try:
                     data = await retry_api_call(
-                        _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                        _fetch, policy=get_academic_api_policy(), rate_limiter_provider=self.name
                     )
                     paper = self._parse_paper(data)
-                    # region agent log H-PMID-03
+
                     try:
                         from src.utils.agent_debug import (
                             agent_debug_run_id,
@@ -232,7 +253,7 @@ class SemanticScholarClient(BaseAcademicClient):
                         )
                     except Exception:
                         pass
-                    # endregion
+
                     return paper
                 except Exception as e:
                     # Check for invalid API key (401/403) - fallback to anonymous access
@@ -241,7 +262,7 @@ class SemanticScholarClient(BaseAcademicClient):
                         continue  # Retry without API key
 
                     logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
-                    # region agent log H-PMID-03
+
                     try:
                         from src.utils.agent_debug import (
                             agent_debug_run_id,
@@ -263,7 +284,7 @@ class SemanticScholarClient(BaseAcademicClient):
                         )
                     except Exception:
                         pass
-                    # endregion
+
                     return None
             finally:
                 limiter.release(self.name)
@@ -311,6 +332,16 @@ class SemanticScholarClient(BaseAcademicClient):
         # Normalize paper ID for API (once, outside retry loop)
         normalized_id = self._normalize_paper_id(paper_id)
 
+        # OpenAlex work IDs are not queryable on Semantic Scholar.
+        if (paper_id or "").strip().startswith("openalex:") or (paper_id or "").strip().startswith(
+            "https://openalex.org/"
+        ):
+            logger.debug(
+                "Skipping OpenAlex work ID on Semantic Scholar (references)",
+                paper_id=paper_id[:200],
+            )
+            return []
+
         # Retry once if API key is invalid (fallback to anonymous)
         for attempt in range(2):
             await limiter.acquire(self.name)
@@ -328,7 +359,7 @@ class SemanticScholarClient(BaseAcademicClient):
 
                 try:
                     data = await retry_api_call(
-                        _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                        _fetch, policy=get_academic_api_policy(), rate_limiter_provider=self.name
                     )
                     results = []
                     # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]
@@ -372,6 +403,16 @@ class SemanticScholarClient(BaseAcademicClient):
         # Normalize paper ID for API (once, outside retry loop)
         normalized_id = self._normalize_paper_id(paper_id)
 
+        # OpenAlex work IDs are not queryable on Semantic Scholar.
+        if (paper_id or "").strip().startswith("openalex:") or (paper_id or "").strip().startswith(
+            "https://openalex.org/"
+        ):
+            logger.debug(
+                "Skipping OpenAlex work ID on Semantic Scholar (citations)",
+                paper_id=paper_id[:200],
+            )
+            return []
+
         # Retry once if API key is invalid (fallback to anonymous)
         for attempt in range(2):
             await limiter.acquire(self.name)
@@ -389,7 +430,7 @@ class SemanticScholarClient(BaseAcademicClient):
 
                 try:
                     data = await retry_api_call(
-                        _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                        _fetch, policy=get_academic_api_policy(), rate_limiter_provider=self.name
                     )
                     results = []
                     # Fix for DEBUG_E2E_02 H-C: handle None data or data["data"]

@@ -14,9 +14,11 @@ Per ADR-0013/ADR-0014: Worker Resource Contention Control.
 | TC-C-05 | max_tabs: 0 (below min) | Boundary – below minimum | ValidationError | ge=1 constraint |
 | TC-C-06 | num_workers: 10 (large) | Equivalence – large value | Parse success | No upper limit |
 | TC-C-07 | Missing concurrency section | Boundary – missing section | Default values used | - |
-| TC-C-08 | recovery_stable_seconds: 0 | Boundary – below minimum | ValidationError | ge=1 constraint |
-| TC-C-09 | decrease_step: 0 | Boundary – below minimum | ValidationError | ge=1 constraint |
+| TC-C-08 | decrease_step: 0 (browser) | Boundary – below minimum | ValidationError | ge=1 constraint |
 | TC-W-01 | Settings with concurrency | Effect – wiring | concurrency field accessible | - |
+
+Note: Academic API backoff config is now in config/academic_apis.yaml (AcademicAPIAutoBackoffConfig).
+See tests/test_academic_apis_config.py for those tests.
 """
 
 from __future__ import annotations
@@ -25,7 +27,6 @@ import pytest
 from pydantic import ValidationError
 
 from src.utils.config import (
-    AcademicAPIBackoffConfig,
     BackoffConfig,
     BrowserSerpBackoffConfig,
     BrowserSerpConcurrencyConfig,
@@ -157,42 +158,14 @@ class TestBrowserSerpConcurrencyConfig:
 
 
 class TestBackoffConfig:
-    """Tests for BackoffConfig and sub-configs."""
+    """Tests for BackoffConfig (browser SERP only).
+
+    Note: Academic API backoff is now in config/academic_apis.yaml.
+    """
 
     # =========================================================================
-    # TC-C-08: recovery_stable_seconds below minimum
+    # TC-C-08: decrease_step below minimum (browser)
     # =========================================================================
-    def test_recovery_stable_seconds_below_minimum(self) -> None:
-        """Test recovery_stable_seconds below minimum raises ValidationError.
-
-        Given: recovery_stable_seconds=0 (below minimum)
-        When: AcademicAPIBackoffConfig is created
-        Then: ValidationError is raised
-        """
-        # Given/When/Then
-        with pytest.raises(ValidationError) as exc_info:
-            AcademicAPIBackoffConfig(recovery_stable_seconds=0)
-
-        error_str = str(exc_info.value)
-        assert "recovery_stable_seconds" in error_str or "greater than or equal to 1" in error_str
-
-    # =========================================================================
-    # TC-C-09: decrease_step below minimum
-    # =========================================================================
-    def test_decrease_step_below_minimum_academic(self) -> None:
-        """Test decrease_step below minimum raises ValidationError (academic).
-
-        Given: decrease_step=0 (below minimum)
-        When: AcademicAPIBackoffConfig is created
-        Then: ValidationError is raised
-        """
-        # Given/When/Then
-        with pytest.raises(ValidationError) as exc_info:
-            AcademicAPIBackoffConfig(decrease_step=0)
-
-        error_str = str(exc_info.value)
-        assert "decrease_step" in error_str or "greater than or equal to 1" in error_str
-
     def test_decrease_step_below_minimum_browser(self) -> None:
         """Test decrease_step below minimum raises ValidationError (browser).
 
@@ -212,14 +185,12 @@ class TestBackoffConfig:
 
         Given: No explicit values provided
         When: BackoffConfig is created
-        Then: Default values are set for both academic and browser
+        Then: Default values are set for browser
         """
         # Given/When
         config = BackoffConfig()
 
         # Then
-        assert config.academic_api.recovery_stable_seconds == 60
-        assert config.academic_api.decrease_step == 1
         assert config.browser_serp.decrease_step == 1
 
 
@@ -242,7 +213,6 @@ class TestConcurrencyConfig:
         # Then
         assert config.target_queue.num_workers == 2
         assert config.browser_serp.max_tabs == 1
-        assert config.backoff.academic_api.recovery_stable_seconds == 60
         assert config.backoff.browser_serp.decrease_step == 1
 
     # =========================================================================
@@ -290,10 +260,6 @@ class TestConcurrencyConfig:
         target_queue = TargetQueueConcurrencyConfig(num_workers=5)
         browser_serp = BrowserSerpConcurrencyConfig(max_tabs=3)
         backoff = BackoffConfig(
-            academic_api=AcademicAPIBackoffConfig(
-                recovery_stable_seconds=120,
-                decrease_step=2,
-            ),
             browser_serp=BrowserSerpBackoffConfig(decrease_step=2),
         )
 
@@ -307,6 +273,4 @@ class TestConcurrencyConfig:
         # Then
         assert config.target_queue.num_workers == 5
         assert config.browser_serp.max_tabs == 3
-        assert config.backoff.academic_api.recovery_stable_seconds == 120
-        assert config.backoff.academic_api.decrease_step == 2
         assert config.backoff.browser_serp.decrease_step == 2

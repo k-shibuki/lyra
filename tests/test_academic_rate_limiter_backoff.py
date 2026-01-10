@@ -27,6 +27,7 @@ import pytest
 from src.search.apis.rate_limiter import (
     AcademicAPIRateLimiter,
     ProviderRateLimitConfig,
+    RateLimitProfile,
     reset_academic_rate_limiter,
 )
 
@@ -39,18 +40,16 @@ class TestAcademicAPIRateLimiterBackoff:
         """Reset global rate limiter before each test."""
         reset_academic_rate_limiter()
 
-    def _create_mock_settings(
+    def _create_mock_academic_apis_config(
         self,
         recovery_stable_seconds: int = 60,
         decrease_step: int = 1,
     ) -> MagicMock:
-        """Create mock settings for backoff config."""
-        mock_settings = MagicMock()
-        mock_settings.concurrency.backoff.academic_api.recovery_stable_seconds = (
-            recovery_stable_seconds
-        )
-        mock_settings.concurrency.backoff.academic_api.decrease_step = decrease_step
-        return mock_settings
+        """Create mock academic APIs config for backoff settings."""
+        mock_config = MagicMock()
+        mock_config.retry_policy.auto_backoff.recovery_stable_seconds = recovery_stable_seconds
+        mock_config.retry_policy.auto_backoff.decrease_step = decrease_step
+        return mock_config
 
     # =========================================================================
     # TC-R-01: Initial state
@@ -67,7 +66,9 @@ class TestAcademicAPIRateLimiterBackoff:
         limiter = AcademicAPIRateLimiter()
 
         # Mock config to return max_parallel=3
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
 
         # When: Initialize provider
@@ -93,14 +94,19 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
-        mock_settings = self._create_mock_settings(decrease_step=1)
+        mock_apis_config = self._create_mock_academic_apis_config(decrease_step=1)
 
         # When (patch at use site per test rules)
-        with patch("src.utils.config.get_settings", return_value=mock_settings):
+        with patch(
+            "src.utils.config.get_academic_apis_config",
+            return_value=mock_apis_config,
+        ):
             await limiter.report_429("test_provider")
 
         # Then
@@ -122,14 +128,19 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=1)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=1, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
-        mock_settings = self._create_mock_settings(decrease_step=1)
+        mock_apis_config = self._create_mock_academic_apis_config(decrease_step=1)
 
         # When (patch at use site per test rules)
-        with patch("src.utils.config.get_settings", return_value=mock_settings):
+        with patch(
+            "src.utils.config.get_academic_apis_config",
+            return_value=mock_apis_config,
+        ):
             await limiter.report_429("test_provider")
 
         # Then
@@ -150,7 +161,9 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
@@ -162,10 +175,13 @@ class TestAcademicAPIRateLimiterBackoff:
         backoff.last_429_time = time.time() - 120  # 2 minutes ago
         backoff.last_recovery_attempt = time.time() - 120
 
-        mock_settings = self._create_mock_settings(recovery_stable_seconds=60)
+        mock_apis_config = self._create_mock_academic_apis_config(recovery_stable_seconds=60)
 
         # When (patch at use site per test rules)
-        with patch("src.utils.config.get_settings", return_value=mock_settings):
+        with patch(
+            "src.utils.config.get_academic_apis_config",
+            return_value=mock_apis_config,
+        ):
             await limiter._maybe_recover("test_provider")
 
         # Then
@@ -185,7 +201,9 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
@@ -197,10 +215,13 @@ class TestAcademicAPIRateLimiterBackoff:
         backoff.last_429_time = time.time() - 10  # Only 10 seconds ago
         backoff.last_recovery_attempt = time.time() - 10
 
-        mock_settings = self._create_mock_settings(recovery_stable_seconds=60)
+        mock_apis_config = self._create_mock_academic_apis_config(recovery_stable_seconds=60)
 
         # When (patch at use site per test rules)
-        with patch("src.utils.config.get_settings", return_value=mock_settings):
+        with patch(
+            "src.utils.config.get_academic_apis_config",
+            return_value=mock_apis_config,
+        ):
             await limiter._maybe_recover("test_provider")
 
         # Then
@@ -220,7 +241,9 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
@@ -247,7 +270,9 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
@@ -281,14 +306,19 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=5)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=5, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
-        mock_settings = self._create_mock_settings(decrease_step=2)
+        mock_apis_config = self._create_mock_academic_apis_config(decrease_step=2)
 
         # When (patch at use site per test rules)
-        with patch("src.utils.config.get_settings", return_value=mock_settings):
+        with patch(
+            "src.utils.config.get_academic_apis_config",
+            return_value=mock_apis_config,
+        ):
             await limiter.report_429("test_provider")
 
         # Then
@@ -308,7 +338,9 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.1, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.1, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
@@ -320,10 +352,13 @@ class TestAcademicAPIRateLimiterBackoff:
         backoff.last_429_time = time.time() - 120
         backoff.last_recovery_attempt = time.time() - 120
 
-        mock_settings = self._create_mock_settings(recovery_stable_seconds=60)
+        mock_apis_config = self._create_mock_academic_apis_config(recovery_stable_seconds=60)
 
         # When (patch at use site per test rules)
-        with patch("src.utils.config.get_settings", return_value=mock_settings):
+        with patch(
+            "src.utils.config.get_academic_apis_config",
+            return_value=mock_apis_config,
+        ):
             await limiter._maybe_recover("test_provider")
 
         # Then
@@ -343,7 +378,9 @@ class TestAcademicAPIRateLimiterBackoff:
         """
         # Given
         limiter = AcademicAPIRateLimiter()
-        mock_config = ProviderRateLimitConfig(min_interval_seconds=0.01, max_parallel=3)
+        mock_config = ProviderRateLimitConfig(
+            min_interval_seconds=0.01, max_parallel=3, profile=RateLimitProfile.ANONYMOUS
+        )
         limiter._configs["test_provider"] = mock_config
         await limiter._ensure_provider_initialized("test_provider")
 
@@ -353,8 +390,8 @@ class TestAcademicAPIRateLimiterBackoff:
 
         # Mock config loading to avoid real config access (patch at use site)
         with patch(
-            "src.utils.config.get_settings",
-            return_value=self._create_mock_settings(),
+            "src.utils.config.get_academic_apis_config",
+            return_value=self._create_mock_academic_apis_config(),
         ):
             # When: First acquire succeeds
             await limiter.acquire("test_provider", timeout=1.0)

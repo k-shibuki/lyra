@@ -9,7 +9,7 @@ from typing import Any, cast
 
 import httpx
 
-from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
+from src.utils.api_retry import get_academic_api_policy, retry_api_call
 from src.utils.logging import get_logger
 from src.utils.schemas import PaperIdentifier
 
@@ -80,6 +80,7 @@ class IDResolver:
         """Handle invalid API key by falling back to anonymous access.
 
         Logs a warning (once) and recreates the session without the API key.
+        Also notifies the rate limiter to downgrade to anonymous profile.
         """
         if not self._api_key_fallback_logged and self._original_api_key:
             logger.warning(
@@ -91,6 +92,13 @@ class IDResolver:
 
         # Disable API key
         self.api_key = None
+
+        # Notify rate limiter to downgrade to anonymous profile
+        # This affects rate limits for the remainder of this process lifetime
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+
+        limiter = get_academic_rate_limiter()
+        limiter.downgrade_profile("semantic_scholar")
 
         # Recreate session without API key
         if self._session:
@@ -114,7 +122,7 @@ class IDResolver:
         Returns:
             DOI string or None
         """
-        # region agent log H-PMID-02
+
         try:
             from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
 
@@ -132,7 +140,6 @@ class IDResolver:
             )
         except Exception:
             pass
-        # endregion
 
         # Retry once if API key is invalid (fallback to anonymous)
         for attempt in range(2):
@@ -147,13 +154,13 @@ class IDResolver:
                     response.raise_for_status()
                     return cast(dict[str, Any], response.json())
 
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+                data = await retry_api_call(_fetch, policy=get_academic_api_policy())
                 external_ids = data.get("externalIds", {})
                 doi = external_ids.get("DOI")
 
                 if doi:
                     logger.debug("Resolved PMID to DOI", pmid=pmid, doi=doi)
-                    # region agent log H-PMID-02
+
                     try:
                         from src.utils.agent_debug import (
                             agent_debug_run_id,
@@ -171,11 +178,11 @@ class IDResolver:
                         )
                     except Exception:
                         pass
-                    # endregion
+
                     return cast(str, doi)
 
                 logger.debug("No DOI found for PMID", pmid=pmid)
-                # region agent log H-PMID-02
+
                 try:
                     from src.utils.agent_debug import (
                         agent_debug_run_id,
@@ -193,7 +200,7 @@ class IDResolver:
                     )
                 except Exception:
                     pass
-                # endregion
+
                 return None
 
             except Exception as e:
@@ -203,7 +210,7 @@ class IDResolver:
                     continue  # Retry without API key
 
                 logger.warning("Failed to resolve PMID to DOI", pmid=pmid, error=str(e))
-                # region agent log H-PMID-02
+
                 try:
                     from src.utils.agent_debug import (
                         agent_debug_run_id,
@@ -221,7 +228,7 @@ class IDResolver:
                     )
                 except Exception:
                     pass
-                # endregion
+
                 return None
 
         return None
@@ -250,7 +257,7 @@ class IDResolver:
                     response.raise_for_status()
                     return cast(dict[str, Any], response.json())
 
-                data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+                data = await retry_api_call(_fetch, policy=get_academic_api_policy())
                 external_ids = data.get("externalIds", {})
                 doi = external_ids.get("DOI")
 
@@ -285,7 +292,6 @@ class IDResolver:
         if not pmcid:
             return None
 
-        # region agent log H-PMID-12
         try:
             from src.utils.agent_debug import agent_debug_run_id, agent_debug_session_id, agent_log
 
@@ -299,32 +305,48 @@ class IDResolver:
             )
         except Exception:
             pass
-        # endregion
 
-        # Use the modern endpoint (the legacy /pmc/utils/idconv redirects)
-        url = "https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/"
+        # Load NCBI config from academic_apis.yaml
+        ncbi_base_url = "https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1"
+        ncbi_api_key: str | None = None
+        email: str | None = None
 
-        # NCBI recommends including tool/email; we include tool always, email optional.
-        # Email is sourced from academic_apis config (OpenAlex/S2 email), if configured.
         try:
             from src.utils.config import get_academic_apis_config
 
             apis = get_academic_apis_config()
-            email = None
-            # Prefer OpenAlex email, then Semantic Scholar email
             try:
-                email = (
-                    apis.get_api_config("openalex").email
-                    or apis.get_api_config("semantic_scholar").email
-                )
+                ncbi_config = apis.get_api_config("ncbi")
+                ncbi_base_url = ncbi_config.base_url
+                ncbi_api_key = ncbi_config.api_key
+                email = ncbi_config.email
             except Exception:
-                email = None
+                pass
+            # Fallback: use OpenAlex/S2 email if NCBI email not configured
+            if not email:
+                try:
+                    email = (
+                        apis.get_api_config("openalex").email
+                        or apis.get_api_config("semantic_scholar").email
+                    )
+                except Exception:
+                    pass
         except Exception:
-            email = None
+            pass
+
+        url = f"{ncbi_base_url}/articles/"
 
         params: dict[str, Any] = {"ids": pmcid, "format": "json", "tool": "lyra"}
         if email:
             params["email"] = str(email)
+        if ncbi_api_key:
+            params["api_key"] = ncbi_api_key
+
+        # Apply rate limiting for NCBI API
+        from src.search.apis.rate_limiter import get_academic_rate_limiter
+
+        limiter = get_academic_rate_limiter()
+        await limiter.acquire("ncbi")
 
         try:
 
@@ -334,7 +356,8 @@ class IDResolver:
                 resp.raise_for_status()
                 return cast(dict[str, Any], resp.json())
 
-            data = await retry_api_call(_fetch, policy=ACADEMIC_API_POLICY)
+            data = await retry_api_call(_fetch, policy=get_academic_api_policy())
+            limiter.report_success("ncbi")
             records = data.get("records") or []
             if not isinstance(records, list) or not records:
                 return None
@@ -348,7 +371,6 @@ class IDResolver:
                 "doi": str(rec.get("doi")) if rec.get("doi") else None,
             }
 
-            # region agent log H-PMID-12
             try:
                 from src.utils.agent_debug import (
                     agent_debug_run_id,
@@ -366,11 +388,9 @@ class IDResolver:
                 )
             except Exception:
                 pass
-            # endregion
 
             return resolved
         except Exception as e:
-            # region agent log H-PMID-12
             try:
                 from src.utils.agent_debug import (
                     agent_debug_run_id,
@@ -388,8 +408,10 @@ class IDResolver:
                 )
             except Exception:
                 pass
-            # endregion
+
             return None
+        finally:
+            limiter.release("ncbi")
 
     async def resolve_to_doi(self, identifier: PaperIdentifier) -> str | None:
         """Resolve DOI from PaperIdentifier.

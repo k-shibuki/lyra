@@ -7,7 +7,8 @@ Per ADR-0013: Adaptive Concurrency Control (auto-backoff on 429).
 
 Design:
 - Each provider (semantic_scholar, openalex) has its own rate limit settings
-- Limits are loaded from config/academic_apis.yaml
+- Limits are loaded from config/academic_apis.yaml with profile-based selection
+- Profiles: anonymous (no credentials), authenticated (S2 with API key), identified (OA with email)
 - Both QPS (min_interval) and concurrency (max_parallel) are enforced
 - Thread-safe for asyncio concurrent access
 - Auto-backoff: reduces effective_max_parallel on 429, recovers after stable period
@@ -18,12 +19,13 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.utils.config import AcademicAPIConfig
+    from src.utils.config import AcademicAPIConfig, AcademicAPIsConfig
 
 logger = get_logger(__name__)
 
@@ -38,12 +40,21 @@ logger = get_logger(__name__)
 DEFAULT_SLOT_ACQUIRE_TIMEOUT_SECONDS = 300.0
 
 
+class RateLimitProfile(str, Enum):
+    """Rate limit profile for academic APIs."""
+
+    ANONYMOUS = "anonymous"  # No credentials (default, most conservative)
+    AUTHENTICATED = "authenticated"  # S2 with valid API key
+    IDENTIFIED = "identified"  # OpenAlex with email (polite pool)
+
+
 @dataclass
 class ProviderRateLimitConfig:
     """Rate limit configuration for a single provider."""
 
     min_interval_seconds: float = 0.1  # Minimum time between requests
     max_parallel: int = 1  # Maximum concurrent requests
+    profile: RateLimitProfile = RateLimitProfile.ANONYMOUS  # Currently active profile
 
 
 @dataclass
@@ -58,12 +69,26 @@ class BackoffState:
     consecutive_429_count: int = 0  # Count of consecutive 429 errors
 
 
+@dataclass
+class ProviderState:
+    """Complete state for a provider including profile and backoff."""
+
+    profile: RateLimitProfile = RateLimitProfile.ANONYMOUS
+    profile_downgraded: bool = False  # True if downgraded from authenticated/identified
+    downgrade_logged: bool = False  # To ensure WARNING is logged only once
+    startup_warning_logged: bool = False  # For initial missing-credentials warning
+
+
 class AcademicAPIRateLimiter:
-    """Global rate limiter for academic APIs.
+    """Global rate limiter for academic APIs with profile-based rate limits.
 
     Enforces per-provider QPS limits across all worker instances.
     Uses asyncio.Lock for QPS enforcement and asyncio.Semaphore for concurrency.
     Implements auto-backoff on 429 errors (ADR-0013).
+
+    Profile Selection:
+    - Semantic Scholar: authenticated (API key) or anonymous
+    - OpenAlex: identified (email for polite pool) or anonymous
 
     Example:
         limiter = get_academic_rate_limiter()
@@ -97,11 +122,50 @@ class AcademicAPIRateLimiter:
         self._active_counts: dict[str, int] = {}
         # Event to signal when a slot becomes available per provider
         self._slot_events: dict[str, asyncio.Event] = {}
+        # Provider state (profile, downgrade status)
+        self._provider_states: dict[str, ProviderState] = {}
+
+    def _select_profile(self, provider: str, api_config: AcademicAPIConfig) -> RateLimitProfile:
+        """Select the appropriate rate limit profile based on credentials.
+
+        Args:
+            provider: API provider name.
+            api_config: API configuration from academic_apis.yaml.
+
+        Returns:
+            Selected RateLimitProfile.
+        """
+        # Check if already downgraded (stick with anonymous)
+        state = self._provider_states.get(provider)
+        if state and state.profile_downgraded:
+            return RateLimitProfile.ANONYMOUS
+
+        # Semantic Scholar: authenticated if API key is set
+        if provider == "semantic_scholar":
+            if api_config.api_key:
+                return RateLimitProfile.AUTHENTICATED
+            return RateLimitProfile.ANONYMOUS
+
+        # OpenAlex: identified if email is set
+        if provider == "openalex":
+            if api_config.email:
+                return RateLimitProfile.IDENTIFIED
+            return RateLimitProfile.ANONYMOUS
+
+        # NCBI: authenticated if API key is set
+        if provider == "ncbi":
+            if api_config.api_key:
+                return RateLimitProfile.AUTHENTICATED
+            return RateLimitProfile.ANONYMOUS
+
+        # Unknown providers default to anonymous
+        return RateLimitProfile.ANONYMOUS
 
     def _get_provider_config(self, provider: str) -> ProviderRateLimitConfig:
         """Get rate limit configuration for a provider.
 
         Loads from config/academic_apis.yaml if not cached.
+        Selects the appropriate profile based on credentials.
 
         Args:
             provider: API provider name (e.g., "semantic_scholar", "openalex")
@@ -116,38 +180,50 @@ class AcademicAPIRateLimiter:
         try:
             from src.utils.config import get_academic_apis_config
 
-            config = get_academic_apis_config()
+            config: AcademicAPIsConfig = get_academic_apis_config()
             api_config: AcademicAPIConfig = config.get_api_config(provider)
 
-            # Extract rate limit settings
-            rate_limit = api_config.rate_limit
-            if rate_limit:
-                min_interval = getattr(rate_limit, "min_interval_seconds", None)
-                max_parallel = getattr(rate_limit, "max_parallel", None)
+            # Initialize provider state
+            if provider not in self._provider_states:
+                self._provider_states[provider] = ProviderState()
 
-                # If min_interval not explicitly set, derive from requests/interval
-                if min_interval is None:
-                    requests_per_interval = getattr(rate_limit, "requests_per_interval", None)
-                    interval_seconds = getattr(rate_limit, "interval_seconds", None)
-                    if requests_per_interval and interval_seconds:
-                        min_interval = interval_seconds / requests_per_interval
-                    else:
-                        min_interval = 0.1  # Default: 10 req/s
+            # Select profile based on credentials
+            profile = self._select_profile(provider, api_config)
+            self._provider_states[provider].profile = profile
+
+            # Get rate limit from selected profile
+            profiles = api_config.rate_limit_profiles
+            if profiles:
+                if profile == RateLimitProfile.AUTHENTICATED and profiles.authenticated:
+                    rate_limit = profiles.authenticated
+                elif profile == RateLimitProfile.IDENTIFIED and profiles.identified:
+                    rate_limit = profiles.identified
+                else:
+                    rate_limit = profiles.anonymous
 
                 provider_config = ProviderRateLimitConfig(
-                    min_interval_seconds=min_interval or 0.1,
-                    max_parallel=max_parallel or 1,
+                    min_interval_seconds=rate_limit.min_interval_seconds,
+                    max_parallel=rate_limit.max_parallel,
+                    profile=profile,
                 )
             else:
-                provider_config = ProviderRateLimitConfig()
+                # No profiles configured, use defaults
+                provider_config = ProviderRateLimitConfig(profile=profile)
 
             self._configs[provider] = provider_config
-            logger.debug(
-                "Loaded rate limit config",
+
+            # Log profile selection
+            logger.info(
+                "Rate limiter profile selected",
                 provider=provider,
+                profile=profile.value,
                 min_interval=provider_config.min_interval_seconds,
                 max_parallel=provider_config.max_parallel,
             )
+
+            # Log warning if using anonymous profile due to missing credentials
+            self._log_missing_credentials_warning(provider, api_config, profile)
+
             return provider_config
 
         except Exception as e:
@@ -159,6 +235,37 @@ class AcademicAPIRateLimiter:
             default_config = ProviderRateLimitConfig()
             self._configs[provider] = default_config
             return default_config
+
+    def _log_missing_credentials_warning(
+        self, provider: str, api_config: AcademicAPIConfig, profile: RateLimitProfile
+    ) -> None:
+        """Log WARNING if credentials are missing (once per provider).
+
+        Args:
+            provider: API provider name.
+            api_config: API configuration.
+            profile: Selected profile.
+        """
+        state = self._provider_states.get(provider)
+        if not state or state.startup_warning_logged:
+            return
+
+        if provider == "semantic_scholar" and profile == RateLimitProfile.ANONYMOUS:
+            if not api_config.api_key:
+                logger.warning(
+                    "Semantic Scholar API key not configured - using conservative anonymous rate limits. "
+                    "Set LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY in .env for better performance. "
+                    "Get free API key at: https://www.semanticscholar.org/product/api"
+                )
+            state.startup_warning_logged = True
+
+        elif provider == "openalex" and profile == RateLimitProfile.ANONYMOUS:
+            if not api_config.email:
+                logger.warning(
+                    "OpenAlex email not configured - using conservative anonymous rate limits. "
+                    "Set LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL in .env for polite pool access."
+                )
+            state.startup_warning_logged = True
 
     async def _ensure_provider_initialized(self, provider: str) -> None:
         """Ensure locks and semaphores are initialized for a provider.
@@ -189,6 +296,7 @@ class AcademicAPIRateLimiter:
             logger.debug(
                 "Initialized rate limiter for provider",
                 provider=provider,
+                profile=config.profile.value,
                 max_parallel=config.max_parallel,
             )
 
@@ -307,11 +415,11 @@ class AcademicAPIRateLimiter:
         if provider not in self._backoff_states:
             return
 
-        # Load backoff config
-        from src.utils.config import get_settings
+        # Load backoff config from academic_apis.yaml (centralized)
+        from src.utils.config import get_academic_apis_config
 
-        settings = get_settings()
-        decrease_step = settings.concurrency.backoff.academic_api.decrease_step
+        config = get_academic_apis_config()
+        decrease_step = config.retry_policy.auto_backoff.decrease_step
 
         backoff = self._backoff_states[provider]
         now = time.time()
@@ -347,6 +455,51 @@ class AcademicAPIRateLimiter:
         backoff = self._backoff_states[provider]
         backoff.consecutive_429_count = 0
 
+    def downgrade_profile(self, provider: str) -> None:
+        """Downgrade provider to anonymous profile after 401/403 error.
+
+        Called by API clients when credentials are invalidated.
+        This affects the rate limit for the remainder of the process lifetime.
+
+        Args:
+            provider: API provider name.
+        """
+        if provider not in self._provider_states:
+            self._provider_states[provider] = ProviderState()
+
+        state = self._provider_states[provider]
+        if state.profile_downgraded:
+            return  # Already downgraded
+
+        old_profile = state.profile
+        state.profile = RateLimitProfile.ANONYMOUS
+        state.profile_downgraded = True
+
+        # Clear cached config to force reload with anonymous profile
+        if provider in self._configs:
+            del self._configs[provider]
+
+        # Log warning (once)
+        if not state.downgrade_logged:
+            logger.warning(
+                "API credentials invalidated - downgrading to anonymous rate limits",
+                provider=provider,
+                old_profile=old_profile.value,
+                new_profile=RateLimitProfile.ANONYMOUS.value,
+            )
+            state.downgrade_logged = True
+
+        # Re-initialize with new config if already initialized
+        if provider in self._qps_locks:
+            new_config = self._get_provider_config(provider)
+            # Update backoff state with new config max
+            if provider in self._backoff_states:
+                backoff = self._backoff_states[provider]
+                backoff.config_max_parallel = new_config.max_parallel
+                # Also reduce effective if it exceeds new max
+                if backoff.effective_max_parallel > new_config.max_parallel:
+                    backoff.effective_max_parallel = new_config.max_parallel
+
     async def _maybe_recover(self, provider: str) -> None:
         """Attempt to recover from backoff if stable period has passed.
 
@@ -362,11 +515,11 @@ class AcademicAPIRateLimiter:
         if not backoff.backoff_active:
             return
 
-        # Load recovery config
-        from src.utils.config import get_settings
+        # Load recovery config from academic_apis.yaml (centralized)
+        from src.utils.config import get_academic_apis_config
 
-        settings = get_settings()
-        recovery_stable_seconds = settings.concurrency.backoff.academic_api.recovery_stable_seconds
+        config = get_academic_apis_config()
+        recovery_stable_seconds = config.retry_policy.auto_backoff.recovery_stable_seconds
 
         now = time.time()
         time_since_last_429 = now - backoff.last_429_time
@@ -406,24 +559,30 @@ class AcademicAPIRateLimiter:
                     effective_max=backoff.effective_max_parallel,
                 )
 
-    def get_stats(self, provider: str) -> dict[str, float | int | bool]:
+    def get_stats(self, provider: str) -> dict[str, float | int | bool | str]:
         """Get rate limiter statistics for a provider.
 
         Args:
             provider: API provider name.
 
         Returns:
-            Dict with last_request timestamp, config values, and backoff state.
+            Dict with last_request timestamp, config values, profile, and backoff state.
         """
         config = self._get_provider_config(provider)
         backoff = self._backoff_states.get(provider)
+        state = self._provider_states.get(provider)
 
-        stats: dict[str, float | int | bool] = {
+        stats: dict[str, float | int | bool | str] = {
             "last_request": self._last_request.get(provider, 0),
             "min_interval_seconds": config.min_interval_seconds,
             "max_parallel": config.max_parallel,
             "active_count": self._active_counts.get(provider, 0),
+            "profile": config.profile.value,
         }
+
+        # Add provider state
+        if state:
+            stats["profile_downgraded"] = state.profile_downgraded
 
         # Add backoff state (ADR-0013)
         if backoff:
@@ -438,6 +597,20 @@ class AcademicAPIRateLimiter:
             stats["last_429_time"] = 0.0
 
         return stats
+
+    def get_current_profile(self, provider: str) -> RateLimitProfile:
+        """Get the current rate limit profile for a provider.
+
+        Args:
+            provider: API provider name.
+
+        Returns:
+            Current RateLimitProfile.
+        """
+        state = self._provider_states.get(provider)
+        if state:
+            return state.profile
+        return RateLimitProfile.ANONYMOUS
 
 
 # Global instance

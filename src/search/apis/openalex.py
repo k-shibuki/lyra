@@ -11,7 +11,7 @@ from typing import Any, cast
 import httpx
 
 from src.search.apis.base import BaseAcademicClient
-from src.utils.api_retry import ACADEMIC_API_POLICY, retry_api_call
+from src.utils.api_retry import get_academic_api_policy, retry_api_call
 from src.utils.logging import get_logger
 from src.utils.schemas import AcademicSearchResult, Author, Paper
 
@@ -92,7 +92,7 @@ class OpenAlexClient(BaseAcademicClient):
 
         try:
             data = await retry_api_call(
-                _search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                _search, policy=get_academic_api_policy(), rate_limiter_provider=self.name
             )
             papers = [self._parse_paper(w) for w in data.get("results", [])]
 
@@ -136,7 +136,6 @@ class OpenAlexClient(BaseAcademicClient):
 
             pid = self._normalize_work_id(paper_id)
 
-            # region agent log H-PMID-04
             try:
                 from src.utils.agent_debug import (
                     agent_debug_run_id,
@@ -158,7 +157,6 @@ class OpenAlexClient(BaseAcademicClient):
                 )
             except Exception:
                 pass
-            # endregion
 
             async def _fetch() -> dict[str, Any]:
                 response = await session.get(
@@ -174,10 +172,10 @@ class OpenAlexClient(BaseAcademicClient):
 
             try:
                 data = await retry_api_call(
-                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                    _fetch, policy=get_academic_api_policy(), rate_limiter_provider=self.name
                 )
                 paper = self._parse_paper(data)
-                # region agent log H-PMID-04
+
                 try:
                     from src.utils.agent_debug import (
                         agent_debug_run_id,
@@ -202,7 +200,7 @@ class OpenAlexClient(BaseAcademicClient):
                     )
                 except Exception:
                     pass
-                # endregion
+
                 return paper
             except Exception as e:
                 # H-C: Cache 404 responses to avoid repeated lookups
@@ -212,7 +210,7 @@ class OpenAlexClient(BaseAcademicClient):
                     logger.debug("Cached 404 for paper", paper_id=paper_id)
 
                 logger.warning("Failed to get paper", paper_id=paper_id, error=str(e))
-                # region agent log H-PMID-04
+
                 try:
                     from src.utils.agent_debug import (
                         agent_debug_run_id,
@@ -235,7 +233,7 @@ class OpenAlexClient(BaseAcademicClient):
                     )
                 except Exception:
                     pass
-                # endregion
+
                 return None
         finally:
             limiter.release(self.name)
@@ -268,7 +266,7 @@ class OpenAlexClient(BaseAcademicClient):
 
             try:
                 data = await retry_api_call(
-                    _fetch, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                    _fetch, policy=get_academic_api_policy(), rate_limiter_provider=self.name
                 )
             except Exception as e:
                 logger.debug(
@@ -339,7 +337,7 @@ class OpenAlexClient(BaseAcademicClient):
 
             try:
                 data = await retry_api_call(
-                    _search, policy=ACADEMIC_API_POLICY, rate_limiter_provider=self.name
+                    _search, policy=get_academic_api_policy(), rate_limiter_provider=self.name
                 )
                 papers = [self._parse_paper(w) for w in data.get("results", [])]
                 return [p for p in papers if p and p.abstract]

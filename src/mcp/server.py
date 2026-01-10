@@ -648,8 +648,13 @@ KEY COLUMNS (commonly used):
 - work_identifiers: canonical_id, provider, provider_paper_id (paper_id → canonical_id lookup)
 - edges: id, source_type, source_id, target_type, target_id, relation, nli_edge_confidence
 
+COMPUTED COLUMNS (available in VIEWS only, NOT in base tables):
+- bayesian_truth_confidence: Use v_claim_evidence_summary view (NOT claims table)
+- support_count, refute_count: Use v_claim_evidence_summary view
+
 To filter task-scoped data, start with claims/queries tables or use JOINs.
 Use options.include_schema=true to get full schema snapshot.
+NOTE: Error responses include 'hint' field with guidance for common mistakes.
 
 SECURITY:
 - Read-only only (no INSERT/UPDATE/DELETE/DDL)
@@ -1106,12 +1111,43 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
 # ============================================================
 
 
+async def _log_academic_api_profile_status() -> None:
+    """Initialize academic API rate limiters and log profile status.
+
+    This triggers credential checks and logs:
+    - INFO: Selected profile for each API
+    - WARNING: Missing credentials (API key / email)
+
+    Called at server startup to ensure users are aware of their configuration.
+    """
+    from src.search.apis.rate_limiter import get_academic_rate_limiter
+
+    limiter = get_academic_rate_limiter()
+
+    # Initialize each provider to trigger credential checks and profile selection
+    # The rate limiter will log INFO for selected profiles and WARNING for missing credentials
+    providers = ["semantic_scholar", "openalex"]
+    for provider in providers:
+        try:
+            await limiter._ensure_provider_initialized(provider)
+        except Exception as e:
+            logger.warning(
+                "Failed to initialize academic API rate limiter",
+                provider=provider,
+                error=str(e),
+            )
+
+
 async def run_server() -> None:
     """Run the MCP server."""
     logger.info("Starting Lyra MCP server", tool_count=len(TOOLS))
 
     # Initialize database
     await get_database()
+
+    # Initialize academic API rate limiters and log profile status
+    # This triggers credential checks and WARNING logs if keys/emails are missing
+    await _log_academic_api_profile_status()
 
     # Restore domain overrides from DB on startup
     # Ensures domain-specific policies persist across server restarts
@@ -1134,6 +1170,12 @@ async def run_server() -> None:
     finally:
         # Stop job scheduler
         await scheduler.stop()
+
+        # Cleanup LLM providers to prevent "Unclosed client session" warnings
+        from src.filter.provider import cleanup_llm_registry
+
+        await cleanup_llm_registry()
+
         await close_database()
         logger.info("Lyra MCP server stopped")
 

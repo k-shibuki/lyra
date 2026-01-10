@@ -411,12 +411,84 @@ JAPAN_GOV_API_POLICY = APIRetryPolicy(
     backoff=BackoffConfig(base_delay=2.0, max_delay=60.0),
 )
 
-#: Policy for academic APIs (OpenAlex, Semantic Scholar, etc.)
-#: Generally more lenient with rate limits
-ACADEMIC_API_POLICY = APIRetryPolicy(
-    max_retries=5,
-    backoff=BackoffConfig(base_delay=1.0, max_delay=120.0),
-)
+
+def get_academic_api_policy() -> APIRetryPolicy:
+    """Get academic API retry policy from centralized config.
+
+    Loads settings from config/academic_apis.yaml retry_policy section.
+    This is the single source of truth for academic API retry behavior (API-01 fix).
+
+    Returns:
+        APIRetryPolicy configured from academic_apis.yaml
+    """
+    try:
+        from src.utils.config import get_academic_apis_config
+
+        config = get_academic_apis_config()
+        retry_config = config.retry_policy
+
+        return APIRetryPolicy(
+            max_retries=retry_config.max_retries,
+            backoff=BackoffConfig(
+                base_delay=retry_config.backoff.base_delay,
+                max_delay=retry_config.backoff.max_delay,
+                exponential_base=retry_config.backoff.exponential_base,
+                jitter_factor=retry_config.backoff.jitter_factor,
+            ),
+        )
+    except Exception:
+        # Fallback to hardcoded defaults if config loading fails
+        return APIRetryPolicy(
+            max_retries=5,
+            backoff=BackoffConfig(base_delay=1.0, max_delay=120.0),
+        )
+
+
+def get_max_consecutive_429_for_provider(provider: str) -> int:
+    """Get profile-aware max_consecutive_429 for a provider.
+
+    The value is determined by:
+    1. Base value from retry_policy.max_consecutive_429
+    2. Profile-specific override if the provider's current profile has one
+
+    Args:
+        provider: API provider name (e.g., "semantic_scholar", "openalex")
+
+    Returns:
+        max_consecutive_429 value for the provider's current profile
+    """
+    try:
+        from src.search.apis.rate_limiter import RateLimitProfile, get_academic_rate_limiter
+        from src.utils.config import get_academic_apis_config
+
+        config = get_academic_apis_config()
+        retry_config = config.retry_policy
+        base_value = retry_config.max_consecutive_429
+
+        # Get current profile from rate limiter
+        limiter = get_academic_rate_limiter()
+        current_profile = limiter.get_current_profile(provider)
+
+        # Check for profile-specific override
+        if retry_config.profiles:
+            if (
+                current_profile == RateLimitProfile.AUTHENTICATED
+                and retry_config.profiles.authenticated
+                and retry_config.profiles.authenticated.max_consecutive_429 is not None
+            ):
+                return retry_config.profiles.authenticated.max_consecutive_429
+            elif (
+                current_profile == RateLimitProfile.IDENTIFIED
+                and retry_config.profiles.identified
+                and retry_config.profiles.identified.max_consecutive_429 is not None
+            ):
+                return retry_config.profiles.identified.max_consecutive_429
+
+        return base_value
+    except Exception:
+        # Fallback to conservative default
+        return 3
+
 
 #: Policy for entity APIs (Wikidata, DBpedia)
 #: Can handle more aggressive retry

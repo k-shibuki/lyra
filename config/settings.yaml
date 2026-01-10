@@ -5,7 +5,7 @@
 general:
   project_name: "lyra"
   version: "0.1.0"
-  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_level: "WARNING"  # DEBUG, INFO, WARNING, ERROR
   data_dir: "data"
   logs_dir: "logs"
   
@@ -331,14 +331,9 @@ concurrency:
     # Min: 1, Default: 2
     max_tabs: 2
   
-  # Auto-backoff settings (ADR-0013/ADR-0014)
-  # Automatically reduce concurrency on errors; recovery varies by resource type
+  # Auto-backoff settings (ADR-0014)
+  # Note: Academic API backoff is now in config/academic_apis.yaml (retry_policy.auto_backoff)
   backoff:
-    academic_api:
-      # Seconds of stability before attempting to increase max_parallel
-      recovery_stable_seconds: 60
-      # Amount to decrease max_parallel on 429 error
-      decrease_step: 1
     browser_serp:
       # Amount to decrease max_tabs on CAPTCHA/403 detection
       decrease_step: 1
