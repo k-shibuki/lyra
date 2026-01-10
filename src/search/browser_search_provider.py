@@ -464,14 +464,15 @@ class BrowserSearchProvider(BaseSearchProvider):
             True if Chrome is ready (started or already running), False otherwise.
         """
         # #region agent log
-        import json, time
+        import json
+        import time
+
         try:
-            from src.utils.config import get_chrome_port as _dbg_get_chrome_port
             from pathlib import Path as _DbgPath
 
-            _dbg_script_path = (
-                _DbgPath(__file__).parent.parent.parent / "scripts" / "chrome.sh"
-            )
+            from src.utils.config import get_chrome_port as _dbg_get_chrome_port
+
+            _dbg_script_path = _DbgPath(__file__).parent.parent.parent / "scripts" / "chrome.sh"
             with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
                 f.write(
                     json.dumps(
@@ -483,7 +484,9 @@ class BrowserSearchProvider(BaseSearchProvider):
                             "message": "enter auto_start_chrome",
                             "data": {
                                 "worker_id": self._worker_id,
-                                "chrome_host": getattr(self._settings.browser, "chrome_host", "localhost"),
+                                "chrome_host": getattr(
+                                    self._settings.browser, "chrome_host", "localhost"
+                                ),
                                 "chrome_port": _dbg_get_chrome_port(self._worker_id),
                                 "script_exists": _dbg_script_path.exists(),
                             },
@@ -519,7 +522,9 @@ class BrowserSearchProvider(BaseSearchProvider):
             # (another worker may have started it while we were waiting)
             if await _check_cdp_available(chrome_host, chrome_port):
                 # #region agent log
-                import json, time
+                import json
+                import time
+
                 try:
                     with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
                         f.write(
@@ -582,7 +587,9 @@ class BrowserSearchProvider(BaseSearchProvider):
                 stderr_text = stderr.decode() if stderr else ""
 
                 # #region agent log
-                import json, time
+                import json
+                import time
+
                 try:
                     with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
                         f.write(

@@ -173,7 +173,9 @@ class InterventionManager:
             True if successful.
         """
         # #region agent log
-        import json as _dbg_json, time as _dbg_time
+        import json as _dbg_json
+        import time as _dbg_time
+
         try:
             with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
                 f.write(
@@ -280,7 +282,9 @@ class InterventionManager:
             # xdotool is commonly available on desktop Linux systems
             try:
                 # #region agent log
-                import json as _dbg_json, time as _dbg_time
+                import json as _dbg_json
+                import time as _dbg_time
+
                 try:
                     with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
                         f.write(

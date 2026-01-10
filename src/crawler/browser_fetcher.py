@@ -498,14 +498,15 @@ class BrowserFetcher:
             True if Chrome is ready (started or already running), False otherwise.
         """
         # #region agent log
-        import json, time
+        import json
+        import time
+
         try:
-            from src.utils.config import get_chrome_port as _dbg_get_chrome_port
             from pathlib import Path as _DbgPath
 
-            _dbg_script_path = (
-                _DbgPath(__file__).parent.parent.parent / "scripts" / "chrome.sh"
-            )
+            from src.utils.config import get_chrome_port as _dbg_get_chrome_port
+
+            _dbg_script_path = _DbgPath(__file__).parent.parent.parent / "scripts" / "chrome.sh"
             with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
                 f.write(
                     json.dumps(
@@ -598,7 +599,9 @@ class BrowserFetcher:
                 stderr_text = stderr.decode() if stderr else ""
 
                 # #region agent log
-                import json, time
+                import json
+                import time
+
                 try:
                     with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
                         f.write(

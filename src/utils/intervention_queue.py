@@ -328,7 +328,9 @@ class InterventionQueue:
             Session info with URLs to process.
         """
         # #region agent log
-        import json as _dbg_json, time as _dbg_time
+        import json as _dbg_json
+        import time as _dbg_time
+
         try:
             _dbg_bring = get_settings().browser.bring_to_front_on_auth_session_start
             with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
