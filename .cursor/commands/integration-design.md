@@ -34,6 +34,7 @@ This command focuses on the concrete deliverables and how to produce them.
 4. Add a debug script at `tests/scripts/debug_{feature}_flow.py` that validates the end-to-end flow (including the propagation map checkpoints).
    - Prefer using an **isolated DB** so scripts do not mutate `data/lyra.db` and do not leave artifacts.
    - Utility: `src/storage/isolation.py` (`isolated_database_path`)
+   - For instrumentation conventions (log format, template), see `@.cursor/commands/debug.md` Instrumentation section
 5. Run/verify the flow and update the sequence diagram to match reality.
 
 ## Output (response format)
@@ -71,6 +72,7 @@ This command focuses on the concrete deliverables and how to produce them.
 
 Do **not** assume the phase; always confirm to prevent data loss.
 
-## Related rules
+## Related
 
-- `@.cursor/rules/integration-design.mdc`
+- `@.cursor/rules/integration-design.mdc` (policy)
+- `@.cursor/commands/debug.md` (for instrumentation procedures)

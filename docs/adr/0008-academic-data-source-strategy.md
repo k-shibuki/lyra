@@ -1,7 +1,7 @@
 # ADR-0008: Academic Data Source Strategy
 
 ## Date
-2025-11-28 (Updated: 2026-01-06)
+2025-11-28 (Updated: 2026-01-10)
 
 ## Context
 
@@ -38,14 +38,14 @@ flowchart LR
     subgraph ENTRY["Entry Points"]
         direction TB
         DQ["Direct Query<br/>(keyword search)"]
-        SERP["SERP URL<br/>(pubmed/arxiv/doi.org)"]
+        SERP["SERP URL<br/>(pubmed/pmc/arxiv/doi.org/<br/>openalex.org/semanticscholar.org)"]
     end
 
     subgraph RESOLVE["ID Resolution"]
         direction TB
         EX["IdentifierExtractor"]
         IR["IDResolver"]
-        EX -->|"PMID/arXiv"| IR
+        EX -->|"PMID/PMCID/arXiv"| IR
     end
 
     subgraph API["Academic API Layer"]
@@ -60,6 +60,8 @@ flowchart LR
     DQ --> S2
     SERP --> EX
     EX -->|"DOI (direct)"| S2
+    EX -->|"openalex:W..."| OA
+    EX -->|"s2:paperId"| S2
     IR -->|DOI| S2
 
     S2 -->|Success| OUT
@@ -70,6 +72,7 @@ flowchart LR
 |-------------|----------|------------|
 | Direct Query | Academic search, citation graph | Direct to S2/OpenAlex |
 | SERP URL | Metadata complement for browser results | Extract ID → Resolve → API |
+| OpenAlex/S2 URL | Provider-native URLs from SERP | Direct to respective API (no DOI conversion) |
 
 ### Semantic Scholar (S2) Selection Reasons
 
@@ -103,6 +106,28 @@ This aligns with ADR-0002's three-layer model: Lyra discovers, AI synthesizes, h
 | Institution Info | Rich author affiliation data |
 | Open | Completely open data |
 
+### Provider-Native URL Handling
+
+SERP results may include URLs directly from OpenAlex (`openalex.org/W...`) or Semantic Scholar (`semanticscholar.org/paper/.../`). These are routed directly to their respective APIs without DOI conversion:
+
+| URL Pattern | Extracted ID | Target API | DOI Conversion |
+|-------------|--------------|------------|----------------|
+| `openalex.org/W2741809807` | `openalex:W2741809807` | OpenAlex | Not needed |
+| `semanticscholar.org/paper/.../abc123...` | `s2:abc123...` (40-hex) | Semantic Scholar | Not needed |
+| `doi.org/10.xxx/...` | DOI | S2 (primary) | Already DOI |
+| `pubmed.ncbi.nlm.nih.gov/123` | PMID | S2 via IDResolver | Required |
+| `pmc.ncbi.nlm.nih.gov/articles/PMC123456` | PMCID | S2 via IDResolver | Required (NCBI idconv API) |
+
+**Note on PMCID**: PMC (PubMed Central) IDs are resolved via NCBI's idconv API, which returns both PMID and DOI when available. The DOI is used directly for academic API queries when present.
+
+**Minimal-Calls Strategy**: When complementing SERP results with academic API data:
+
+1. **Primary call**: Route to the API matching the extracted ID type (OpenAlex ID → OpenAlex, S2 ID → S2, DOI → S2)
+2. **Secondary call**: Only if primary returns `None` or missing abstract, **and** a DOI is available, query the other API using DOI
+3. **Index merge**: SERP entries with provider-native IDs are merged into DOI-based canonical entries when API returns a DOI
+
+This minimizes API calls while maximizing metadata extraction. See `src/research/pipeline.py:_complement_serp_result()` for implementation.
+
 ### Citation Graph Construction
 
 Citation relationships from S2 API are integrated into the Evidence Graph (see ADR-0005).
@@ -123,11 +148,16 @@ Fallback behavior executes in the following order:
 
 | Order | Condition | Action |
 |-------|-----------|--------|
-| 1 | S2 success | Return result |
-| 2 | S2 rate limited | Backoff, then try OpenAlex |
-| 3 | S2 not found | Try OpenAlex |
-| 4 | Both not found + DOI available | Resolve via DOI URL |
-| 5 | All failed | Return error |
+| 1 | Provider-native ID (OpenAlex/S2) | Route directly to matching API |
+| 2 | S2 success | Return result |
+| 3 | S2 rate limited | Backoff, then try OpenAlex |
+| 4 | S2 not found | Try OpenAlex |
+| 5 | Both not found + DOI available | Resolve via DOI URL |
+| 6 | All failed | Return error |
+
+**Note**: For SERP complementation, secondary API calls are only made when:
+- Primary API returns `None` or paper lacks abstract, **and**
+- A DOI is available (either from identifier or from primary API response)
 
 See `src/search/academic_provider.py` for parallel search and merge logic.
 
@@ -145,12 +175,18 @@ When a paper's `venue` is a preprint server (arXiv, bioRxiv, medRxiv, etc.), the
 
 API settings are managed in `config/academic_apis.yaml`. Key configuration items:
 
-| API | Key Settings |
-|-----|--------------|
-| Semantic Scholar | base_url, rate_limit, timeout, priority |
-| OpenAlex | base_url, rate_limit, polite_pool User-Agent, priority |
+| API | Key Settings | Rate Limit (anonymous) | Rate Limit (with key/email) |
+|-----|--------------|------------------------|----------------------------|
+| Semantic Scholar | base_url, rate_limit, timeout, priority | 0.33 req/s (shared pool) | 0.9 req/s (dedicated) |
+| OpenAlex | base_url, rate_limit, polite_pool User-Agent, priority | 6 req/s | 8 req/s (polite pool) |
+| NCBI | base_url, rate_limit, timeout, priority | 2 req/s | 8 req/s (with API key) |
 
 Rate limits and retry policies follow ADR-0013 (Worker Resource Contention Control).
+
+Configure API keys/emails in `.env` (see `.env.example` for details):
+- `LYRA_ACADEMIC_APIS__APIS__SEMANTIC_SCHOLAR__API_KEY`
+- `LYRA_ACADEMIC_APIS__APIS__OPENALEX__EMAIL`
+- `LYRA_ACADEMIC_APIS__APIS__NCBI__API_KEY`
 
 ## Consequences
 
@@ -180,8 +216,9 @@ Rate limits and retry policies follow ADR-0013 (Worker Resource Contention Contr
 - `src/search/apis/semantic_scholar.py` - Semantic Scholar API client
 - `src/search/apis/openalex.py` - OpenAlex API client
 - `src/search/academic_provider.py` - Academic API integration provider
-- `src/search/identifier_extractor.py` - DOI/PMID/arXiv extractor from URLs
-- `src/search/id_resolver.py` - PMID/arXiv to DOI resolver
-- `src/research/pipeline.py` - Search pipeline (Flow 1 implementation)
+- `src/search/identifier_extractor.py` - DOI/PMID/PMCID/arXiv/OpenAlex/S2 extractor from URLs
+- `src/search/id_resolver.py` - PMID/PMCID/arXiv to DOI resolver (NCBI idconv API for PMCID)
+- `src/search/canonical_index.py` - SERP/API entry deduplication and merge logic
+- `src/research/pipeline.py` - Search pipeline (Flow 1 implementation, `_complement_serp_result()`)
 - `src/storage/works.py` - Normalized bibliographic metadata persistence
 - `config/academic_apis.yaml` - API configuration

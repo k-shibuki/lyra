@@ -128,7 +128,7 @@ Status values: `not_enqueued`, `queued`, `running`, `drained`, `pending` (for au
 
 | Tool | Description |
 |------|-------------|
-| `query_sql` | Execute read-only SQL against Evidence Graph |
+| `query_sql` | Execute read-only SQL against Evidence Graph (errors include helpful `hint` field) |
 | `vector_search` | Semantic similarity search over fragments/claims |
 | `query_view` | Execute predefined SQL view template (20 views available) |
 | `list_views` | List available view templates |

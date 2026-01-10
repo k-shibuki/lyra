@@ -134,15 +134,28 @@ When a 429 error is received, the rate limiter automatically reduces `effective_
 - **Recovery**: Auto-recover by 1 step after `recovery_stable_seconds` (default: 60s), up to config limit
 - **Risk**: Low (protected by rate limiting)
 
-**Config location**: `config/settings.yaml` → `concurrency.backoff.academic_api`
+**Config location**: `config/academic_apis.yaml` → `retry_policy.auto_backoff`
 
 ```yaml
-concurrency:
-  backoff:
-    academic_api:
-      recovery_stable_seconds: 60  # Seconds before attempting recovery
-      decrease_step: 1             # Amount to decrease on 429
+retry_policy:
+  auto_backoff:
+    recovery_stable_seconds: 60  # Seconds before attempting recovery
+    decrease_step: 1             # Amount to decrease on 429
 ```
+
+## Profile-based Rate Limits
+
+Rate limits are now profile-based to support different credential states:
+
+| Provider | Profile | Condition | Effective Rate | Headroom |
+|----------|---------|-----------|----------------|----------|
+| Semantic Scholar | `authenticated` | API key set | ~0.9 req/s | 10% |
+| Semantic Scholar | `anonymous` | No API key | ~0.33 req/s | conservative |
+| OpenAlex | `identified` | Email set (polite pool) | 8 req/s | 20% |
+| OpenAlex | `anonymous` | No email | 6 req/s | 40% |
+
+On startup, the rate limiter logs the selected profile and WARNINGs if credentials are missing.
+If API credentials become invalid (401/403), the profile automatically downgrades to `anonymous`.
 
 ## Related
 

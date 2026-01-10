@@ -1,5 +1,5 @@
 ---
-description: Quality check conventions (lint/format/type)
+description: "Running lint, format, or type checks: fix approaches and prohibited workarounds"
 alwaysApply: false
 ---
 # Quality Check Conventions

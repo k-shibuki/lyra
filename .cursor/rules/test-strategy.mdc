@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+description: "Creating, reviewing, or modifying tests: test perspectives table, coverage, and mock conventions"
+alwaysApply: false
 ---
 # Test Conventions
 

@@ -1,5 +1,5 @@
 ---
-description: General debugging conventions
+description: "Debugging or investigating bugs: instrumentation, log analysis, and hypothesis-driven troubleshooting"
 alwaysApply: false
 ---
 # Debugging Conventions
@@ -13,10 +13,12 @@ alwaysApply: false
 
 Achieve reproducible and efficient problem resolution. This project heavily uses **E2E debugging** due to MCP server characteristics (state persistence, async pipelines, multi-component interactions).
 
+**Related**: For **prevention** of integration issues during new feature development, see `@.cursor/rules/integration-design.mdc`.
+
 ### Debug Method Priority
 
-1. **Python scripts** (`debug/scripts/`) - Isolated, reproducible, no user interaction
-2. **MCP tools** (`query_sql`, etc.) - When DB state inspection needed during MCP session
+1. **Python scripts and instruments log code** (`debug/scripts/`) - Isolated, reproducible, no user interaction
+2. **MCP tools and instruments log code** (`query_sql`, etc.) - When DB state inspection needed during MCP session
 3. **User operations** - Only when unavoidable (MCP restart, browser auth)
 
 ---

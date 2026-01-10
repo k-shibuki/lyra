@@ -1,5 +1,5 @@
 ---
-description: Conventions for designing and verifying inter-module integration
+description: "Designing new features or verifying inter-module integration: sequence diagrams and data flow verification"
 alwaysApply: false
 ---
 # Inter-Module Integration Design Rules
@@ -55,6 +55,7 @@ Solve the problem of "modules not integrating properly, resulting in a product t
 - Place in `tests/scripts/debug_{feature}_flow.py`
 - Verify data type and content at each step
 - **When adding new parameters/fields**: Verify at entry → each module boundary → exit that values are held/transformed as expected (and "taking effect" if necessary)
+- Instrumentation conventions (log format, placement strategy) follow `@.cursor/rules/debug.mdc` Section 2
 
 ### Step 4: Update Sequence Diagram
 

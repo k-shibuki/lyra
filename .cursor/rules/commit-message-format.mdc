@@ -1,5 +1,5 @@
 ---
-description: Git commit message conventions
+description: "Creating git commits: Conventional Commits format and message structure"
 alwaysApply: false
 ---
 # Git Commit Message Conventions

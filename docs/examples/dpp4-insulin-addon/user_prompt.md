@@ -9,3 +9,7 @@ Please provide:
 5. Comparison with other add-on therapies (GLP-1 agonists, SGLT2 inhibitors)
 
 Cite primary sources (original papers, FDA labels, clinical guidelines).
+
+---
+<!-- Execute this research by invoking the Cursor command below -->
+/lyra-search

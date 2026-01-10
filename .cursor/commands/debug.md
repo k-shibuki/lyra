@@ -226,4 +226,5 @@ grep -rn "# #region agent log" src/
 
 ## Related
 
-`@.cursor/rules/debug.mdc`
+- `@.cursor/rules/debug.mdc` (policy)
+- `@.cursor/commands/integration-design.md` (for preventing integration issues during new feature development)

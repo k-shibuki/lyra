@@ -23,6 +23,24 @@ Then invoke with `/lyra-search` or `/lyra-report` in Cursor chat.
 
 Add as Skills via Settings → Skills.
 
+## Philosophy: DB-first, Report-as-Export
+
+Lyra’s “main path” is **not** writing a narrative report. The main path is:
+
+- **Grow an Evidence Graph** (task → targets → pages/fragments/claims)
+- **Ask the graph** (views, search, contradictions, provenance) and iterate until the hypothesis is answered
+
+So why do we support report generation at all?
+
+- **Shareability**: Many stakeholders won’t (or can’t) query your local DB. A report is a portable artifact.
+- **Auditability**: A report is a snapshot with explicit provenance (claim → fragment → page → URL) that can be reviewed later.
+- **Decision logs**: Teams often need an immutable record of “what we believed, when, and based on which sources.”
+- **Context compression**: A report is a human-friendly projection of a large graph (tables, footnotes, summaries).
+- **Compliance & governance**: Some environments require written artifacts (review packets, memos, sign-off trails).
+
+Important: in Lyra, a report is **an export of the Evidence Graph**, not a separate evidence source.
+All citations must already exist in the graph; web search is for query design, not for direct evidence.
+
 ## Sample Research
 
 ### DPP-4 Inhibitors as Add-on Therapy to Insulin

@@ -1,7 +1,7 @@
 ---
-alwaysApply: true
+description: "Core coding assistance rules: task classification, tool usage policy, and response style"
+alwaysApply: false
 ---
-
 # v5: Coding Assistance Rules
 
 You are an AI assistant with advanced problem-solving capabilities. This file defines behaviors for maximizing productivity and safety in **code-centric tasks**.
