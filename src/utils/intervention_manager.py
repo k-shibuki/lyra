@@ -172,6 +172,28 @@ class InterventionManager:
         Returns:
             True if successful.
         """
+        # #region agent log
+        import json as _dbg_json, time as _dbg_time
+        try:
+            with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                f.write(
+                    _dbg_json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "pre-fix",
+                            "hypothesisId": "SERP-H2",
+                            "location": "src/utils/intervention_manager.py:_bring_tab_to_front:entry",
+                            "message": "_bring_tab_to_front called",
+                            "data": {"platform": platform.system(), "is_wsl": is_wsl()},
+                            "timestamp": int(_dbg_time.time() * 1000),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion
         try:
             # Get browser context
             context = page.context
@@ -257,6 +279,28 @@ class InterventionManager:
             # Native Linux: try xdotool for window activation
             # xdotool is commonly available on desktop Linux systems
             try:
+                # #region agent log
+                import json as _dbg_json, time as _dbg_time
+                try:
+                    with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                        f.write(
+                            _dbg_json.dumps(
+                                {
+                                    "sessionId": "debug-session",
+                                    "runId": "pre-fix",
+                                    "hypothesisId": "SERP-H2",
+                                    "location": "src/utils/intervention_manager.py:_platform_activate_window:xdotool",
+                                    "message": "invoking xdotool windowactivate",
+                                    "data": {"name_query": "Chrome"},
+                                    "timestamp": int(_dbg_time.time() * 1000),
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
+                except Exception:
+                    pass
+                # #endregion
                 process = await asyncio.create_subprocess_exec(
                     "xdotool",
                     "search",

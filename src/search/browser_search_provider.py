@@ -463,6 +463,39 @@ class BrowserSearchProvider(BaseSearchProvider):
         Returns:
             True if Chrome is ready (started or already running), False otherwise.
         """
+        # #region agent log
+        import json, time
+        try:
+            from src.utils.config import get_chrome_port as _dbg_get_chrome_port
+            from pathlib import Path as _DbgPath
+
+            _dbg_script_path = (
+                _DbgPath(__file__).parent.parent.parent / "scripts" / "chrome.sh"
+            )
+            with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "pre-fix",
+                            "hypothesisId": "SERP-H1",
+                            "location": "src/search/browser_search_provider.py:_auto_start_chrome:entry",
+                            "message": "enter auto_start_chrome",
+                            "data": {
+                                "worker_id": self._worker_id,
+                                "chrome_host": getattr(self._settings.browser, "chrome_host", "localhost"),
+                                "chrome_port": _dbg_get_chrome_port(self._worker_id),
+                                "script_exists": _dbg_script_path.exists(),
+                            },
+                            "timestamp": int(time.time() * 1000),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion
         from pathlib import Path
 
         from src.utils.config import get_chrome_port
@@ -485,6 +518,28 @@ class BrowserSearchProvider(BaseSearchProvider):
             # After acquiring lock, check if Chrome is already ready
             # (another worker may have started it while we were waiting)
             if await _check_cdp_available(chrome_host, chrome_port):
+                # #region agent log
+                import json, time
+                try:
+                    with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                        f.write(
+                            json.dumps(
+                                {
+                                    "sessionId": "debug-session",
+                                    "runId": "pre-fix",
+                                    "hypothesisId": "SERP-H1",
+                                    "location": "src/search/browser_search_provider.py:_auto_start_chrome:already_available",
+                                    "message": "cdp already available; skip auto-start",
+                                    "data": {"worker_id": self._worker_id, "port": chrome_port},
+                                    "timestamp": int(time.time() * 1000),
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
+                except Exception:
+                    pass
+                # #endregion
                 logger.info(
                     "Chrome already available (started by another worker or mcp.sh)",
                     worker_id=self._worker_id,
@@ -525,6 +580,34 @@ class BrowserSearchProvider(BaseSearchProvider):
 
                 stdout_text = stdout.decode() if stdout else ""
                 stderr_text = stderr.decode() if stderr else ""
+
+                # #region agent log
+                import json, time
+                try:
+                    with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                        f.write(
+                            json.dumps(
+                                {
+                                    "sessionId": "debug-session",
+                                    "runId": "pre-fix",
+                                    "hypothesisId": "SERP-H1",
+                                    "location": "src/search/browser_search_provider.py:_auto_start_chrome:subprocess_done",
+                                    "message": "auto-start subprocess finished",
+                                    "data": {
+                                        "worker_id": self._worker_id,
+                                        "returncode": process.returncode,
+                                        "stdout_head": (stdout_text[:200] if stdout_text else ""),
+                                        "stderr_head": (stderr_text[:200] if stderr_text else ""),
+                                    },
+                                    "timestamp": int(time.time() * 1000),
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
+                except Exception:
+                    pass
+                # #endregion
 
                 if process.returncode == 0:
                     logger.info(

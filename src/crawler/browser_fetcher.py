@@ -497,6 +497,39 @@ class BrowserFetcher:
         Returns:
             True if Chrome is ready (started or already running), False otherwise.
         """
+        # #region agent log
+        import json, time
+        try:
+            from src.utils.config import get_chrome_port as _dbg_get_chrome_port
+            from pathlib import Path as _DbgPath
+
+            _dbg_script_path = (
+                _DbgPath(__file__).parent.parent.parent / "scripts" / "chrome.sh"
+            )
+            with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "pre-fix",
+                            "hypothesisId": "SERP-H1",
+                            "location": "src/crawler/browser_fetcher.py:_auto_start_chrome:entry",
+                            "message": "enter auto_start_chrome",
+                            "data": {
+                                "worker_id": self._worker_id,
+                                "chrome_host": self._settings.browser.chrome_host,
+                                "chrome_port": _dbg_get_chrome_port(self._worker_id),
+                                "script_exists": _dbg_script_path.exists(),
+                            },
+                            "timestamp": int(time.time() * 1000),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion
         import asyncio
 
         from src.search.browser_search_provider import (
@@ -563,6 +596,34 @@ class BrowserFetcher:
 
                 stdout_text = stdout.decode() if stdout else ""
                 stderr_text = stderr.decode() if stderr else ""
+
+                # #region agent log
+                import json, time
+                try:
+                    with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                        f.write(
+                            json.dumps(
+                                {
+                                    "sessionId": "debug-session",
+                                    "runId": "pre-fix",
+                                    "hypothesisId": "SERP-H1",
+                                    "location": "src/crawler/browser_fetcher.py:_auto_start_chrome:subprocess_done",
+                                    "message": "auto-start subprocess finished",
+                                    "data": {
+                                        "worker_id": self._worker_id,
+                                        "returncode": process.returncode,
+                                        "stdout_head": (stdout_text[:200] if stdout_text else ""),
+                                        "stderr_head": (stderr_text[:200] if stderr_text else ""),
+                                    },
+                                    "timestamp": int(time.time() * 1000),
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
+                except Exception:
+                    pass
+                # #endregion
 
                 if process.returncode == 0:
                     logger.info(

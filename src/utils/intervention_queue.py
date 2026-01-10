@@ -327,6 +327,34 @@ class InterventionQueue:
         Returns:
             Session info with URLs to process.
         """
+        # #region agent log
+        import json as _dbg_json, time as _dbg_time
+        try:
+            _dbg_bring = get_settings().browser.bring_to_front_on_auth_session_start
+            with open("/home/statuser/Projects/lyra/.cursor/debug.log", "a") as f:
+                f.write(
+                    _dbg_json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "pre-fix",
+                            "hypothesisId": "SERP-H2",
+                            "location": "src/utils/intervention_queue.py:start_session:entry",
+                            "message": "start_session called",
+                            "data": {
+                                "task_id": task_id,
+                                "queue_ids_count": (len(queue_ids) if queue_ids else 0),
+                                "priority_filter": priority_filter,
+                                "bring_to_front": _dbg_bring,
+                            },
+                            "timestamp": int(_dbg_time.time() * 1000),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion
         await self._ensure_db()
         assert self._db is not None  # Type narrowing after _ensure_db
 
