@@ -486,19 +486,28 @@ class PaperIdentifier(BaseModel):
 
     Supported identifiers per ADR-0008 (S2 + OpenAlex two-pillar strategy):
     - DOI, PMID, arXiv ID (resolved via Semantic Scholar API)
+    - OpenAlex Work ID, Semantic Scholar paper ID (provider-native)
     """
 
-    doi: str | None = Field(None, description="DOI")
-    pmid: str | None = Field(None, description="PubMed ID")
-    pmcid: str | None = Field(None, description="PubMed Central ID (PMCID, e.g., PMC123456)")
-    arxiv_id: str | None = Field(None, description="arXiv ID")
-    url: str | None = Field(None, description="URL (fallback)")
+    doi: str | None = Field(default=None, description="DOI")
+    pmid: str | None = Field(default=None, description="PubMed ID")
+    pmcid: str | None = Field(
+        default=None, description="PubMed Central ID (PMCID, e.g., PMC123456)"
+    )
+    arxiv_id: str | None = Field(default=None, description="arXiv ID")
+    openalex_work_id: str | None = Field(
+        default=None, description="OpenAlex Work ID (e.g., W2741809807)"
+    )
+    s2_paper_id: str | None = Field(
+        default=None, description="Semantic Scholar paperId (40-char hex, without s2: prefix)"
+    )
+    url: str | None = Field(default=None, description="URL (fallback)")
     needs_meta_extraction: bool = Field(
         default=False, description="Whether meta tag extraction is needed"
     )
 
     def get_canonical_id(self) -> str:
-        """Return canonical ID (priority: DOI > PMID > PMCID > arXiv > URL)."""
+        """Return canonical ID (priority: DOI > PMID > PMCID > arXiv > OpenAlex > S2 > URL)."""
         if self.doi:
             return f"doi:{self.doi.lower().strip()}"
         if self.pmid:
@@ -507,6 +516,10 @@ class PaperIdentifier(BaseModel):
             return f"pmcid:{self.pmcid}"
         if self.arxiv_id:
             return f"arxiv:{self.arxiv_id}"
+        if self.openalex_work_id:
+            return f"openalex:{self.openalex_work_id}"
+        if self.s2_paper_id:
+            return f"s2:{self.s2_paper_id}"
         if self.url:
             return f"url:{hashlib.md5(self.url.encode()).hexdigest()[:12]}"
         return f"unknown:{uuid.uuid4().hex[:8]}"

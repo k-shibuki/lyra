@@ -25,6 +25,8 @@ class IdentifierExtractor:
         "pmid": re.compile(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", re.IGNORECASE),
         "pmcid": re.compile(r"pmc\.ncbi\.nlm\.nih\.gov/articles/(PMC\d+)", re.IGNORECASE),
         "arxiv": re.compile(r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})", re.IGNORECASE),
+        "openalex": re.compile(r"openalex\.org/(W\d+)", re.IGNORECASE),
+        "s2": re.compile(r"semanticscholar\.org/paper/[^/]+/([a-f0-9]{40})", re.IGNORECASE),
         "jstage_doi": re.compile(r"jstage\.jst\.go\.jp/.*/(10\.\d+/[^/?#]+)", re.IGNORECASE),
         "nature_doi": re.compile(r"nature\.com/articles/(s\d+-\d+-\d+-\w+)", re.IGNORECASE),
         "sciencedirect_doi": re.compile(
@@ -42,16 +44,17 @@ class IdentifierExtractor:
             PaperIdentifier with extracted identifiers
         """
         if not url:
-            return PaperIdentifier(doi=None, pmid=None, pmcid=None, arxiv_id=None, url=url)
+            return PaperIdentifier(url=url)
 
-        identifier = PaperIdentifier(doi=None, pmid=None, pmcid=None, arxiv_id=None, url=url)
+        identifier = PaperIdentifier(url=url)
+
+        # Extract as many identifiers as possible; routing/priority is decided downstream.
 
         # 1. DOI (doi.org)
         doi_match = self.PATTERNS["doi"].search(url)
         if doi_match:
             identifier.doi = doi_match.group(1)
             logger.debug("Extracted DOI from URL", doi=identifier.doi, url=url)
-            return identifier
 
         # 2. PMID (PubMed)
         pmid_match = self.PATTERNS["pmid"].search(url)
@@ -59,7 +62,7 @@ class IdentifierExtractor:
             identifier.pmid = pmid_match.group(1)
             identifier.needs_meta_extraction = True  # DOI conversion needed
             logger.debug("Extracted PMID from URL", pmid=identifier.pmid, url=url)
-            # region agent log H-PMID-01
+
             try:
                 from src.utils.agent_debug import (
                     agent_debug_run_id,
@@ -77,8 +80,8 @@ class IdentifierExtractor:
                 )
             except Exception:
                 pass
-            # endregion
-            return identifier
+
+            # continue: other IDs may also exist in the URL
 
         # 2b. PMCID (PubMed Central)
         pmcid_match = self.PATTERNS["pmcid"].search(url)
@@ -86,7 +89,7 @@ class IdentifierExtractor:
             identifier.pmcid = pmcid_match.group(1)
             identifier.needs_meta_extraction = True  # PMID/DOI conversion needed
             logger.debug("Extracted PMCID from URL", pmcid=identifier.pmcid, url=url)
-            # region agent log H-PMID-11
+
             try:
                 from src.utils.agent_debug import (
                     agent_debug_run_id,
@@ -104,8 +107,8 @@ class IdentifierExtractor:
                 )
             except Exception:
                 pass
-            # endregion
-            return identifier
+
+            # continue
 
         # 3. arXiv ID
         arxiv_match = self.PATTERNS["arxiv"].search(url)
@@ -113,7 +116,25 @@ class IdentifierExtractor:
             identifier.arxiv_id = arxiv_match.group(1)
             identifier.needs_meta_extraction = True  # DOI conversion needed
             logger.debug("Extracted arXiv ID from URL", arxiv_id=identifier.arxiv_id, url=url)
-            return identifier
+            # continue
+
+        # 3b. OpenAlex Work ID
+        openalex_match = self.PATTERNS["openalex"].search(url)
+        if openalex_match:
+            identifier.openalex_work_id = openalex_match.group(1)
+            logger.debug(
+                "Extracted OpenAlex Work ID from URL",
+                openalex_work_id=identifier.openalex_work_id,
+                url=url,
+            )
+
+        # 3c. Semantic Scholar paper ID (paperId hash)
+        s2_match = self.PATTERNS["s2"].search(url)
+        if s2_match:
+            identifier.s2_paper_id = s2_match.group(1)
+            logger.debug(
+                "Extracted S2 paper ID from URL", s2_paper_id=identifier.s2_paper_id, url=url
+            )
 
         # 4. J-Stage DOI
         jstage_match = self.PATTERNS["jstage_doi"].search(url)
@@ -157,7 +178,7 @@ class IdentifierExtractor:
             logger.debug(
                 "Detected academic domain, needs meta extraction", domain=domain_lower, url=url
             )
-            # region agent log H-PMID-01
+
             try:
                 from src.utils.agent_debug import (
                     agent_debug_run_id,
@@ -175,7 +196,6 @@ class IdentifierExtractor:
                 )
             except Exception:
                 pass
-            # endregion
 
         return identifier
 
