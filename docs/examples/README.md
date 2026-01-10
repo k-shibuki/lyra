@@ -2,6 +2,25 @@
 
 This directory contains example commands and sample research outputs for Lyra.
 
+## Philosophy: Evidence Graph as Primary Output
+
+**Lyra's primary output is the Evidence Graph, not reports or visualizations.**
+
+The "main path" of Lyra is:
+
+- **Grow an Evidence Graph** (task → targets → pages/fragments/claims)
+- **Query the graph** (views, search, contradictions, provenance) iteratively until the hypothesis is answered
+
+Reports and visualizations exist because:
+
+1. **Shareability**: Stakeholders who can't query your local DB need portable artifacts
+2. **Auditability**: Reports provide snapshots with explicit provenance (claim → fragment → page → URL)
+3. **Customizability**: With your data in a local SQLite DB, you can build any visualization or export format you want.
+
+> **Important**: Reports and dashboards are **exports of the Evidence Graph**, not separate evidence sources. All citations must already exist in the graph.
+
+---
+
 ## Commands
 
 Workflow templates for AI assistants (Cursor, Claude Desktop, etc.):
@@ -23,42 +42,55 @@ Then invoke with `/lyra-search` or `/lyra-report` in Cursor chat.
 
 Add as Skills via Settings → Skills.
 
-## Philosophy: DB-first, Report-as-Export
+---
 
-Lyra’s “main path” is **not** writing a narrative report. The main path is:
+## Sample Research Sessions
 
-- **Grow an Evidence Graph** (task → targets → pages/fragments/claims)
-- **Ask the graph** (views, search, contradictions, provenance) and iterate until the hypothesis is answered
+> ⚠️ **Disclaimer**: These samples were created with only 3 sessions for demonstration purposes.
+> The reports and dashboard **should not be treated as reliable medical information**.
+> They exist solely to illustrate Lyra's capabilities and workflow.
 
-So why do we support report generation at all?
+### Session 01: DPP-4 Inhibitors (`task_ed3b72cf`)
 
-- **Shareability**: Many stakeholders won’t (or can’t) query your local DB. A report is a portable artifact.
-- **Auditability**: A report is a snapshot with explicit provenance (claim → fragment → page → URL) that can be reviewed later.
-- **Decision logs**: Teams often need an immutable record of “what we believed, when, and based on which sources.”
-- **Context compression**: A report is a human-friendly projection of a large graph (tables, footnotes, summaries).
-- **Compliance & governance**: Some environments require written artifacts (review packets, memos, sign-off trails).
-
-Important: in Lyra, a report is **an export of the Evidence Graph**, not a separate evidence source.
-All citations must already exist in the graph; web search is for query design, not for direct evidence.
-
-## Sample Research
-
-### DPP-4 Inhibitors as Add-on Therapy to Insulin
-
-A complete research example investigating:
-> "What is the efficacy and safety of DPP-4 inhibitors as add-on therapy for type 2 diabetes patients receiving insulin therapy with HbA1c ≥7%?"
+Research question: *"Efficacy and safety of DPP-4 inhibitors as insulin add-on therapy"*
 
 | File | Description |
 |------|-------------|
-| [dpp4-insulin-addon/user_prompt.md](dpp4-insulin-addon/user_prompt.md) | User's research question |
-| [dpp4-insulin-addon/report.md](dpp4-insulin-addon/report.md) | Generated research report with citations |
-| [dpp4-insulin-addon/chatlog.md](dpp4-insulin-addon/chatlog.md) | Full conversation log (reference) |
+| [session_01/prompt.md](session_01/prompt.md) | User's research question |
+| [session_01/report.md](session_01/report.md) | Generated research report with citations |
+| [session_01/chat_log.md](session_01/chat_log.md) | Full conversation log |
 
-The report demonstrates:
-- Structured evidence tables with citations
-- Bayesian confidence scoring
-- Source traceability (claim → fragment → page → URL)
-- Comparison of alternatives (DPP-4i vs GLP-1 RA vs SGLT2i)
+### Session 02: SGLT2 Inhibitors (`task_8f90d8f6`)
+
+Research question: *"Efficacy and safety of SGLT2 inhibitors as insulin add-on therapy"*
+
+| File | Description |
+|------|-------------|
+| [session_02/prompt.md](session_02/prompt.md) | User's research question |
+| [session_02/report.md](session_02/report.md) | Generated research report with citations |
+| [session_02/chat_log.md](session_02/chat_log.md) | Full conversation log |
+
+### Session 03: Comparative Visualization Dashboard
+
+Interactive HTML dashboard comparing DPP-4i vs SGLT2i evidence — demonstrating that **local data enables unlimited customization**.
+
+| File | Description |
+|------|-------------|
+| [session_03/src/generate_dashboard.py](session_03/src/generate_dashboard.py) | Python script to generate dashboard from DB |
+| [session_03/src/dashboard_template.html](session_03/src/dashboard_template.html) | D3.js visualization template |
+| [session_03/output/evidence_dashboard.html](session_03/output/evidence_dashboard.html) | Generated interactive dashboard |
+
+**Dashboard Features:**
+
+- Bayesian Confidence Distribution (lollipop chart)
+- Source Authority Treemap
+- Contradiction Analysis Heatmap
+- Evidence Timeline (area chart)
+- Toggle between Compare / DPP-4i / SGLT2i views
+
+**Why this matters**: The evidence you collect is **yours** — stored locally in SQLite, queryable with standard tools, exportable in any format. This dashboard was built with a simple Python script that queries the DB directly. Unlike ephemeral "deep research" outputs that vanish after a session, your evidence graph persists and grows over time.
+
+---
 
 ## Direct MCP Tool Calls
 
@@ -78,11 +110,14 @@ queue_targets(task_id=task.task_id, targets=[
 # 3. Monitor progress
 get_status(task_id=task.task_id, wait=180)
 
-# 4. Explore evidence
+# 4. Explore evidence (the main path!)
 vector_search(query="cardiovascular", target="claims", task_id=task.task_id)
-query_view(view_name="v_source_impact", task_id=task.task_id)  # Key Sources
+query_view(view_name="v_claim_evidence_summary", task_id=task.task_id)
 query_view(view_name="v_contradictions", task_id=task.task_id)
 
 # 5. Provide feedback (improves model over time)
 feedback(action="edge_correct", edge_id="...", correct_relation="supports")
+
+# 6. (Optional) Generate report or custom visualization
+# See commands/lyra-report.md or session_03/src/generate_dashboard.py
 ```

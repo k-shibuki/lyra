@@ -25,6 +25,21 @@ When AI assistants conduct web research, they face critical evidence quality pro
 - **Incremental Exploration**: SQL and vector search for granular evidence access
 - **Local-First**: All ML processing on your machine (zero data exfiltration, zero operational cost)
 
+### Your Data, Your Control
+
+The evidence you collect is **yours** — stored locally in a SQLite database, not locked in a cloud service:
+
+- **Query freely**: Use SQL or vector search to explore evidence from any angle
+- **Build custom visualizations**: Write scripts that query the DB directly
+- **Export anywhere**: Generate reports, citations, or data exports in any format you need
+- **Accumulate knowledge**: Evidence persists across sessions; corrections improve model quality over time
+
+**Quick start** (Cursor):
+```bash
+cp docs/examples/commands/*.md .cursor/commands/
+```
+Then invoke `/lyra-search` in chat. See [docs/examples/README.md](docs/examples/README.md) for workflows and sample research.
+
 ### Lyra vs. "Instant Research" Products
 
 | Approach | Focus | Trade-off |
@@ -218,17 +233,6 @@ mkdir -p .cursor && cp config/mcp.json.example .cursor/mcp.json
 Replace `/full/path/to/lyra` with your actual Lyra installation path (e.g., `/home/username/Projects/lyra`).
 
 For other clients, copy `config/mcp.json.example` to your client's config location and adjust the path accordingly.
-
-## Usage Example
-
-See [docs/examples/](docs/examples/) for commands, sample research, and programmatic usage.
-
-**Quick setup** (Cursor):
-```bash
-cp docs/examples/commands/*.md .cursor/commands/
-```
-
-Then invoke `/lyra-search` in Cursor chat. For Claude Desktop, add as Skills via Settings → Skills.
 
 ## MCP Tools
 
