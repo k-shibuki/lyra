@@ -23,7 +23,7 @@ Required capabilities:
 
 ## Decision
 
-**Adopt an evidence graph structure with Claim as root, using Bayesian confidence calculation.**
+**Adopt an evidence graph structure with Claim as root, using NLI-based exploration score calculation.**
 
 
 ### Data Ownership & Scope (Global / Task-scoped Boundary)
@@ -135,8 +135,8 @@ graph TB
     C -.->|EVIDENCE_SOURCE| P1
 ```
 
-| Edge | Direction | Usage | Persisted | Bayesian Update |
-|------|-----------|-------|-----------|-----------------|
+| Edge | Direction | Usage | Persisted | Score Update |
+|------|-----------|-------|-----------|--------------|
 | `ORIGIN` | Fragment → Claim | Provenance: which fragment a claim was extracted from | Yes | No (NLI not performed) |
 | `supports` / `refutes` / `neutral` | Fragment → Claim | Cross-source verification via NLI model | Yes | Yes (`nli_edge_confidence`) |
 | `CITES` | Page → Page | Citation relationship (academic papers) | Yes | No |
@@ -199,33 +199,32 @@ This ensures:
 - `origin` edges are unaffected (different relation type)
 - Task resumption (`paused` → `exploring`) doesn't re-evaluate existing pairs
 
-### Confidence Calculation (Bayesian Approach)
+### nli_claim_support_ratio (Exploration Score)
 
-Current implementation uses **Beta distribution updating** (conjugate prior) with an uninformative prior `Beta(1, 1)`.
+Lyra aggregates fragment→claim NLI evidence edges into a **claim-level exploration score**:
+`nli_claim_support_ratio` (0..1).
 
-- Evidence edges carry `edges.nli_edge_confidence` (NLI model output, calibrated).
+Semantics:
+- Evidence edges carry `edges.nli_edge_confidence` (NLI model output).
 - For a claim, all incoming evidence edges of type `supports/refutes/neutral` are collected.
-- Only `supports/refutes` update the posterior; `neutral` is treated as "no information".
-- **`origin` edges are NOT used in Bayesian update** - they track provenance only. A newly extracted claim starts at `bayesian_truth_confidence = 0.5` (uninformative prior) until cross-source evidence is found.
-- **Automatic verification**: After each `target_queue` completion, a `VERIFY_NLI` job runs to find cross-source evidence. This is when `bayesian_truth_confidence` begins to diverge from 0.5.
+- Only `supports/refutes` contribute to the ratio; `neutral` is treated as “no directional signal”.
+- **`origin` edges are NOT used** - they track provenance only.
+- A newly extracted claim defaults to **0.5** (uninformative baseline) until cross-source evidence is found.
 
-Implementation-equivalent formulation:
+Computation (implemented in `v_claim_evidence_summary`):
 
 ```text
-Prior: Beta(α=1, β=1)
+support_weight = Σ nli_edge_confidence(e) for e in SUPPORTS edges
+refute_weight  = Σ nli_edge_confidence(e) for e in REFUTES edges
 
-α = 1 + Σ nli_edge_confidence(e) for e in SUPPORTS edges
-β = 1 + Σ nli_edge_confidence(e) for e in REFUTES edges
-
-bayesian_claim_confidence  = α / (α + β)                       # posterior mean
-uncertainty = sqrt( (αβ) / ((α+β)^2 (α+β+1)) )   # posterior stddev
-controversy = min(α-1, β-1) / (α+β-2)            # conflict degree (0 when no evidence)
+nli_claim_support_ratio =
+  (1 + support_weight) / ((1 + support_weight) + (1 + refute_weight))
 ```
 
-**Important semantics**:
-- `edges.nli_edge_confidence` is treated as *evidence weight* (calibrated probability from NLI model).
-- Legacy `edges.confidence` column has been **removed** as of PR #50 (terminology unification).
-- `claims.llm_claim_confidence` stores LLM's self-reported extraction quality (NOT used in Bayesian update).
+Important notes:
+- This ratio is **not a hypothesis verdict**.
+- This ratio is **not a statistically rigorous probability of truth**; treat it as a navigation/ranking aid.
+- `claims.llm_claim_confidence` stores LLM's self-reported extraction quality (NOT used here).
 
 ### Domain Category (Reference Only)
 
@@ -265,6 +264,8 @@ Reasons:
 - `src/storage/schema.sql` - Graph schema (edges, claims, fragments, works, work_authors, work_identifiers tables)
 - `src/filter/evidence_graph.py` - Evidence graph implementation (NetworkX + SQLite)
 - `src/storage/works.py` - Bibliographic metadata persistence (works/work_authors/work_identifiers)
+- `src/report/evidence_pack.py` - Evidence pack generation (report/dashboard input facts)
+- `src/report/validator.py` - Report validation against evidence pack constraints
 
 ### Bibliographic Metadata (Academic Papers)
 

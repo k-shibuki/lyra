@@ -22,7 +22,7 @@ target_queue (completed)
     └──► CITATION_GRAPH (academic citation expansion)
 ```
 
-These jobs run in the background and update `bayesian_truth_confidence` in the evidence graph.
+These jobs run in the background and update `nli_claim_support_ratio` (exploration score) in the evidence graph.
 
 ## Tools
 
@@ -138,7 +138,7 @@ Status values: `not_enqueued`, `queued`, `running`, `drained`, `pending` (for au
 **Claim Analysis:**
 | View | Description |
 |------|-------------|
-| `v_claim_evidence_summary` | Per-claim support/refute counts and bayesian_truth_confidence |
+| `v_claim_evidence_summary` | Per-claim support/refute counts and nli_claim_support_ratio |
 | `v_claim_origins` | Claim provenance with bibliographic metadata (`author_display`, `work_year`, `work_venue`, `work_doi` for academic sources) |
 | `v_contradictions` | Claims with conflicting evidence |
 | `v_unsupported_claims` | Claims without supporting evidence |
@@ -187,7 +187,7 @@ Status values: `not_enqueued`, `queued`, `running`, `drained`, `pending` (for au
 
 - [Architecture Overview](architecture.md) - Full ADR index with categories
 - [ADR-0002: Three-Layer Collaboration Model](adr/0002-three-layer-collaboration-model.md) - Three-layer collaboration
-- [ADR-0005: Evidence Graph Structure](adr/0005-evidence-graph-structure.md) - Bayesian confidence, edge types
+- [ADR-0005: Evidence Graph Structure](adr/0005-evidence-graph-structure.md) - Exploration scores, edge types
 - [ADR-0007: Human-in-the-Loop Authentication](adr/0007-human-in-the-loop-auth.md) - CAPTCHA handling, auth queue
 - [ADR-0010: Async Target Queue Architecture](adr/0010-async-search-queue.md) - Job chaining, stop_task scope
 - [ADR-0012: Feedback Tool Design](adr/0012-feedback-tool-design.md) - 3 levels, 6 actions

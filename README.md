@@ -8,6 +8,8 @@
 
 Lyra is an open-source MCP (Model Context Protocol) server that provides AI assistants with structured, verifiable evidence for desktop research. By building an Evidence Graph with full source traceability, Lyra solves the fundamental problem of AI-assisted research: knowing where information comes from and how reliable it is.
 
+**Target users**: Researchers and practitioners who need AI-assisted evidence gathering—particularly in healthcare, biomedical sciences, and other fields well-covered by Semantic Scholar and OpenAlex. Lyra is a *navigation tool* for desktop research, not a replacement for formal systematic review methodologies.
+
 ## Statement of Need
 
 When AI assistants conduct web research, they face critical evidence quality problems:
@@ -21,7 +23,7 @@ When AI assistants conduct web research, they face critical evidence quality pro
 **Lyra solves these by providing:**
 
 - **Evidence Graph**: Every claim links to source fragments and URLs with NLI stance detection
-- **Bayesian Confidence**: Automatic reliability scoring from accumulated evidence
+- **NLI-based Exploration Scoring**: Automatic reliability scoring from accumulated evidence
 - **Incremental Exploration**: SQL and vector search for granular evidence access
 - **Local-First**: All ML processing on your machine (zero data exfiltration, zero operational cost)
 
@@ -34,13 +36,13 @@ The evidence you collect is **yours** — stored locally in a SQLite database, n
 - **Export anywhere**: Generate reports, citations, or data exports in any format you need
 - **Accumulate knowledge**: Evidence persists across sessions; corrections improve model quality over time
 
-**[→ See Demo Dashboard](https://k-shibuki.github.io/lyra/session_03/output/evidence_dashboard.html)** — interactive visualization created entirely through AI conversation.
+**[→ See Demo Dashboard](https://k-shibuki.github.io/lyra/)** — interactive visualization created entirely through AI conversation.
 
 **Quick start** (Cursor):
 ```bash
 cp docs/examples/commands/*.md .cursor/commands/
 ```
-Then invoke `/lyra-search` in chat. See [docs/examples/](docs/examples/) for workflows.
+Then invoke `/lyra-search` in chat. See [docs/examples/](docs/examples/) for workflows and sample sessions.
 
 ### Lyra vs. "Instant Research" Products
 
@@ -79,13 +81,13 @@ Claims connect to evidence through a structured graph ([ADR-0005](docs/adr/0005-
 Claim ← Fragment (SUPPORTS/REFUTES/NEUTRAL) ← Page ← URL
 ```
 
-Each task defines a central hypothesis to verify ([ADR-0017](docs/adr/0017-task-hypothesis-first.md)). Claims are extracted using this hypothesis as context, and NLI edges carry calibrated confidence. Claims accumulate Bayesian confidence from cross-source evidence.
+Each task defines a central hypothesis to verify ([ADR-0017](docs/adr/0017-task-hypothesis-first.md)). Claims are extracted using this hypothesis as context, and NLI edges carry calibrated confidence. Claims accumulate exploration scores from cross-source evidence.
 
 ## Features
 
 - 🔍 **Multi-source Search**: Academic APIs (Semantic Scholar, OpenAlex) + web engines ([ADR-0015](docs/adr/0015-unified-search-sources.md))
 - 🧠 **Evidence Extraction**: LLM claim extraction with NLI stance detection ([ADR-0004](docs/adr/0004-local-llm-extraction-only.md))
-- 📊 **Evidence Graph**: SQLite-backed with Bayesian confidence ([ADR-0005](docs/adr/0005-evidence-graph-structure.md))
+- 📊 **Evidence Graph**: SQLite-backed with exploration scores ([ADR-0005](docs/adr/0005-evidence-graph-structure.md))
 - 📚 **Citation Chasing**: Expand evidence by selectively queuing unfetched references via `v_reference_candidates` view ([ADR-0015](docs/adr/0015-unified-search-sources.md))
 - 🔒 **Network Isolation**: ML containers have no internet access ([ADR-0006](docs/adr/0006-eight-layer-security-model.md))
 - 🔄 **Human-in-the-Loop**: CAPTCHA handling and feedback-driven improvement ([ADR-0007](docs/adr/0007-human-in-the-loop-auth.md))

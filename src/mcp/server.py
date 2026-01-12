@@ -649,7 +649,7 @@ KEY COLUMNS (commonly used):
 - edges: id, source_type, source_id, target_type, target_id, relation, nli_edge_confidence
 
 COMPUTED COLUMNS (available in VIEWS only, NOT in base tables):
-- bayesian_truth_confidence: Use v_claim_evidence_summary view (NOT claims table)
+- nli_claim_support_ratio: Use v_claim_evidence_summary view (NOT claims table)
 - support_count, refute_count: Use v_claim_evidence_summary view
 
 To filter task-scoped data, start with claims/queries tables or use JOINs.

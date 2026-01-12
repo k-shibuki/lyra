@@ -346,10 +346,12 @@ class EvidenceGraph:
         self,
         claim_id: str,
     ) -> dict[str, Any]:
-        """Calculate overall confidence for a claim using Bayesian updating.
+        """Calculate an exploration score for a claim from NLI evidence edges.
 
-        Uses Beta distribution with uninformative prior Beta(1, 1) and updates
-        based on NLI confidence-weighted evidence edges.
+        This returns `nli_claim_support_ratio` (0..1), derived from NLI
+        confidence-weighted supports/refutes edges. It is an exploration aid,
+        not a hypothesis verdict and not a statistically rigorous probability
+        of truth.
 
         b: Also returns evidence details with time metadata for
         high-reasoning AI to make temporal judgments.
@@ -359,7 +361,7 @@ class EvidenceGraph:
 
         Returns:
             Confidence assessment dict with:
-            - bayesian_claim_confidence, uncertainty, controversy (Bayesian)
+            - nli_claim_support_ratio, uncertainty, controversy (implementation-defined)
             - evidence: list of evidence items with time metadata (nli_edge_confidence)
             - evidence_years: summary of years (oldest, newest)
         """
@@ -390,7 +392,7 @@ class EvidenceGraph:
                         if frag_id:
                             unique_sources.add(frag_id)
 
-        # Bayesian updating: start with uninformative prior Beta(1, 1)
+        # Pseudo-count update: start with uninformative prior (1, 1)
         alpha = 1.0
         beta = 1.0
 
@@ -432,17 +434,17 @@ class EvidenceGraph:
                     }
                 )
 
-        # Calculate statistics from Beta distribution
+        # Calculate statistics from pseudo-count aggregation
         total_evidence = alpha + beta - 2.0  # Subtract prior (1+1)
 
         if total_evidence <= 0:
             # No evidence: return prior distribution statistics
-            confidence = 0.5  # Beta(1,1) expectation
+            confidence = 0.5  # Uninformative baseline
             variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))
             uncertainty = math.sqrt(variance)
             controversy = 0.0
         else:
-            # Calculate confidence (expectation of Beta distribution)
+            # Calculate exploration score (mean of pseudo-count ratio)
             confidence = alpha / (alpha + beta)
 
             # Calculate uncertainty (standard deviation)
@@ -460,7 +462,7 @@ class EvidenceGraph:
         }
 
         return {
-            "bayesian_claim_confidence": round(confidence, 3),
+            "nli_claim_support_ratio": round(confidence, 3),
             "uncertainty": round(uncertainty, 3),
             "controversy": round(controversy, 3),
             "supporting_count": supporting_count,

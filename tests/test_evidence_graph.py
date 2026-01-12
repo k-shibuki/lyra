@@ -326,7 +326,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Returns Beta(1,1) prior statistics
-        assert result["bayesian_claim_confidence"] == 0.5  # Beta(1,1) expectation
+        assert result["nli_claim_support_ratio"] == 0.5  # Uninformative baseline
         assert abs(result["uncertainty"] - 0.288675) < 0.01  # sqrt(1*1/(2^2*3)) ≈ 0.289
         assert result["controversy"] == 0.0
         assert result["supporting_count"] == 0
@@ -354,7 +354,7 @@ class TestClaimConfidence:
 
         # Then: High confidence, low uncertainty (Bayesian)
         assert result["supporting_count"] == 3
-        assert result["bayesian_claim_confidence"] > 0.75  # α=3.7, β=1 → confidence ≈ 0.79
+        assert result["nli_claim_support_ratio"] > 0.75  # α=3.7, β=1 → ratio ≈ 0.79
         assert result["uncertainty"] < 0.2  # More evidence → lower uncertainty
         assert result["controversy"] == 0.0  # No refuting evidence
         assert result["alpha"] > 3.0
@@ -393,7 +393,7 @@ class TestClaimConfidence:
         assert result["supporting_count"] == 2
         assert result["refuting_count"] == 1
         assert result["controversy"] > 0.0  # Both alpha and beta > 1
-        assert result["bayesian_claim_confidence"] > 0.5  # α=2.8, β=1.8 → confidence ≈ 0.61
+        assert result["nli_claim_support_ratio"] > 0.5  # α=2.8, β=1.8 → ratio ≈ 0.61
 
     def test_calculate_confidence_single_support(self) -> None:
         """Test confidence with single supporting evidence."""
@@ -413,7 +413,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Confidence increases but uncertainty is still high
-        assert result["bayesian_claim_confidence"] > 0.5  # α=1.9, β=1 → confidence ≈ 0.66
+        assert result["nli_claim_support_ratio"] > 0.5  # α=1.9, β=1 → ratio ≈ 0.66
         assert result["uncertainty"] < 0.29  # Lower than prior but still significant
         assert result["controversy"] == 0.0
         assert result["alpha"] == 1.9
@@ -450,9 +450,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Confidence near 0.5, high controversy
-        assert (
-            abs(result["bayesian_claim_confidence"] - 0.5) < 0.1
-        )  # α≈5.5, β≈5.5 → confidence ≈ 0.5
+        assert abs(result["nli_claim_support_ratio"] - 0.5) < 0.1  # α≈5.5, β≈5.5 → ratio ≈ 0.5
         assert result["controversy"] > 0.4  # High controversy
         assert (
             result["uncertainty"] < 0.15
@@ -477,7 +475,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: No update (prior distribution)
-        assert result["bayesian_claim_confidence"] == 0.5
+        assert result["nli_claim_support_ratio"] == 0.5
         assert result["alpha"] == 1.0
         assert result["beta"] == 1.0
 
@@ -498,7 +496,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: Prior distribution (neutral edges ignored)
-        assert result["bayesian_claim_confidence"] == 0.5
+        assert result["nli_claim_support_ratio"] == 0.5
         assert result["alpha"] == 1.0
         assert result["beta"] == 1.0
         assert result["neutral_count"] == 1
@@ -521,7 +519,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("claim-1")
 
         # Then: No update (None is treated as 0)
-        assert result["bayesian_claim_confidence"] == 0.5
+        assert result["nli_claim_support_ratio"] == 0.5
         assert result["alpha"] == 1.0
         assert result["beta"] == 1.0
 
@@ -534,7 +532,7 @@ class TestClaimConfidence:
         result = graph.calculate_claim_confidence("unknown-claim")
 
         # Then: Returns prior distribution
-        assert result["bayesian_claim_confidence"] == 0.5
+        assert result["nli_claim_support_ratio"] == 0.5
         assert result["uncertainty"] > 0.0
         assert result["controversy"] == 0.0
         assert result["supporting_count"] == 0

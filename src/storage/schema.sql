@@ -578,6 +578,34 @@ END;
 -- Views
 -- ============================================================
 
+-- IMPORTANT (view refresh policy):
+-- SQLite does NOT update existing views when using "CREATE VIEW IF NOT EXISTS".
+-- To keep existing DB files usable without destructive rebuilds, we drop and
+-- recreate views on schema initialization. This preserves underlying data.
+--
+-- Drop in reverse dependency order (later views may depend on earlier ones).
+DROP VIEW IF EXISTS v_evidence_freshness;
+DROP VIEW IF EXISTS v_citation_age_gap;
+DROP VIEW IF EXISTS v_source_impact;
+DROP VIEW IF EXISTS v_source_authority;
+DROP VIEW IF EXISTS v_outdated_evidence;
+DROP VIEW IF EXISTS v_emerging_consensus;
+DROP VIEW IF EXISTS v_evidence_timeline;
+DROP VIEW IF EXISTS v__evidence_with_year;
+DROP VIEW IF EXISTS v_orphan_sources;
+DROP VIEW IF EXISTS v_citation_flow;
+DROP VIEW IF EXISTS v_evidence_chain;
+DROP VIEW IF EXISTS v_claim_origins;
+DROP VIEW IF EXISTS v_unsupported_claims;
+DROP VIEW IF EXISTS v_contradictions;
+DROP VIEW IF EXISTS v_claim_evidence_summary;
+DROP VIEW IF EXISTS v_task_metrics_summary;
+DROP VIEW IF EXISTS v_recent_policy_updates;
+DROP VIEW IF EXISTS v_latest_metrics;
+DROP VIEW IF EXISTS v_task_progress;
+DROP VIEW IF EXISTS v_domain_cooldowns;
+DROP VIEW IF EXISTS v_active_engines;
+
 -- Active engines view
 CREATE VIEW IF NOT EXISTS v_active_engines AS
 SELECT 
@@ -912,8 +940,10 @@ LEFT JOIN task_metrics tm ON t.id = tm.task_id;
 
 -- 1) Claim evidence aggregation (task-scoped via claims.task_id)
 -- Provides counts, NLI-weighted support/refute, and Bayesian posterior mean
--- for truth confidence. ADR-0005: The true "truth confidence" is Bayesian-derived,
--- not llm_claim_confidence (which is extraction quality).
+-- for an NLI-weighted support ratio (exploration aid).
+-- NOTE: This is NOT a hypothesis verdict and should not be interpreted as a
+-- statistically rigorous probability of truth. It is a deterministic score
+-- derived from NLI evidence edges.
 -- NOTE: Only NLI evidence edges (supports/refutes/neutral) are counted here.
 -- Provenance edges (origin) are excluded - use v_claim_origins for provenance.
 CREATE VIEW IF NOT EXISTS v_claim_evidence_summary AS
@@ -932,9 +962,9 @@ SELECT
     -- Weighted support/refute (sum of nli_edge_confidence per relation)
     SUM(CASE WHEN e.relation = 'supports' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END) AS support_weight,
     SUM(CASE WHEN e.relation = 'refutes' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END) AS refute_weight,
-    -- Bayesian posterior mean: (1 + support_weight) / ((1 + support_weight) + (1 + refute_weight))
-    -- Prior: Beta(1, 1) = uniform. Posterior: Beta(1 + support_weight, 1 + refute_weight)
-    -- See ADR-0005 for detailed derivation.
+    -- NLI-weighted claim support ratio (exploration aid):
+    --   (1 + support_weight) / ((1 + support_weight) + (1 + refute_weight))
+    -- This keeps a neutral baseline of 0.5 when there is no support/refute evidence.
     ROUND(
         (1.0 + SUM(CASE WHEN e.relation = 'supports' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END)) /
         (
@@ -942,7 +972,7 @@ SELECT
             (1.0 + SUM(CASE WHEN e.relation = 'refutes' THEN COALESCE(e.nli_edge_confidence, 0.0) ELSE 0.0 END))
         ),
         4
-    ) AS bayesian_truth_confidence
+    ) AS nli_claim_support_ratio
 FROM claims c
 LEFT JOIN edges e
   ON e.target_type = 'claim'

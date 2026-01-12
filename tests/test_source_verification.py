@@ -39,7 +39,7 @@ def mock_evidence_graph() -> MagicMock:
     """Create mock EvidenceGraph."""
     graph = MagicMock()
     graph.calculate_claim_confidence.return_value = {
-        "bayesian_claim_confidence": 0.5,
+        "nli_claim_support_ratio": 0.5,
         "supporting_count": 0,
         "refuting_count": 0,
         "neutral_count": 0,
@@ -63,7 +63,7 @@ class TestSourceVerifierBasic:
         // Then: PENDING status, trust level unchanged
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.0,
+            "nli_claim_support_ratio": 0.0,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -95,7 +95,7 @@ class TestSourceVerifierBasic:
         // Then: VERIFIED status, promoted to LOW
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.8,
+            "nli_claim_support_ratio": 0.8,
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -131,7 +131,7 @@ class TestSourceVerifierBasic:
         High-inference AI interprets conflicting evidence.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.3,
+            "nli_claim_support_ratio": 0.3,
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
@@ -141,7 +141,7 @@ class TestSourceVerifierBasic:
             {
                 "claim1_id": "claim_003",
                 "claim2_id": "claim_other",
-                "bayesian_claim_confidence": 0.9,
+                "nli_claim_support_ratio": 0.9,
             }
         ]
 
@@ -227,7 +227,7 @@ class TestSourceVerifierEdgeCases:
         // Then: PENDING status, no promotion
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.5,
+            "nli_claim_support_ratio": 0.5,
             "supporting_count": 1,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -258,7 +258,7 @@ class TestSourceVerifierEdgeCases:
         // Then: VERIFIED, promoted to LOW
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.75,
+            "nli_claim_support_ratio": 0.75,
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -290,7 +290,7 @@ class TestSourceVerifierEdgeCases:
         // Then: PENDING status
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.0,
+            "nli_claim_support_ratio": 0.0,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -350,7 +350,7 @@ class TestDomainStateTracking:
         // Then: Claim in verified_claims list
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.8,
+            "nli_claim_support_ratio": 0.8,
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -386,7 +386,7 @@ class TestDomainStateTracking:
         """
         mock_evidence_graph.find_contradictions.return_value = []
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.2,
+            "nli_claim_support_ratio": 0.2,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -638,7 +638,7 @@ class TestTrustedDomainBehavior:
         DomainCategory is not used in verification decisions.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.3,
+            "nli_claim_support_ratio": 0.3,
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
@@ -674,7 +674,7 @@ class TestTrustedDomainBehavior:
         // Then: VERIFIED but trust level stays TRUSTED (no promotion)
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.9,
+            "nli_claim_support_ratio": 0.9,
             "supporting_count": 3,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -713,7 +713,7 @@ class TestBoundaryValues:
         """
         mock_evidence_graph.find_contradictions.return_value = []
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.2,
+            "nli_claim_support_ratio": 0.2,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -761,7 +761,7 @@ class TestBoundaryValues:
             {"claim1_id": "below_threshold", "claim2_id": "other"}
         ]
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.2,
+            "nli_claim_support_ratio": 0.2,
             "supporting_count": 0,
             "refuting_count": 1,
             "neutral_count": 0,
@@ -803,7 +803,7 @@ class TestBoundaryValues:
         // Then: VERIFIED and promoted
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.9,
+            "nli_claim_support_ratio": 0.9,
             "supporting_count": 3,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -847,7 +847,7 @@ class TestBoundaryValues:
         // Then: No duplicate entries in domain state
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.8,
+            "nli_claim_support_ratio": 0.8,
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -1019,7 +1019,7 @@ class TestPendingToOtherStatusTransition:
         """
         # First verify with insufficient evidence -> PENDING
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.0,
+            "nli_claim_support_ratio": 0.0,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -1042,7 +1042,7 @@ class TestPendingToOtherStatusTransition:
 
         # Now verify again with sufficient evidence -> VERIFIED
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.8,
+            "nli_claim_support_ratio": 0.8,
             "supporting_count": 2,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -1170,7 +1170,7 @@ class TestContradictingClaimsExtraction:
         We treat "contradiction" as "refuting evidence exists" and store it as REFUTES edges.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.5,
+            "nli_claim_support_ratio": 0.5,
             "supporting_count": 0,
             "refuting_count": 1,
             "neutral_count": 0,
@@ -1254,7 +1254,7 @@ class TestBlockedDomainNotification:
         Dangerous patterns trigger immediate REJECTED and blocking.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.1,
+            "nli_claim_support_ratio": 0.1,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -1296,7 +1296,7 @@ class TestBlockedDomainNotification:
         High-inference AI interprets conflicting evidence.
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.5,
+            "nli_claim_support_ratio": 0.5,
             "supporting_count": 1,
             "refuting_count": 1,  # Contradiction
             "neutral_count": 0,
@@ -1815,7 +1815,7 @@ class TestPhaseP2RelaxedBlocking:
         // Then: REJECTED, demoted to LOW (Contradiction handling behavior relaxation)
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.3,
+            "nli_claim_support_ratio": 0.3,
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
@@ -1852,7 +1852,7 @@ class TestPhaseP2RelaxedBlocking:
         // Then: REJECTED but trust level unchanged (for AI evaluation)
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.5,
+            "nli_claim_support_ratio": 0.5,
             "supporting_count": 2,
             "refuting_count": 1,
             "neutral_count": 0,
@@ -1889,7 +1889,7 @@ class TestPhaseP2RelaxedBlocking:
         // Then: REJECTED but trust level unchanged
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.4,
+            "nli_claim_support_ratio": 0.4,
             "supporting_count": 1,
             "refuting_count": 1,
             "neutral_count": 0,
@@ -1926,7 +1926,7 @@ class TestPhaseP2RelaxedBlocking:
         // Then: REJECTED, demoted to LOW (Contradiction handling behavior)
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.3,
+            "nli_claim_support_ratio": 0.3,
             "supporting_count": 1,
             "refuting_count": 2,  # Refuting evidence exists
             "neutral_count": 0,
@@ -1991,7 +1991,7 @@ class TestPhaseP2RelaxedBlocking:
         """
         # Setup: Well-supported evidence (2+ independent sources, no refuting)
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.85,
+            "nli_claim_support_ratio": 0.85,
             "supporting_count": 3,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -2262,7 +2262,7 @@ class TestDomainBlockReason:
         )
 
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.1,
+            "nli_claim_support_ratio": 0.1,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,
@@ -2508,7 +2508,7 @@ class TestRejectionRateSeparation:
         // Then: Domain gets blocked (effect test)
         """
         mock_evidence_graph.calculate_claim_confidence.return_value = {
-            "bayesian_claim_confidence": 0.1,
+            "nli_claim_support_ratio": 0.1,
             "supporting_count": 0,
             "refuting_count": 0,
             "neutral_count": 0,

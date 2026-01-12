@@ -48,7 +48,7 @@ This document provides multiple views into Lyra's architecture decisions.
 - [ADR-0011](0011-lora-fine-tuning.md): Domain adaptation from accumulated corrections
 
 **Data & Evidence** — Evidence graph
-- [ADR-0005](0005-evidence-graph-structure.md): Claim-Fragment-Page; Bayesian confidence; NLI edges
+- [ADR-0005](0005-evidence-graph-structure.md): Claim-Fragment-Page; exploration scores; NLI edges
 - [ADR-0016](0016-ranking-simplification.md): SQL views replace complex ranking
 - [ADR-0017](0017-task-hypothesis-first.md): Each task has central hypothesis
 
@@ -97,7 +97,7 @@ ADR-0001: Local-First / Zero OpEx
 │   │               "CAPTCHA/login handled by human"
 │   │
 │   ├── ADR-0005: Evidence Graph Structure
-│   │   │   "Claims, fragments, pages with Bayesian confidence"
+│   │   │   "Claims, fragments, pages with exploration scores"
 │   │   │
 │   │   ├── ADR-0016: Ranking Simplification
 │   │   │       "SQL views for evidence exploration"

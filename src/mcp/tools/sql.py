@@ -48,9 +48,9 @@ def _get_sql_error_hint(error_msg: str) -> str | None:
     # Computed columns (only in views, not base tables)
     if "no such column" in error_lower:
         # v_claim_evidence_summary computed columns
-        if "bayesian_truth_confidence" in error_msg:
+        if "nli_claim_support_ratio" in error_msg:
             return (
-                "bayesian_truth_confidence is a computed column available only in "
+                "nli_claim_support_ratio is a computed column available only in "
                 "v_claim_evidence_summary view. Use: SELECT * FROM v_claim_evidence_summary "
                 "WHERE task_id = '...'"
             )

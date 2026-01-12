@@ -31,7 +31,7 @@ class EvidenceItem(BaseModel):
     )
     year: int | str | None = Field(None, description="Year metadata if available")
     nli_edge_confidence: float | None = Field(
-        None, description="NLI model calibrated confidence (used in Bayesian update)"
+        None, description="NLI model confidence (used as evidence weight in aggregation)"
     )
     source_domain_category: str | None = Field(
         None, description="Domain category derived from source side (if available)"
@@ -43,11 +43,16 @@ class EvidenceItem(BaseModel):
 class ClaimConfidenceAssessment(BaseModel):
     """Contract for EvidenceGraph.calculate_claim_confidence()."""
 
-    bayesian_claim_confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Bayesian posterior mean (primary truth metric)"
+    nli_claim_support_ratio: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Exploration score: NLI-weighted support ratio (NOT a verdict or calibrated probability of truth)",
     )
-    uncertainty: float = Field(..., ge=0.0, description="Posterior standard deviation")
-    controversy: float = Field(..., ge=0.0, le=1.0, description="Support vs refute conflict")
+    uncertainty: float = Field(
+        ..., ge=0.0, description="Internal uncertainty proxy (implementation-defined)"
+    )
+    controversy: float = Field(..., ge=0.0, le=1.0, description="Support vs refute conflict proxy")
     supporting_count: int = Field(..., ge=0)
     refuting_count: int = Field(..., ge=0)
     neutral_count: int = Field(..., ge=0)
