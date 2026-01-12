@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lyra Research Examples</title>
+  <title>Lyra Examples</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -15,6 +15,7 @@
       --accent-hover: #79c0ff;
       --green: #3fb950;
       --purple: #a371f7;
+      --yellow: #d29922;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -22,18 +23,21 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 3rem 2rem;
+      line-height: 1.6;
     }
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
+      padding: 3rem 2rem;
     }
+    
+    /* Header */
     header {
       text-align: center;
-      margin-bottom: 3rem;
+      margin-bottom: 4rem;
     }
     h1 {
-      font-size: 2.5rem;
+      font-size: 3rem;
       font-weight: 700;
       margin-bottom: 0.75rem;
       background: linear-gradient(135deg, var(--accent), var(--purple));
@@ -43,17 +47,120 @@
     }
     .subtitle {
       color: var(--text-muted);
-      font-size: 1.1rem;
+      font-size: 1.2rem;
+      max-width: 600px;
+      margin: 0 auto;
     }
+    
+    /* Section styling */
+    section {
+      margin-bottom: 4rem;
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    h2::before {
+      content: '';
+      width: 4px;
+      height: 1.5rem;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      border-radius: 2px;
+    }
+    
+    /* Features */
+    .features {
+      list-style: none;
+    }
+    .features li {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+    .features li strong {
+      color: var(--text);
+    }
+    .features code {
+      background: rgba(88, 166, 255, 0.1);
+      color: var(--accent);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .primary-note {
+      margin-top: 1.25rem;
+      padding: 1rem;
+      background: rgba(163, 113, 247, 0.1);
+      border-left: 3px solid var(--purple);
+      border-radius: 0 8px 8px 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    
+    /* Workflow */
+    .workflow {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .step-num {
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .step-content h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .step-content p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .step-content code {
+      background: rgba(88, 166, 255, 0.1);
+      color: var(--accent);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .optional {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: normal;
+    }
+    
+    /* Sessions */
     .sessions {
       display: grid;
-      gap: 1.5rem;
+      gap: 1.25rem;
     }
     .card {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 1.75rem;
+      padding: 1.5rem;
       transition: border-color 0.2s, transform 0.2s;
     }
     .card:hover {
@@ -69,30 +176,29 @@
       display: flex;
       align-items: center;
       gap: 1rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
     }
     .session-num {
       background: linear-gradient(135deg, var(--accent), var(--purple));
       color: white;
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 1.25rem;
+      font-size: 1.1rem;
     }
     .card-title {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 600;
       color: var(--text);
     }
     .card-desc {
       color: var(--text-muted);
-      font-size: 0.95rem;
-      line-height: 1.6;
-      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
     }
     .tags {
       display: flex;
@@ -100,21 +206,90 @@
       flex-wrap: wrap;
     }
     .tag {
-      background: rgba(88, 166, 255, 0.1);
-      color: var(--accent);
-      padding: 0.25rem 0.75rem;
+      background: rgba(88, 166, 255, 0.15);
+      color: #79c0ff;
+      padding: 0.2rem 0.6rem;
       border-radius: 20px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
+      text-decoration: none;
+      transition: background 0.2s;
+      font-weight: 500;
     }
-    .tag.output {
+    a.tag:hover {
+      background: rgba(88, 166, 255, 0.3);
+    }
+    .tag.prompt {
+      background: rgba(163, 113, 247, 0.15);
+      color: #c9a0ff;
+    }
+    a.tag.prompt:hover {
+      background: rgba(163, 113, 247, 0.3);
+    }
+    .tag.dashboard {
       background: rgba(63, 185, 80, 0.1);
       color: var(--green);
     }
+    a.tag.dashboard:hover {
+      background: rgba(63, 185, 80, 0.2);
+    }
+    
+    /* Philosophy */
+    .philosophy {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .philosophy p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+    .philosophy p:last-child {
+      margin-bottom: 0;
+    }
+    .philosophy strong {
+      color: var(--text);
+    }
+    .philosophy ul {
+      list-style: none;
+      margin: 1rem 0;
+    }
+    .philosophy li {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      padding-left: 1.5rem;
+      position: relative;
+      margin-bottom: 0.5rem;
+    }
+    .philosophy li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+    
+    /* Disclaimer */
+    .disclaimer {
+      background: rgba(210, 153, 34, 0.1);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .disclaimer strong {
+      color: var(--yellow);
+    }
+    
+    /* Footer */
     footer {
-      margin-top: 4rem;
       text-align: center;
       color: var(--text-muted);
       font-size: 0.9rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
     }
     footer a {
       color: var(--accent);
@@ -129,61 +304,117 @@
   <div class="container">
     <header>
       <h1>Lyra Examples</h1>
-      <p class="subtitle">Research session outputs and evidence dashboards</p>
+      <p class="subtitle">Build traceable evidence graphs through AI conversation.</p>
+      <p class="subtitle"> Reports and dashboards for sharing.</p>
     </header>
     
-    <div class="sessions">
-      <div class="card">
-        <a href="session_01/">
+    <!-- Features -->
+    <section>
+      <h2>Features</h2>
+      <ul class="features">
+        <li><strong>Create Evidence Graph</strong> — Build traceable evidence with claim→fragment→page→URL links</li>
+        <li><strong>Make Reports</strong> — Export findings with citations and confidence scores</li>
+        <li><strong>Generate Dashboards</strong> — Interactive visualization comparing multiple research sessions</li>
+      </ul>
+      <div class="primary-note">
+        <strong>The Evidence Graph is the primary output</strong> — reports and dashboards are artifacts for sharing and audit.
+      </div>
+    </section>
+    
+    <!-- Workflow -->
+    <section>
+      <h2>Workflow</h2>
+      <div class="workflow">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Build Evidence Graph</h3>
+            <p>Ask a research question with <code>/lyra-search</code>. AI searches, extracts claims, and builds a traceable evidence graph.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Generate Report <span class="optional">(optional)</span></h3>
+            <p>Export to a structured report with <code>/lyra-report</code>. Citations and confidence scores included.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Generate Dashboard <span class="optional">(optional)</span></h3>
+            <p>Compare multiple sessions with <code>make report-dashboard</code>. Interactive HTML visualization.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Sample Sessions -->
+    <section>
+      <h2>Sample Sessions</h2>
+      <div class="sessions">
+        <div class="card">
           <div class="card-header">
             <div class="session-num">01</div>
-            <div class="card-title">Session 01</div>
+            <div class="card-title">DPP-4 Inhibitors Evidence Review</div>
           </div>
-          <p class="card-desc">
-            Initial research session documentation and workflow examples.
-          </p>
+          <p class="card-desc">Efficacy and safety of DPP-4 inhibitors as add-on therapy for T2DM patients on insulin.</p>
           <div class="tags">
-            <span class="tag">Documentation</span>
+            <a href="https://github.com/k-shibuki/lyra/blob/main/docs/examples/session_01/prompt.md" class="tag prompt">User Prompt</a>
+            <a href="https://github.com/k-shibuki/lyra/blob/main/docs/examples/session_01/report.md" class="tag">Research Report</a>
           </div>
-        </a>
-      </div>
+        </div>
 
-      <div class="card">
-        <a href="session_02/">
+        <div class="card">
           <div class="card-header">
             <div class="session-num">02</div>
-            <div class="card-title">Session 02</div>
+            <div class="card-title">SGLT2 Inhibitors Evidence Review</div>
           </div>
-          <p class="card-desc">
-            Research session with evidence collection examples.
-          </p>
+          <p class="card-desc">Efficacy and safety of SGLT2 inhibitors as add-on therapy for T2DM patients on insulin.</p>
           <div class="tags">
-            <span class="tag">Documentation</span>
+            <a href="https://github.com/k-shibuki/lyra/blob/main/docs/examples/session_02/prompt.md" class="tag prompt">User Prompt</a>
+            <a href="https://github.com/k-shibuki/lyra/blob/main/docs/examples/session_02/report.md" class="tag">Research Report</a>
           </div>
-        </a>
-      </div>
+        </div>
 
-      <div class="card">
-        <a href="session_03/output/evidence_dashboard.html">
-          <div class="card-header">
-            <div class="session-num">03</div>
-            <div class="card-title">Session 03 - Evidence Dashboard</div>
-          </div>
-          <p class="card-desc">
-            Interactive visualization of research evidence, claims, and their supporting/refuting relationships.
-          </p>
-          <div class="tags">
-            <span class="tag output">Interactive Dashboard</span>
-            <span class="tag">HTML Report</span>
-          </div>
-        </a>
+        <div class="card">
+          <a href="session_03/evidence_dashboard.html">
+            <div class="card-header">
+              <div class="session-num">03</div>
+              <div class="card-title">Comparative Evidence Dashboard</div>
+            </div>
+            <p class="card-desc">Interactive visualization comparing DPP-4 vs SGLT2 evidence — claims, sources, and supporting/refuting relationships.</p>
+            <div class="tags">
+              <span class="tag dashboard">Interactive Dashboard</span>
+            </div>
+          </a>
+        </div>
       </div>
+    </section>
+    
+    <!-- Philosophy -->
+    <section>
+      <h2>Philosophy</h2>
+      <div class="philosophy">
+        <p><strong>Lyra's primary output is the Evidence Graph, not reports or visualizations.</strong></p>
+        <p>The "main path" of Lyra is:</p>
+        <ul>
+          <li><strong>Grow an Evidence Graph</strong> — task → targets → pages/fragments/claims</li>
+          <li><strong>Query the graph</strong> — views, search, contradictions, provenance — iteratively until the hypothesis is answered</li>
+        </ul>
+        <p>Reports and dashboards serve <strong>shareability</strong> (portable artifacts), <strong>auditability</strong> (explicit provenance), and <strong>comparison</strong> (cross-session analysis).</p>
+        <p>The evidence you collect is <strong>yours</strong> — stored locally, queryable with standard tools, exportable in any format. Unlike cloud "deep research" that vanishes after a session, your Evidence Graph is a permanent, auditable asset.</p>
+      </div>
+    </section>
+    
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+      <strong>⚠️ Disclaimer:</strong> These samples were created for demonstration purposes only. The reports and dashboard should not be treated as reliable medical information.
     </div>
-
+    
     <footer>
       <p>
-        <a href="https://github.com/your-username/lyra">Lyra</a> - 
-        Local-first research evidence graph system
+        <a href="https://github.com/k-shibuki/lyra">Lyra</a> — Local-first research evidence graph system
       </p>
     </footer>
   </div>

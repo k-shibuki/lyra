@@ -37,12 +37,12 @@ Build an evidence graph iteratively using Lyra MCP tools, then synthesize a trac
 | `target` | A query or URL object submitted via `queue_targets(...)` — **this is what you optimize** |
 | `claim` | Extracted assertion stored in Lyra's evidence graph |
 
-### Bayesian confidence (`bayesian_truth_confidence`)
+### Exploration score (`nli_claim_support_ratio`)
 
-- **0.5** = no evidence yet (prior)
+- **0.5** = no evidence yet (uninformative baseline)
 - **> 0.5** = more support; **< 0.5** = more refutation
-- Only **cross-source** NLI edges update confidence (self-citation ignored)
-- Abbreviated as "conf" in reports
+- Only **cross-source** NLI edges update the score (self-citation ignored)
+- This is a navigation/ranking aid, not a statistically rigorous probability
 
 ### Evidence Sources (do not mix in citations)
 

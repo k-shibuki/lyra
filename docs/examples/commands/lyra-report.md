@@ -100,7 +100,7 @@ query_view(...) → write_file(contradictions_section) → forget results
 
 | Data | Purpose | Required columns | Max rows |
 |------|---------|------------------|----------|
-| Top claims | Verdict, tables | claim_id, claim_text, bayesian_conf, support/refute counts | 30 |
+| Top claims | Verdict, tables | claim_id, claim_text, nli_claim_support_ratio, support/refute counts | 30 |
 | Contradictions | Appendix B | claim_id, claim_text, controversy_score | 15 |
 | Citations (for top claims only) | Footnotes | page_id, url, title, author, year, doi | ~30 |
 | Fragment snippets (for cited claims only) | Number verification | fragment_id, snippet (300 chars), claim_id | ~50 |
@@ -340,7 +340,7 @@ read_file(target_file="data/reports/{task_id}/citation_index.json")
 ```
 # Read 1: Get structure and claims
 read_file(target_file="data/reports/{task_id}/evidence_pack.json")
-# → Parse and keep only: metadata, claims[].{claim_id, claim_text, bayesian_truth_confidence}
+# → Parse and keep only: metadata, claims[].{claim_id, claim_text, nli_claim_support_ratio}
 # → Write working subset to context
 
 # Read 2: When writing footnote for claim X
@@ -419,10 +419,10 @@ Mini table (required):
 Format:
 - `{hypothesis}: SUPPORTED / REFUTED / INCONCLUSIVE (confidence: X.XX)`
 
-Confidence definition:
-- **Lyra Conf** = `bayesian_truth_confidence` (0–1) derived from cross-source NLI evidence edges
-- **0.50 means "no net cross-source signal yet"**, not "50% efficacy"
-- Prefer effect sizes + evidence type for decisions; use Lyra Conf as traceability aid
+Score definition:
+- **Lyra Score** = `nli_claim_support_ratio` (0–1) derived from fragment→claim NLI evidence edges (supports vs refutes weights)
+- **0.50 means “no net tilt (or insufficient/offsetting evidence)”**, not “50% efficacy”
+- Prefer effect sizes + evidence type for decisions; use this score as a traceability/navigation aid
 
 #### 3) Key Findings — exactly 3 tables
 
@@ -695,7 +695,7 @@ These operations transform the fact-only draft into polished prose:
 | **Verdict reasoning** | Explain why verdict is SUPPORTED/REFUTED/INCONCLUSIVE | "The preponderance of RCT evidence supports..." |
 | **Uncertainty framing** | Highlight gaps, caveats, limitations | "Long-term data (>2 years) remain limited." |
 | **Claim paraphrase** | Reword `claim_text` while preserving meaning | "reduces HbA1c" → "lowers HbA1c levels" |
-| **Table header adjustment** | Improve readability | "Effect (range)" → "Effect Size (95% CI)" |
+| **Table header adjustment** | Improve readability | "Effect (range)" → "Effect Size (range)" |
 
 ### Step 4.2: Transform sections
 

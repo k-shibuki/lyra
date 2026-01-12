@@ -37,12 +37,12 @@ Build an evidence graph iteratively using Lyra MCP tools, then synthesize a trac
 | `target` | A query or URL object submitted via `queue_targets(...)` — **this is what you optimize** |
 | `claim` | Extracted assertion stored in Lyra's evidence graph |
 
-### Bayesian confidence (`bayesian_truth_confidence`)
+### Claim exploration score (`nli_claim_support_ratio`)
 
-- **0.5** = no evidence yet (prior)
-- **> 0.5** = more support; **< 0.5** = more refutation
-- Only **cross-source** NLI edges update confidence (self-citation ignored)
-- Abbreviated as "conf" in reports
+- **0.5** = no net tilt (or insufficient/offsetting evidence)
+- **> 0.5** = more support-weight; **< 0.5** = more refute-weight
+- Derived from fragment→claim NLI edges (supports vs refutes); **NOT a hypothesis verdict**
+- Use as a navigation/ranking aid; interpret clinically in the report narrative
 
 ### Evidence Sources (do not mix in citations)
 
@@ -109,7 +109,7 @@ Review results:
   get_status(task_id=task_id, wait=0, detail="full")
   → inspect searches_detail[*].harvest_rate, searches_detail[*].satisfaction_score, searches_detail[*].has_primary_source
   ```
-- Use `query_view(view_name="v_claim_evidence_summary", task_id=task_id)` to inspect evidence quality (support/refute/neutral)
+- Use `query_view(view_name="v_claim_evidence_summary", task_id=task_id)` to inspect claim aggregates (support/refute/neutral counts + `nli_claim_support_ratio`)
 
 ### 2.2 Design Full Target Set
 
