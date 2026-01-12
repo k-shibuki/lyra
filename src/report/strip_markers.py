@@ -35,6 +35,12 @@ INSTRUCTION_COMMENT = re.compile(
     re.MULTILINE,
 )
 
+# LLM guidance comments (LLM-only context, not for final report)
+LLM_GUIDANCE_COMMENT = re.compile(
+    r"^\s*<!-- LLM_GUIDANCE:[^>]+-->\s*\n?",
+    re.MULTILINE,
+)
+
 
 def strip_markers(content: str, *, remove_instructions: bool = True) -> str:
     """
@@ -59,6 +65,7 @@ def strip_markers(content: str, *, remove_instructions: bool = True) -> str:
 
     if remove_instructions:
         result = INSTRUCTION_COMMENT.sub("", result)
+        result = LLM_GUIDANCE_COMMENT.sub("", result)
 
     # Clean up excessive blank lines (more than 2 consecutive)
     result = re.sub(r"\n{4,}", "\n\n\n", result)

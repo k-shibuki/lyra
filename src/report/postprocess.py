@@ -606,13 +606,18 @@ def info_evidence_chain_presence(
 
 def _extract_catalog_entries(md: str) -> dict[str, str]:
     """
-    Parse `## Citable Source Catalog` table.
+    Parse Citable Source Catalog table.
+
+    Supports both:
+      - `## Citable Source Catalog` (legacy)
+      - `## Appendix C: Citable Source Catalog` (current)
 
     Expected row shape:
       | `page_id` | source_str |
     """
     entries: dict[str, str] = {}
-    m = re.search(r"^##\s+Citable Source Catalog\s*$", md, flags=re.MULTILINE)
+    # Match both legacy and current heading formats
+    m = re.search(r"^##\s+(?:Appendix C:\s+)?Citable Source Catalog\s*$", md, flags=re.MULTILINE)
     if not m:
         return entries
     start = m.end()

@@ -2884,6 +2884,9 @@
 
       // Enhance Key Findings tables: hide Claim Source column by default, dim uncited rows
       enhanceReportTables(container);
+      
+      // Collapse Appendix sections by default
+      collapseAppendixSections(container);
 
       const toggle = document.getElementById('toggle-claim-ids');
       if (toggle) {
@@ -2922,6 +2925,59 @@
           const uncited = (cited === '-' || cited === '');
           row.classList.toggle('uncited-row', uncited);
         });
+      });
+    }
+
+    // Collapse Appendix sections by default (wrapped in <details>)
+    function collapseAppendixSections(container) {
+      const headings = container.querySelectorAll('h2');
+      headings.forEach(h2 => {
+        const text = h2.textContent || '';
+        // Match "Appendix A:", "Appendix B:", etc.
+        if (!text.match(/^Appendix\s+[A-Z]:/i)) return;
+        // Skip if already wrapped
+        if (h2.closest('details')) return;
+        
+        // Collect all siblings until next h2 or end
+        const contentNodes = [];
+        let sibling = h2.nextElementSibling;
+        while (sibling && sibling.tagName !== 'H2') {
+          contentNodes.push(sibling);
+          sibling = sibling.nextElementSibling;
+        }
+        
+        // Create <details> wrapper
+        const details = document.createElement('details');
+        details.style.marginBottom = '1rem';
+        details.style.borderLeft = '3px solid var(--border)';
+        details.style.paddingLeft = '0.75rem';
+        
+        // Create <summary> from h2 text
+        const summary = document.createElement('summary');
+        summary.style.cursor = 'pointer';
+        summary.style.fontSize = '1.1rem';
+        summary.style.fontWeight = '600';
+        summary.style.color = 'var(--text-secondary)';
+        summary.style.padding = '0.5rem 0';
+        summary.style.listStyle = 'none';
+        summary.innerHTML = `<span style="margin-right:0.5rem;">▶</span>${escapeHtml(text)}`;
+        
+        // Update arrow on toggle
+        details.addEventListener('toggle', () => {
+          const arrow = summary.querySelector('span');
+          if (arrow) arrow.textContent = details.open ? '▼ ' : '▶ ';
+        });
+        
+        details.appendChild(summary);
+        
+        // Create content wrapper
+        const contentDiv = document.createElement('div');
+        contentDiv.style.paddingTop = '0.5rem';
+        contentNodes.forEach(node => contentDiv.appendChild(node));
+        details.appendChild(contentDiv);
+        
+        // Replace h2 with details
+        h2.replaceWith(details);
       });
     }
 
