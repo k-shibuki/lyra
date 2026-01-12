@@ -13,7 +13,7 @@ authors:
 affiliations:
   - name: Independent Researcher
     index: 1
-date: 4 January 2026
+date: 12 January 2026
 bibliography: paper.bib
 ---
 
@@ -43,7 +43,9 @@ From a context engineering perspective—designing systems that supply AI models
 
 The software follows a local-first design: machine learning inference (LLM, embeddings, NLI) runs on the researcher's hardware, and all research artifacts—the evidence graph, extracted claims, and source fragments—are stored locally in a SQLite database. For evidence discovery, Lyra retrieves content via browser-based web search and academic APIs [@SemanticScholarAcademic; @priemOpenAlexFullyopenIndex2022], with identifier extraction from SERP URLs enabling cross-source enrichment and DOI-based deduplication. Each research task defines a central hypothesis to verify; Lyra then finds evidence supporting or refuting this hypothesis. A human-in-the-loop mechanism enables researchers to correct NLI judgments; these corrections are accumulated for planned domain adaptation via Low-Rank Adaptation [LoRA, @huLoRALowRankAdaptation2021] fine-tuning.
 
-I documented design rationale in 17 Architecture Decision Records covering local-first principles, evidence graph structure, and security models.
+# AI Usage Disclosure
+
+I used Cursor and Claude Code during Lyra's development. AI assistance covered code generation, refactoring, test scaffolding, and documentation drafting. All AI-assisted outputs were reviewed, and validated by me. Core design decisions—including the evidence graph architecture, three-layer collaboration model, and MCP tool interface—were made by me, as documented in 17 Architecture Decision Records covering local-first principles, evidence graph structure, and security models.
 
 # Acknowledgements
 
