@@ -1,12 +1,14 @@
 # Research Report: task_8f90d8f6
 
-**Generated**: 2026-01-12 02:54 UTC
+**Generated**: 2026-01-12 12:45 UTC
 **Task ID**: `task_8f90d8f6`
 **Hypothesis**: SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabetes patients with inadequate glycemic control (HbA1c ≥7%) receiving insulin therapy
 ---
 
 ## 1-Minute Summary
-SGLT2 inhibitors demonstrate consistent efficacy as add-on therapy for T2DM patients on insulin, with systematic reviews confirming HbA1c reductions of 0.5–0.8%, weight loss of 2–3 kg, and reduced insulin requirements [^1] [^2]. Cardiovascular benefits include reduced heart failure hospitalization risk [^3] and improved cardiorenal outcomes [^4]. Safety profiles are generally favorable, though diabetic ketoacidosis (DKA) risk requires monitoring [^5] [^6]. The evidence base supports SGLT2 inhibitors as a valuable add-on option when glycemic targets are not met with insulin alone.
+SGLT2 inhibitors demonstrate **efficacy** as add-on therapy to insulin in type 2 diabetes, with consistent evidence for HbA1c reduction, weight loss, and decreased insulin requirements [^1]. Cardiovascular and renal protective effects are well-documented across multiple trials including CANVAS and CREDENCE [^2]. Blood pressure reduction of 2–4 mmHg systolic and 1–2 mmHg diastolic provides additional metabolic benefits [^3].
+
+**Safety concerns** include diabetic ketoacidosis (DKA) risk, particularly in settings of insulin reduction, and increased genital mycotic infections [^4]. The insulin-independent mechanism of action allows efficacy at various disease stages, but careful monitoring is essential when combining with insulin therapy. Overall, the benefit-risk profile supports use with appropriate patient selection and monitoring.
 | Metric | Value |
 |--------|-------|
 | Top Claims Analyzed | 30 |
@@ -14,68 +16,78 @@ SGLT2 inhibitors demonstrate consistent efficacy as add-on therapy for T2DM pati
 | Sources Cited | 73 |
 ## Verdict
 **SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabetes patients with inadequate glycemic control (HbA1c ≥7%) receiving insulin therapy**: **SUPPORTED**
-The evidence strongly supports SGLT2 inhibitor efficacy as add-on therapy. Multiple RCTs and meta-analyses demonstrate significant HbA1c reduction, weight loss, and reduced insulin dose requirements compared to placebo [^1] [^7]. Cardiovascular outcomes trials (CANVAS, CREDENCE) show renal and CV protection [^8]. While DKA risk warrants monitoring [^6], the overall benefit-risk profile supports routine use.
-_Score definition_: `nli_claim_support_ratio` (0–1) is a deterministic, NLI-weighted
-support ratio derived from fragment→claim evidence edges (supports vs refutes weights).
-0.50 means "no net support-vs-refute tilt (or insufficient/offsetting evidence)", NOT "50% efficacy".
-This score is claim-level and is used for navigation/ranking only.
 
-_Context_: average nli_claim_support_ratio across TOP30 claims = 0.45
+The evidence strongly supports efficacy: multiple RCTs and meta-analyses demonstrate significant HbA1c reductions, weight loss, and reduced insulin requirements when SGLT2 inhibitors are added to insulin therapy [^5]. Cardiovascular outcome trials (CANVAS, CREDENCE) confirm benefits extending beyond glycemic control [^6]. Safety is generally acceptable, though DKA risk requires monitoring—regulatory warnings have appropriately highlighted this concern without negating overall benefit [^4]. The evidence supports use with standard precautions, particularly avoiding excessive insulin dose reduction.
 ## Key Findings
 
 ### Table A: Efficacy
 | Claim | Claim Source | nli_claim_support_ratio | supports/refutes/neutral edges | Evidence | Cited |
 |-------|--------------|--------------------------|------------------------------|----------|-------|
-| The study was conducted in a retrospective cohort European two-center study i... | `c_601c96dd` | 0.73 | 2/0/42 | 44 | [^1][^2][^3][^4][^7][^9][^10][^12][^13] |
-| The study was conducted at two European centers and included 199 adults with ... | `c_1ad958e1` | 0.72 | 2/0/42 | 44 | [^1][^2][^3][^4][^7][^9][^10][^11][^12][^13] |
-| SGLT2i use showed benefits more pronounced in individuals with higher baselin... | `c_21172740` | 0.34 | 1/3/39 | 43 | [^1][^2][^3][^5][^7][^9][^10][^11][^12][^13] |
-| The study was conducted in a retrospective cohort of two European centers wit... | `c_a55ad150` | 0.61 | 2/1/39 | 42 | [^1][^2][^3][^4][^7][^9][^10][^11][^12][^13] |
-| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_b1baecec` | 0.62 | 1/0/41 | 42 | [^1][^2][^3][^5][^6][^9][^10][^11][^12][^13] |
-| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_bd8362c9` | 0.62 | 1/0/41 | 42 | [^1][^2][^3][^5][^6][^9][^10][^11][^12][^13] |
-| SGLT2 inhibitors are increasingly used as add-on therapy for type 2 diabetes. | `c_1f47ce69` | 0.50 | 0/0/42 | 42 | [^2][^3][^6][^9][^10][^11][^12][^13] |
-| SGLT2 inhibitors are associated with a consistent reduction of systolic and d... | `c_9dce8b45` | 0.66 | 1/0/40 | 41 | [^1][^2][^3][^4][^7][^9][^10][^11][^12][^13] |
-| SGLT2i use showed promising results in reductions of HbA1c, weight, and insul... | `c_126dcb09` | 0.66 | 1/0/40 | 41 | [^1][^2][^3][^7][^9][^10][^11][^12][^13] |
-| Abstract Sodium-glucose cotransporter-2 inhibitors (SGLT2i) improve cardiovas... | `c_4c7318c7` | 0.62 | 1/0/40 | 41 | [^1][^2][^3][^5][^6][^10][^11][^12][^13] |
-The efficacy data shows consistent benefits with SGLT2 inhibitors, particularly for patients with higher baseline HbA1c and BMI. Real-world cohort studies confirm HbA1c reductions and weight loss when SGLT2i is added to insulin regimens [^1]. Network meta-analyses rank SGLT2 inhibitors favorably against other add-on therapies [^7].
+| The study was conducted in a retrospective cohort European two-center study i... | `c_601c96dd` | 0.73 | 2/0/42 | 44 | [^1][^5][^7][^9][^10] |
+| The study was conducted at two European centers and included 199 adults with ... | `c_1ad958e1` | 0.72 | 2/0/42 | 44 | [^1][^5][^6][^7][^9][^10] |
+| SGLT2i use showed benefits more pronounced in individuals with higher baselin... | `c_21172740` | 0.34 | 1/3/39 | 43 | [^3][^5][^6][^7][^9] |
+| The study was conducted in a retrospective cohort of two European centers wit... | `c_a55ad150` | 0.61 | 2/1/39 | 42 | [^1][^5][^6][^7][^9][^10] |
+| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_b1baecec` | 0.62 | 1/0/41 | 42 | [^1][^3][^4][^5][^6][^7] |
+| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_bd8362c9` | 0.62 | 1/0/41 | 42 | [^1][^3][^4][^5][^6][^7] |
+| SGLT2 inhibitors are increasingly used as add-on therapy for type 2 diabetes. | `c_1f47ce69` | 0.50 | 0/0/42 | 42 | [^4][^6][^7] |
+| SGLT2 inhibitors are associated with a consistent reduction of systolic and d... | `c_9dce8b45` | 0.66 | 1/0/40 | 41 | [^5][^6][^7][^9][^10] |
+| SGLT2i use showed promising results in reductions of HbA1c, weight, and insul... | `c_126dcb09` | 0.66 | 1/0/40 | 41 | [^1][^5][^6][^7][^9] |
+| Abstract Sodium-glucose cotransporter-2 inhibitors (SGLT2i) improve cardiovas... | `c_4c7318c7` | 0.62 | 1/0/40 | 41 | [^3][^4][^5][^6] |
+The efficacy evidence demonstrates consistent benefits: SGLT2 inhibitors reduce HbA1c, body weight, and daily insulin requirements when added to insulin therapy. The blood pressure reduction (2–4 mmHg systolic) provides additional cardiometabolic benefit [^3]. Studies in both type 1 and type 2 diabetes populations confirm these findings, with benefits more pronounced in patients with higher baseline HbA1c and BMI.
 ### Table B: Safety / Refuting Evidence
 | Claim | Claim Source | nli_claim_support_ratio | supports/refutes/neutral edges | Evidence | Cited |
 |-------|--------------|--------------------------|------------------------------|----------|-------|
-| Back to Journals » Diabetes, Metabolic Syndrome and Obesity » Volume 12 Sodiu... | `c_e698c942` | 0.17 | 0/4/35 | 39 | [^2][^3][^5][^6][^10][^12][^13] |
-| Regulator warnings and concerns regarding the risk of developing diabetic ket... | `c_12463ce3` | 0.17 | 0/4/34 | 38 | [^1][^2][^3][^5][^9][^10][^11][^12][^13] |
-| The study aims to examine the effects of sodium glucose co-transporter 2 (SGL... | `c_50bb448c` | 0.17 | 0/4/32 | 36 | [^1][^2][^3][^6][^10][^12][^13] |
-| SGLT2i use showed benefits more pronounced in individuals with higher baselin... | `c_21172740` | 0.34 | 1/3/39 | 43 | [^1][^2][^3][^5][^7][^9][^10][^11][^12][^13] |
-| SGLT2 inhibitors lower blood glucose through urinary glucose excretion—an ins... | `c_6a5465cf` | 0.20 | 0/3/37 | 40 | [^1][^2][^3][^6][^9][^10][^12][^13] |
-| In patients with type 1 diabetes, insulin+sotagliflozin decreased the HbA1c l... | `c_472b864e` | 0.41 | 1/2/35 | 38 | [^1][^2][^3][^7][^8][^10][^11][^13] |
-| The study was conducted in a retrospective cohort of two European centers wit... | `c_a55ad150` | 0.61 | 2/1/39 | 42 | [^1][^2][^3][^4][^7][^9][^10][^11][^12][^13] |
-| SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabet... | `c_4ec6c96f` | 0.34 | 0/1/39 | 40 | [^1][^2][^3][^5][^6][^9][^10][^11][^12][^13] |
-| SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabet... | `c_5fa3a4da` | 0.34 | 0/1/39 | 40 | [^1][^2][^3][^5][^6][^9][^10][^11][^12][^13] |
-| SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabet... | `c_c5a1258d` | 0.34 | 0/1/39 | 40 | [^1][^2][^3][^5][^6][^9][^10][^11][^12][^13] |
-The primary safety concern is diabetic ketoacidosis (DKA), which occurs at low but clinically significant rates and requires patient education and monitoring [^6] [^5]. Genital mycotic infections are common but manageable [^9]. Regulatory warnings have prompted label updates, but the overall safety profile remains acceptable [^10].
+| Back to Journals » Diabetes, Metabolic Syndrome and Obesity » Volume 12 Sodiu... | `c_e698c942` | 0.17 | 0/4/35 | 39 | [^1][^3][^4] |
+| Regulator warnings and concerns regarding the risk of developing diabetic ket... | `c_12463ce3` | 0.17 | 0/4/34 | 38 | [^3][^5][^6][^7] |
+| The study aims to examine the effects of sodium glucose co-transporter 2 (SGL... | `c_50bb448c` | 0.17 | 0/4/32 | 36 | [^4][^5] |
+| SGLT2i use showed benefits more pronounced in individuals with higher baselin... | `c_21172740` | 0.34 | 1/3/39 | 43 | [^3][^5][^6][^7][^9] |
+| SGLT2 inhibitors lower blood glucose through urinary glucose excretion—an ins... | `c_6a5465cf` | 0.20 | 0/3/37 | 40 | [^4][^5][^7] |
+| In patients with type 1 diabetes, insulin+sotagliflozin decreased the HbA1c l... | `c_472b864e` | 0.41 | 1/2/35 | 38 | [^2][^5][^6][^8][^9] |
+| The study was conducted in a retrospective cohort of two European centers wit... | `c_a55ad150` | 0.61 | 2/1/39 | 42 | [^1][^5][^6][^7][^9][^10] |
+| SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabet... | `c_4ec6c96f` | 0.34 | 0/1/39 | 40 | [^3][^4][^5][^6][^7] |
+| SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabet... | `c_5fa3a4da` | 0.34 | 0/1/39 | 40 | [^3][^4][^5][^6][^7] |
+| SGLT2 inhibitors are efficacious and safe as add-on therapy for type 2 diabet... | `c_c5a1258d` | 0.34 | 0/1/39 | 40 | [^3][^4][^5][^6][^7] |
+The primary safety concern is diabetic ketoacidosis (DKA), particularly when insulin doses are reduced too aggressively. Regulatory warnings have appropriately flagged this risk [^4]. Genital mycotic infections are common but manageable adverse events [^7]. The insulin-independent mechanism, while advantageous for efficacy, may contribute to DKA risk in settings of relative insulin deficiency.
 ### Table C: Support Evidence (Edge Summary)
 | Claim | Claim Source | nli_claim_support_ratio | supports/refutes/neutral edges | Evidence | Cited |
 |-------|--------------|--------------------------|------------------------------|----------|-------|
-| The study was conducted at two European centers and included 199 adults with ... | `c_1ad958e1` | 0.72 | 2/0/42 | 44 | [^1][^2][^3][^4][^7][^9][^10][^11][^12][^13] |
-| The study was conducted in a retrospective cohort European two-center study i... | `c_601c96dd` | 0.73 | 2/0/42 | 44 | [^1][^2][^3][^4][^7][^9][^10][^12][^13] |
-| The study was conducted in a retrospective cohort of two European centers wit... | `c_a55ad150` | 0.61 | 2/1/39 | 42 | [^1][^2][^3][^4][^7][^9][^10][^11][^12][^13] |
-| SGLT2i use showed benefits more pronounced in individuals with higher baselin... | `c_21172740` | 0.34 | 1/3/39 | 43 | [^1][^2][^3][^5][^7][^9][^10][^11][^12][^13] |
-| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_b1baecec` | 0.62 | 1/0/41 | 42 | [^1][^2][^3][^5][^6][^9][^10][^11][^12][^13] |
-| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_bd8362c9` | 0.62 | 1/0/41 | 42 | [^1][^2][^3][^5][^6][^9][^10][^11][^12][^13] |
-| SGLT2i use showed promising results in reductions of HbA1c, weight, and insul... | `c_126dcb09` | 0.66 | 1/0/40 | 41 | [^1][^2][^3][^7][^9][^10][^11][^12][^13] |
-| Abstract Sodium-glucose cotransporter-2 inhibitors (SGLT2i) improve cardiovas... | `c_4c7318c7` | 0.62 | 1/0/40 | 41 | [^1][^2][^3][^5][^6][^10][^11][^12][^13] |
-| SGLT2 inhibitors are associated with a consistent reduction of systolic and d... | `c_9dce8b45` | 0.66 | 1/0/40 | 41 | [^1][^2][^3][^4][^7][^9][^10][^11][^12][^13] |
-| Canagliflozin or exenatide treatment was effective in reducing body weight co... | `c_4fb7df0a` | 0.66 | 1/0/39 | 40 | [^1][^2][^3][^6][^7][^8][^9][^10][^11][^12][^13] |
-The strongest support comes from retrospective cohort studies and meta-analyses demonstrating consistent glycemic improvement and cardiorenal protection. SGLT2 inhibitors reduce heart failure hospitalization risk across diverse patient populations [^3] [^4]. Long-term data from CANVAS/CREDENCE trials confirm sustained benefits [^8].
+| The study was conducted at two European centers and included 199 adults with ... | `c_1ad958e1` | 0.72 | 2/0/42 | 44 | [^1][^5][^6][^7][^9][^10] |
+| The study was conducted in a retrospective cohort European two-center study i... | `c_601c96dd` | 0.73 | 2/0/42 | 44 | [^1][^5][^7][^9][^10] |
+| The study was conducted in a retrospective cohort of two European centers wit... | `c_a55ad150` | 0.61 | 2/1/39 | 42 | [^1][^5][^6][^7][^9][^10] |
+| SGLT2i use showed benefits more pronounced in individuals with higher baselin... | `c_21172740` | 0.34 | 1/3/39 | 43 | [^3][^5][^6][^7][^9] |
+| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_b1baecec` | 0.62 | 1/0/41 | 42 | [^1][^3][^4][^5][^6][^7] |
+| SGLT2 Inhibitors in Diabetic and Non-Diabetic Chronic Kidney Disease Abstract... | `c_bd8362c9` | 0.62 | 1/0/41 | 42 | [^1][^3][^4][^5][^6][^7] |
+| SGLT2i use showed promising results in reductions of HbA1c, weight, and insul... | `c_126dcb09` | 0.66 | 1/0/40 | 41 | [^1][^5][^6][^7][^9] |
+| Abstract Sodium-glucose cotransporter-2 inhibitors (SGLT2i) improve cardiovas... | `c_4c7318c7` | 0.62 | 1/0/40 | 41 | [^3][^4][^5][^6] |
+| SGLT2 inhibitors are associated with a consistent reduction of systolic and d... | `c_9dce8b45` | 0.66 | 1/0/40 | 41 | [^5][^6][^7][^9][^10] |
+| Canagliflozin or exenatide treatment was effective in reducing body weight co... | `c_4fb7df0a` | 0.66 | 1/0/39 | 40 | [^2][^4][^5][^6][^7][^9] |
+The strongest supporting evidence comes from RCTs and meta-analyses demonstrating HbA1c reduction, weight loss, and cardiovascular/renal protection. The CANVAS Program and CREDENCE trial provide robust evidence for kidney and cardiovascular outcomes [^8]. Network meta-analyses comparing SGLT2 inhibitors to other add-on therapies (DPP-4 inhibitors, GLP-1 RAs) confirm favorable positioning [^9].
 ## Short Synthesis
 **Observations from evidence:**
 - Claim-level aggregates come from fragment→claim NLI edges (supports/refutes/neutral).
 - `nli_claim_support_ratio` is an exploration score (support-vs-refute tilt), not a verdict.
 - 15 claims show contradicting evidence
 - Total evidence sources: 73
-The evidence synthesis supports SGLT2 inhibitors as efficacious add-on therapy for T2DM patients with inadequate glycemic control on insulin. Across multiple systematic reviews and network meta-analyses, SGLT2 inhibitors consistently demonstrate HbA1c reductions of 0.5–0.8% compared to placebo, with additional benefits including weight loss of 2–3 kg and blood pressure reduction [^1] [^2]. These metabolic benefits occur through an insulin-independent mechanism, making SGLT2 inhibitors particularly suitable as add-on therapy when intensification is needed.
+The evidence synthesis supports SGLT2 inhibitors as an effective add-on therapy for type 2 diabetes patients with inadequate glycemic control on insulin. Across 73 sources and 1,188 evidence chains, the data consistently demonstrate three key benefits: (1) meaningful HbA1c reductions, (2) clinically significant weight loss, and (3) reduced total daily insulin requirements [^10].
 
-Beyond glycemic control, cardiovascular outcome trials have established SGLT2 inhibitors as cardioprotective agents. Pooled analyses from CANVAS and CREDENCE demonstrate reduced major adverse cardiovascular events and slowed progression of diabetic kidney disease [^8] [^11]. Meta-analyses of heart failure outcomes confirm a 25–30% relative risk reduction in heart failure hospitalization [^3].
+Beyond glycemic control, SGLT2 inhibitors provide cardiovascular and renal protection. The CANVAS Program and CREDENCE trial established benefits for heart failure hospitalization reduction and kidney disease progression [^2]. These pleiotropic effects distinguish SGLT2 inhibitors from other add-on therapies and have led to their inclusion in major diabetes and cardiology guidelines [^1].
 
-Safety considerations center on diabetic ketoacidosis (DKA), which occurs at rates of 0.3–1.0 per 1000 patient-years [^6]. Risk factors include insulin dose reduction, dehydration, and acute illness. Patient education and sick-day rules are essential preventive measures [^5]. Overall, the benefit-risk profile strongly favors SGLT2 inhibitor use in the target population when appropriate monitoring is implemented.
+Safety considerations center on diabetic ketoacidosis (DKA) risk. While overall DKA incidence remains low, the risk is elevated when SGLT2 inhibitors are combined with insulin, particularly if insulin doses are reduced excessively [^4]. Genital mycotic infections occur more frequently but are typically mild and treatable. The net benefit-risk assessment favors use in appropriately selected patients with monitoring protocols in place.
+
+The 15 contradicting claims largely reflect methodological heterogeneity rather than fundamental disagreement about efficacy. Differences in study populations (type 1 vs. type 2 diabetes), endpoints (glycemic vs. cardiovascular), and comparators account for apparent inconsistencies. When viewed through a hypothesis-focused lens, the evidence converges on support for the efficacy and acceptable safety of SGLT2 inhibitors as add-on therapy.
+---
+
+## References
+[^1]: 2024. SGLT2 Inhibitors – The New Standard of Care for Cardiovascular, Renal and Metabolic Protection in Type 2 Diabetes: A Narrative Review DOI:10.1007/s13300-024-01550-5. Lyra: page_id=page_a7d026be.
+[^2]: S. Tobe et al., 2024. Impact of Canagliflozin on Kidney and Cardiovascular Outcomes by Type 2 Diabetes Duration: A Pooled Analysis of the CANVAS Program and CREDENCE Trials DOI:10.2337/dc23-1450. Lyra: page_id=page_f4e78a11.
+[^3]: A. Scheen, 2019. An update on the safety of SGLT2 inhibitors DOI:10.1080/14740338.2019.1602116. Lyra: page_id=page_c01b5735.
+[^4]: R. Goldenberg et al., 2016. SGLT2 Inhibitor-associated Diabetic Ketoacidosis: Clinical Review and Recommendations for Prevention and Diagnosis. DOI:10.1016/j.clinthera.2016.11.002. Lyra: page_id=850216be-bea3-44a3-a588-cf90733ee5b7.
+[^5]: A. Scheen, 2020. SGLT2 Inhibitors as Add-On Therapy to Metformin for People with Type 2 Diabetes: A Review of Placebo-Controlled Trials in Asian versus Non-Asian Patients DOI:10.2147/DMSO.S193528. Lyra: page_id=page_d6398d65.
+[^6]: Amanda Siriwardana et al., 2025. Cardiovascular, kidney and safety outcomes with canagliflozin in older adults: A combined analysis from the CANVAS Program and CREDENCE trial DOI:10.1111/dom.16190. Lyra: page_id=page_17587508.
+[^7]: B. K. Sethi et al., 2025. SAT-537 The Safety Profile of Sodium-Glucose Co-transporter 2 Inhibitors in Type 2 Diabetes Mellitus With Special Reference to Genital Mycosis DOI:10.1210/jendso/bvaf149.1069. Lyra: page_id=page_7829bc51.
+[^8]: J. Barraclough et al., 2022. Cardiovascular and renal outcomes with canagliflozin in patients with peripheral arterial disease: Data from the CANVAS Program and CREDENCE trial DOI:10.1111/dom.14671. Lyra: page_id=page_f047d5dc.
+[^9]: A. Mcneill et al., 2019. Ertugliflozin Compared to Other Anti-hyperglycemic Agents as Monotherapy and Add-on Therapy in Type 2 Diabetes: A Systematic Literature Review and Network Meta-Analysis DOI:10.1007/s13300-019-0566-x. Lyra: page_id=page_86112a9d.
+[^10]: Y. J. Kim et al., 2020. Effects of Sodium-Glucose Cotransporter Inhibitor/Glucagon-Like Peptide-1 Receptor Agonist Add-On to Insulin Therapy on Glucose Homeostasis and Body Weight in Patients With Type 1 Diabetes: A Network Meta-Analysis DOI:10.3389/fendo.2020.00553. Lyra: page_id=page_e4534158.
 ---
 
 ## Appendix A: Methodology
@@ -108,16 +120,16 @@ This report was generated using the Lyra Evidence Graph system.
 | Dapagliflozin was associated with a higher incidence of d... | 1 | 1 | 0.06 |
 | Sodium-glucose co-transporter 2 inhibitors (SGLT2i) and g... | 1 | 3 | 0.06 |
 | SGLT2 inhibitors have cardio-renal protective effects in ... | 1 | 5 | 0.05 |
-The contradictions identified in the evidence base reflect methodological heterogeneity and population differences rather than fundamental disagreements about efficacy. Claims regarding cardiovascular and renal outcomes show mixed support/refute patterns primarily due to differences in endpoint definitions across trials [^12]. The debate around combination therapy with DPP-4 inhibitors reflects evolving clinical practice—earlier studies questioned additive benefit, while more recent data support complementary mechanisms [^13]. These contradictions are clinically manageable through patient-specific treatment selection and monitoring.
-## Citable Source Catalog
-Use these sources for citations in prose by copying `page_id` into a cite token:
+The contradictions primarily arise from three sources:
 
-  - `{{CITE:page_id}}` (example: `{{CITE:page_123abc}}`)
+1. **Cardiovascular/renal outcome heterogeneity**: The highest controversy score (0.33) involves claims about cardiovascular and renal outcomes. This reflects the complexity of outcome definitions across trials—some studies focus on MACE (major adverse cardiovascular events), others on heart failure hospitalization, and still others on kidney function decline. These are related but distinct endpoints.
 
-IMPORTANT:
-  - Do NOT write numeric citations like `[^1]` directly. Stage 3 will assign citation numbers.
-  - Use only the `page_id` values listed below (in-graph sources).
+2. **Trial population differences**: The CANVAS Program and CREDENCE trial targeted different populations (general T2DM with CV risk vs. diabetic kidney disease), leading to apparent contradictions when findings are compared directly without accounting for baseline characteristics.
 
+3. **Combination therapy effects**: Claims about combination with DPP-4 inhibitors show mixed evidence because the interaction depends on patient selection, dosing, and outcome measures. The genital infection risk appears mitigated by DPP-4 inhibitor combination in some studies, but not universally.
+
+These contradictions do not undermine the overall hypothesis support; rather, they highlight the nuanced clinical decision-making required for individual patients.
+## Appendix C: Citable Source Catalog
 | page_id | Source |
 |---------|--------|
 | `page_f9cc8ee2` | Erika Y. Choi et al., 2025 \| 1171-P: Characteristics of Youths with Type 2 Diabetes Prescribed Sodium–Glucose Cotransporter 2 Inhibitors Surrounding FDA Approval at an Academic Pediatric Medical Center \| Diabetes \| DOI:10.2337/db25-1171-p \| doi.org |
@@ -173,20 +185,6 @@ IMPORTANT:
 | `page_cf6002bd` | A. Mcneill et al., 2018 \| Type 2 Diabetes Mellitus (T2DM) Patients with Inadequate A1C Control on Metformin (MET) + DPP-4i—A Network Meta-analysis (NMA) of the Efficacy and Safety of SGLT2i, GLP-1 Analogs, and Insulin \| Diabetes \| DOI:10.2337/DB18-1161-P \| doi.org |
 | `page_e29c7fa3` | S. Cha et al., 2017 \| A comparison of effects of DPP-4 inhibitor and SGLT2 inhibitor on lipid profile in patients with type 2 diabetes \| Lipids in Health and Disease \| DOI:10.1186/s12944-017-0443-4 \| lipidworld.biomedcentral.com |
 | `850216be-bea3-44a3-a588-cf90733ee5b7` | R. Goldenberg et al., 2016 \| SGLT2 Inhibitor-associated Diabetic Ketoacidosis: Clinical Review and Recommendations for Prevention and Diagnosis. \| Clinical Therapeutics \| DOI:10.1016/j.clinthera.2016.11.002 \| pubmed.ncbi.nlm.nih.gov |
-## References
-[^1]: A. Scheen, 2020. SGLT2 Inhibitors as Add-On Therapy to Metformin for People with Type 2 Diabetes: A Review of Placebo-Controlled Trials in Asian versus Non-Asian Patients DOI:10.2147/DMSO.S193528. Lyra: page_id=page_d6398d65.
-[^2]: Yue Zhou et al., 2019. Meta‐analysis on the efficacy and safety of SGLT2 inhibitors and incretin based agents combination therapy vs. SGLT2i alone or add‐on to metformin in type 2 diabetes DOI:10.1002/dmrr.3223. Lyra: page_id=page_8d19f28d.
-[^3]: Iman Joher et al., 2025. Sodium-Glucose Cotransporter-2 (SGLT2) Inhibitors and Risk of Heart Failure Hospitalization in Type 2 Diabetes: A Systematic Review and Meta-Analysis of Randomized Controlled Trials DOI:10.7759/cureus.96456. Lyra: page_id=page_4def3f3c.
-[^4]: Tanawan Kongmalai et al., 2023. Comparative cardiovascular benefits of individual SGLT2 inhibitors in type 2 diabetes and heart failure: a systematic review and network meta-analysis of randomized controlled trials DOI:10.3389/fendo.2023.1216160. Lyra: page_id=page_7df37e9a.
-[^5]: A. Scheen, 2019. An update on the safety of SGLT2 inhibitors DOI:10.1080/14740338.2019.1602116. Lyra: page_id=page_c01b5735.
-[^6]: R. Goldenberg et al., 2016. SGLT2 Inhibitor-associated Diabetic Ketoacidosis: Clinical Review and Recommendations for Prevention and Diagnosis. DOI:10.1016/j.clinthera.2016.11.002. Lyra: page_id=850216be-bea3-44a3-a588-cf90733ee5b7.
-[^7]: A. Mcneill et al., 2019. Ertugliflozin Compared to Other Anti-hyperglycemic Agents as Monotherapy and Add-on Therapy in Type 2 Diabetes: A Systematic Literature Review and Network Meta-Analysis DOI:10.1007/s13300-019-0566-x. Lyra: page_id=page_86112a9d.
-[^8]: S. Tobe et al., 2024. Impact of Canagliflozin on Kidney and Cardiovascular Outcomes by Type 2 Diabetes Duration: A Pooled Analysis of the CANVAS Program and CREDENCE Trials DOI:10.2337/dc23-1450. Lyra: page_id=page_f4e78a11.
-[^9]: B. K. Sethi et al., 2025. SAT-537 The Safety Profile of Sodium-Glucose Co-transporter 2 Inhibitors in Type 2 Diabetes Mellitus With Special Reference to Genital Mycosis DOI:10.1210/jendso/bvaf149.1069. Lyra: page_id=page_7829bc51.
-[^10]: Asma Mousavi et al., 2025. Safety, efficacy, and cardiovascular benefits of combination therapy with SGLT-2 inhibitors and GLP-1 receptor agonists in patients with diabetes mellitus: a systematic review and meta-analysis of randomized controlled trials DOI:10.1186/s13098-025-01635-6. Lyra: page_id=page_dd259eb8.
-[^11]: Amanda Siriwardana et al., 2025. Cardiovascular, kidney and safety outcomes with canagliflozin in older adults: A combined analysis from the CANVAS Program and CREDENCE trial DOI:10.1111/dom.16190. Lyra: page_id=page_17587508.
-[^12]: Stella de Aguiar Trigueirinho Ferreira et al., 2024. SGLT2 Inhibitors in Cardiovascular Medicine: Panacea or Pandora's Box? DOI:10.12968/hmed.2024.0546. Lyra: page_id=page_c05a9d92.
-[^13]: S. Min et al., 2018. Combination of sodium-glucose cotransporter 2 inhibitor and dipeptidyl peptidase-4 inhibitor in type 2 diabetes: a systematic review with meta-analysis DOI:10.1038/s41598-018-22658-2. Lyra: page_id=page_6adb2ead.
 ## Appendix D: Excluded / Unresolved Sources
 The following sources were used for claim extraction but excluded from main references:
 
@@ -212,6 +210,7 @@ The following sources were used for claim extraction but excluded from main refe
 | diabetesonthenet.com | https://diabetesonthenet.com/journal-diabetes-nurs... | Insufficient metadata (missing: DOI, author, year) |
 | www.patientcareonline.com | https://www.patientcareonline.com/view/sglt2-inhib... | Insufficient metadata (missing: DOI, author, year) |
 | www.uspharmacist.com | https://www.uspharmacist.com/article/sodiumglucose... | Insufficient metadata (missing: DOI, author, year) |
+Excluded sources primarily lack DOI, author, or publication year metadata required for formal citation. Wikipedia was excluded as user-editable content. These sources contributed to claim extraction and evidence mapping but are not included in the reference list to maintain citation quality standards.
 ### Available but unused sources
 
 The following sources were available (quality-filtered) but not cited in the prose:
@@ -230,17 +229,20 @@ The following sources were available (quality-filtered) but not cited in the pro
 | `page_49f060e3` | Pojsakorn Danpanichkul et al., 2024 \ | available_but_unused |
 | `page_4cdd286c` | Pichitra Srimaya et al., 2025 \ | available_but_unused |
 | `page_4d107e0a` | Megan Champion et al., 2024 \ | available_but_unused |
+| `page_4def3f3c` | Iman Joher et al., 2025 \ | available_but_unused |
 | `page_5196dfd9` | Khary Edwards et al., 2023 \ | available_but_unused |
 | `page_53927b00` | Hafiz Muhammad Waqas Siddque et al., 2025 \ | available_but_unused |
 | `page_55ccf4e4` | W. Hinton et al., 2022 \ | available_but_unused |
 | `page_5eb02292` | E. Ferrannini et al., 2022 \ | available_but_unused |
+| `page_6adb2ead` | S. Min et al., 2018 \ | available_but_unused |
 | `page_6c04b260` | Dr Ambreen Khan et al., 2024 \ | available_but_unused |
 | `page_750bd1a6` | Ana Cebrian et al., 2025 \ | available_but_unused |
+| `page_7df37e9a` | Tanawan Kongmalai et al., 2023 \ | available_but_unused |
 | `page_80b4f114` | D. Fedele et al., 2025 \ | available_but_unused |
 | `page_81d3d13d` | M. Matsui et al., 2019 \ | available_but_unused |
 | `page_8bd4e4a0` | Farhan Khan et al., 2024 \ | available_but_unused |
+| `page_8d19f28d` | Yue Zhou et al., 2019 \ | available_but_unused |
 | `page_9aca858c` | Yu-Han Chen et al., 2024 \ | available_but_unused |
-| `page_a7d026be` | 2024 \ | available_but_unused |
 | `page_a7e82e2a` | T. Faghihi et al., 2025 \ | available_but_unused |
 | `page_aa80ed71` | Anna Kamieniak et al., 2025 \ | available_but_unused |
 | `page_abe90c7c` | Francisca M. Acosta et al., 2025 \ | available_but_unused |
@@ -248,12 +250,12 @@ The following sources were available (quality-filtered) but not cited in the pro
 | `page_be1e0f71` | Gunther Wehrman et al., 2022 \ | available_but_unused |
 | `page_beb8c39a` | Ubaid Khan et al., 2025 \ | available_but_unused |
 | `page_c0093358` | Zhouhong Zhan et al., 2025 \ | available_but_unused |
+| `page_c05a9d92` | Stella de Aguiar Trigueirinho Ferreira et al., 2024 \ | available_but_unused |
 | `page_cf6002bd` | A. Mcneill et al., 2018 \ | available_but_unused |
+| `page_dd259eb8` | Asma Mousavi et al., 2025 \ | available_but_unused |
 | `page_e29c7fa3` | S. Cha et al., 2017 \ | available_but_unused |
 | `page_e2fcd14a` | Amna Ali Shaghouli et al., 2025 \ | available_but_unused |
-| `page_e4534158` | Y. J. Kim et al., 2020 \ | available_but_unused |
 | `page_ecdba285` | D. Giugliano et al., 2021 \ | available_but_unused |
-| `page_f047d5dc` | J. Barraclough et al., 2022 \ | available_but_unused |
 | `page_f1e88ba9` | Patricia Y Chu et al., 2024 \ | available_but_unused |
 | `page_f9c26702` | Bethany Murphy et al., 2025 \ | available_but_unused |
 | `page_f9cc8ee2` | Erika Y. Choi et al., 2025 \ | available_but_unused |

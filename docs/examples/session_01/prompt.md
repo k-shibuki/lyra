@@ -13,3 +13,6 @@ Cite primary sources (original papers, FDA labels, clinical guidelines).
 ---
 <!-- Execute this research by invoking the Cursor command below -->
 /lyra-search
+
+<!-- Generate a report by invoking the Cursor command below -->
+/lyra-report

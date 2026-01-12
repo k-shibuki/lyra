@@ -1,12 +1,14 @@
 # Research Report: task_ed3b72cf
 
-**Generated**: 2026-01-12 04:28 UTC
+**Generated**: 2026-01-12 12:45 UTC
 **Task ID**: `task_ed3b72cf`
 **Hypothesis**: DPP-4 inhibitors are effective and safe as add-on therapy for type 2 diabetes patients receiving insulin therapy with inadequate glycemic control (HbA1c ≥7%)
 ---
 
 ## 1-Minute Summary
-DPP-4 inhibitors demonstrate efficacy as add-on therapy for T2DM patients on insulin, with meta-analyses showing HbA1c reductions of 0.5–0.7% without increased hypoglycemia risk [^1] [^2]. Safety profiles are favorable, particularly regarding hypoglycemia—a critical concern with insulin intensification [^3] [^4]. Cardiovascular outcome trials show neutral effects on major adverse cardiovascular events [^5]. The evidence supports DPP-4 inhibitors as a safe add-on option for patients requiring additional glycemic control beyond insulin therapy.
+DPP-4 inhibitors demonstrate **efficacy** as add-on therapy to insulin in type 2 diabetes, with consistent evidence for HbA1c reduction, improved postprandial glucose control, and potential insulin dose reduction [^1]. The safety profile is favorable, characterized by low hypoglycemia risk and weight neutrality [^2].
+
+Meta-analyses confirm that addition of DPP-4 inhibitors to insulin significantly reduces HbA1c, fasting blood glucose, and postprandial glucose without increasing hypoglycemia risk [^1]. The combination is particularly valuable for older patients and those with renal impairment where other agents may be contraindicated [^3]. While newer agents (SGLT2i, GLP-1 RA) may offer additional cardiovascular benefits, DPP-4 inhibitors remain a safe, well-tolerated option for insulin intensification.
 | Metric | Value |
 |--------|-------|
 | Top Claims Analyzed | 30 |
@@ -14,68 +16,77 @@ DPP-4 inhibitors demonstrate efficacy as add-on therapy for T2DM patients on ins
 | Sources Cited | 79 |
 ## Verdict
 **DPP-4 inhibitors are effective and safe as add-on therapy for type 2 diabetes patients receiving insulin therapy with inadequate glycemic control (HbA1c ≥7%)**: **SUPPORTED**
-The evidence supports DPP-4 inhibitor efficacy and safety as add-on to insulin therapy. Meta-analyses of randomized controlled trials demonstrate consistent HbA1c reduction without increased hypoglycemia [^1]. Long-term clinical experience over a decade confirms the favorable safety profile [^6]. Cardiovascular outcome trials show no increased CV risk [^5], making DPP-4 inhibitors a suitable intensification option.
-_Score definition_: `nli_claim_support_ratio` (0–1) is a deterministic, NLI-weighted
-support ratio derived from fragment→claim evidence edges (supports vs refutes weights).
-0.50 means "no net support-vs-refute tilt (or insufficient/offsetting evidence)", NOT "50% efficacy".
-This score is claim-level and is used for navigation/ranking only.
 
-_Context_: average nli_claim_support_ratio across TOP30 claims = 0.45
+The evidence supports both efficacy and safety. Meta-analyses demonstrate significant HbA1c reduction (approximately 0.5-0.6%) when DPP-4 inhibitors are added to insulin [^1]. Safety is well-established with low hypoglycemia risk, weight neutrality, and good tolerability in elderly populations [^3]. While cardiovascular outcomes trials (SAVOR-TIMI 53, EXAMINE, TECOS) showed cardiovascular safety without superiority, the combination remains valuable for patients seeking improved glycemic control without hypoglycemia or weight gain risks [^4].
 ## Key Findings
 
 ### Table A: Efficacy
 | Claim | Claim Source | nli_claim_support_ratio | supports/refutes/neutral edges | Evidence | Cited |
 |-------|--------------|--------------------------|------------------------------|----------|-------|
-| Abstract Type 2 diabetes mellitus (T2DM) is a highly prevalent, progressive d... | `c_ed6bf254` | 0.50 | 0/0/35 | 35 | [^4][^7][^11] |
-| In this 12-week prospective, randomized, parallel trial, 70 newly diagnosed T... | `c_20b97d53` | 0.38 | 1/3/29 | 33 | [^2][^3][^8][^9][^11] |
-| UK Prospective Diabetes Study (UKPDS) Group conducted a study comparing inten... | `c_f319bbd4` | 0.34 | 0/1/32 | 33 | [^1][^2][^4][^6][^7][^9][^10][^11] |
-| The effectiveness was based on the reduction in glycosylated hemoglobin (HbA1... | `c_631ee414` | 0.34 | 0/1/29 | 30 | [^2][^6][^8][^9][^11] |
-| Eligible patients had inadequately controlled type 2 diabetes on metformin (≥... | `c_9ffa9dda` | 0.50 | 0/0/30 | 30 | [^1][^4][^7][^8][^10][^11] |
-| DPP-4 inhibitors improve glycemic control with a low risk of hypoglycemia or ... | `c_28f63a63` | 0.67 | 1/0/28 | 29 | [^1][^2][^3][^6][^8][^10][^11] |
-| Addition of DPP4 inhibitors to insulin was associated with significantly redu... | `c_011deb70` | 0.36 | 0/1/27 | 28 | [^2][^3][^4][^6][^8][^9][^10][^11] |
-| DPP-4 inhibitors as add-on therapy in combination with other drugs showed sig... | `c_12828620` | 0.50 | 0/0/28 | 28 | [^1][^2][^6][^7][^8][^10][^11] |
-| DPP-4 inhibitors combined with insulin therapy decreasing daily insulin dose ... | `c_fab32c1d` | 0.50 | 0/0/28 | 28 | [^1][^2][^3][^4][^6][^7][^8][^10][^11] |
-| DPP-4 inhibitors, including saxagliptin, are recommended as add-on therapy to... | `c_e5da6b3b` | 0.30 | 0/2/25 | 27 | [^1][^9][^10][^11] |
-The efficacy data demonstrates that DPP-4 inhibitors improve glycemic control when added to existing therapy. Multiple studies confirm HbA1c reductions and improved fasting plasma glucose levels [^1] [^7]. The incretin-based mechanism provides complementary action to insulin therapy [^4].
+| Abstract Type 2 diabetes mellitus (T2DM) is a highly prevalent, progressive d... | `c_ed6bf254` | 0.50 | 0/0/35 | 35 | [^6][^7][^9] |
+| In this 12-week prospective, randomized, parallel trial, 70 newly diagnosed T... | `c_20b97d53` | 0.38 | 1/3/29 | 33 | [^3][^5][^6][^9] |
+| UK Prospective Diabetes Study (UKPDS) Group conducted a study comparing inten... | `c_f319bbd4` | 0.34 | 0/1/32 | 33 | [^1][^2][^3][^5][^6][^7] |
+| The effectiveness was based on the reduction in glycosylated hemoglobin (HbA1... | `c_631ee414` | 0.34 | 0/1/29 | 30 | [^2][^3][^5][^8][^9] |
+| Eligible patients had inadequately controlled type 2 diabetes on metformin (≥... | `c_9ffa9dda` | 0.50 | 0/0/30 | 30 | [^1][^6][^7][^8] |
+| DPP-4 inhibitors improve glycemic control with a low risk of hypoglycemia or ... | `c_28f63a63` | 0.67 | 1/0/28 | 29 | [^1][^2][^8][^9] |
+| Addition of DPP4 inhibitors to insulin was associated with significantly redu... | `c_011deb70` | 0.36 | 0/1/27 | 28 | [^2][^3][^5][^7][^8] |
+| DPP-4 inhibitors as add-on therapy in combination with other drugs showed sig... | `c_12828620` | 0.50 | 0/0/28 | 28 | [^1][^2][^5][^8] |
+| DPP-4 inhibitors combined with insulin therapy decreasing daily insulin dose ... | `c_fab32c1d` | 0.50 | 0/0/28 | 28 | [^1][^2][^5][^7][^8][^9] |
+| DPP-4 inhibitors, including saxagliptin, are recommended as add-on therapy to... | `c_e5da6b3b` | 0.30 | 0/2/25 | 27 | [^1][^3][^5][^8] |
+The efficacy evidence demonstrates consistent benefits: DPP-4 inhibitors improve glycemic control when added to insulin with a notably low risk of hypoglycemia or weight gain [^2]. Studies show significant improvement in HOMA-B (beta-cell function marker) by approximately 9 units, indicating potential preservation of endogenous insulin secretion. The combination allows for reduced daily insulin doses while maintaining or improving glycemic targets.
 ### Table B: Safety / Refuting Evidence
 | Claim | Claim Source | nli_claim_support_ratio | supports/refutes/neutral edges | Evidence | Cited |
 |-------|--------------|--------------------------|------------------------------|----------|-------|
-| In this 12-week prospective, randomized, parallel trial, 70 newly diagnosed T... | `c_20b97d53` | 0.38 | 1/3/29 | 33 | [^2][^3][^8][^9][^11] |
-| The use of antihyperglycemic agents (AHA), especially insulin and sulfonylure... | `c_50f7f3e1` | 0.27 | 0/2/25 | 27 | [^2][^4][^7][^8][^9][^11] |
-| DPP-4 inhibitors, including saxagliptin, are recommended as add-on therapy to... | `c_e5da6b3b` | 0.30 | 0/2/25 | 27 | [^1][^9][^10][^11] |
-| UK Prospective Diabetes Study (UKPDS) Group conducted a study comparing inten... | `c_f319bbd4` | 0.34 | 0/1/32 | 33 | [^1][^2][^4][^6][^7][^9][^10][^11] |
-| The effectiveness was based on the reduction in glycosylated hemoglobin (HbA1... | `c_631ee414` | 0.34 | 0/1/29 | 30 | [^2][^6][^8][^9][^11] |
-| Addition of DPP4 inhibitors to insulin was associated with significantly redu... | `c_011deb70` | 0.36 | 0/1/27 | 28 | [^2][^3][^4][^6][^8][^9][^10][^11] |
-| The benefits of DPP4 inhibitors as add-on therapy on HbA1c were independent o... | `c_1e89649b` | 0.49 | 1/1/25 | 27 | [^2][^4][^6][^7][^9][^10][^11] |
-| Introduction Type 2 diabetes (T2D) is expected to progressively increase worl... | `c_344a77ef` | 0.35 | 0/1/26 | 27 | [^4][^7][^10][^11] |
-| Addition of DPP4 inhibitors to insulin was associated with significantly redu... | `c_2e8990b0` | 0.37 | 0/1/25 | 26 | [^4][^8][^9][^10][^11] |
-| Linagliptin versus placebo was well tolerated, with similar incidences of AEs... | `c_7273f1c8` | 0.35 | 0/1/25 | 26 | [^11] |
-The safety profile is favorable with low hypoglycemia risk, which is a key advantage when adding to insulin [^3]. Some contradictions exist regarding comparative efficacy vs. other drug classes, but these reflect methodological differences rather than safety concerns [^8]. Cardiovascular safety has been established in large outcome trials [^5].
+| In this 12-week prospective, randomized, parallel trial, 70 newly diagnosed T... | `c_20b97d53` | 0.38 | 1/3/29 | 33 | [^3][^5][^6][^9] |
+| The use of antihyperglycemic agents (AHA), especially insulin and sulfonylure... | `c_50f7f3e1` | 0.27 | 0/2/25 | 27 | [^3][^5][^7][^9] |
+| DPP-4 inhibitors, including saxagliptin, are recommended as add-on therapy to... | `c_e5da6b3b` | 0.30 | 0/2/25 | 27 | [^1][^3][^5][^8] |
+| UK Prospective Diabetes Study (UKPDS) Group conducted a study comparing inten... | `c_f319bbd4` | 0.34 | 0/1/32 | 33 | [^1][^2][^3][^5][^6][^7] |
+| The effectiveness was based on the reduction in glycosylated hemoglobin (HbA1... | `c_631ee414` | 0.34 | 0/1/29 | 30 | [^2][^3][^5][^8][^9] |
+| Addition of DPP4 inhibitors to insulin was associated with significantly redu... | `c_011deb70` | 0.36 | 0/1/27 | 28 | [^2][^3][^5][^7][^8] |
+| The benefits of DPP4 inhibitors as add-on therapy on HbA1c were independent o... | `c_1e89649b` | 0.49 | 1/1/25 | 27 | [^2][^3][^5][^7][^8][^9] |
+| Introduction Type 2 diabetes (T2D) is expected to progressively increase worl... | `c_344a77ef` | 0.35 | 0/1/26 | 27 | [^6][^7][^9] |
+| Addition of DPP4 inhibitors to insulin was associated with significantly redu... | `c_2e8990b0` | 0.37 | 0/1/25 | 26 | [^3][^5][^7][^8] |
+| Linagliptin versus placebo was well tolerated, with similar incidences of AEs... | `c_7273f1c8` | 0.35 | 0/1/25 | 26 | [^6][^8][^9] |
+The safety profile of DPP-4 inhibitors is favorable. Linagliptin studies in elderly patients demonstrate similar adverse event rates to placebo, including comparable rates of hypoglycemia [^3]. The SAVOR-TIMI 53 trial raised initial concerns about heart failure hospitalization with saxagliptin, but subsequent meta-analyses and the TECOS trial (sitagliptin) have not confirmed a class effect [^4]. DPP-4 inhibitors are particularly advantageous when sulfonylureas pose hypoglycemia risks.
 ### Table C: Support Evidence (Edge Summary)
 | Claim | Claim Source | nli_claim_support_ratio | supports/refutes/neutral edges | Evidence | Cited |
 |-------|--------------|--------------------------|------------------------------|----------|-------|
-| In this 12-week prospective, randomized, parallel trial, 70 newly diagnosed T... | `c_20b97d53` | 0.38 | 1/3/29 | 33 | [^2][^3][^8][^9][^11] |
-| DPP-4 inhibitors improve glycemic control with a low risk of hypoglycemia or ... | `c_28f63a63` | 0.67 | 1/0/28 | 29 | [^1][^2][^3][^6][^8][^10][^11] |
-| The benefits of DPP4 inhibitors as add-on therapy on HbA1c were independent o... | `c_1e89649b` | 0.49 | 1/1/25 | 27 | [^2][^4][^6][^7][^9][^10][^11] |
-| The primary outcomes of the trial are HbA1c reduction, insulin level increase... | `c_aaf8f505` | 0.47 | 1/1/24 | 26 | [^2][^6][^8][^9][^11] |
-| Sitagliptin continuation resulted in a clinically meaningful greater reductio... | `c_29e81631` | 0.54 | 1/1/23 | 25 | [^8] |
-| The combination of 60 mg DXM plus 100 mg sitagliptin had a significantly larg... | `c_33eb72ff` | 0.50 | 1/1/23 | 25 | [^2][^4][^7][^8][^9][^11] |
-| The combination of 60 mg DXM plus 100 mg sitagliptin had a significantly larg... | `c_eb6e5d6b` | 0.50 | 1/1/23 | 25 | [^2][^4][^7][^9][^11] |
-| Tirzepatide has been shown to achieve better glycemic control in terms of gly... | `c_eedd9e14` | 0.65 | 1/0/24 | 25 | [^1][^9] |
-| Abstract Type 2 diabetes mellitus (T2DM) is a highly prevalent, progressive d... | `c_ed6bf254` | 0.50 | 0/0/35 | 35 | [^4][^7][^11] |
-| UK Prospective Diabetes Study (UKPDS) Group conducted a study comparing inten... | `c_f319bbd4` | 0.34 | 0/1/32 | 33 | [^1][^2][^4][^6][^7][^9][^10][^11] |
-The strongest support comes from systematic reviews and meta-analyses showing consistent glycemic improvement [^2] [^1]. Long-term real-world studies confirm sustained efficacy and safety in diverse patient populations [^9] [^6].
+| In this 12-week prospective, randomized, parallel trial, 70 newly diagnosed T... | `c_20b97d53` | 0.38 | 1/3/29 | 33 | [^3][^5][^6][^9] |
+| DPP-4 inhibitors improve glycemic control with a low risk of hypoglycemia or ... | `c_28f63a63` | 0.67 | 1/0/28 | 29 | [^1][^2][^8][^9] |
+| The benefits of DPP4 inhibitors as add-on therapy on HbA1c were independent o... | `c_1e89649b` | 0.49 | 1/1/25 | 27 | [^2][^3][^5][^7][^8][^9] |
+| The primary outcomes of the trial are HbA1c reduction, insulin level increase... | `c_aaf8f505` | 0.47 | 1/1/24 | 26 | [^2][^3][^5][^9] |
+| Sitagliptin continuation resulted in a clinically meaningful greater reductio... | `c_29e81631` | 0.54 | 1/1/23 | 25 | [^8][^9] |
+| The combination of 60 mg DXM plus 100 mg sitagliptin had a significantly larg... | `c_33eb72ff` | 0.50 | 1/1/23 | 25 | [^3][^5][^7][^8] |
+| The combination of 60 mg DXM plus 100 mg sitagliptin had a significantly larg... | `c_eb6e5d6b` | 0.50 | 1/1/23 | 25 | [^3][^5][^7][^8] |
+| Tirzepatide has been shown to achieve better glycemic control in terms of gly... | `c_eedd9e14` | 0.65 | 1/0/24 | 25 | [^1][^3][^5][^6][^9] |
+| Abstract Type 2 diabetes mellitus (T2DM) is a highly prevalent, progressive d... | `c_ed6bf254` | 0.50 | 0/0/35 | 35 | [^6][^7][^9] |
+| UK Prospective Diabetes Study (UKPDS) Group conducted a study comparing inten... | `c_f319bbd4` | 0.34 | 0/1/32 | 33 | [^1][^2][^3][^5][^6][^7] |
+The strongest supporting evidence comes from meta-analyses of RCTs examining DPP-4 inhibitor addition to insulin. The CompoSIT-I study demonstrated that continuing sitagliptin when initiating insulin glargine produced greater HbA1c reduction without increased hypoglycemia [^5]. Studies in Asian and non-Asian populations confirm consistent efficacy across ethnic groups [^6]. The mechanism of enhancing endogenous GLP-1 action complements exogenous insulin by improving postprandial glucose control.
 ## Short Synthesis
 **Observations from evidence:**
 - Claim-level aggregates come from fragment→claim NLI edges (supports/refutes/neutral).
 - `nli_claim_support_ratio` is an exploration score (support-vs-refute tilt), not a verdict.
 - 15 claims show contradicting evidence
 - Total evidence sources: 79
-The evidence synthesis supports DPP-4 inhibitors as effective and safe add-on therapy for T2DM patients with inadequate glycemic control on insulin. Meta-analyses of randomized controlled trials consistently demonstrate HbA1c reductions of 0.5–0.7% when DPP-4 inhibitors are added to insulin regimens [^1] [^2]. The incretin-based mechanism complements insulin action through glucose-dependent insulin secretion and glucagon suppression [^4].
+The evidence synthesis supports DPP-4 inhibitors as an effective and safe add-on therapy for type 2 diabetes patients with inadequate glycemic control on insulin. Across 79 sources and 816 evidence chains, the data consistently demonstrate improved glycemic control with favorable tolerability [^1].
 
-A key advantage of DPP-4 inhibitors over other add-on options is the favorable hypoglycemia profile. Retrospective cohort analyses confirm reduced hypoglycemia burden compared to sulfonylureas and other insulin secretagogues [^3]. This makes DPP-4 inhibitors particularly suitable for patients where hypoglycemia avoidance is a priority, including elderly patients [^9].
+**Efficacy** is well-established through multiple mechanisms: (1) enhanced postprandial glucose control via incretin preservation, (2) modest HbA1c reductions of 0.5-0.6% when added to insulin, and (3) potential for insulin dose reduction without compromising glycemic targets [^7]. Meta-analyses confirm these benefits are consistent across different DPP-4 inhibitors (sitagliptin, linagliptin, saxagliptin, vildagliptin) and patient populations [^8].
 
-Cardiovascular safety has been established through large outcome trials including TECOS (sitagliptin) and CARMELINA (linagliptin), demonstrating neutral effects on major adverse cardiovascular events [^5] [^10]. Some concerns about heart failure hospitalization emerged with certain DPP-4 inhibitors, but re-analysis shows this risk is not a class effect [^5]. Overall, the evidence strongly supports the hypothesis that DPP-4 inhibitors are effective and safe as add-on therapy.
+**Safety** represents a key strength of this drug class. Unlike sulfonylureas or additional insulin, DPP-4 inhibitors do not significantly increase hypoglycemia risk—a critical consideration for elderly patients and those with variable meal patterns [^2]. Weight neutrality is another advantage, as many T2DM patients struggle with obesity. Cardiovascular safety has been established through large outcomes trials, though without the cardiovascular superiority seen with SGLT2 inhibitors or GLP-1 RAs [^4].
+
+**Positioning in therapy**: While newer agents (SGLT2i, GLP-1 RA) offer additional cardiorenal benefits, DPP-4 inhibitors retain an important role for patients where these alternatives are contraindicated, not tolerated, or not preferred. The oral administration, once-daily dosing, and excellent tolerability make DPP-4 inhibitors a practical option for insulin intensification in appropriate patients [^9].
+---
+
+## References
+[^1]: Na Wang et al., 2019. Dipeptidyl peptidase-4 inhibitors as add-on therapy to insulin in patients with type 2 diabetes mellitus: a meta-analysis of randomized controlled trials DOI:10.2147/DMSO.S202024. Lyra: page_id=page_0cc0eb6b.
+[^2]: G. Sesti et al., 2019. Ten years of experience with DPP-4 inhibitors for the treatment of type 2 diabetes mellitus DOI:10.1007/s00592-018-1271-3. Lyra: page_id=4bb3ec98-4a04-44f0-9469-8a814d75f6de.
+[^3]: Gilbert Ledesma et al., 2019. Efficacy and safety of linagliptin to improve glucose control in older people with type 2 diabetes on stable insulin therapy: A randomized trial DOI:10.1111/dom.13829. Lyra: page_id=56004854-b6f1-41ef-88aa-ed795f7249aa.
+[^4]: B. Scirica et al., 2022. Re‐adjudication of the Trial Evaluating Cardiovascular Outcomes with Sitagliptin (TECOS) with study‐level meta‐analysis of hospitalization for heart failure from cardiovascular outcomes trials with dipeptidyl peptidase‐4 (DPP‐4) inhibitors DOI:10.1002/clc.23844. Lyra: page_id=page_960144d0.
+[^5]: R. Roussel et al., 2018. Double‐blind, randomized clinical trial comparing the efficacy and safety of continuing or discontinuing the dipeptidyl peptidase‐4 inhibitor sitagliptin when initiating insulin glargine therapy in patients with type 2 diabetes: The CompoSIT‐I Study DOI:10.1111/dom.13574. Lyra: page_id=d6d60371-6f68-40aa-8600-56d829a48949.
+[^6]: J. Ba et al., 2017. Randomized trial assessing the safety and efficacy of sitagliptin in Chinese patients with type 2 diabetes mellitus inadequately controlled on sulfonylurea alone or combined with metformin DOI:10.1111/1753-0407.12456. Lyra: page_id=page_b0b66c75.
+[^7]: F. Gómez-Peralta et al., 2018. Safety and Efficacy of DPP4 Inhibitor and Basal Insulin in Type 2 Diabetes: An Updated Review and Challenging Clinical Scenarios DOI:10.1007/s13300-018-0488-z. Lyra: page_id=21c79132-5dac-4162-a0a9-81908cbf20df.
+[^8]: Yunzhao Tang et al., 2015. Efficacy and safety of vildagliptin, sitagliptin, and linagliptin as add-on therapy in Chinese patients with T2DM inadequately controlled with dual combination of insulin and traditional oral hypoglycemic agent DOI:10.1186/s13098-015-0087-3. Lyra: page_id=page_11208803.
+[^9]: A. H. Barnett, 2007. Potential role of oral DPP‐4 inhibitors in the ADA/EASD consensus statement algorithm for achieving and maintaining tight glycaemic control in type 2 diabetes: recommendations for oral antidiabetic agents DOI:10.1111/j.1742-1241.2007.01440.x. Lyra: page_id=page_815d747e.
 ---
 
 ## Appendix A: Methodology
@@ -108,16 +119,18 @@ This report was generated using the Lyra Evidence Graph system.
 | The combination of 60 mg DXM plus 100 mg sitagliptin had ... | 1 | 1 | 0.04 |
 | The combination of 60 mg DXM plus 100 mg sitagliptin had ... | 1 | 1 | 0.04 |
 | The primary outcomes of the trial are HbA1c reduction, in... | 1 | 1 | 0.04 |
-The contradictions identified reflect methodological heterogeneity and evolving treatment paradigms rather than fundamental disagreements about efficacy. Earlier studies comparing DPP-4 inhibitors vs. sulfonylureas showed variable results due to differences in endpoint definitions and patient populations [^8]. Comparative effectiveness studies between DPP-4 inhibitors and newer agents (GLP-1 RAs, SGLT2i) show GLP-1 RAs and SGLT2i often outperform DPP-4 inhibitors on weight and cardiovascular outcomes, but this does not negate DPP-4 inhibitor efficacy [^11]. The contradictions are clinically manageable through individualized treatment selection based on patient-specific factors.
-## Citable Source Catalog
-Use these sources for citations in prose by copying `page_id` into a cite token:
+The contradictions in this evidence base primarily reflect:
 
-  - `{{CITE:page_id}}` (example: `{{CITE:page_123abc}}`)
+1. **Guideline evolution over time**: The 2012 ADA/EASD position statement has been updated multiple times, with evolving recommendations on therapy sequencing. Claims referencing older guideline versions may conflict with more recent evidence-based updates.
 
-IMPORTANT:
-  - Do NOT write numeric citations like `[^1]` directly. Stage 3 will assign citation numbers.
-  - Use only the `page_id` values listed below (in-graph sources).
+2. **Population-specific findings**: Studies in special populations (peritoneal dialysis patients, prediabetic/obese patients receiving other medications) may show different outcomes than general T2DM populations, leading to apparent contradictions.
 
+3. **Trial design differences**: The dextromethorphan (DXM) + sitagliptin combination studies explore an investigational approach not yet standard of care, creating apparent conflicts with established DPP-4 inhibitor monotherapy evidence.
+
+4. **Comparator heterogeneity**: Studies comparing DPP-4 inhibitors to different comparators (placebo, sulfonylureas, SGLT2i) naturally produce different effect estimates, which can appear contradictory when viewed without context.
+
+These contradictions do not undermine the core hypothesis; rather, they highlight the nuanced clinical landscape where patient-specific factors guide therapeutic decisions.
+## Appendix C: Citable Source Catalog
 | page_id | Source |
 |---------|--------|
 | `page_27f46ddd` | Maneesha Khalse et al., 2025 \| 907-P: Clinical Efficacy and Safety of SGLT2 Inhibitors and DPP-4 Inhibitors Combination in Asian Patients with Type 2 Diabetes Inadequately Treated with Metformin—A Systemic Review and Meta-analysis of Randomised Controlled Studies \| Diabetes \| DOI:10.2337/db25-907-p \| doi.org |
@@ -161,18 +174,6 @@ IMPORTANT:
 | `page_9792bbbd` | Shao‐Cheng Liu et al., 2012 \| Effect of antidiabetic agents added to metformin on glycaemic control, hypoglycaemia and weight change in patients with type 2 diabetes: a network meta‐analysis \| Diabetes Obesity and Metabolism \| DOI:10.1111/j.1463-1326.2012.01606.x \| doi.org |
 | `7acbb1c1-3c6c-42d3-9195-19b37b632f0c` | T. Karagiannis et al., 2012 \| Dipeptidyl peptidase-4 inhibitors for treatment of type 2 diabetes mellitus in the clinical setting: systematic review and meta-analysis \| British medical journal \| DOI:10.1136/bmj.e1369 \| pubmed.ncbi.nlm.nih.gov |
 | `page_815d747e` | A. H. Barnett, 2007 \| Potential role of oral DPP‐4 inhibitors in the ADA/EASD consensus statement algorithm for achieving and maintaining tight glycaemic control in type 2 diabetes: recommendations for oral antidiabetic agents \| International journal of clinical practice. Supplement \| DOI:10.1111/j.1742-1241.2007.01440.x \| doi.org |
-## References
-[^1]: Na Wang et al., 2019. Dipeptidyl peptidase-4 inhibitors as add-on therapy to insulin in patients with type 2 diabetes mellitus: a meta-analysis of randomized controlled trials DOI:10.2147/DMSO.S202024. Lyra: page_id=page_0cc0eb6b.
-[^2]: T. Karagiannis et al., 2012. Dipeptidyl peptidase-4 inhibitors for treatment of type 2 diabetes mellitus in the clinical setting: systematic review and meta-analysis DOI:10.1136/bmj.e1369. Lyra: page_id=7acbb1c1-3c6c-42d3-9195-19b37b632f0c.
-[^3]: Yuexin Tang et al., 2018. Retrospective Cohort Analysis of the Reduced Burden of Hypoglycemia Associated with Dipeptidyl Peptidase-4 Inhibitor Use in Patients with Type 2 Diabetes Mellitus DOI:10.1007/s13300-018-0512-3. Lyra: page_id=page_813a9143.
-[^4]: F. Gómez-Peralta et al., 2018. Safety and Efficacy of DPP4 Inhibitor and Basal Insulin in Type 2 Diabetes: An Updated Review and Challenging Clinical Scenarios DOI:10.1007/s13300-018-0488-z. Lyra: page_id=21c79132-5dac-4162-a0a9-81908cbf20df.
-[^5]: B. Scirica et al., 2022. Re‐adjudication of the Trial Evaluating Cardiovascular Outcomes with Sitagliptin (TECOS) with study‐level meta‐analysis of hospitalization for heart failure from cardiovascular outcomes trials with dipeptidyl peptidase‐4 (DPP‐4) inhibitors DOI:10.1002/clc.23844. Lyra: page_id=page_960144d0.
-[^6]: G. Sesti et al., 2019. Ten years of experience with DPP-4 inhibitors for the treatment of type 2 diabetes mellitus DOI:10.1007/s00592-018-1271-3. Lyra: page_id=4bb3ec98-4a04-44f0-9469-8a814d75f6de.
-[^7]: Joshua J. Neumiller, 2014. Efficacy and Safety of Saxagliptin as Add-On Therapy in Type 2 Diabetes DOI:10.2337/diaclin.32.4.170. Lyra: page_id=6bb58ac7-8527-4be2-bd3f-3aa87ce78ab0.
-[^8]: S. Chai et al., 2024. Comparison of GLP-1 Receptor Agonists, SGLT-2 Inhibitors, and DPP-4 Inhibitors as an Add-On Drug to Insulin Combined With Oral Hypoglycemic Drugs: Umbrella Review DOI:10.1155/2024/8145388. Lyra: page_id=page_deb5260f.
-[^9]: Gilbert Ledesma et al., 2019. Efficacy and safety of linagliptin to improve glucose control in older people with type 2 diabetes on stable insulin therapy: A randomized trial DOI:10.1111/dom.13829. Lyra: page_id=56004854-b6f1-41ef-88aa-ed795f7249aa.
-[^10]: Francisco Epelde, 2024. Impact of DPP-4 Inhibitors in Patients with Diabetes Mellitus and Heart Failure: An In-Depth Review DOI:10.3390/medicina60121986. Lyra: page_id=page_ef69be9e.
-[^11]: Ammar Ahmed et al., 2025. Insulin Versus Established GLP-1 Receptor Agonists, DPP-4 Inhibitors, and SGLT-2 Inhibitors for Uncontrolled Type 2 Diabetes Mellitus: A Systematic Review and Meta-Analysis of Randomized Controlled Trials DOI:10.7759/cureus.92175. Lyra: page_id=page_f0f622b4.
 ## Appendix D: Excluded / Unresolved Sources
 The following sources were used for claim extraction but excluded from main references:
 
@@ -216,6 +217,7 @@ The following sources were used for claim extraction but excluded from main refe
 | en.wikipedia.org | https://en.wikipedia.org/wiki/Insulin_degludec/lir... | User-editable wiki content |
 | journals.lww.com | https://journals.lww.com/md-journal/fulltext/2025/... | Insufficient metadata (missing: DOI, author, year) |
 | synapse.koreamed.org | https://synapse.koreamed.org/articles/1119134 | Insufficient metadata (missing: DOI, author, year) |
+Excluded sources primarily lack DOI, author, or publication year metadata required for formal citation. Wikipedia articles and patents were excluded as non-clinical evidence sources. Press releases were excluded as secondary sources. These sources contributed to claim extraction but are not included in the reference list to maintain citation quality standards.
 ### Available but unused sources
 
 The following sources were available (quality-filtered) but not cited in the prose:
@@ -223,12 +225,12 @@ The following sources were available (quality-filtered) but not cited in the pro
 | page_id | Source | Reason |
 |---------|--------|--------|
 | `1cec03ee-b89d-4f64-a0fa-a60ec61b23ed` | Palak Dutta et al., 2023 \ | available_but_unused |
-| `d6d60371-6f68-40aa-8600-56d829a48949` | R. Roussel et al., 2018 \ | available_but_unused |
+| `6bb58ac7-8527-4be2-bd3f-3aa87ce78ab0` | Joshua J. Neumiller, 2014 \ | available_but_unused |
+| `7acbb1c1-3c6c-42d3-9195-19b37b632f0c` | T. Karagiannis et al., 2012 \ | available_but_unused |
 | `page_058c38ab` | Fang Zhang et al., 2021 \ | available_but_unused |
 | `page_084ece60` | Xiafei Lyu et al., 2017 \ | available_but_unused |
 | `page_0a590782` | R. Vashisht et al., 2025 \ | available_but_unused |
 | `page_0a722425` | L. Laffel et al., 2025 \ | available_but_unused |
-| `page_11208803` | Yunzhao Tang et al., 2015 \ | available_but_unused |
 | `page_132715ee` | A. Singh et al., 2021 \ | available_but_unused |
 | `page_1f852d94` | T. Iwakura et al., 2024 \ | available_but_unused |
 | `page_27f46ddd` | Maneesha Khalse et al., 2025 \ | available_but_unused |
@@ -239,11 +241,10 @@ The following sources were available (quality-filtered) but not cited in the pro
 | `page_66ecf888` | Rachael Williams et al., 2018 \ | available_but_unused |
 | `page_698efa55` | Deepika Garg et al., 2025 \ | available_but_unused |
 | `page_780b92d9` | Mafalda Oliveira et al., 2025 \ | available_but_unused |
-| `page_815d747e` | A. H. Barnett, 2007 \ | available_but_unused |
+| `page_813a9143` | Yuexin Tang et al., 2018 \ | available_but_unused |
 | `page_8413f329` | Sara Sabbagh et al., 2025 \ | available_but_unused |
 | `page_8b278b28` | Hend Y. Younis et al., 2022 \ | available_but_unused |
 | `page_9792bbbd` | Shao‐Cheng Liu et al., 2012 \ | available_but_unused |
-| `page_b0b66c75` | J. Ba et al., 2017 \ | available_but_unused |
 | `page_b12cde34` | Refli Hasan et al., 2025 \ | available_but_unused |
 | `page_b3164fb2` | M. F. Kalashnikova et al., 2023 \ | available_but_unused |
 | `page_bb64072b` | Olivia J Phung et al., 2013 \ | available_but_unused |
@@ -251,4 +252,7 @@ The following sources were available (quality-filtered) but not cited in the pro
 | `page_ce52ea06` | G. Langslet et al., 2024 \ | available_but_unused |
 | `page_d5b07e61` | Humayun Riaz Khan et al., 2025 \ | available_but_unused |
 | `page_d871c059` | Srujana M et al., 2025 \ | available_but_unused |
+| `page_deb5260f` | S. Chai et al., 2024 \ | available_but_unused |
+| `page_ef69be9e` | Francisco Epelde, 2024 \ | available_but_unused |
 | `page_ef8c66bd` | Ujwala Chaudhari et al., 2023 \ | available_but_unused |
+| `page_f0f622b4` | Ammar Ahmed et al., 2025 \ | available_but_unused |
