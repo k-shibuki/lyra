@@ -1,0 +1,2967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lyra Data Exploration Dashboard - DPP-4i vs SGLT2i Comparison</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <!-- Graphology + Sigma.js for network visualization -->
+  <!-- Using CDN scripts compatible with file:// strict MIME checking -->
+  <script src="https://unpkg.com/graphology@0.25.4/dist/graphology.umd.min.js"></script>
+  <script src="https://unpkg.com/sigma@2.4.0/build/sigma.min.js"></script>
+  <script type="module">
+    // graphology-layout-forceatlas2 and graphology-communities-louvain do not ship browser UMD bundles.
+    // Load them via esm.sh and attach to window for the rest of the template to use.
+    import fa2Mod from "https://esm.sh/graphology-layout-forceatlas2@0.10.1";
+    import louvainMod from "https://esm.sh/graphology-communities-louvain@2.0.1";
+    window.graphologyLayoutForceAtlas2 = fa2Mod && fa2Mod.default ? fa2Mod.default : fa2Mod;
+    window.graphologyCommunitiesLouvain = louvainMod && louvainMod.default ? louvainMod.default : louvainMod;
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e14;
+      --bg-secondary: #121820;
+      --bg-card: #1a222d;
+      --bg-hover: #242d3a;
+      --border: #2d3748;
+      --accent-support: #10b981;
+      --accent-refute: #ef4444;
+      --accent-neutral: #64748b;
+      --accent-primary: #6366f1;
+      --accent-secondary: #8b5cf6;
+      --accent-dpp4i: #f59e0b;
+      --accent-sglt2i: #06b6d4;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --gradient-2: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+      --gradient-3: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .header-content {
+      max-width: 1800px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--gradient-1);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+
+    .task-toggle {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--bg-card);
+      padding: 0.25rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .task-btn {
+      padding: 0.5rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      background: transparent;
+      color: var(--text-secondary);
+    }
+
+    .task-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+
+    .task-btn.active {
+      color: var(--bg-primary);
+      font-weight: 600;
+    }
+
+    .task-btn[data-task="dpp4i"].active {
+      background: var(--accent-dpp4i);
+    }
+
+    .task-btn[data-task="sglt2i"].active {
+      background: var(--accent-sglt2i);
+    }
+
+    .task-btn[data-task="compare"].active {
+      background: var(--gradient-1);
+      color: white;
+    }
+
+    main {
+      max-width: 1800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      transition: all 0.2s ease;
+    }
+
+    .summary-card:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-2px);
+    }
+
+    /* Task block container for summary cards */
+    .task-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .task-block-header {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    .task-metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      .task-metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .metric-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: clamp(1.1rem, 6vw, 1.75rem);
+      font-weight: 600;
+    }
+
+    .metric-detail {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+    
+    .metrics-definition {
+      margin-bottom: 1.5rem;
+    }
+    
+    .metrics-definition details summary::-webkit-details-marker {
+      display: none;
+    }
+    
+    .metrics-definition details[open] summary {
+      margin-bottom: 0;
+    }
+
+    .card-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 2rem;
+      font-weight: 600;
+    }
+
+    .card-value.dpp4i { color: var(--accent-dpp4i); }
+    .card-value.sglt2i { color: var(--accent-sglt2i); }
+    .card-value.support { color: var(--accent-support); }
+    .card-value.refute { color: var(--accent-refute); }
+
+    .card-detail {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1200px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-title-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+    }
+
+    .panel-body {
+      padding: 1.5rem;
+      min-height: 400px;
+    }
+
+    .panel-full {
+      grid-column: 1 / -1;
+    }
+
+    .panel-insight {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+      border-left: 3px solid var(--accent-primary);
+      padding: 1rem 1.25rem;
+      margin-top: 1rem;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .panel-insight strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .panel-insight .insight-label {
+      display: inline-block;
+      background: var(--accent-primary);
+      color: white;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      padding: 0.125rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Cluster visualization */
+    .cluster-legend {
+      display: flex;
+      gap: 1.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .cluster-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+    
+    .cluster-legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    
+    #claim-clusters {
+      min-height: 500px;
+      position: relative;
+    }
+    
+    #claim-clusters svg {
+      background: var(--bg-secondary);
+      border-radius: 8px;
+    }
+
+    /* Claim Network (Sigma.js) */
+    .claim-network-container {
+      position: relative;
+      width: 100%;
+      height: 600px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .claim-network-controls {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+
+    .network-control-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .network-control-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent-primary);
+    }
+
+    .network-control-btn.active {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+
+    .claim-network-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      align-items: center;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .filter-group label {
+      white-space: nowrap;
+    }
+
+    .filter-group input[type="checkbox"] {
+      accent-color: var(--accent-primary);
+    }
+
+    .filter-group input[type="range"] {
+      width: 80px;
+      accent-color: var(--accent-primary);
+    }
+
+    .claim-inspector {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      right: 1rem;
+      max-height: 200px;
+      overflow-y: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: none;
+      z-index: 10;
+    }
+
+    .claim-inspector.visible {
+      display: block;
+    }
+
+    .claim-inspector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+
+    .claim-inspector-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+
+    .claim-inspector-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .claim-inspector-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .claim-inspector-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .claim-inspector-neighbors {
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .claim-inspector-neighbors-title {
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .neighbor-badge {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      margin: 0.15rem;
+      background: var(--bg-hover);
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .neighbor-badge.co_fragment {
+      border-left: 2px solid var(--accent-support);
+    }
+
+    .neighbor-badge.co_page {
+      border-left: 2px solid var(--accent-secondary);
+    }
+
+    .neighbor-badge.semantic_sim {
+      border-left: 2px solid var(--accent-primary);
+    }
+
+    /* Panel-level time filter */
+    .panel-time-filter {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .panel-time-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-time-filter label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .panel-time-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg-card);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .panel-time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--accent-primary);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
+      transition: transform 0.15s ease;
+    }
+
+    .panel-time-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .panel-time-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: var(--accent-primary);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+
+    .panel-time-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.875rem;
+      color: var(--accent-primary);
+      font-weight: 600;
+    }
+
+    .panel-time-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      padding: 0 2px;
+    }
+
+    .panel-time-ticks span {
+      text-align: center;
+    }
+
+    /* Network visualization */
+    .network-container {
+      position: relative;
+      width: 100%;
+      height: 450px;
+    }
+
+    .network-node {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .network-node:hover {
+      opacity: 0.8;
+    }
+
+    .network-link {
+      stroke-opacity: 0.4;
+      transition: stroke-opacity 0.2s ease;
+    }
+
+    .network-link:hover {
+      stroke-opacity: 0.8;
+    }
+
+    .network-label {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 9px;
+      fill: var(--text-secondary);
+      pointer-events: none;
+    }
+
+    .network-legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+
+    .network-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .network-legend-circle {
+      border-radius: 50%;
+    }
+
+    .network-legend-line {
+      width: 20px;
+      height: 2px;
+    }
+
+    .key-source {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      color: inherit;
+    }
+
+    .key-source:hover {
+      background: var(--bg-hover);
+      transform: translateX(4px);
+    }
+    
+    .key-source-clickable:hover {
+      border-left: 3px solid var(--accent-primary);
+      padding-left: calc(1rem - 3px);
+    }
+    
+    .key-source-clickable[href="#"] {
+      cursor: default;
+    }
+
+    .source-rank {
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 700;
+      font-size: 1.25rem;
+      min-width: 2rem;
+    }
+
+    .source-bar {
+      flex: 1;
+      height: 24px;
+      background: var(--bg-card);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .source-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .source-bar-label {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.75rem;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .source-info {
+      flex: 2;
+      min-width: 0;
+    }
+
+    .source-title {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      /* 2-line clamp instead of single-line ellipsis */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.4;
+    }
+
+    .source-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      /* Also 2-line clamp for meta */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.3;
+    }
+
+    .source-bar {
+      width: 100px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 480px) {
+      .source-bar {
+        width: 60px;
+      }
+      .source-rank {
+        min-width: 2rem !important;
+      }
+    }
+
+    /* Confidence Plot Styles */
+    .confidence-plot {
+      width: 100%;
+      height: 100%;
+    }
+
+    .claim-bar {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .claim-bar:hover {
+      opacity: 0.8;
+    }
+
+    .claim-label {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 11px;
+      fill: var(--text-secondary);
+    }
+
+    .reference-line {
+      stroke: var(--text-muted);
+      stroke-width: 1;
+      stroke-dasharray: 4 4;
+    }
+
+    .axis-label {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 12px;
+      fill: var(--text-secondary);
+    }
+
+    /* Treemap Styles */
+    .treemap-cell {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .treemap-cell:hover {
+      opacity: 0.85;
+    }
+
+    .treemap-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      fill: white;
+      pointer-events: none;
+    }
+
+    /* Heatmap Styles */
+    .heatmap-cell {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .heatmap-cell:hover {
+      opacity: 0.8;
+      stroke: white;
+      stroke-width: 2;
+    }
+
+    /* Timeline Styles */
+    .timeline-area {
+      opacity: 0.7;
+    }
+
+    .timeline-line {
+      fill: none;
+      stroke-width: 2;
+    }
+
+    /* Responsive timeline SVGs (avoid horizontal overflow on narrow screens) */
+    #timeline {
+      overflow-x: auto;
+    }
+    #timeline svg {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: fixed;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.8125rem;
+      pointer-events: none;
+      z-index: 1000;
+      max-width: 350px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .tooltip.visible {
+      opacity: 1;
+    }
+
+    .tooltip-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .tooltip-value {
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    /* Hypothesis Banner */
+    .hypothesis-banner {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .hypothesis-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .hypothesis-icon {
+      font-size: 1.25rem;
+    }
+
+    .hypothesis-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent-secondary);
+      font-weight: 600;
+    }
+
+    .hypothesis-content {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--text-primary);
+    }
+
+    .hypothesis-task {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+
+    .legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      padding: 0.75rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+
+    footer a {
+      color: var(--accent-primary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    .generated-info {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    /* Exploration Report (markdown) table enhancements */
+    #analysis-results table.trace-hidden th:nth-child(2),
+    #analysis-results table.trace-hidden td:nth-child(2) {
+      display: none;
+    }
+
+    #analysis-results tr.uncited-row {
+      opacity: 0.55;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo">
+        <div class="logo-icon">L</div>
+        <div>
+          <h1>Lyra Data Exploration Dashboard</h1>
+        </div>
+      </div>
+      <nav class="task-toggle" id="task-toggle">
+        <!-- Buttons generated dynamically from LYRA_DATA.tasks -->
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hypothesis Banner -->
+    <section class="hypothesis-banner" id="hypothesis-banner">
+      <div class="hypothesis-header">
+        <span class="hypothesis-icon">🎯</span>
+        <span class="hypothesis-label">Research Hypothesis</span>
+      </div>
+      <div class="hypothesis-content" id="hypothesis-text">
+        Loading hypothesis...
+      </div>
+    </section>
+
+    <section class="summary-cards" id="summary-cards"></section>
+    
+    <!-- Metrics Definition -->
+    <div class="metrics-definition" id="metrics-definition">
+      <details>
+        <summary style="cursor:pointer;color:var(--accent-primary);font-size:0.85rem;margin-bottom:0.5rem;font-weight:600;">Definitions</summary>
+        <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:1rem;padding:1rem;background:var(--bg-secondary);border-radius:8px;margin-top:0.5rem;">
+          <div style="border-left:3px solid var(--accent-support);padding-left:0.75rem;">
+            <strong style="color:var(--accent-support);">Verdict</strong>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0.25rem 0 0 0;">
+              The report verdict is written by the LLM in Stage 4 by combining Lyra’s data graph outputs
+              with domain knowledge and (optionally) external tools. The dashboard displays the verdict
+              from <code>report_summary.json</code> as the single source of truth.
+            </p>
+          </div>
+          <div style="border-left:3px solid var(--accent-primary);padding-left:0.75rem;">
+            <strong style="color:var(--accent-primary);">Links</strong>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0.25rem 0 0 0;">
+              A “link” is a relationship extracted into the data graph (e.g., fragment→claim edges and other
+              provenance relationships). Timeline values represent the number of fragment→claim links per year
+              for the selected task.
+            </p>
+          </div>
+          <div style="border-left:3px solid var(--accent-primary);padding-left:0.75rem;">
+            <strong style="color:var(--text-primary);">Claims</strong>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0.25rem 0 0 0;">
+              Atomic factual statements extracted from literature by LLM. Each claim represents a single verifiable assertion about the research hypothesis. Claims are the fundamental unit of evidence analysis.
+            </p>
+          </div>
+          <div style="border-left:3px solid var(--accent-refute);padding-left:0.75rem;">
+            <strong style="color:var(--accent-refute);">Contradictions</strong>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0.25rem 0 0 0;">
+              Claims with ≥1 "refutes" evidence edge from NLI classification. Indicates areas of scientific disagreement. 
+              <br><em>Controversy Score</em> = refute_count / (support_count + refute_count + 1). Range: 0–1.
+            </p>
+          </div>
+          <div style="border-left:3px solid var(--accent-primary);padding-left:0.75rem;">
+            <strong style="color:var(--accent-primary);">NLI Claim Support Ratio</strong>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0.25rem 0 0 0;">
+              An exploration score derived from fragment→claim NLI evidence edges (supports vs refutes weights). 
+              <br><strong>0.50</strong> means “no net tilt (or insufficient/offsetting evidence)”, not “50% efficacy”.
+            </p>
+          </div>
+          <div style="border-left:3px solid var(--accent-secondary);padding-left:0.75rem;">
+            <strong style="color:var(--accent-secondary);">Key Source Score</strong>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0.25rem 0 0 0;">
+              In this dashboard, the source score is the number of distinct claims supported by a page
+              (count of fragment→claim edges with relation “supports/origin” for the task). Displayed in Key Supporting Sources.
+            </p>
+          </div>
+          <div style="border-left:3px solid var(--accent-dpp4i);padding-left:0.75rem;">
+            <strong style="color:var(--text-primary);">Page / Fragment</strong>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0.25rem 0 0 0;">
+              A <em>page</em> is a fetched source document (URL) in the data graph. A <em>fragment</em> is an excerpt
+              extracted from a page and linked to one or more claims. These are used to trace provenance.
+            </p>
+          </div>
+        </div>
+      </details>
+    </div>
+    
+    <div class="dashboard-grid">
+      <!-- 1. Exploration Reports (tabbed) -->
+      <section class="panel panel-full" id="analysis-section">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+          <h2 class="panel-title">
+            <span class="panel-title-icon" style="background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);">📄</span>
+            Exploration Reports
+          </h2>
+          <div class="report-tabs" id="report-tabs"></div>
+        </div>
+        <div class="panel-body" id="analysis-results" style="min-height:auto;padding:1rem;max-height:600px;overflow-y:auto;">
+          Loading reports...
+        </div>
+      </section>
+
+      <!-- 2. Key Supporting Sources (no slider) -->
+      <section class="panel panel-full">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <span class="panel-title-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">🏆</span>
+            Key Supporting Sources
+          </h2>
+        </div>
+        <div class="panel-body" id="key-sources"></div>
+        <div class="panel-insight" id="sources-insight">
+          <span class="insight-label">Summary</span><br>
+          Loading...
+        </div>
+      </section>
+
+      <!-- 3. Data Exploration Timeline (no slider) -->
+      <section class="panel panel-full">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <span class="panel-title-icon" style="background: var(--gradient-3);">📈</span>
+            Data Exploration Timeline
+          </h2>
+        </div>
+        <div class="panel-body" id="timeline"></div>
+        <div class="panel-insight" id="timeline-insight">
+          <span class="insight-label">Summary</span><br>
+          Loading...
+        </div>
+      </section>
+
+      <!-- 4. Data Provenance Network (with time slider) -->
+      <section class="panel panel-full">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <span class="panel-title-icon" style="background: var(--gradient-1);">🕸️</span>
+            Data Provenance Network
+          </h2>
+        </div>
+        <div class="panel-body">
+          <div class="panel-time-filter">
+            <div class="panel-time-header">
+              <label>Time Filter</label>
+              <span class="panel-time-value" id="network-year">All Years</span>
+            </div>
+            <input type="range" class="panel-time-slider" id="network-slider" min="2007" max="2028" step="3" value="2028">
+            <div class="panel-time-ticks">
+              <span>2007</span><span>2010</span><span>2013</span><span>2016</span><span>2019</span><span>2022</span><span>2025</span><span>All</span>
+            </div>
+          </div>
+          <div class="network-legend">
+            <div class="network-legend-item">
+              <div style="width:14px;height:10px;background:#d97706;border-radius:2px"></div>
+              DPP-4i Page
+            </div>
+            <div class="network-legend-item">
+              <div style="width:14px;height:10px;background:#0891b2;border-radius:2px"></div>
+              SGLT2i Page
+            </div>
+            <div class="network-legend-item">
+              <svg width="12" height="12" viewBox="-6 -6 12 12"><polygon points="0,-5 5,0 0,5 -5,0" fill="#fbbf24"/></svg>
+              Fragment
+            </div>
+            <div class="network-legend-item">
+              <div class="network-legend-circle" style="width:12px;height:12px;background:var(--accent-dpp4i)"></div>
+              DPP-4i Claim
+            </div>
+            <div class="network-legend-item">
+              <div class="network-legend-circle" style="width:12px;height:12px;background:var(--accent-sglt2i)"></div>
+              SGLT2i Claim
+            </div>
+            <div class="network-legend-item">
+              <div class="network-legend-line" style="background:var(--accent-secondary)"></div>
+              Cites (Page→Page)
+            </div>
+            <div class="network-legend-item">
+              <div class="network-legend-line" style="background:var(--text-muted)"></div>
+              Contains
+            </div>
+          </div>
+          <div class="network-container" id="evidence-network"></div>
+        </div>
+        <div class="panel-insight" id="network-insight">
+          <span class="insight-label">Summary</span><br>
+          Loading...
+        </div>
+      </section>
+
+      <!-- 6. Claim Relation Network -->
+      <section class="panel panel-full" id="cluster-section" style="display:none;">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <span class="panel-title-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);">🔮</span>
+            Claim Relation Network
+          </h2>
+        </div>
+        <div class="panel-body">
+          <div class="cluster-legend" id="cluster-legend"></div>
+          <div class="claim-network-filters" id="claim-network-filters">
+            <div class="filter-group">
+              <input type="checkbox" id="filter-top30" checked>
+              <label for="filter-top30">Highlight TOP30</label>
+            </div>
+            <div class="filter-group">
+              <input type="checkbox" id="filter-semantic" checked>
+              <label for="filter-semantic">Semantic Sim</label>
+            </div>
+            <div class="filter-group">
+              <input type="checkbox" id="filter-co-fragment">
+              <label for="filter-co-fragment">Same Fragment</label>
+            </div>
+            <div class="filter-group">
+              <input type="checkbox" id="filter-co-page">
+              <label for="filter-co-page">Same Page</label>
+            </div>
+            <div class="filter-group">
+              <label for="filter-min-evidence">Min Links:</label>
+              <input type="range" id="filter-min-evidence" min="0" max="10" value="0">
+              <span id="filter-min-evidence-value">0</span>
+            </div>
+          </div>
+          <div id="claim-clusters"></div>
+        </div>
+        <div class="panel-insight" id="cluster-insight">
+          <span class="insight-label">Summary</span><br>
+          Claims connected by shared evidence sources, common fragments, and semantic similarity.
+          Clusters (communities) reveal related claim groups. Click nodes to inspect.
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p>Generated by <a href="https://github.com/your-repo/lyra">Lyra Data Exploration System</a></p>
+    <p class="generated-info" id="footer-info"></p>
+  </footer>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    // =====================================================
+    // EMBEDDED DATA FROM LYRA EVIDENCE GRAPH
+    // =====================================================
+    const LYRA_DATA = "__LYRA_DATA__";
+
+    // =====================================================
+    // VISUALIZATION CODE
+    // =====================================================
+    
+    let currentView = 'compare';
+    const tooltip = d3.select('#tooltip');
+
+    // Panel-specific time filters (stepped increments matching tick marks)
+    const panelYears = {
+      network: 2028   // 3-year steps: 2007, 2010, 2013, ..., 2025, 2028(All)
+    };
+
+    // Setup panel sliders
+    function setupPanelSliders() {
+      const panels = [
+        { id: 'network', render: renderEvidenceNetwork, allValue: 2028 }
+      ];
+
+      panels.forEach(({ id, render, allValue }) => {
+        const slider = document.getElementById(`${id}-slider`);
+        const display = document.getElementById(`${id}-year`);
+        
+        slider.addEventListener('input', (e) => {
+          panelYears[id] = parseInt(e.target.value);
+          display.textContent = panelYears[id] >= allValue ? 'All Years' : `≤ ${panelYears[id]}`;
+          render();
+        });
+      });
+    }
+
+    // Filter data by year for specific panel
+    function filterByYear(data, yearKey = 'year', panelYear = 2028) {
+      if (panelYear >= 2026) return data;  // Any "All" value
+      return data.filter(d => !d[yearKey] || d[yearKey] <= panelYear);
+    }
+
+    // Format year for display
+    function formatYear(year) {
+      if (year >= 2026) return 'all time periods';
+      return `${year}`;
+    }
+
+    function showTooltip(event, content) {
+      const tooltipNode = tooltip.node();
+      tooltip.html(content);
+      
+      // Get tooltip dimensions after content is set
+      const tooltipRect = tooltipNode.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Calculate position - use clientX/clientY for fixed positioning
+      let left = event.clientX + 15;
+      let top = event.clientY - 10;
+      
+      // Prevent overflow on right edge
+      if (left + tooltipRect.width > viewportWidth - 10) {
+        left = event.clientX - tooltipRect.width - 15;
+      }
+      
+      // Prevent overflow on bottom edge
+      if (top + tooltipRect.height > viewportHeight - 10) {
+        top = event.clientY - tooltipRect.height - 10;
+      }
+      
+      // Prevent overflow on top edge
+      if (top < 10) {
+        top = 10;
+      }
+      
+      tooltip
+        .style('left', left + 'px')
+        .style('top', top + 'px')
+        .classed('visible', true);
+    }
+
+    function hideTooltip() {
+      tooltip.classed('visible', false);
+    }
+
+    // Summary Cards - Task-centric layout with header grouping
+    function renderSummaryCards() {
+      const container = d3.select('#summary-cards');
+      container.html('');
+      
+      // CSS-driven responsive grid (auto-fit from .summary-cards class)
+      // No inline grid-template-columns to allow CSS media queries to work
+
+      // Create task-centric blocks
+      TASK_LIST.forEach((tid, i) => {
+        const task = LYRA_DATA.tasks[tid];
+        const borderColor = task.color || (i === 0 ? 'var(--accent-dpp4i)' : 'var(--accent-sglt2i)');
+        const reportSummary = (LYRA_DATA.report_summaries || {})[tid] || null;
+        const verdict = reportSummary && reportSummary.verdict ? reportSummary.verdict : null;
+        const verdictColor = verdict === 'SUPPORTED'
+          ? 'var(--accent-support)'
+          : (verdict === 'REFUTED' ? 'var(--accent-refute)' : 'var(--accent-neutral)');
+        
+        const maxContro = task.contradictions.length > 0 
+          ? d3.max(task.contradictions, d => d.controversy_score).toFixed(2) 
+          : '0.00';
+        const maxConf = task.claims.length > 0 
+          ? d3.max(task.claims, d => d.nli_claim_support_ratio).toFixed(2) 
+          : '0.50';
+        const avgConf = task.claims.length > 0 
+          ? d3.mean(task.claims, d => d.nli_claim_support_ratio).toFixed(2) 
+          : '0.50';
+        
+        // Task block container using CSS class
+        const taskBlock = container.append('div')
+          .attr('class', 'task-block')
+          .style('border-left', `4px solid ${borderColor}`);
+        
+        // Task header using CSS class
+        taskBlock.append('div')
+          .attr('class', 'task-block-header')
+          .style('color', borderColor)
+          .text(task.shortName);
+
+        // Verdict (from report_summary.json; dashboard source of truth)
+        taskBlock.append('div')
+          .style('margin', '0.25rem 0 0.75rem 0')
+          .style('display', 'flex')
+          .style('align-items', 'center')
+          .style('gap', '0.5rem')
+          .html(`
+            <div style="font-size:0.75rem;color:var(--text-muted);letter-spacing:0.04em;text-transform:uppercase;">Verdict</div>
+            <div style="font-size:0.85rem;font-weight:700;color:${verdict ? verdictColor : 'var(--text-muted)'};">
+              ${verdict || '—'}
+            </div>
+          `);
+        
+        // Metrics row using CSS class for responsive layout
+        const metricsRow = taskBlock.append('div')
+          .attr('class', 'task-metrics-row');
+        
+        // Claims
+        metricsRow.append('div')
+          .html(`
+            <div class="metric-label">CLAIMS</div>
+            <div class="metric-value" style="color:${borderColor};">${task.stats.claims}</div>
+            <div class="metric-detail">${task.stats.pages} pages</div>
+          `);
+        
+        // Contradictions
+        metricsRow.append('div')
+          .html(`
+            <div class="metric-label">CONTRADICTIONS</div>
+            <div class="metric-value" style="color:var(--accent-refute);">${task.contradictions.length}</div>
+            <div class="metric-detail">max ${maxContro}</div>
+          `);
+        
+        // NLI support ratio (exploration score)
+        metricsRow.append('div')
+          .html(`
+            <div class="metric-label">NLI_RATIO</div>
+            <div class="metric-value" style="color:var(--accent-primary);">${maxConf}</div>
+            <div class="metric-detail">avg ${avgConf}</div>
+          `);
+      });
+    }
+
+    // Data Provenance Network (Page → Fragment → Claim hierarchy + citations)
+    let networkSimulation = null;
+
+    function renderEvidenceNetwork() {
+      const container = d3.select('#evidence-network');
+      container.html('');
+
+      const width = container.node().clientWidth;
+      // Increase height on mobile for more vertical space (less overlap)
+      const height = width < 520 ? 540 : 480;
+      const yearFilter = panelYears.network;
+      const padding = width < 520 ? 30 : 40;
+      
+      // Responsive scale factor for node sizes (clamp between 0.55 and 1.0)
+      const nodeScale = Math.max(0.55, Math.min(1.0, width / 900));
+
+      const svg = container.append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      let nodes = [];
+      let links = [];
+      const nodeMap = {};  // For looking up nodes by original ID
+
+      // Build network from task data
+      const buildNetworkData = (taskId, taskName, colors) => {
+        const task = LYRA_DATA.tasks[taskId];
+        const timeline = task.timeline;
+        const maxYear = yearFilter >= 2026 ? 9999 : yearFilter;
+        const availableYears = timeline.filter(t => t.year <= maxYear);
+        
+        if (availableYears.length === 0) return;
+        
+        const evidenceRatio = availableYears.length / timeline.length;
+
+        // Add Pages (Sources)
+        const pageCount = Math.max(3, Math.floor(task.sources.length * evidenceRatio * 0.6));
+        const filteredPages = task.sources
+          .filter(s => !s.year || s.year <= maxYear)
+          .slice(0, pageCount);
+        
+        filteredPages.forEach(p => {
+          const node = {
+            id: `${taskId}_${p.id}`,
+            origId: p.id,
+            type: 'page',
+            task: taskName,
+            title: p.title || p.domain,
+            domain: p.domain,
+            authority: p.authority_score,
+            url: p.url,
+            color: colors.page
+          };
+          nodes.push(node);
+          nodeMap[`${taskId}_${p.id}`] = node;
+        });
+
+        // Add Fragments
+        const fragments = task.fragments || [];
+        fragments.forEach(f => {
+          const pageNode = nodeMap[`${taskId}_${f.page_id}`];
+          if (!pageNode) return;
+          
+          const node = {
+            id: `${taskId}_${f.id}`,
+            origId: f.id,
+            type: 'fragment',
+            task: taskName,
+            text: f.text,
+            claimIds: f.claims,
+            color: colors.fragment
+          };
+          nodes.push(node);
+          nodeMap[`${taskId}_${f.id}`] = node;
+          
+          // Page → Fragment link
+          links.push({
+            source: pageNode.id,
+            target: node.id,
+            type: 'contains',
+            strength: 0.8
+          });
+        });
+
+        // Add Claims (show more claims to represent the full 400+ claim dataset)
+        const claimCount = Math.max(8, Math.floor(task.claims.length * evidenceRatio * 0.03));
+        const filteredClaims = task.claims.slice(0, Math.min(claimCount, 12));
+        
+        filteredClaims.forEach(c => {
+          const node = {
+            id: `${taskId}_${c.id}`,
+            origId: c.id,
+            type: 'claim',
+            task: taskName,
+            text: c.text,
+            support_ratio: c.nli_claim_support_ratio,
+            support: c.support,
+            refute: c.refute,
+            neutral: c.neutral,
+            evidence_count: c.evidence_count || 0,
+            report_rank: c.report_rank || 0,
+            is_report_top: c.is_report_top || false,
+            color: colors.claim
+          };
+          nodes.push(node);
+          nodeMap[`${taskId}_${c.id}`] = node;
+        });
+        
+        // Add Hypothesis node for this task (at far right)
+        const hypId = `${taskId}_hypothesis`;
+        const hypNode = {
+          id: hypId,
+          origId: 'hypothesis',
+          type: 'hypothesis',
+          task: taskName,
+          hypothesis: task.hypothesis || `${taskName} Hypothesis`,
+          color: colors.claim  // Use claim color (same as baseColor)
+        };
+        nodes.push(hypNode);
+        nodeMap[hypId] = hypNode;
+        
+        // Add Hypothesis → Claim links (visual grouping only; not a verdict)
+        filteredClaims.forEach(c => {
+          const claimNode = nodeMap[`${taskId}_${c.id}`];
+          if (claimNode) {
+            links.push({
+              source: hypId,
+              target: claimNode.id,
+              type: 'hypothesis_claim',
+              strength: 0.3
+            });
+          }
+        });
+
+        // Fragment → Claim links
+        fragments.forEach(f => {
+          const fragNode = nodeMap[`${taskId}_${f.id}`];
+          if (!fragNode) return;
+          
+          (f.claims || []).forEach(claimId => {
+            const claimNode = nodeMap[`${taskId}_${claimId}`];
+            if (claimNode) {
+              links.push({
+                source: fragNode.id,
+                target: claimNode.id,
+                type: 'extracts',
+                strength: 0.6
+              });
+            }
+          });
+        });
+
+        // Page → Page citation links
+        const citations = task.citations || [];
+        citations.forEach(cit => {
+          const fromNode = nodeMap[`${taskId}_${cit.from}`];
+          const toNode = nodeMap[`${taskId}_${cit.to}`];
+          if (fromNode && toNode) {
+            links.push({
+              source: fromNode.id,
+              target: toNode.id,
+              type: 'cites',
+              context: cit.context,
+              strength: 0.5
+            });
+          }
+        });
+      };
+
+      // Build data for selected views
+      // Build network data dynamically for each task
+      TASK_LIST.forEach((tid, i) => {
+        const task = LYRA_DATA.tasks[tid];
+        const taskShortName = task.shortName.toLowerCase().replace(/-/g, '');
+        
+        if (currentView === 'compare' || currentView === taskShortName) {
+          // Generate color variants for this task
+          const baseColor = task.color;
+          const colors = {
+            page: d3.color(baseColor).darker(0.5).formatHex(),
+            fragment: d3.color(baseColor).brighter(0.3).formatHex(),
+            claim: baseColor
+          };
+          buildNetworkData(tid, task.shortName, colors);
+        }
+      });
+
+      // NOTE: Random claim-to-claim links removed. 
+      // Claim relationships are now shown in the dedicated Claim Relation Network section.
+      // Data network focuses on the provenance chain: Page → Fragment → Claim
+
+      if (nodes.length === 0) {
+        svg.append('text')
+          .attr('x', width / 2)
+          .attr('y', height / 2)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--text-muted)')
+          .text('No evidence available for this time period');
+        updateNetworkSummary([], [], [], yearFilter);
+        return;
+      }
+
+      // Size scales (quadratic for clear differentiation) - scaled by nodeScale
+      const claimSizeScale = d3.scalePow()
+        .exponent(2)
+        .domain([0.3, 0.8])
+        .range([10 * nodeScale, 35 * nodeScale]);
+      
+      const pageSizeScale = d3.scalePow()
+        .exponent(0.5)
+        .domain([1, 100])
+        .range([14 * nodeScale, 30 * nodeScale]);
+      
+      const fragmentSize = 7 * nodeScale;
+      const collisionPad = 4 * nodeScale;  // Responsive collision padding
+
+      const hypSize = 20 * nodeScale;
+      
+      const getNodeSize = (d) => {
+        if (d.type === 'page') return pageSizeScale(d.authority);
+        if (d.type === 'fragment') return fragmentSize;
+        if (d.type === 'hypothesis') return hypSize;
+        return claimSizeScale(d.support_ratio);
+      };
+
+      // Force simulation with lane-based layout: Pages (left) → Fragments (middle) → Claims (right)
+      if (networkSimulation) networkSimulation.stop();
+
+      // Define lane positions (x-coordinates by node type)
+      // Extended layout: Page → Fragment → Claim → Hypothesis
+      const laneX = {
+        page: width * 0.12,       // Pages on the left
+        fragment: width * 0.38,   // Fragments in the middle-left
+        claim: width * 0.64,      // Claims in the middle-right
+        hypothesis: width * 0.88  // Hypothesis on the far right
+      };
+
+      networkSimulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(d => {
+          const base = d.type === 'contains' ? 60 : (d.type === 'extracts' ? 80 : (d.type === 'cites' ? 40 : 50));
+          return base * nodeScale;
+        }).strength(d => d.strength * 0.3))
+        .force('charge', d3.forceManyBody().strength(d => (d.type === 'fragment' ? -20 : -50) * nodeScale))
+        // Lane-based X positioning (strong force to keep nodes in their lanes)
+        .force('laneX', d3.forceX(d => laneX[d.type] || width / 2).strength(0.4))
+        // Gentle Y centering
+        .force('centerY', d3.forceY(height / 2).strength(0.05))
+        .force('collision', d3.forceCollide().radius(d => getNodeSize(d) + collisionPad));
+
+      // Draw links with different styles
+      const link = svg.append('g')
+        .selectAll('line')
+        .data(links)
+        .enter()
+        .append('line')
+        .attr('class', 'network-link')
+        .attr('stroke', d => {
+          if (d.type === 'hypothesis_claim') {
+            // Visual grouping only; not a verdict
+            return 'var(--accent-primary)';
+          }
+          if (d.type === 'cites') return 'var(--accent-secondary)';
+          if (d.type === 'contains') return 'var(--text-muted)';
+          if (d.type === 'extracts') return 'var(--border)';
+          return 'var(--text-muted)';
+        })
+        .attr('stroke-width', d => {
+          if (d.type === 'hypothesis_claim') return 2;
+          if (d.type === 'cites') return 2;
+          if (d.type === 'contains') return 1.5;
+          if (d.type === 'extracts') return 1;
+          return 1.5;
+        })
+        .attr('stroke-dasharray', d => {
+          if (d.type === 'cites') return '6,3';
+          if (d.type === 'extracts') return '2,2';
+          if (d.type === 'hypothesis_claim') return 'none';
+          return 'none';
+        })
+        .attr('stroke-opacity', d => {
+          if (d.type === 'hypothesis_claim') return 0.8;
+          if (d.type === 'extracts') return 0.5;
+          return 0.7;
+        });
+
+      // Draw Page nodes (rounded rectangles)
+      const pageNodes = nodes.filter(n => n.type === 'page');
+      const pages = svg.append('g')
+        .selectAll('rect')
+        .data(pageNodes)
+        .enter()
+        .append('rect')
+        .attr('class', 'network-node')
+        .attr('width', d => pageSizeScale(d.authority) * 1.4)
+        .attr('height', d => pageSizeScale(d.authority))
+        .attr('rx', 3)
+        .attr('fill', d => d.color)
+        .attr('stroke', 'var(--bg-primary)')
+        .attr('stroke-width', 2)
+        .on('mouseover', (event, d) => {
+          showTooltip(event, `
+            <div class="tooltip-title">📄 ${d.title}</div>
+            <div class="tooltip-row"><span>Type:</span><span class="tooltip-value">Page (Source)</span></div>
+            <div class="tooltip-row"><span>Drug Class:</span><span class="tooltip-value">${d.task}</span></div>
+            <div class="tooltip-row"><span>Score:</span><span class="tooltip-value">${d.authority.toFixed(0)}</span></div>
+            <div class="tooltip-row"><span>Domain:</span><span class="tooltip-value">${d.domain}</span></div>
+          `);
+        })
+        .on('mouseout', hideTooltip)
+        .call(d3.drag().on('start', dragStarted).on('drag', dragged).on('end', dragEnded));
+
+      // Draw Fragment nodes (small diamonds)
+      const fragmentNodes = nodes.filter(n => n.type === 'fragment');
+      const fragments = svg.append('g')
+        .selectAll('polygon')
+        .data(fragmentNodes)
+        .enter()
+        .append('polygon')
+        .attr('class', 'network-node')
+        .attr('points', d => {
+          const s = fragmentSize;
+          return `0,${-s} ${s},0 0,${s} ${-s},0`;
+        })
+        .attr('fill', d => d.color)
+        .attr('stroke', 'var(--bg-secondary)')
+        .attr('stroke-width', 1)
+        .on('mouseover', (event, d) => {
+          showTooltip(event, `
+            <div class="tooltip-title">📝 Fragment</div>
+            <div class="tooltip-row"><span>Text:</span><span class="tooltip-value">${d.text.slice(0, 60)}...</span></div>
+            <div class="tooltip-row"><span>Drug Class:</span><span class="tooltip-value">${d.task}</span></div>
+            <div class="tooltip-row"><span>Claims:</span><span class="tooltip-value">${d.claimIds?.length || 0}</span></div>
+          `);
+        })
+        .on('mouseout', hideTooltip)
+        .call(d3.drag().on('start', dragStarted).on('drag', dragged).on('end', dragEnded));
+
+      // Draw Claim nodes (circles)
+      const claimNodesData = nodes.filter(n => n.type === 'claim');
+      const claimCircles = svg.append('g')
+        .selectAll('circle')
+        .data(claimNodesData)
+        .enter()
+        .append('circle')
+        .attr('class', 'network-node')
+        .attr('r', d => claimSizeScale(d.support_ratio))
+        .attr('fill', d => d.color)
+        .attr('stroke', d => d.is_report_top ? '#fff' : 'none')
+        .attr('stroke-width', d => d.is_report_top ? 3 : 0)
+        .on('mouseover', (event, d) => {
+          const rankBadge = d.is_report_top ? `<span style="background:#10b981;color:#fff;padding:0.1rem 0.4rem;border-radius:4px;font-size:0.7rem;margin-left:0.3rem;">TOP30 #${d.report_rank}</span>` : '';
+          showTooltip(event, `
+            <div class="tooltip-title">💡 Claim${rankBadge}</div>
+            <div class="tooltip-row"><span>Text:</span><span class="tooltip-value">${d.text.slice(0, 80)}...</span></div>
+            <div class="tooltip-row"><span>Drug Class:</span><span class="tooltip-value">${d.task}</span></div>
+            <div class="tooltip-row"><span>NLI Support Ratio:</span><span class="tooltip-value">${(d.support_ratio ?? 0.5).toFixed(3)}</span></div>
+            <div class="tooltip-row"><span>Links:</span><span class="tooltip-value">${d.evidence_count} (Supports: ${d.support} / Refutes: ${d.refute} / Neutral: ${d.neutral || 0})</span></div>
+            ${d.report_rank ? `<div class="tooltip-row"><span>Report Rank:</span><span class="tooltip-value">#${d.report_rank}</span></div>` : ''}
+          `);
+        })
+        .on('mouseout', hideTooltip)
+        .call(d3.drag().on('start', dragStarted).on('drag', dragged).on('end', dragEnded));
+
+      // Draw Hypothesis nodes (hexagons at far right)
+      const hypothesisNodes = nodes.filter(n => n.type === 'hypothesis');
+      const hypotheses = svg.append('g')
+        .selectAll('polygon')
+        .data(hypothesisNodes)
+        .enter()
+        .append('polygon')
+        .attr('class', 'network-node')
+        .attr('points', d => {
+          // Hexagon shape
+          const r = hypSize;
+          let pts = [];
+          for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i - Math.PI / 2;
+            pts.push(`${r * Math.cos(angle)},${r * Math.sin(angle)}`);
+          }
+          return pts.join(' ');
+        })
+        .attr('fill', d => d.color)
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 2)
+        .on('mouseover', (event, d) => {
+          showTooltip(event, `
+            <div class="tooltip-title">🎯 Hypothesis</div>
+            <div class="tooltip-row"><span>Drug Class:</span><span class="tooltip-value">${d.task}</span></div>
+            <div class="tooltip-row"><span>Hypothesis:</span><span class="tooltip-value">${(d.hypothesis || '').slice(0, 100)}...</span></div>
+          `);
+        })
+        .on('mouseout', hideTooltip)
+        .call(d3.drag().on('start', dragStarted).on('drag', dragged).on('end', dragEnded));
+
+      function dragStarted(event, d) {
+        if (!event.active) networkSimulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+      function dragged(event, d) {
+        d.fx = Math.max(padding, Math.min(width - padding, event.x));
+        d.fy = Math.max(padding, Math.min(height - padding, event.y));
+      }
+      function dragEnded(event, d) {
+        if (!event.active) networkSimulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+
+      // Constrain nodes to boundary on tick
+      networkSimulation.on('tick', () => {
+        // Constrain all nodes to boundary
+        nodes.forEach(d => {
+          const r = getNodeSize(d);
+          d.x = Math.max(padding + r, Math.min(width - padding - r, d.x));
+          d.y = Math.max(padding + r, Math.min(height - padding - r, d.y));
+        });
+
+        link
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+
+        pages
+          .attr('x', d => d.x - pageSizeScale(d.authority) * 0.7)
+          .attr('y', d => d.y - pageSizeScale(d.authority) / 2);
+
+        fragments
+          .attr('transform', d => `translate(${d.x},${d.y})`);
+
+        claimCircles
+          .attr('cx', d => d.x)
+          .attr('cy', d => d.y);
+
+        hypotheses
+          .attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+
+      updateNetworkSummary(
+        claimNodesData, 
+        pageNodes, 
+        fragmentNodes, 
+        yearFilter
+      );
+    }
+
+    function updateNetworkSummary(claims, pages, fragments, yearFilter) {
+      const insightEl = document.getElementById('network-insight');
+      
+      if (claims.length === 0 && pages.length === 0) {
+        insightEl.innerHTML = `<span class="insight-label">Summary</span><br>
+          <strong>No evidence available</strong> for ≤${formatYear(yearFilter)}. Expand the time filter.`;
+        return;
+      }
+
+      // Calculate per-task stats dynamically
+      const taskStats = TASK_LIST.map(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        const taskClaims = claims.filter(n => n.task === task.shortName);
+        const taskPages = pages.filter(n => n.task === task.shortName);
+        const taskFragments = fragments.filter(n => n.task === task.shortName);
+        const avgConf = taskClaims.length > 0 ? d3.mean(taskClaims, n => n.support_ratio) : 0;
+        
+        return {
+          name: task.shortName,
+          color: task.color,
+          claims: taskClaims.length,
+          pages: taskPages.length,
+          fragments: taskFragments.length,
+          avgConf
+        };
+      });
+      
+      let summary = `<span class="insight-label">Summary</span><br>`;
+      summary += `<strong>Data Graph (${formatYear(yearFilter)}):</strong> `;
+      summary += `${pages.length} pages → ${fragments.length} fragments → ${claims.length} claims.<br><br>`;
+
+      // Per-task breakdown
+      summary += `<strong>Per Task:</strong><br>`;
+      taskStats.forEach(s => {
+        if (s.claims > 0 || s.pages > 0) {
+          summary += `• <span style="color:${s.color}">${s.name}</span>: ${s.pages} pages → ${s.fragments} fragments → ${s.claims} claims (avg: ${s.avgConf.toFixed(2)})<br>`;
+        }
+      });
+      
+      summary += `<br><br><em style="color:var(--text-muted);font-size:0.8rem">▭ Pages · ◇ Fragments · ⬤ Claims | Purple dashed = citations | Gray = hierarchy</em>`;
+
+      insightEl.innerHTML = summary;
+    }
+
+    // Claim Relation Network (Sigma.js + Graphology)
+    let claimNetworkRenderer = null;
+    let claimGraph = null;
+    let selectedClaimNode = null;
+
+    function renderClaimClusters() {
+      const section = document.getElementById('cluster-section');
+      const graphData = LYRA_DATA.claim_graph;
+      
+      // Check if we have graph data
+      if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
+        // Fallback to old cluster data if no graph
+        const clusterData = LYRA_DATA.claim_clusters;
+        const clusters = Array.isArray(clusterData) ? clusterData : (clusterData?.points || []);
+        if (!clusters || clusters.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+        // Render fallback D3 scatter if no graph
+        renderClaimClustersFallback(clusters);
+        return;
+      }
+      
+      section.style.display = 'block';
+      
+      const container = document.getElementById('claim-clusters');
+      container.innerHTML = '<div class="claim-network-container" id="sigma-container"></div>';
+      
+      // Build legend
+      const legendContainer = d3.select('#cluster-legend');
+      legendContainer.html('');
+      
+      TASK_LIST.forEach(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        const taskClaims = graphData.nodes.filter(n => n.task_id === tid).length;
+        legendContainer.append('div')
+          .attr('class', 'cluster-legend-item')
+          .html(`
+            <span class="cluster-legend-dot" style="background:${task.color}"></span>
+            <span>${task.shortName}: ${taskClaims} claims</span>
+          `);
+      });
+      
+      // Edge type legend
+      legendContainer.append('div')
+        .attr('class', 'cluster-legend-item')
+        .html(`
+          <span style="width:12px;height:3px;background:var(--accent-support);display:inline-block;margin-right:0.5rem;border-radius:2px"></span>
+          <span style="font-size:0.75rem;color:var(--text-muted)">Same Fragment</span>
+        `);
+      legendContainer.append('div')
+        .attr('class', 'cluster-legend-item')
+        .html(`
+          <span style="width:12px;height:3px;background:var(--accent-secondary);display:inline-block;margin-right:0.5rem;border-radius:2px"></span>
+          <span style="font-size:0.75rem;color:var(--text-muted)">Same Page</span>
+        `);
+      legendContainer.append('div')
+        .attr('class', 'cluster-legend-item')
+        .html(`
+          <span style="width:12px;height:3px;background:var(--accent-primary);display:inline-block;margin-right:0.5rem;border-radius:2px"></span>
+          <span style="font-size:0.75rem;color:var(--text-muted)">Semantic Sim</span>
+        `);
+      legendContainer.append('div')
+        .attr('class', 'cluster-legend-item')
+        .html(`
+          <span style="width:12px;height:12px;border-radius:50%;border:2px solid white;display:inline-block;margin-right:0.5rem"></span>
+          <span style="font-size:0.75rem;color:var(--text-muted)">TOP30</span>
+        `);
+
+      // Build Graphology graph
+      claimGraph = new graphology.Graph({ multi: false, type: 'undirected' });
+      
+      // Add nodes
+      graphData.nodes.forEach(node => {
+        const task = LYRA_DATA.tasks[node.task_id];
+        const size = Math.max(3, Math.min(12, 3 + Math.log(1 + (node.evidence_count || 0)) * 2));
+        claimGraph.addNode(node.id, {
+          x: node.x || Math.random() * 100,
+          y: node.y || Math.random() * 100,
+          size: size,
+          color: task ? task.color : '#6366f1',
+          label: node.is_report_top ? `#${node.report_rank}` : '',
+          // Custom attributes for filtering/display
+          task_id: node.task_id,
+          text: node.text,
+          nli_claim_support_ratio: node.nli_claim_support_ratio,
+          evidence_count: node.evidence_count || 0,
+          support_count: node.support_count || 0,
+          refute_count: node.refute_count || 0,
+          report_rank: node.report_rank,
+          is_report_top: node.is_report_top,
+          borderColor: node.is_report_top ? '#ffffff' : 'transparent',
+          borderSize: node.is_report_top ? 2 : 0,
+        });
+      });
+      
+      // Edge color map
+      const edgeColors = {
+        'co_fragment': '#10b981',
+        'co_page': '#8b5cf6',
+        'semantic_sim': '#6366f1'
+      };
+      
+      // Add edges
+      graphData.edges.forEach((edge, i) => {
+        if (claimGraph.hasNode(edge.source) && claimGraph.hasNode(edge.target)) {
+          try {
+            claimGraph.addEdge(edge.source, edge.target, {
+              size: edge.kind === 'co_fragment' ? 2 : (edge.kind === 'co_page' ? 1.5 : 1),
+              color: edgeColors[edge.kind] || '#4a5568',
+              kind: edge.kind,
+              weight: edge.weight,
+              explain: edge.explain,
+            });
+          } catch (e) {
+            // Edge may already exist
+          }
+        }
+      });
+      
+      // Run ForceAtlas2 layout
+      if (typeof graphologyLayoutForceAtlas2 !== 'undefined') {
+        graphologyLayoutForceAtlas2.assign(claimGraph, {
+          iterations: 100,
+          settings: {
+            gravity: 0.5,
+            scalingRatio: 10,
+            strongGravityMode: true,
+            barnesHutOptimize: claimGraph.order > 500,
+          }
+        });
+      }
+      
+      // Run Louvain community detection
+      let communities = {};
+      if (typeof graphologyCommunitiesLouvain !== 'undefined') {
+        try {
+          communities = graphologyCommunitiesLouvain(claimGraph);
+          // Store community on nodes (for potential future use)
+          claimGraph.forEachNode((nodeId) => {
+            claimGraph.setNodeAttribute(nodeId, 'community', communities[nodeId]);
+          });
+        } catch (e) {
+          console.warn('Community detection failed:', e);
+        }
+      }
+      
+      // Create Sigma renderer
+      const sigmaContainer = document.getElementById('sigma-container');
+      
+      if (claimNetworkRenderer) {
+        claimNetworkRenderer.kill();
+      }
+      
+      claimNetworkRenderer = new Sigma(claimGraph, sigmaContainer, {
+        renderLabels: true,
+        labelRenderedSizeThreshold: 6,
+        labelFont: 'IBM Plex Sans',
+        labelSize: 10,
+        labelColor: { color: '#f1f5f9' },
+        defaultNodeColor: '#6366f1',
+        defaultEdgeColor: '#4a5568',
+        edgeReducer: (edge, data) => {
+          const res = { ...data };
+          // Filter edges based on checkboxes
+          const showCoFragment = document.getElementById('filter-co-fragment')?.checked ?? true;
+          const showCoPage = document.getElementById('filter-co-page')?.checked ?? true;
+          const showSemantic = document.getElementById('filter-semantic')?.checked ?? true;
+          
+          if (data.kind === 'co_fragment' && !showCoFragment) res.hidden = true;
+          if (data.kind === 'co_page' && !showCoPage) res.hidden = true;
+          if (data.kind === 'semantic_sim' && !showSemantic) res.hidden = true;
+          
+          // Make edges involving non-TOP30 nodes semi-transparent (UX-A)
+          const [src, tgt] = claimGraph.extremities(edge);
+          const srcAttrs = claimGraph.getNodeAttributes(src);
+          const tgtAttrs = claimGraph.getNodeAttributes(tgt);
+          const srcTop30 = srcAttrs.is_report_top;
+          const tgtTop30 = tgtAttrs.is_report_top;
+          
+          if (!srcTop30 && !tgtTop30) {
+            // Both non-TOP30: very faint
+            const col = d3.color(res.color);
+            if (col) {
+              col.opacity = 0.03;
+              res.color = col.formatRgb();
+            }
+            res.size = 0.15;
+          } else if (!srcTop30 || !tgtTop30) {
+            // One is TOP30: semi-transparent
+            const col = d3.color(res.color);
+            if (col) {
+              col.opacity = 0.06;
+              res.color = col.formatRgb();
+            }
+            res.size = res.size * 0.35;
+          }
+          
+          // Highlight edges connected to selected node
+          if (selectedClaimNode) {
+            if (src !== selectedClaimNode && tgt !== selectedClaimNode) {
+              res.color = 'rgba(45,55,72,0.02)';
+              res.size = 0.1;
+            }
+          }
+          return res;
+        },
+        nodeReducer: (node, data) => {
+          const res = { ...data };
+          const minEvidence = parseInt(document.getElementById('filter-min-evidence')?.value || '0');
+          const highlightTop30 = document.getElementById('filter-top30')?.checked ?? true;
+          
+          // Filter by min evidence
+          if (data.evidence_count < minEvidence) {
+            res.hidden = true;
+          }
+          
+          // Filter by task view
+          if (currentView !== 'compare') {
+            const taskId = TASK_LIST.find(tid => 
+              LYRA_DATA.tasks[tid].shortName.toLowerCase().replace(/-/g, '') === currentView
+            );
+            if (taskId && data.task_id !== taskId) {
+              res.hidden = true;
+            }
+          }
+          
+          // Non-TOP30 nodes are semi-transparent (UX-A)
+          if (!data.is_report_top) {
+            // Make color semi-transparent by using rgba
+            const col = d3.color(res.color);
+            if (col) {
+              col.opacity = 0.25;
+              res.color = col.formatRgb();
+            }
+            res.size = res.size * 0.6;
+            res.label = '';  // Hide label for non-TOP30
+          }
+          
+          // Highlight TOP30
+          if (highlightTop30 && data.is_report_top) {
+            res.borderColor = '#ffffff';
+            res.borderSize = 2;
+          }
+          
+          // Dim nodes not connected to selected
+          if (selectedClaimNode && node !== selectedClaimNode) {
+            const neighbors = claimGraph.neighbors(selectedClaimNode);
+            if (!neighbors.includes(node)) {
+              res.color = d3.color(res.color).darker(2).formatHex();
+              res.size = res.size * 0.6;
+            }
+          }
+          
+          return res;
+        }
+      });
+      
+      // Add click handler for node selection (TOP30 only per UX-A)
+      claimNetworkRenderer.on('clickNode', ({ node }) => {
+        const attrs = claimGraph.getNodeAttributes(node);
+        if (!attrs.is_report_top) {
+          // Non-TOP30 nodes: no interaction
+          return;
+        }
+        selectedClaimNode = selectedClaimNode === node ? null : node;
+        claimNetworkRenderer.refresh();
+        updateClaimInspector(node);
+      });
+      
+      claimNetworkRenderer.on('clickStage', () => {
+        selectedClaimNode = null;
+        claimNetworkRenderer.refresh();
+        hideClaimInspector();
+      });
+      
+      // Setup filter event handlers
+      ['filter-top30', 'filter-semantic', 'filter-co-fragment', 'filter-co-page'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+          claimNetworkRenderer.refresh();
+        });
+      });
+      
+      const minEvidenceSlider = document.getElementById('filter-min-evidence');
+      const minEvidenceValue = document.getElementById('filter-min-evidence-value');
+      if (minEvidenceSlider) {
+        minEvidenceSlider.addEventListener('input', () => {
+          minEvidenceValue.textContent = minEvidenceSlider.value;
+          claimNetworkRenderer.refresh();
+        });
+      }
+      
+      // Update insight
+      updateClusterInsight(graphData);
+    }
+    
+    function updateClaimInspector(nodeId) {
+      if (!nodeId || !claimGraph || !claimGraph.hasNode(nodeId)) {
+        hideClaimInspector();
+        return;
+      }
+      
+      const attrs = claimGraph.getNodeAttributes(nodeId);
+      const neighbors = claimGraph.neighbors(nodeId);
+      const task = LYRA_DATA.tasks[attrs.task_id];
+      
+      // Group neighbors by edge type
+      const neighborsByType = { co_fragment: [], co_page: [], semantic_sim: [] };
+      neighbors.forEach(nid => {
+        const edge = claimGraph.edge(nodeId, nid);
+        if (edge) {
+          const edgeAttrs = claimGraph.getEdgeAttributes(edge);
+          const nAttrs = claimGraph.getNodeAttributes(nid);
+          const kind = edgeAttrs.kind || 'unknown';
+          if (neighborsByType[kind]) {
+            neighborsByType[kind].push({ id: nid, rank: nAttrs.report_rank, text: nAttrs.text });
+          }
+        }
+      });
+      
+      // Build inspector HTML
+      let inspectorContainer = document.getElementById('claim-inspector');
+      if (!inspectorContainer) {
+        inspectorContainer = document.createElement('div');
+        inspectorContainer.id = 'claim-inspector';
+        inspectorContainer.className = 'claim-inspector';
+        document.getElementById('sigma-container')?.appendChild(inspectorContainer);
+      }
+      
+      const ratioPercent = (((attrs.nli_claim_support_ratio ?? 0.5) * 100)).toFixed(0);
+      const rankBadge = attrs.is_report_top ? `<span style="background:#10b981;color:#fff;padding:0.1rem 0.4rem;border-radius:4px;font-size:0.7rem;margin-left:0.3rem;">TOP30 #${attrs.report_rank}</span>` : '';
+      
+      let html = `
+        <div class="claim-inspector-header">
+          <div class="claim-inspector-title">${task ? task.shortName : 'Claim'}${rankBadge}</div>
+          <button class="claim-inspector-close" onclick="hideClaimInspector()">×</button>
+        </div>
+        <div class="claim-inspector-meta">
+          <span style="color:var(--text-secondary)">NLI Support Ratio: ${ratioPercent}%</span>
+          <span>Links: ${attrs.evidence_count}</span>
+          <span style="color:var(--accent-support)">+${attrs.support_count}</span>
+          <span style="color:var(--accent-refute)">−${attrs.refute_count}</span>
+        </div>
+        <div class="claim-inspector-text">${attrs.text}</div>
+      `;
+      
+      if (neighbors.length > 0) {
+        html += `<div class="claim-inspector-neighbors">`;
+        html += `<div class="claim-inspector-neighbors-title">Connected Claims (${neighbors.length}):</div>`;
+        Object.entries(neighborsByType).forEach(([kind, items]) => {
+          if (items.length > 0) {
+            items.slice(0, 5).forEach(item => {
+              const label = item.rank <= 30 ? `#${item.rank}` : (item.text || '').slice(0, 30) + '...';
+              html += `<span class="neighbor-badge ${kind}" title="${item.text}">${label}</span>`;
+            });
+            if (items.length > 5) {
+              html += `<span class="neighbor-badge ${kind}">+${items.length - 5} more</span>`;
+            }
+          }
+        });
+        html += `</div>`;
+      }
+      
+      inspectorContainer.innerHTML = html;
+      inspectorContainer.classList.add('visible');
+    }
+    
+    function hideClaimInspector() {
+      const inspector = document.getElementById('claim-inspector');
+      if (inspector) {
+        inspector.classList.remove('visible');
+      }
+      selectedClaimNode = null;
+      if (claimNetworkRenderer) {
+        claimNetworkRenderer.refresh();
+      }
+    }
+    
+    // Fallback D3 scatter plot (if no graph data)
+    function renderClaimClustersFallback(clusters) {
+      const section = document.getElementById('cluster-section');
+      section.style.display = 'block';
+      
+      const container = d3.select('#claim-clusters');
+      container.html('');
+      
+      const width = container.node().clientWidth;
+      const height = 500;
+      const margin = { top: 30, right: 30, bottom: 60, left: 70 };
+      
+      const svg = container.append('svg')
+        .attr('width', width)
+        .attr('height', height);
+      
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+      
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+      
+      const xExtent = d3.extent(clusters, d => d.x);
+      const yExtent = d3.extent(clusters, d => d.y);
+      const xPadding = (xExtent[1] - xExtent[0]) * 0.05 || 5;
+      const yPadding = (yExtent[1] - yExtent[0]) * 0.05 || 5;
+      
+      const xScale = d3.scaleLinear()
+        .domain([xExtent[0] - xPadding, xExtent[1] + xPadding])
+        .range([0, innerWidth]);
+      
+      const yScale = d3.scaleLinear()
+        .domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
+        .range([innerHeight, 0]);
+      
+      g.selectAll('circle')
+        .data(clusters)
+        .enter()
+        .append('circle')
+        .attr('cx', d => xScale(d.x))
+        .attr('cy', d => yScale(d.y))
+        .attr('r', 4)
+        .attr('fill', d => {
+          const task = LYRA_DATA.tasks[d.task_id];
+          return task ? task.color : '#6366f1';
+        })
+        .attr('fill-opacity', 0.7);
+      
+      updateClusterInsight({ nodes: clusters, edges: [], meta: { total_nodes: clusters.length, total_edges: 0 } });
+    }
+    
+    function updateClusterInsight(graphData) {
+      const insightEl = document.getElementById('cluster-insight');
+      
+      const nodes = graphData.nodes || [];
+      const edges = graphData.edges || [];
+      const meta = graphData.meta || {};
+      
+      if (nodes.length === 0) {
+        insightEl.innerHTML = `<span class="insight-label">Summary</span><br>No cluster data available.`;
+        return;
+      }
+      
+      const top30 = nodes.filter(c => c.is_report_top).length;
+      const supportEdges = d3.sum(nodes, n => n.support_count || 0);
+      const refuteEdges = d3.sum(nodes, n => n.refute_count || 0);
+      
+      const edgeCounts = meta.edge_counts || {};
+      
+      let s = '<span class="insight-label">Summary</span><br>';
+      s += `<strong>Claims:</strong> ${nodes.length} total | `;
+      s += `<span style="color:var(--accent-support)">${supportEdges}</span> support edges | `;
+      s += `<span style="color:var(--accent-refute)">${refuteEdges}</span> refute edges<br><br>`;
+      
+      // NOTE: We intentionally omit edge/link counts here because the graph is rendered
+      // with an edge budget for readability (sampling), so link counts are not a stable “ground truth”.
+      
+      s += '<em style="font-size:0.8rem;color:var(--text-muted)">Click a node to inspect. Use filters above to focus on specific relationships.</em>';
+      
+      insightEl.innerHTML = s;
+    }
+
+    // Timeline
+    function renderTimeline() {
+      const container = d3.select('#timeline');
+      container.html('');
+
+      // Dynamic legend from task list
+      const legend = container.append('div').attr('class', 'legend');
+      TASK_LIST.forEach(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        legend.append('div').attr('class', 'legend-item')
+          .html(`<span class="legend-color" style="background:${task.color}"></span> ${task.shortName}`);
+      });
+
+      const margin = { top: 20, right: 30, bottom: 40, left: 60 };
+      const containerNode = container.node();
+      const rawWidth = containerNode ? (containerNode.clientWidth || containerNode.getBoundingClientRect().width || 0) : 0;
+      const containerWidth = rawWidth && rawWidth > 0 ? rawWidth : 720;
+      const width = containerWidth - margin.left - margin.right;
+      const height = 300 - margin.top - margin.bottom;
+
+      if (width <= 0) {
+        container.append('div')
+          .style('color', 'var(--text-muted)')
+          .style('font-size', '0.85rem')
+          .style('padding', '0.5rem')
+          .text('Timeline could not render (container width is 0). Try resizing the window.');
+        updateTimelineSummary();
+        return;
+      }
+
+      const svgRoot = container.append('svg')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+        .attr('preserveAspectRatio', 'xMinYMin meet');
+
+      const svg = svgRoot.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Task-driven series (works for 1+ tasks)
+      const selectedTaskIds = (currentView === 'compare')
+        ? TASK_LIST
+        : TASK_LIST.filter(tid => (LYRA_DATA.tasks[tid].shortName || '').toLowerCase().replace(/-/g, '') === currentView);
+
+      const series = selectedTaskIds.map(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        return { tid, name: task.shortName, color: task.color, data: task.timeline || [] };
+      }).filter(s => s.data && s.data.length > 0);
+
+      const allYears = [...new Set(series.flatMap(s => s.data.map(d => d.year)))].sort();
+      const maxLinks = d3.max(series.flatMap(s => s.data.map(d => d.links))) || 0;
+
+      if (!allYears.length || maxLinks === 0) {
+        container.append('div')
+          .style('color', 'var(--text-muted)')
+          .style('font-size', '0.85rem')
+          .style('padding', '0.5rem')
+          .text('No timeline data available.');
+        updateTimelineSummary();
+        return;
+      }
+
+      const x = d3.scaleLinear()
+        .domain([d3.min(allYears), d3.max(allYears)])
+        .range([0, width]);
+
+      const y = d3.scaleLinear()
+        .domain([0, maxLinks * 1.1])
+        .range([height, 0]);
+
+      // Axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')))
+        .selectAll('text')
+        .attr('class', 'axis-label');
+
+      svg.append('g')
+        .call(d3.axisLeft(y).ticks(5))
+        .selectAll('text')
+        .attr('class', 'axis-label');
+
+      svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -45)
+        .attr('x', -height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('class', 'axis-label')
+        .text('Links');
+
+      // Area generators
+      const area = d3.area()
+        .x(d => x(d.year))
+        .y0(height)
+        .y1(d => y(d.links))
+        .curve(d3.curveMonotoneX);
+
+      const line = d3.line()
+        .x(d => x(d.year))
+        .y(d => y(d.links))
+        .curve(d3.curveMonotoneX);
+
+      series.forEach((s, idx) => {
+        svg.append('path')
+          .datum(s.data)
+          .attr('class', 'timeline-area')
+          .attr('fill', s.color)
+          .attr('d', area);
+
+        svg.append('path')
+          .datum(s.data)
+          .attr('class', 'timeline-line')
+          .attr('stroke', s.color)
+          .attr('d', line);
+
+        svg.selectAll(`.dot-timeline-${idx}`)
+          .data(s.data)
+          .enter()
+          .append('circle')
+          .attr('cx', d => x(d.year))
+          .attr('cy', d => y(d.links))
+          .attr('r', 4)
+          .attr('fill', s.color)
+          .on('mouseover', (event, d) => {
+            showTooltip(event, `
+              <div class="tooltip-title">${s.name} - ${d.year}</div>
+              <div class="tooltip-row"><span>Links:</span><span class="tooltip-value">${d.links}</span></div>
+              <div class="tooltip-row"><span>Fragments:</span><span class="tooltip-value">${d.fragments}</span></div>
+            `);
+          })
+          .on('mouseout', hideTooltip);
+      });
+
+      // Generate summary
+      updateTimelineSummary();
+    }
+
+    function updateTimelineSummary() {
+      const insightEl = document.getElementById('timeline-insight');
+      const currentYear = new Date().getFullYear();
+      
+      // Collect timeline stats per task
+      const taskTimelineStats = TASK_LIST.map(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        const timeline = task.timeline || [];
+        if (timeline.length === 0) return null;
+        
+        const years = timeline.map(d => d.year);
+        const startYear = Math.min(...years);
+        const totalLinks = timeline.reduce((sum, d) => sum + d.links, 0);
+        const recentLinks = timeline.filter(d => d.year >= 2020).reduce((sum, d) => sum + d.links, 0);
+        const peak = timeline.reduce((max, d) => d.links > max.links ? d : max);
+        
+        return {
+          name: task.shortName,
+          color: task.color,
+          startYear,
+          span: currentYear - startYear,
+          totalLinks,
+          recentLinks,
+          peakYear: peak.year,
+          peakLinks: peak.links
+        };
+      }).filter(Boolean);
+      
+      if (taskTimelineStats.length === 0) {
+        insightEl.innerHTML = `<span class="insight-label">Summary</span><br>No timeline data available.`;
+        return;
+      }
+      
+      let summary = `<span class="insight-label">Summary</span><br>`;
+      
+      // Data maturity (time coverage)
+      summary += `<strong>Data coverage:</strong> `;
+      summary += taskTimelineStats.map(s => 
+        `<span style="color:${s.color}">${s.name}</span>: ${s.startYear}–present (${s.span} years)`
+      ).join(' | ');
+      
+      // Recent activity comparison (if multiple tasks)
+      if (taskTimelineStats.length > 1) {
+        summary += `<br><br><strong>Recent Activity (2020+):</strong> `;
+        const sortedByRecent = [...taskTimelineStats].sort((a, b) => b.recentLinks - a.recentLinks);
+        const leader = sortedByRecent[0];
+        const ratio = sortedByRecent[1].recentLinks > 0 
+          ? ((leader.recentLinks / sortedByRecent[1].recentLinks - 1) * 100).toFixed(0)
+          : 'N/A';
+        summary += `${leader.name} leads with ${leader.recentLinks} evidence links`;
+        if (ratio !== 'N/A' && ratio > 20) {
+          summary += ` (${ratio}% more than ${sortedByRecent[1].name})`;
+        }
+      }
+      
+      // Peak years
+      summary += `<br><br><strong>Peak Years:</strong> `;
+      summary += taskTimelineStats.map(s => 
+        `<span style="color:${s.color}">${s.name}</span>: ${s.peakYear} (${s.peakLinks} links)`
+      ).join(' | ');
+      
+      insightEl.innerHTML = summary;
+    }
+
+    // Key Supporting Sources
+    function renderKeySources() {
+      const container = d3.select('#key-sources');
+      container.html('');
+
+      // Combine and rank sources by authority score (no time filter for Key Sources)
+      let allSources = [];
+      
+      TASK_LIST.forEach(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        const taskShortName = task.shortName.toLowerCase().replace(/-/g, '');
+        
+        if (currentView === 'compare' || currentView === taskShortName) {
+          task.sources.forEach(s => {
+            allSources.push({ ...s, task: task.shortName, color: task.color });
+          });
+        }
+      });
+
+      allSources.sort((a, b) => b.authority_score - a.authority_score);
+      const topSources = allSources.slice(0, 10);
+      const maxScore = topSources.length > 0 ? topSources[0].authority_score : 1;
+
+      // Single column layout with overflow protection
+      const wrapper = container.append('div')
+        .style('display', 'flex')
+        .style('flex-direction', 'column')
+        .style('gap', '0.5rem')
+        .style('max-height', '360px')
+        .style('overflow-y', 'auto');
+
+      topSources.forEach((source, i) => {
+        const hasUrl = source.url && source.url !== '#' && source.url !== '';
+        
+        const card = wrapper.append('a')
+          .attr('class', 'key-source key-source-clickable')
+          .attr('href', hasUrl ? source.url : null)
+          .attr('target', hasUrl ? '_blank' : null)
+          .attr('rel', hasUrl ? 'noopener noreferrer' : null)
+          .style('text-decoration', 'none')
+          .style('cursor', hasUrl ? 'pointer' : 'default')
+          .on('click', (event) => {
+            if (hasUrl) {
+              // Allow default link behavior
+            } else {
+              event.preventDefault();
+            }
+          })
+          .on('mouseover', (event) => {
+            showTooltip(event, `
+              <div class="tooltip-title">${source.title || source.domain}</div>
+              <div class="tooltip-row"><span>Claims Supported:</span><span class="tooltip-value">${source.claims_supported}</span></div>
+              <div class="tooltip-row"><span>Year:</span><span class="tooltip-value">${source.year || 'N/A'}</span></div>
+              <div class="tooltip-row"><span>Drug Class:</span><span class="tooltip-value">${source.task}</span></div>
+              ${hasUrl ? `<div style="margin-top:0.5rem;font-size:0.7rem;color:var(--accent-primary)">🔗 Click to open source</div>` : '<div style="margin-top:0.5rem;font-size:0.7rem;color:var(--text-muted)">No URL available</div>'}
+            `);
+          })
+          .on('mouseout', hideTooltip);
+
+        card.append('div')
+          .attr('class', 'source-rank')
+          .style('color', source.color)
+          .style('min-width', '2.5rem')
+          .text(`#${i + 1}`);
+
+        const info = card.append('div')
+          .attr('class', 'source-info')
+          .style('flex', '1')
+          .style('min-width', '0')
+          .style('overflow', 'hidden');
+        
+        info.append('div')
+          .attr('class', 'source-title')
+          .text(source.title || source.domain);
+        
+        info.append('div')
+          .attr('class', 'source-meta')
+          .html(`<span style="color:${source.color}">${source.task}</span> · ${source.domain} ${source.year ? `· ${source.year}` : ''} ${hasUrl ? '🔗' : ''}`);
+
+        // Bar container - width controlled by CSS for responsive behavior
+        const barContainer = card.append('div')
+          .attr('class', 'source-bar');
+        
+        barContainer.append('div')
+          .attr('class', 'source-bar-fill')
+          .style('width', `${(source.authority_score / maxScore) * 100}%`)
+          .style('background', source.color);
+      });
+
+      // Update summary
+      updateSourcesSummary(topSources, allSources);
+    }
+
+    function updateSourcesSummary(topSources, allSources) {
+      const insightEl = document.getElementById('sources-insight');
+      
+      if (topSources.length === 0) {
+        insightEl.innerHTML = `<span class="insight-label">Summary</span><br>No sources available.`;
+        return;
+      }
+
+      // Calculate stats dynamically per task
+      const taskStats = {};
+      TASK_LIST.forEach(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        const taskSources = allSources.filter(s => s.task === task.shortName);
+        const topTaskSources = topSources.filter(s => s.task === task.shortName);
+        taskStats[task.shortName] = {
+          total: taskSources.length,
+          inTop: topTaskSources.length,
+          totalScore: taskSources.reduce((sum, s) => sum + s.authority_score, 0),
+          avgScore: taskSources.length > 0 ? taskSources.reduce((sum, s) => sum + s.authority_score, 0) / taskSources.length : 0,
+          color: task.color
+        };
+      });
+      
+      // Detect meta-analyses/systematic reviews
+      const metaAnalyses = topSources.filter(s => 
+        s.title && (s.title.toLowerCase().includes('meta') || s.title.toLowerCase().includes('systematic'))
+      );
+      
+      // Calculate year distribution
+      const yearsWithData = allSources.filter(s => s.year).map(s => s.year);
+      const yearRange = yearsWithData.length > 0 
+        ? { min: Math.min(...yearsWithData), max: Math.max(...yearsWithData) }
+        : null;
+      
+      // Build summary
+      let summary = `<span class="insight-label">Summary</span><br>`;
+      
+      // Source count per task
+      const taskNames = Object.keys(taskStats);
+      const statsText = taskNames.map(name => {
+        const s = taskStats[name];
+        return `<span style="color:${s.color}">${name}</span>: ${s.total} sources (avg score: ${s.avgScore.toFixed(1)})`;
+      }).join(' | ');
+      summary += `<strong>Sources:</strong> ${statsText}<br><br>`;
+      
+      // Year range
+      if (yearRange) {
+        summary += `<strong>Publication Range:</strong> ${yearRange.min}–${yearRange.max}<br><br>`;
+      }
+      
+      // Score definition
+      summary += `<em style="color:var(--text-muted);font-size:0.8rem">📊 Score = claims supported by this source in the data graph.</em>`;
+      
+      insightEl.innerHTML = summary;
+    }
+
+    // Event Handlers
+    function switchView(view) {
+      currentView = view;
+      document.querySelectorAll('.task-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.task === view);
+      });
+      renderAll();
+    }
+
+    // Get task list dynamically
+    const TASK_LIST = Object.keys(LYRA_DATA.tasks);
+    const TASK_COUNT = TASK_LIST.length;
+
+    // Utility: hex color to rgba
+    function hexToRgba(hex, alpha = 1) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    // Utility: escape HTML for safe insertion into innerHTML
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    // Initialize task toggle buttons dynamically
+    function initTaskToggle() {
+      const nav = document.getElementById('task-toggle');
+      
+      // Add individual task buttons
+      TASK_LIST.forEach(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        const btn = document.createElement('button');
+        btn.className = 'task-btn';
+        btn.dataset.task = task.shortName.toLowerCase().replace(/-/g, '');
+        btn.textContent = task.shortName;
+        btn.addEventListener('click', () => switchView(btn.dataset.task));
+        nav.appendChild(btn);
+      });
+      
+      // Add Compare button if multiple tasks
+      if (TASK_COUNT > 1) {
+        const compareBtn = document.createElement('button');
+        compareBtn.className = 'task-btn active';
+        compareBtn.dataset.task = 'compare';
+        compareBtn.textContent = 'Compare';
+        compareBtn.addEventListener('click', () => switchView('compare'));
+        nav.appendChild(compareBtn);
+      } else if (TASK_COUNT === 1) {
+        // Single task: activate its button
+        nav.querySelector('.task-btn').classList.add('active');
+        currentView = nav.querySelector('.task-btn').dataset.task;
+      }
+    }
+
+    function renderHypothesis() {
+      const container = document.getElementById('hypothesis-text');
+      
+      if (currentView === 'compare') {
+        // Show all tasks' hypotheses
+        container.innerHTML = TASK_LIST.map(tid => {
+          const task = LYRA_DATA.tasks[tid];
+          const colorHex = task.color;
+          const colorRgba = hexToRgba(colorHex, 0.2);
+          return `
+            <div style="margin-bottom:0.75rem">
+              <span class="hypothesis-task" style="background:${colorRgba};color:${colorHex}">${task.shortName}</span>
+              ${task.hypothesis}
+            </div>
+          `;
+        }).join('');
+      } else {
+        // Find task by shortName match
+        const taskId = TASK_LIST.find(tid => LYRA_DATA.tasks[tid].shortName.toLowerCase().replace(/-/g, '') === currentView);
+        if (!taskId) return;
+        const task = LYRA_DATA.tasks[taskId];
+        const colorRgba = hexToRgba(task.color, 0.2);
+        container.innerHTML = `
+          <span class="hypothesis-task" style="background:${colorRgba};color:${task.color}">${task.shortName}</span>
+          ${task.hypothesis}
+        `;
+      }
+    }
+
+    // Exploration Reports with tabs (imported from report.md)
+    let activeReportTab = null;
+    
+    function renderAnalysis() {
+      const container = document.getElementById('analysis-results');
+      const tabsContainer = document.getElementById('report-tabs');
+      const reports = LYRA_DATA.reports || {};
+      const summaries = LYRA_DATA.report_summaries || {};
+      
+      // Check if we have any imported reports
+      const hasReports = Object.keys(reports).length > 0;
+      
+      if (!hasReports) {
+        tabsContainer.innerHTML = '';
+        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem;">No reports available. Generate outputs/report.md for each task (make report-finalize), then run dashboard with task_id list.</p>';
+        return;
+      }
+      
+      // Build tabs
+      let tabsHtml = '';
+      TASK_LIST.forEach((tid, idx) => {
+        if (!reports[tid]) return;
+        const task = LYRA_DATA.tasks[tid];
+        const isActive = activeReportTab === tid || (!activeReportTab && idx === 0);
+        if (!activeReportTab && idx === 0) activeReportTab = tid;
+        
+        tabsHtml += `
+          <button class="report-tab ${isActive ? 'active' : ''}" 
+                  data-task="${tid}"
+                  style="padding:0.4rem 1rem;border:none;border-radius:6px;cursor:pointer;
+                         font-family:inherit;font-size:0.8rem;font-weight:500;
+                         transition:all 0.2s ease;
+                         background:${isActive ? task.color : 'var(--bg-card)'};
+                         color:${isActive ? 'white' : 'var(--text-secondary)'};">
+            ${task.shortName}
+          </button>
+        `;
+      });
+      tabsContainer.innerHTML = tabsHtml;
+      
+      // Add tab click handlers
+      tabsContainer.querySelectorAll('.report-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          activeReportTab = tab.dataset.task;
+          renderAnalysis();
+        });
+      });
+      
+      // Render active report
+      const activeTask = LYRA_DATA.tasks[activeReportTab];
+      const activeReportHtml = reports[activeReportTab];
+      const summary = summaries[activeReportTab] || null;
+      const verdict = summary && summary.verdict ? summary.verdict : null;
+      const verdictColor = verdict === 'SUPPORTED'
+        ? 'var(--accent-support)'
+        : (verdict === 'REFUTED' ? 'var(--accent-refute)' : 'var(--accent-neutral)');
+      const rationale = summary && summary.verdict_rationale ? summary.verdict_rationale : '';
+      
+      container.innerHTML = `
+        <div style="border-left:4px solid ${activeTask.color};padding-left:1rem;">
+          ${verdict ? `
+            <div style="margin:0.25rem 0 0.75rem 0;padding:0.6rem 0.75rem;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.02);">
+              <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <div style="font-size:0.75rem;color:var(--text-muted);letter-spacing:0.04em;text-transform:uppercase;">Verdict</div>
+                <div style="font-size:0.95rem;font-weight:800;color:${verdictColor};">${escapeHtml(verdict)}</div>
+              </div>
+              ${rationale ? `<div style="margin-top:0.35rem;color:var(--text-secondary);font-size:0.85rem;line-height:1.5;">${escapeHtml(rationale)}</div>` : ''}
+            </div>
+          ` : ''}
+          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin:0.25rem 0 0.75rem 0;">
+            <label style="display:flex;align-items:center;gap:0.4rem;color:var(--text-secondary);font-size:0.8rem;">
+              <input type="checkbox" id="toggle-claim-ids" style="transform:scale(0.95);">
+              Show claim_id (trace)
+            </label>
+            <span style="color:var(--text-muted);font-size:0.75rem;">Uncited rows are dimmed.</span>
+          </div>
+          ${activeReportHtml}
+        </div>
+      `;
+
+      // Enhance Key Findings tables: hide Claim Source column by default, dim uncited rows
+      enhanceReportTables(container);
+
+      const toggle = document.getElementById('toggle-claim-ids');
+      if (toggle) {
+        toggle.checked = !!window.__showClaimIds;
+        toggle.addEventListener('change', () => {
+          window.__showClaimIds = toggle.checked;
+          enhanceReportTables(container);
+        });
+      }
+    }
+
+    function getTableHeaderTexts(table) {
+      // Prefer <thead>, fallback to first row
+      const headRow = table.querySelector('thead tr') || table.querySelector('tr');
+      if (!headRow) return [];
+      return Array.from(headRow.children).map(el => (el.textContent || '').trim());
+    }
+
+    function enhanceReportTables(container) {
+      const showClaimIds = !!window.__showClaimIds;
+      const tables = container.querySelectorAll('table');
+      tables.forEach(table => {
+        const headers = getTableHeaderTexts(table);
+        const isKeyFindings = headers.includes('Claim Source') && headers.includes('Cited');
+        if (!isKeyFindings) return;
+
+        table.classList.toggle('trace-hidden', !showClaimIds);
+
+        // Dim uncited rows based on last column (Cited)
+        const bodyRows = table.querySelectorAll('tbody tr');
+        const rows = bodyRows.length ? bodyRows : Array.from(table.querySelectorAll('tr')).slice(1);
+        rows.forEach(row => {
+          const cells = row.querySelectorAll('td');
+          if (!cells.length) return;
+          const cited = (cells[cells.length - 1].textContent || '').trim();
+          const uncited = (cited === '-' || cited === '');
+          row.classList.toggle('uncited-row', uncited);
+        });
+      });
+    }
+
+    function renderAll() {
+      renderHypothesis();
+      renderSummaryCards();
+      renderTimeline();
+      renderKeySources();
+      renderEvidenceNetwork();
+      renderClaimClusters();
+      renderAnalysis();
+    }
+
+    // Initialize
+    initTaskToggle();
+    
+    window.addEventListener('resize', () => {
+      renderAll();
+    });
+
+    setupPanelSliders();
+    renderAll();
+
+    // Dynamic footer info
+    (function renderFooterInfo() {
+      const footerInfo = document.getElementById('footer-info');
+      if (!footerInfo) return;
+      const taskParts = TASK_LIST.map(tid => {
+        const task = LYRA_DATA.tasks[tid];
+        return `${tid} (${task.shortName})`;
+      });
+      // Convert UTC timestamp to local date/time for display
+      const generatedAt = LYRA_DATA.generated_at 
+        ? new Date(LYRA_DATA.generated_at).toLocaleString(undefined, {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+          })
+        : new Date().toLocaleString();
+      footerInfo.textContent = `Tasks: ${taskParts.join(' | ')} | Generated: ${generatedAt}`;
+    })();
+  </script>
+</body>
+</html>

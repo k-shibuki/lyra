@@ -17,7 +17,7 @@
 #   test.sh    <- common.sh, pytest, uv
 #   mcp.sh     <- common.sh, dev.sh, uv, playwright
 
-.PHONY: help setup test test-all test-cov test-e2e test-e2e-internal test-e2e-external lint format clean up down build rebuild logs logs-f shell status clean-containers db-reset
+.PHONY: help setup test test-all test-cov test-e2e test-e2e-internal test-e2e-external lint format clean up down build rebuild logs logs-f shell status clean-containers db-reset bump-version show-version
 .DEFAULT_GOAL := help
 
 SHELL := /bin/bash
@@ -244,6 +244,30 @@ deadcode: ## Check for dead code (manual, not CI - may have false positives). Ov
 quality: lint format-check typecheck jsonschema shellcheck ## Run all quality checks
 
 # =============================================================================
+# REPORTS
+# =============================================================================
+# Generate research reports and dashboards from Lyra Evidence Graph.
+# Flow: pack → draft_01 → (LLM edits to draft_02 / draft_03) → validate(postprocess) → finalize → dashboard
+
+report: ## Generate evidence pack + draft report (TASKS="task_id1 task_id2" required)
+	@$(SCRIPTS)/report.sh all --tasks $(TASKS)
+
+report-pack: ## Generate evidence_pack.json only (TASKS="task_id1 task_id2" required)
+	@$(SCRIPTS)/report.sh pack --tasks $(TASKS)
+
+report-draft: ## Generate drafts/draft_01.md from evidence_pack (TASKS="task_id1 task_id2" required)
+	@$(SCRIPTS)/report.sh draft --tasks $(TASKS)
+
+report-validate: ## Stage 3: postprocess + validate (TASKS="task_id1 task_id2" required)
+	@$(SCRIPTS)/report.sh validate --tasks $(TASKS)
+
+report-finalize: ## Finalize validated draft into outputs/report.md (TASKS="task_id1 task_id2" required)
+	@$(SCRIPTS)/report.sh finalize --tasks $(TASKS)
+
+report-dashboard: ## Generate evidence dashboard (TASKS="task_id1 [task_id2 ...]" required)
+	@$(SCRIPTS)/report.sh dashboard --tasks $(TASKS)
+
+# =============================================================================
 # CLEANUP
 # =============================================================================
 
@@ -255,6 +279,20 @@ clean-all: clean clean-containers ## Clean everything including containers
 
 db-reset: ## Reset database (destructive: deletes data/lyra.db, recreates on next server start)
 	@$(SCRIPTS)/db.sh reset
+
+# =============================================================================
+# RELEASE
+# =============================================================================
+
+bump-version: ## Bump version (VERSION=x.y.z required). Updates pyproject.toml and CITATION.cff
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required. Usage: make bump-version VERSION=0.2.0"; \
+		exit 1; \
+	fi
+	@uv run python $(SCRIPTS)/bump_version.py $(VERSION)
+
+show-version: ## Show current version
+	@uv run python $(SCRIPTS)/bump_version.py --show
 
 # =============================================================================
 # HELP
@@ -309,6 +347,14 @@ help: ## Show this help
 	@grep -E '^(lint|format|typecheck|quality)[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
+	@echo "Reports:"
+	@grep -E '^report[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+	@echo ""
 	@echo "Cleanup:"
 	@grep -E '^clean[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Release:"
+	@grep -E '^(bump-version|show-version):.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
