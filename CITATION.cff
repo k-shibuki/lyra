@@ -3,10 +3,11 @@ message: "If you use this software, please cite it as below."
 type: software
 title: "Lyra: A Local-First MCP Toolkit for AI-Collaborative Desktop Research"
 version: 0.1.0
-date-released: 2025-12-28
+doi: "10.5281/zenodo.18218530"
+date-released: 2026-01-12
 license: MIT
-url: "https://github.com/shibukik/lyra"
-repository-code: "https://github.com/shibukik/lyra"
+url: "https://github.com/k-shibuki/lyra"
+repository-code: "https://github.com/k-shibuki/lyra"
 authors:
   - family-names: Shibuki
     given-names: Katsuya
