@@ -288,6 +288,10 @@ make help        # Show all commands
 
 If you use Lyra in your research, please cite using [CITATION.cff](CITATION.cff).
 
+**Preprints:**
+- System paper: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18222598.svg)](https://doi.org/10.5281/zenodo.18222598)
+- Experience report: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18244548.svg)](https://doi.org/10.5281/zenodo.18244548)
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
