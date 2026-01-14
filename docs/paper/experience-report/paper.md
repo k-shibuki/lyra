@@ -7,8 +7,6 @@ tags:
   - control plane
   - quality gates
   - AI coding agents
-  - Model Context Protocol
-  - Python
 authors:
   - name: Katsuya Shibuki
     orcid: 0000-0003-3570-5038
@@ -17,12 +15,12 @@ affiliations:
   - name: Independent Researcher
     index: 1
 date: 14 January 2026
-bibliography: ../lyra-system/paper.bib
+bibliography: paper.bib
 ---
 
 # Abstract
 
-AI coding agents can generate code from natural language, but most workflows assume a human who can read and review that code. What happens when the human cannot? This experience report documents a 45-day project in which I—a PharmD/PhD statistician who cannot read Python code—built an operational MCP server (~190k LOC including tests) using AI agents with **zero human-written code**. I could not inspect the implementation, so code review was impossible. After an initial failure where specification-driven development produced modules that "looked right but did not run," the project pivoted to an **ADR-driven control plane** governing a fast-changing **data plane** (code, tests). The control plane—decision logs (ADRs), policies (rules), procedures (commands), and quality gates—stabilized **inter-module contracts and coordination**. I describe this control plane's minimal components, how failures drove its evolution, and practical patterns for collaborating with AI agents without inspecting code.
+AI coding agents can generate code from natural language, but most workflows assume a human who can read and review that code [@vaithilingamExpectationVsExperience2022]. What happens when the human cannot? This experience report documents a 45-day project in which I—a PharmD/PhD statistician who cannot read Python code—built an operational MCP server (~190k LOC including tests) using AI agents with **zero human-written code**. I could not inspect the implementation, so code review was impossible. After an initial failure where specification-driven development produced modules that "looked right but did not run," the project pivoted to an **ADR-driven control plane** governing a fast-changing **data plane** (code, tests). The control plane—decision logs (ADRs), policies (rules), procedures (commands), and quality gates—stabilized **inter-module contracts and coordination**. I describe this control plane's minimal components, how failures drove its evolution, and practical patterns for collaborating with AI agents without inspecting code.
 
 ---
 
@@ -91,7 +89,7 @@ The control plane consists of governance artifacts: ADRs, rules, commands, the M
 
 ## 3.1 What Lyra does
 
-Lyra is an MCP (Model Context Protocol) server for AI-assisted research. It provides:
+Lyra [@LyraLocalFirstMCP] is an MCP (Model Context Protocol) server for AI-assisted research. It provides:
 
 - **Evidence Graph**: Claims linked to source fragments via NLI (natural language inference; supports/refutes/neutral) with full URL traceability.
 - **Multi-source search**: Academic APIs (Semantic Scholar, OpenAlex) and web engines.
@@ -111,7 +109,7 @@ Although Lyra originated as a personal research tool, it was engineered with ope
 
 Public artifacts with persistent identifiers:
 
-- Software archive: `https://doi.org/10.5281/zenodo.18218531`
+- Software archive [@shibukiLyraLocalFirstMCP2026]: `https://doi.org/10.5281/zenodo.18218531`
 - Repository: `https://github.com/k-shibuki/lyra`
 - Preprint: `https://doi.org/10.5281/zenodo.18222598`
 
@@ -156,7 +154,7 @@ On 2025-12-23, the project pivoted sharply:
 - Legacy specification documents were archived.
 - Code references were migrated from spec sections (§) to ADR numbers (ADR-NNNN).
 
-The conceptual change: **ADRs capture why decisions were made, not what the system looks like.** They do not require continuous truth maintenance. New circumstances produce new ADRs; old ADRs remain valid as historical records.
+The conceptual change: **ADRs capture why decisions were made, not what the system looks like** [@nygardDocumentingArchitectureDecisions2011; @tyreeArchitectureDecisionsDemystifying2005]. They do not require continuous truth maintenance. New circumstances produce new ADRs; old ADRs remain valid as historical records.
 
 ## 5.2 The control plane components
 
@@ -240,7 +238,7 @@ When I cannot read code, what can I review? The answer: **contracts**.
 
 ## 7.1 The four contract elements
 
-I focused on four elements that define module boundaries:
+Inspired by Design by Contract [@bertrandmeyerObjectOrientedSoftwareConstruction1997], I focused on four elements that define module boundaries:
 
 1. **Responsibilities**: What each module does (not how).
 2. **Dependency direction**: Who calls whom; what data flows where.
@@ -332,10 +330,3 @@ The repository includes all control-plane artifacts described in this report: AD
 ---
 
 # References
-
-1. Nygard, M. (2011). Documenting Architecture Decisions.
-2. Tyree, J., & Akerman, A. (2005). Architecture decisions: Demystifying architecture. IEEE Software, 22(2), 19-27.
-3. Vaithilingam, P., Zhang, T., & Glassman, E. L. (2022). Expectation vs. Experience: Evaluating the Usability of Code Generation Tools Powered by Large Language Models. CHI '22.
-4. Lyra v0.1.0 software archive: `https://doi.org/10.5281/zenodo.18218531`
-5. Lyra repository: `https://github.com/k-shibuki/lyra`
-6. Lyra preprint: `https://doi.org/10.5281/zenodo.18222598`
