@@ -19,7 +19,7 @@ bibliography: paper.bib
 
 # Summary
 
-Research demands auditable evidence chains—the ability to trace every claim back to its source. Lyra is an open-source server implementing the Model Context Protocol [MCP, @WhatModelContext]—a standard interface for connecting AI assistants to external tools—that enables AI assistants to conduct desktop research using structured provenance, providing accurate and auditable evidence. The software exposes research capabilities—web search, content extraction, natural language inference, and evidence graph construction—as structured tools that MCP-compatible AI clients can invoke directly.
+Research demands auditable evidence chains—the ability to trace every claim back to its source. Lyra [@shibukiLyra2026] is an open-source server implementing the Model Context Protocol [MCP, @WhatModelContext]—a standard interface for connecting AI assistants to external tools—that enables AI assistants to conduct desktop research using structured provenance, providing accurate and auditable evidence. The software is available at <https://github.com/k-shibuki/lyra> (DOI: [10.5281/zenodo.18218530](https://doi.org/10.5281/zenodo.18218530)) under the MIT license. It exposes research capabilities—web search, content extraction, natural language inference, and evidence graph construction—as structured tools that MCP-compatible AI clients can invoke directly.
 
 I designed Lyra to separate strategic reasoning—performed by the AI assistant in the MCP client—from mechanical execution: evidence discovery, classification, and scoring (Figure 1). 
 
