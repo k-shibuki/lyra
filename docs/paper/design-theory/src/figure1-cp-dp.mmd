@@ -1,0 +1,24 @@
+%%{init: {'theme':'neutral','flowchart': {'curve':'linear'}}}%%
+flowchart TD
+  subgraph CP["Control Plane (meta layer)"]
+    CRS["CRS: correctness reference system"]
+    VR["VR: verification recipes (gates)"]
+    RULES["rules (constraints)"]
+    CMDS["commands (recovery)"]
+  end
+
+  subgraph DP["Data Plane (object layer)"]
+    CU["change units"]
+    VA["verification artifacts"]
+    ST["artifacts / states"]
+  end
+
+  CRS --> CU
+  RULES --> CU
+  VR --> VA
+  CU --> VA
+  VA --> ST
+
+  ST -->|"integration failures / audit diffs"| CU
+  VA -->|"gate fail / retries"| CU
+  CMDS -->|"standardized recovery"| ST

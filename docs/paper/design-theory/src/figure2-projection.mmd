@@ -1,0 +1,21 @@
+%%{init: {'theme':'neutral','flowchart': {'curve':'linear'}}}%%
+flowchart LR
+  kappa["κ: concurrency pressure"] --> rho["ρ: finalization load ratio"]
+  kappa --> Pi["Π: CRS staleness pressure"]
+  kappa --> Psi["Ψ: VR staleness pressure"]
+
+  s["ŝ: exploration share"] --> R["Ŕ: CRS resolution"]
+  R --> phat["p̂Δ: commutativity proxy (fixed window Δ)"]
+  R --> epshat["ε̂: reproducibility loss proxy"]
+  phat --> rho
+  epshat --> rho
+
+  det["detector proxy"] --> rho
+  det --> Psi
+
+  phat --> chi["χ=f(1-p̂Δ, ε_max; Δ)"]
+  epsmax["ε_max: reproducibility requirement"] --> chi
+  chi --> epshat
+
+  gcrs["g_CRS: induced CRS update demand"] --> Pi
+  gvr["g_VR: induced VR update demand"] --> Psi

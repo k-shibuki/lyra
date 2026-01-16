@@ -1,6 +1,6 @@
 ## Papers in this repository
 
-This repository currently contains **two active papers** under `docs/paper/`.
+This repository currently contains **three active papers** under `docs/paper/`.
 
 ### 1) Lyra system paper (JOSS target)
 
@@ -22,8 +22,19 @@ This repository currently contains **two active papers** under `docs/paper/`.
 - **Entry point**: `paper.md`
 - **Latest PDF (preprint)**: `preprint_20260114.pdf`
 
+### 3) Design Theory Paper (Preprint)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18265124.svg)](https://doi.org/10.5281/zenodo.18265124)
+
+- **Directory**: `docs/paper/design-theory/`
+- **Focus**: Phase diagrams for human–AI development; observational theory of finalization and responsibility (RP as responsibility-fold point, Control Plane / Data Plane decomposition, falsifiability conditions)
+- **Target venue**: Preprint (theoretical foundation)
+- **Entry point**: `paper.md`
+- **Latest PDF (preprint)**: `preprint_20260116.pdf`
+
 ### Notes
 
 - These papers are intentionally separated because they target different venues and make different claims:
   - The **system paper** describes what Lyra is and how it works.
   - The **experience report** describes how Lyra was built under a constrained human capability model (cannot inspect implementation code).
+  - The **design theory paper** provides a theoretical framework for describing phase transitions in human–AI collaborative development.
