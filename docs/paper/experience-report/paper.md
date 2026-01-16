@@ -46,7 +46,7 @@ AI coding agents generate impressive amounts of code from natural language promp
 
 But what if the human cannot do any of these? Domain experts—researchers, analysts, clinicians—increasingly want to build software for their own needs without becoming software engineers. The question then becomes: **what prevents a natural-language-first process from collapsing into drift and broken integration?**
 
-In this report, I describe the answer as a separation between a fast-changing **data plane** (implementation artifacts) and a durable **control plane** (decisions, policies, procedures, and gates). As AI agents increasingly outpace human review capacity, this condition is likely to become common rather than exceptional.
+In this report, I describe the answer as a separation between a fast-changing **data plane** (implementation artifacts) and a durable **control plane** (decisions, policies, procedures, and gates). While this report focuses on an extreme case where code inspection was impossible, similar coordination failures may arise whenever implementation velocity outpaces human review capacity.
 
 ## 1.2 Author context
 
@@ -169,24 +169,9 @@ ADRs alone were insufficient. Stability required four control-plane mechanisms w
 
 In this framing, inter-module contracts are the *governed object*; ADRs, rules, commands, and gates are the mechanisms that specify, enforce, and restore them. Contract boundaries are captured via ADR anchors and `integration-design`.
 
-The Makefile provides a unified execution interface:
-
-```
-make test          # Run tests (async, returns RUN_ID)
-make test-check    # Check test results (RUN_ID required)
-make quality       # Run all quality checks
-make up / down     # Start/stop containers
-make help          # Show all targets
-```
+The Makefile provides a unified execution interface.
 
 ## 5.3 Why ADRs do not go stale
-
-| Aspect | Specification | ADR |
-|--------|---------------|-----|
-| Content | Current desired state | Historical decision |
-| Updates | Required continuously | Append-only |
-| Validity | Degrades as system changes | Permanent |
-| For code-illiterate | Must verify implementation matches | Need only understand the decision |
 
 ADRs are history, not prophecy. They describe what was decided and why, not what the system currently looks like.
 
@@ -198,33 +183,13 @@ In this project, rules and commands were implemented using Cursor's rule/command
 
 AI coding agents exhibit probabilistic behavior: the same prompt can produce different outputs. This section describes how I constrained that behavior.
 
-## 6.1 Rules: direction under probabilistic behavior
+## 6.1 Rules and commands
 
-Rules increase predictability by reducing degrees of freedom. They constrain what the agent should and should not do.
+Rules increase predictability by reducing degrees of freedom. They constrain what the agent should and should not do. Rules are **direction**: they tell the agent which behaviors are acceptable.
 
-| Rule file | Key constraints |
-|-----------|-----------------|
-| `quality-check.mdc` | No workarounds (`# noqa`, `# type: ignore`); fix errors, don't silence them |
-| `integration-design.mdc` | Design data flow before implementation; verify module interfaces |
-| `debug.mdc` | Timeout required for async operations; state-based diagnosis |
-| `test-strategy.mdc` | Test perspectives table; coverage requirements |
+Commands encode repeatable workflows for repair and prevention. They assume breakdowns will occur and provide playbooks. Commands are **resilience**: they restore state when things go wrong.
 
-Rules are **direction**: they tell the agent which behaviors are acceptable.
-
-## 6.2 Commands: resilience under inevitable breakdowns
-
-Commands encode repeatable workflows for repair and prevention. They assume breakdowns will occur and provide playbooks.
-
-| Command file | Workflow |
-|--------------|----------|
-| `/debug` | State-based debugging: reproduce → isolate → diagnose → fix → verify |
-| `/integration-design` | Pre-implementation verification: sequence diagrams, data flow, interface contracts |
-| `/quality-check` | Full quality sequence: lint → typecheck → test → schema validation |
-| `/regression-test` | Targeted verification after changes |
-
-Commands are **resilience**: they restore state when things go wrong.
-
-## 6.3 Why procedures beat conventions
+## 6.2 Why procedures beat conventions
 
 Conventions assume compliance. Procedures assume failure and provide recovery steps.
 
@@ -326,6 +291,12 @@ The practical lesson is not that AI can write code. The lesson is that humans ca
 - **Repository (GitHub)**: `https://github.com/k-shibuki/lyra`
 
 The repository includes all control-plane artifacts described in this report: ADRs (`docs/adr/`), agent rules (`.cursor/rules/`), command procedures (`.cursor/commands/`), and the Makefile interface. Readers can inspect the governance mechanisms in full.
+
+---
+
+# Conflict of Interest
+
+The author declares no conflict of interest.
 
 ---
 
