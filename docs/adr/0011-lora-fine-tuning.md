@@ -131,12 +131,16 @@ flowchart TD
 - `calibration_metrics(get_stats)`: Provides Brier score for shadow evaluation (before production deployment)
 
 **Version Activation Flow**:
-1. Train new adapter (V2) from **entire** `nli_corrections` history
-2. Run shadow evaluation: compare V2 Brier score against V1
-3. If improved → activate V2 (`is_active=1`), deactivate V1
-4. If degraded in production → rollback to V1
+1. Train new adapter from **entire** `nli_corrections` history
+2. Run shadow evaluation:
+   - **V2+**: compare new adapter's accuracy against the current active adapter
+   - **V1 (first adapter)**: no previous adapter exists; compare against base model (no adapter) as baseline
+3. If improved → activate new adapter (`is_active=1`), deactivate previous
+4. If degraded in production → rollback to previous active adapter
 
 The `adapters` table tracks version history. Only one adapter can be active at a time.
+
+**`is_active` write ownership**: Only `scripts/train_lora.py` sets `is_active`. ML Server reads it but never writes it.
 
 ### MCP Tool Integration Decision
 
@@ -156,7 +160,10 @@ The `adapters` table tracks version history. Only one adapter can be active at a
 **Script-based offline training** (not MCP tools):
 - Training script reads `nli_corrections`, trains adapter, writes to `adapters/`
 - User reviews shadow evaluation results before activation
-- ML Server loads adapter via API call (`/nli/adapter/load`)
+- Training script sets `is_active=1` after user approval
+- **ML Server auto-loads `is_active=1` adapter on startup** (startup auto-load)
+  - Load failure (missing file, etc.): log warning and continue with base model (degraded operation)
+- Manual reload also available via API call (`/nli/adapter/load`)
 
 See **Adapter Management** section above for the complete version activation flow.
 
