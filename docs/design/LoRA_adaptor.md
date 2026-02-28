@@ -297,6 +297,7 @@ def main():
         "cross-encoder/nli-deberta-v3-small",
         num_labels=3  # supports, refutes, neutral
     )
+    tokenizer = AutoTokenizer.from_pretrained("cross-encoder/nli-deberta-v3-small")
     
     # LoRA設定
     lora_config = LoraConfig(
@@ -540,12 +541,12 @@ WHERE predicted_confidence > 0.8
 
 ```sql
 -- リーク防止用: サンプルごとのpage_id取得
--- source_type = 'fragment' のedgeのみ page_id が存在する
+-- LEFT JOIN: source_type != 'fragment' の訂正は page_id = NULL となり、Python 側で edge_id にフォールバック
+-- （スキーマ上 NLI 訂正は常に fragment-type edge を参照するが、DB レベルの制約はないため防御的に LEFT JOIN を使用）
 SELECT nc.*, f.page_id
 FROM nli_corrections nc
 JOIN edges e ON nc.edge_id = e.id
-JOIN fragments f ON e.source_id = f.id
-WHERE e.source_type = 'fragment'
+LEFT JOIN fragments f ON e.source_id = f.id AND e.source_type = 'fragment'
 ```
 
 ```python
