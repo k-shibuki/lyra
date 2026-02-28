@@ -135,16 +135,24 @@ flowchart TD
 2. Run shadow evaluation:
    - **V2+**: compare new adapter's accuracy against the current active adapter
    - **V1 (first adapter)**: no previous adapter exists; compare against base model (no adapter) as baseline
-3. If improved → activate new adapter (`is_active=1`), deactivate previous
+3. If improved → set new adapter `status='active'`, set previous adapter `status='retired'`
 4. If degraded in production → rollback to previous active adapter:
-   - Update DB: set current adapter `is_active=0`, restore previous adapter `is_active=1`
+   - Update DB: set current adapter `status='degraded'`, restore previous adapter `status='active'`
    - Reload ML Server (restart or `POST /nli/adapter/load` with previous adapter path)
    - **`/nli/adapter/unload` alone is insufficient**: it is in-memory only; on restart the DB state
-     re-loads the still-active bad adapter. DB must be updated first.
+     re-loads the still-degraded adapter. DB must be updated first.
 
-The `adapters` table tracks version history. Only one adapter can be active at a time.
+The `adapters` table tracks version history. Only one adapter can have `status='active'` at a time.
 
-**`is_active` write ownership**: Only `scripts/train_lora.py` sets `is_active`. ML Server reads it but never writes it.
+**Adapter status lifecycle**: `candidate` → `active` → `retired` or `degraded`
+- `candidate`: trained, not yet deployed (shadow eval pending or failed)
+- `active`: currently loaded in ML Server
+- `retired`: was active, gracefully replaced by a newer adapter
+- `degraded`: was active, rolled back due to production quality issues
+
+**`status` write ownership**: Only `scripts/train_lora.py` updates `status`. ML Server reads it but never writes it.
+
+**File retention policy**: DB rows are kept permanently (audit trail). Adapter files may be deleted once the adapter reaches `retired` or `degraded` status and its successor has been confirmed stable.
 
 ### MCP Tool Integration Decision
 
@@ -164,8 +172,8 @@ The `adapters` table tracks version history. Only one adapter can be active at a
 **Script-based offline training** (not MCP tools):
 - Training script reads `nli_corrections`, trains adapter, writes to `adapters/`
 - User reviews shadow evaluation results before activation
-- Training script sets `is_active=1` after user approval
-- **ML Server auto-loads `is_active=1` adapter on startup** (startup auto-load)
+- Training script sets `status='active'` after user approval
+- **ML Server auto-loads `status='active'` adapter on startup** (startup auto-load)
   - Load failure (missing file, etc.): log warning and continue with base model (degraded operation)
 - Manual reload also available via API call (`/nli/adapter/load`)
 

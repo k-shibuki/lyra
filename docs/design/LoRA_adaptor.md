@@ -428,7 +428,7 @@ Phase R: LoRA学習を実行（オフラインバッチ）
     ↓
 scripts/train_lora.py → adapters/lora-lyra-v1/
     ↓
-シャドー評価で改善確認 → adapters.is_active=1 を設定（train_lora.py のみ書き込み可）
+シャドー評価で改善確認 → adapters.status='active' に設定（train_lora.py のみ書き込み可）
     ↓
 ML Server再起動 or /nli/adapter/load
     ↓
@@ -439,42 +439,71 @@ ML Server再起動 or /nli/adapter/load
 
 ### 8.1.1 ML Server起動時の自動ロード
 
-**ML Server は起動時に `is_active=1` のアダプタを自動ロードする。**
+**ML Server は起動時に `status='active'` のアダプタを自動ロードする。**
 
 ```
 lifespan 起動シーケンス:
-  1. DB で SELECT * FROM adapters WHERE is_active=1 LIMIT 1 を実行
+  1. DB で SELECT * FROM adapters WHERE status='active' LIMIT 1 を実行
   2. 該当行あり → load_with_adapter(adapter_path) を実行
        成功: ログに "Auto-loaded adapter {version_name}" を記録
        失敗（ファイル欠損等）: 警告ログを出力しベースモデルで続行（サーバーは起動する）
   3. 該当行なし → ベースモデルのみで起動
 ```
 
-**`is_active` フラグの書き込み権限**:
-- **書き込み**: `scripts/train_lora.py` のみ（シャドー評価通過後に設定）
+**`status` フィールドの書き込み権限**:
+- **書き込み**: `scripts/train_lora.py` のみ（各ライフサイクル遷移時に更新）
 - **読み取り**: ML Server（起動時の自動ロード判断に使用）
-- ML Server 自身は `is_active` を更新しない
+- ML Server 自身は `status` を更新しない
 
-**設計根拠**: `is_active=1` はオペレータがシャドー評価後に意図的に設定するフラグであり、「ロードすべき状態」を表す。再起動後に暗黙的に外れると意図に反するため、自動ロードを採用する。ロード失敗時もサーバーを落とさないことで縮退運用を確保する。
+**設計根拠**: `status='active'` はオペレータがシャドー評価後に意図的に設定するフィールドであり、「ロードすべき状態」を表す。再起動後に暗黙的に外れると意図に反するため、自動ロードを採用する。ロード失敗時もサーバーを落とさないことで縮退運用を確保する。
 
 ### 8.1.2 ロールバック手順
 
-**`/nli/adapter/unload` はメモリ上のみ。DB の `is_active` を更新しないと、再起動で劣化アダプタが復元される。**
+**`/nli/adapter/unload` はメモリ上のみ。DB の `status` を更新しないと、再起動で劣化アダプタが復元される。**
 
 ロールバックは必ず DB 更新と ML Server 反映の 2 ステップで行うこと：
 
 ```
 ロールバック手順:
   1. DB 更新（train_lora.py または直接 SQL）
-       現アダプタ: UPDATE adapters SET is_active=0 WHERE is_active=1
-       前バージョン（あれば）: UPDATE adapters SET is_active=1 WHERE id=<前アダプタID>
+       現アダプタ: UPDATE adapters SET status='degraded' WHERE status='active'
+       前バージョン（あれば）: UPDATE adapters SET status='active' WHERE id=<前アダプタID>
 
   2. ML Server 反映
        前バージョンあり: 再起動 または POST /nli/adapter/load {adapter_path: <前パス>}
        前バージョンなし（V1 ロールバック）: POST /nli/adapter/unload でベースモデルに戻す
 ```
 
-**`is_active=1` が存在しない状態**は「アダプタなし」を意味し、起動時はベースモデルのみで起動する（§8.1.1）。
+**`status='active'` が存在しない状態**は「アダプタなし」を意味し、起動時はベースモデルのみで起動する（§8.1.1）。
+
+### 8.1.3 アダプタのライフサイクルとファイル廃棄
+
+```
+[train_lora.py が学習完了]
+        ↓
+  status='candidate'
+        ↓
+  shadow eval 通過・オペレータ承認
+        ↓
+  旧 active → status='retired'     （後継に置き換え）
+  新アダプタ → status='active'
+        ↓
+  本番で劣化検知
+        ↓
+  current → status='degraded'      （問題あり）
+  前バージョン → status='active'   （復元）
+```
+
+**ファイル廃棄の安全条件**：
+
+| status | ファイル廃棄タイミング |
+|--------|----------------------|
+| `candidate` | shadow eval 結果確認後、即廃棄可 |
+| `active` | 廃棄禁止 |
+| `retired` | 後継の `active` が安定稼働を確認後に廃棄可 |
+| `degraded` | ロールバック後の安定稼働を確認後に廃棄可 |
+
+**DB 行（`adapters` テーブル）は `status` によらず保持する**（監査証跡）。廃棄するのはファイルのみ。
 
 ### 8.2 学習トリガー条件
 
@@ -639,7 +668,11 @@ CREATE TABLE IF NOT EXISTS adapters (
     brier_after REAL,                     -- 学習後Brierスコア
     shadow_accuracy REAL,                 -- シャドー評価精度
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT 0           -- 現在ML Serverで使用中か
+    status TEXT NOT NULL DEFAULT 'candidate'
+    -- candidate: 学習済み・未デプロイ（shadow eval 失敗・未適用含む）
+    -- active:    本番稼働中（同時に1つのみ）
+    -- retired:   後継に置き換えられた旧版
+    -- degraded:  本番で劣化しロールバック済み
 );
 
 -- nli_corrections に学習済みアダプタIDを追加
