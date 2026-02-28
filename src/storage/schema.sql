@@ -785,13 +785,9 @@ CREATE TABLE IF NOT EXISTS adapters (
     brier_after REAL,                     -- Brier score after training
     shadow_accuracy REAL,                 -- Shadow evaluation accuracy
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status TEXT NOT NULL DEFAULT 'candidate', -- candidate | active | retired | degraded
-    -- candidate: trained, not deployed (shadow eval pending/failed)
-    -- active:    currently loaded in ML Server (only one at a time)
-    -- retired:   was active, gracefully replaced by a newer adapter
-    -- degraded:  was active, rolled back due to production quality issues
+    is_active BOOLEAN DEFAULT 0           -- Whether this adapter is currently loaded in ML Server
 );
-CREATE INDEX IF NOT EXISTS idx_adapters_status ON adapters(status);
+CREATE INDEX IF NOT EXISTS idx_adapters_active ON adapters(is_active);
 CREATE INDEX IF NOT EXISTS idx_adapters_created ON adapters(created_at);
 
 -- NLI correction samples for ground-truth collection (ADR-0011: LoRA fine-tuning, ADR-0012: feedback)
