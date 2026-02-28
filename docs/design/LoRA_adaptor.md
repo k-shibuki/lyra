@@ -214,36 +214,53 @@ from peft import PeftModel
 
 class NLIService:
     def __init__(self):
-        self._base_model = None
+        self._model = None          # pipeline ラッパー（既存の predict() はこれを使用）
         self._adapter_loaded = False
         self._adapter_path: str | None = None
 
     async def load_with_adapter(self, adapter_path: str | None = None):
-        from transformers import AutoModelForSequenceClassification
-        
-        # ベースモデル読み込み
-        self._base_model = AutoModelForSequenceClassification.from_pretrained(
-            "cross-encoder/nli-deberta-v3-small"
-        )
-        
-        # アダプタがあれば適用
+        """ベースモデルを読み込み、アダプタがあれば適用してpipelineを再構築する。
+
+        既存の load() を置き換える。アダプタなし（adapter_path=None）の場合は
+        ベースモデルのみで pipeline を構築する。
+        """
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+
+        model_path = get_nli_path()
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        base_model = AutoModelForSequenceClassification.from_pretrained(model_path)
+
+        # アダプタがあれば適用（ベースモデルにマージして pipeline に渡す）
         if adapter_path:
-            self._base_model = PeftModel.from_pretrained(
-                self._base_model, 
-                adapter_path
-            )
-            # 推論高速化のためマージ（オプション）
-            self._base_model = self._base_model.merge_and_unload()
+            peft_model = PeftModel.from_pretrained(base_model, adapter_path)
+            # merge_and_unload() でアダプタをベースモデルにマージする。
+            # マージ後は通常の AutoModelForSequenceClassification と同一構造になるため
+            # pipeline にそのまま渡せる。
+            # 注意: マージは不可逆。unload_adapter() はモデルをディスクから再ロードする。
+            base_model = peft_model.merge_and_unload()
             self._adapter_loaded = True
             self._adapter_path = adapter_path
-
-    async def unload_adapter(self):
-        """アダプタを解除し、ベースモデルに戻す"""
-        if self._adapter_loaded:
-            # ベースモデルを再読み込み
-            await self.load_with_adapter(adapter_path=None)
+        else:
             self._adapter_loaded = False
             self._adapter_path = None
+
+        # GPU に載せて pipeline を構築（§6.1: GPU必須）
+        self._model = pipeline(
+            "text-classification",
+            model=base_model,
+            tokenizer=tokenizer,
+            device=0,  # GPU (CUDA device 0)
+        )
+
+    async def unload_adapter(self):
+        """アダプタを解除し、ベースモデルのみの状態に戻す。
+
+        merge_and_unload() 後はモデル構造にアダプタが残らないため、
+        ベースモデルをディスクから再ロードして pipeline を再構築する。
+        """
+        if self._adapter_loaded:
+            await self.load_with_adapter(adapter_path=None)
 ```
 
 ### 7.3 コード例：学習スクリプト
@@ -292,10 +309,12 @@ def main():
     
     # ベースモデルにLoRAを適用
     model = get_peft_model(base_model, lora_config)
-    print(f"学習パラメータ数: {model.print_trainable_parameters()}")
-    
-    # データセット準備（省略）
-    train_dataset = prepare_dataset(corrections)
+    model.print_trainable_parameters()  # stdout に学習パラメータ数を出力（戻り値は None）
+
+    # データセット準備（§9.2 の分割ロジックで取得した train を渡す）
+    # トークナイズ: cross-encoder形式 "[CLS] premise [SEP] hypothesis [SEP]"
+    # HuggingFace Trainer が受け取る Dataset 形式（input_ids, attention_mask, labels）に変換する
+    train_dataset = prepare_dataset(corrections, tokenizer)
     
     # 学習
     trainer = Trainer(
@@ -408,6 +427,8 @@ Phase R: LoRA学習を実行（オフラインバッチ）
     ↓
 scripts/train_lora.py → adapters/lora-lyra-v1/
     ↓
+シャドー評価で改善確認 → adapters.is_active=1 を設定（train_lora.py のみ書き込み可）
+    ↓
 ML Server再起動 or /nli/adapter/load
     ↓
 以降の推論でアダプタ適用
@@ -415,12 +436,32 @@ ML Server再起動 or /nli/adapter/load
 精度が悪化したら /nli/adapter/unload でロールバック
 ```
 
+### 8.1.1 ML Server起動時の自動ロード
+
+**ML Server は起動時に `is_active=1` のアダプタを自動ロードする。**
+
+```
+lifespan 起動シーケンス:
+  1. DB で SELECT * FROM adapters WHERE is_active=1 LIMIT 1 を実行
+  2. 該当行あり → load_with_adapter(adapter_path) を実行
+       成功: ログに "Auto-loaded adapter {version_name}" を記録
+       失敗（ファイル欠損等）: 警告ログを出力しベースモデルで続行（サーバーは起動する）
+  3. 該当行なし → ベースモデルのみで起動
+```
+
+**`is_active` フラグの書き込み権限**:
+- **書き込み**: `scripts/train_lora.py` のみ（シャドー評価通過後に設定）
+- **読み取り**: ML Server（起動時の自動ロード判断に使用）
+- ML Server 自身は `is_active` を更新しない
+
+**設計根拠**: `is_active=1` はオペレータがシャドー評価後に意図的に設定するフラグであり、「ロードすべき状態」を表す。再起動後に暗黙的に外れると意図に反するため、自動ロードを採用する。ロード失敗時もサーバーを落とさないことで縮退運用を確保する。
+
 ### 8.2 学習トリガー条件
 
 | 条件 | 閾値 | 根拠 |
 |------|------|------|
 | 訂正サンプル数 | ≥100件 | 過学習防止の最低ライン |
-| 訂正率 | ≥5% | 訂正が頻発している場合のみ学習 |
+| 訂正率 | ≥10% | 訂正が頻発している場合のみ学習（ADR-0011準拠） |
 | 前回学習からの経過 | ≥7日 | 頻繁な再学習を防止 |
 
 ### 8.3 精度評価
@@ -483,34 +524,48 @@ SELECT * FROM nli_corrections
 WHERE predicted_confidence > 0.8
 ```
 
-**注**: `nli_corrections` は訂正のみを記録するため、`predicted_label != correct_label` のフィルタは不要（テーブル設計で保証）。
+**注**: `nli_corrections` は訂正のみを記録するため、`predicted_label != correct_label` のフィルタは不要（`feedback_handler.py` のアプリケーション層で保証）。
 
 ### 9.2 バリデーション分割
 
-```python
-from sklearn.model_selection import train_test_split
+**方針: ページ単位グループ化を優先する。**
 
-train, val = train_test_split(
-    corrections,
-    test_size=0.2,
-    stratify=[c["correct_label"] for c in corrections],
-    random_state=42
-)
-```
+同一ページ由来のサンプルは必ず同一セットに配置し、情報リークを防ぐ。
+`GroupShuffleSplit` を使用する。ラベル層化（stratify）との同時指定はできないため、ラベル比率の均等性は保証されない。
 
-- **分割比率**: 80/20
-- **層化**: ラベル別（supports/refutes/neutralの比率を維持）
-- **リーク防止**: 同一ページ由来のサンプルは同一セットに配置
-  - JOIN経路: `nli_corrections.edge_id → edges.source_id → fragments.page_id`
+> **トレードオフ**: サンプル数が少ない（≥100件前後）場合、特定ラベルがvalセットに偏る可能性がある。
+> ただし学習データの汚染（リーク）のほうがモデル評価の信頼性を根本的に損なうため、グループ化を優先する。
+
+まず `page_id` をSQLで取得し、分割のグループとして使用する:
 
 ```sql
 -- リーク防止用: サンプルごとのpage_id取得
+-- source_type = 'fragment' のedgeのみ page_id が存在する
 SELECT nc.*, f.page_id
 FROM nli_corrections nc
 JOIN edges e ON nc.edge_id = e.id
 JOIN fragments f ON e.source_id = f.id
 WHERE e.source_type = 'fragment'
 ```
+
+```python
+from sklearn.model_selection import GroupShuffleSplit
+
+# page_id をグループとして使用
+# source_type != 'fragment'（page_id が取得できない）場合は edge_id を代替グループとする
+groups = [c.get("page_id") or c["edge_id"] for c in corrections]
+
+gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+train_idx, val_idx = next(gss.split(corrections, groups=groups))
+
+train = [corrections[i] for i in train_idx]
+val   = [corrections[i] for i in val_idx]
+```
+
+- **分割比率**: 80/20
+- **グループ化**: ページ単位（リーク防止優先）
+  - JOIN経路: `nli_corrections.edge_id → edges.source_id → fragments.page_id`
+- **ラベル比率**: 保証されない（グループ化との同時指定不可）
 
 ### 9.3 target_modulesの確認
 
@@ -597,13 +652,24 @@ WHERE id IN (...);
 本番投入前にオフラインで新旧アダプタを比較し、劣化がないことを確認する：
 
 ```python
-def shadow_evaluation(val_set, old_adapter, new_adapter):
-    """新アダプタの事前評価。2%以上の劣化は不可。"""
-    old_acc = accuracy(predict(val_set, old_adapter), val_set)
-    new_acc = accuracy(predict(val_set, new_adapter), val_set)
+def shadow_evaluation(val_set, new_adapter, old_adapter=None):
+    """新アダプタの事前評価。2%以上の劣化は不可。
+
+    Args:
+        val_set: 検証セット
+        new_adapter: 評価対象の新アダプタ
+        old_adapter: 比較対象の旧アダプタ。
+                     None の場合（V1初回学習）はベースモデル（アダプタなし）と比較する。
+
+    Note:
+        predict(val_set, adapter=None) はベースモデルで推論することを意味する。
+    """
+    old_acc = accuracy(predict(val_set, adapter=old_adapter), val_set)
+    new_acc = accuracy(predict(val_set, adapter=new_adapter), val_set)
     return {
         "old_accuracy": old_acc,
         "new_accuracy": new_acc,
+        "baseline": "base_model" if old_adapter is None else f"adapter_{old_adapter.version_name}",
         "recommend_deploy": new_acc >= old_acc - 0.02  # 2%劣化閾値
     }
 ```
