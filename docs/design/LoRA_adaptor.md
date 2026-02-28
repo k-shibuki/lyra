@@ -428,7 +428,8 @@ Phase R: LoRA学習を実行（オフラインバッチ）
     ↓
 scripts/train_lora.py → adapters/lora-lyra-v1/
     ↓
-シャドー評価で改善確認 → adapters.status='active' に設定（train_lora.py のみ書き込み可）
+シャドー評価で accuracy 劣化なし（旧比 −2% 以内）を確認 → adapters.status='active' に設定（train_lora.py のみ書き込み可）
+    ↓  ※ Brier スコアは shadow eval のゲートには使わない（事後の校正監視用）
     ↓
 ML Server再起動 or /nli/adapter/load
     ↓
@@ -482,26 +483,27 @@ lifespan 起動シーケンス:
 [train_lora.py が学習完了]
         ↓
   status='candidate'
-        ↓
-  shadow eval 通過・オペレータ承認
-        ↓
-  旧 active → status='retired'     （後継に置き換え）
-  新アダプタ → status='active'
-        ↓
-  本番で劣化検知
-        ↓
-  current → status='degraded'      （問題あり）
-  前バージョン → status='active'   （復元）
+       ↙                      ↘
+shadow eval 失敗         shadow eval 通過・オペレータ承認
+（ファイル廃棄可）                    ↓
+                      旧 active → status='retired'     （後継に置き換え）
+                      新アダプタ → status='active'
+                                ↓
+                         本番で劣化検知
+                                ↓
+                      current → status='degraded'      （問題あり）
+                      前バージョン → status='active'   （復元）
 ```
 
 **ファイル廃棄の安全条件**：
 
-| status | ファイル廃棄タイミング |
-|--------|----------------------|
-| `candidate` | shadow eval 結果確認後、即廃棄可 |
-| `active` | 廃棄禁止 |
-| `retired` | 後継の `active` が安定稼働を確認後に廃棄可 |
-| `degraded` | ロールバック後の安定稼働を確認後に廃棄可 |
+| status | 状況 | ファイル廃棄タイミング |
+|--------|------|----------------------|
+| `candidate`（shadow eval 失敗） | 不採用確定 | 結果確認後、即廃棄可 |
+| `candidate`（承認待ち） | shadow eval 通過・未適用 | **廃棄禁止**（`active` 遷移時にファイルが必要） |
+| `active` | 本番稼働中 | 廃棄禁止 |
+| `retired` | 後継に置き換え済み | 後継の `active` が安定稼働を確認後に廃棄可 |
+| `degraded` | ロールバック済み | ロールバック後の安定稼働を確認後に廃棄可 |
 
 **DB 行（`adapters` テーブル）は `status` によらず保持する**（監査証跡）。廃棄するのはファイルのみ。
 

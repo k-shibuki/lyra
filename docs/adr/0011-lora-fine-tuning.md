@@ -107,16 +107,15 @@ flowchart TD
     end
     
     subgraph Pipeline["Offline Training"]
-        Train["Train V2<br/>(script)"] --> Shadow["Shadow Evaluation"]
-        CM -.->|Brier score| Shadow
-        Shadow --> Check{Brier improved?}
+        Train["Train V2<br/>(script)"] --> Shadow["Shadow Evaluation<br/>(accuracy-based)"]
+        Shadow --> Check{"Accuracy drop<br/>≤ 2%?"}
         Check -->|Yes| Activate["Activate V2"]
         Check -->|No| Discard["Discard V2"]
     end
-    
+
     subgraph Production["Production"]
-        V1["V1 (is_active=1)"]
-        Activate --> V2["V2 (is_active=1)"]
+        V1["V1 (status=active)"]
+        Activate --> V2["V2 (status=active)"]
         V2 -.->|rollback| V1
     end
 ```
@@ -128,14 +127,15 @@ flowchart TD
 
 **MCP Tools Involvement**:
 - `feedback(edge_correct)`: Accumulates correction samples to `nli_corrections`
-- `calibration_metrics(get_stats)`: Provides Brier score for shadow evaluation (before production deployment)
+- `calibration_metrics(get_stats)`: Provides Brier/ECE for **post-activation calibration monitoring** (not used as shadow eval gate)
 
 **Version Activation Flow**:
 1. Train new adapter from **entire** `nli_corrections` history
 2. Run shadow evaluation:
    - **V2+**: compare new adapter's accuracy against the current active adapter
    - **V1 (first adapter)**: no previous adapter exists; compare against base model (no adapter) as baseline
-3. If improved → set new adapter `status='active'`, set previous adapter `status='retired'`
+3. If accuracy degradation ≤ 2% → set new adapter `status='active'`, set previous adapter `status='retired'`
+   - Gate metric: **accuracy** (`shadow_accuracy` column); Brier/ECE is separate post-activation monitoring
 4. If degraded in production → rollback to previous active adapter:
    - Update DB: set current adapter `status='degraded'`, restore previous adapter `status='active'`
    - Reload ML Server (restart or `POST /nli/adapter/load` with previous adapter path)
