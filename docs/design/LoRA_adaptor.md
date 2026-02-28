@@ -268,7 +268,7 @@ class NLIService:
 ```python
 # scripts/train_lora.py
 from peft import LoraConfig, get_peft_model, TaskType
-from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification
+from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification, AutoTokenizer
 import sqlite3
 
 def load_corrections_from_db(db_path: str) -> list[dict]:
@@ -434,7 +434,7 @@ ML Server再起動 or /nli/adapter/load
     ↓
 以降の推論でアダプタ適用
     ↓
-精度が悪化したら /nli/adapter/unload でロールバック
+精度が悪化したらロールバック（§8.1.2 参照）
 ```
 
 ### 8.1.1 ML Server起動時の自動ロード
@@ -456,6 +456,25 @@ lifespan 起動シーケンス:
 - ML Server 自身は `is_active` を更新しない
 
 **設計根拠**: `is_active=1` はオペレータがシャドー評価後に意図的に設定するフラグであり、「ロードすべき状態」を表す。再起動後に暗黙的に外れると意図に反するため、自動ロードを採用する。ロード失敗時もサーバーを落とさないことで縮退運用を確保する。
+
+### 8.1.2 ロールバック手順
+
+**`/nli/adapter/unload` はメモリ上のみ。DB の `is_active` を更新しないと、再起動で劣化アダプタが復元される。**
+
+ロールバックは必ず DB 更新と ML Server 反映の 2 ステップで行うこと：
+
+```
+ロールバック手順:
+  1. DB 更新（train_lora.py または直接 SQL）
+       現アダプタ: UPDATE adapters SET is_active=0 WHERE is_active=1
+       前バージョン（あれば）: UPDATE adapters SET is_active=1 WHERE id=<前アダプタID>
+
+  2. ML Server 反映
+       前バージョンあり: 再起動 または POST /nli/adapter/load {adapter_path: <前パス>}
+       前バージョンなし（V1 ロールバック）: POST /nli/adapter/unload でベースモデルに戻す
+```
+
+**`is_active=1` が存在しない状態**は「アダプタなし」を意味し、起動時はベースモデルのみで起動する（§8.1.1）。
 
 ### 8.2 学習トリガー条件
 

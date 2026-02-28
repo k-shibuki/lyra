@@ -136,7 +136,11 @@ flowchart TD
    - **V2+**: compare new adapter's accuracy against the current active adapter
    - **V1 (first adapter)**: no previous adapter exists; compare against base model (no adapter) as baseline
 3. If improved → activate new adapter (`is_active=1`), deactivate previous
-4. If degraded in production → rollback to previous active adapter
+4. If degraded in production → rollback to previous active adapter:
+   - Update DB: set current adapter `is_active=0`, restore previous adapter `is_active=1`
+   - Reload ML Server (restart or `POST /nli/adapter/load` with previous adapter path)
+   - **`/nli/adapter/unload` alone is insufficient**: it is in-memory only; on restart the DB state
+     re-loads the still-active bad adapter. DB must be updated first.
 
 The `adapters` table tracks version history. Only one adapter can be active at a time.
 
