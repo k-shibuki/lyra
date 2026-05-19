@@ -12,15 +12,18 @@ This repository currently contains **three active papers** under `docs/paper/`.
 - **Entry point**: `paper.md`
 - **Latest PDF (preprint)**: `preprint_20260112.pdf`
 
-### 2) Experience Report (IEEE Software target)
+### 2) Experience Report（Preprint）
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18244548.svg)](https://doi.org/10.5281/zenodo.18244548)
 
 - **Directory**: `docs/paper/experience-report/`
 - **Focus**: Natural-language-first development governance (control plane vs data plane), ADRs/rules/commands/gates, zero human code inspection
-- **Target venue**: IEEE Software (Experience Report)
 - **Entry point**: `paper.md`
 - **Latest PDF (preprint)**: `preprint_20260114.pdf`
+- **Note**: This preprint is a discarded formulation. Its failure clarified the need for repo-owned operational context, multi-source evidence, and anti-ouroboros workflow control. Agentic development becomes circular when the same generative system writes,
+explains, tests, and approves its own work. Reinguard treats review bots as
+asynchronous external actors whose lifecycle must be observed and incorporated
+into operational context before agents proceed.
 
 ### 3) Design Theory Paper (Preprint)
 
