@@ -107,16 +107,15 @@ flowchart TD
     end
     
     subgraph Pipeline["Offline Training"]
-        Train["Train V2<br/>(script)"] --> Shadow["Shadow Evaluation"]
-        CM -.->|Brier score| Shadow
-        Shadow --> Check{Brier improved?}
+        Train["Train V2<br/>(script)"] --> Shadow["Shadow Evaluation<br/>(accuracy-based)"]
+        Shadow --> Check{"Accuracy drop<br/>≤ 2%?"}
         Check -->|Yes| Activate["Activate V2"]
         Check -->|No| Discard["Discard V2"]
     end
-    
+
     subgraph Production["Production"]
-        V1["V1 (is_active=1)"]
-        Activate --> V2["V2 (is_active=1)"]
+        V1["V1 (status=active)"]
+        Activate --> V2["V2 (status=active)"]
         V2 -.->|rollback| V1
     end
 ```
@@ -128,15 +127,32 @@ flowchart TD
 
 **MCP Tools Involvement**:
 - `feedback(edge_correct)`: Accumulates correction samples to `nli_corrections`
-- `calibration_metrics(get_stats)`: Provides Brier score for shadow evaluation (before production deployment)
+- `calibration_metrics(get_stats)`: Provides Brier/ECE for **post-activation calibration monitoring** (not used as shadow eval gate)
 
 **Version Activation Flow**:
-1. Train new adapter (V2) from **entire** `nli_corrections` history
-2. Run shadow evaluation: compare V2 Brier score against V1
-3. If improved → activate V2 (`is_active=1`), deactivate V1
-4. If degraded in production → rollback to V1
+1. Train new adapter from **entire** `nli_corrections` history
+2. Run shadow evaluation:
+   - **V2+**: compare new adapter's accuracy against the current active adapter
+   - **V1 (first adapter)**: no previous adapter exists; compare against base model (no adapter) as baseline
+3. If accuracy degradation ≤ 2% → set new adapter `status='active'`, set previous adapter `status='retired'`
+   - Gate metric: **accuracy** (`shadow_accuracy` column); Brier/ECE is separate post-activation monitoring
+4. If degraded in production → rollback to previous active adapter:
+   - Update DB: set current adapter `status='degraded'`, restore previous adapter `status='active'`
+   - Reload ML Server (restart or `POST /nli/adapter/load` with previous adapter path)
+   - **`/nli/adapter/unload` alone is insufficient**: it is in-memory only; on restart the DB state
+     re-loads the still-degraded adapter. DB must be updated first.
 
-The `adapters` table tracks version history. Only one adapter can be active at a time.
+The `adapters` table tracks version history. Only one adapter can have `status='active'` at a time.
+
+**Adapter status lifecycle**: `candidate` → `active` → `retired` or `degraded`
+- `candidate`: trained, not yet deployed (shadow eval pending or failed)
+- `active`: currently loaded in ML Server
+- `retired`: was active, gracefully replaced by a newer adapter
+- `degraded`: was active, rolled back due to production quality issues
+
+**`status` write ownership**: Only `scripts/train_lora.py` updates `status`. ML Server reads it but never writes it.
+
+**File retention policy**: DB rows are kept permanently (audit trail). Adapter files may be deleted once the adapter reaches `retired` or `degraded` status and its successor has been confirmed stable.
 
 ### MCP Tool Integration Decision
 
@@ -156,7 +172,10 @@ The `adapters` table tracks version history. Only one adapter can be active at a
 **Script-based offline training** (not MCP tools):
 - Training script reads `nli_corrections`, trains adapter, writes to `adapters/`
 - User reviews shadow evaluation results before activation
-- ML Server loads adapter via API call (`/nli/adapter/load`)
+- Training script sets `status='active'` after user approval
+- **ML Server auto-loads `status='active'` adapter on startup** (startup auto-load)
+  - Load failure (missing file, etc.): log warning and continue with base model (degraded operation)
+- Manual reload also available via API call (`/nli/adapter/load`)
 
 See **Adapter Management** section above for the complete version activation flow.
 
